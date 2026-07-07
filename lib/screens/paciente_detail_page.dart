@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/paciente.dart';
 import '../models/perfil_profissional.dart';
 import '../models/sessao.dart';
+import '../providers/service_providers.dart';
 import '../services/logger.dart';
-import '../services/paciente_service.dart';
 import '../services/pdf_export_service.dart';
-import '../services/perfil_profissional_service.dart';
-import '../services/sessao_service.dart';
 import '../widgets/lista_sessoes.dart';
 import '../widgets/paciente_resumo_card.dart';
 import 'sessao_form_page.dart';
 
-class PacienteDetailPage extends StatefulWidget {
+class PacienteDetailPage extends ConsumerStatefulWidget {
   final Paciente paciente;
 
   const PacienteDetailPage({
@@ -21,22 +20,20 @@ class PacienteDetailPage extends StatefulWidget {
   });
 
   @override
-  State<PacienteDetailPage> createState() => _PacienteDetailPageState();
+  ConsumerState<PacienteDetailPage> createState() =>
+      _PacienteDetailPageState();
 }
 
-class _PacienteDetailPageState extends State<PacienteDetailPage> {
-  final SessaoService _sessaoService = SessaoService();
-  final PacienteService _pacienteService = PacienteService();
-  final PerfilProfissionalService _perfilService =
-      PerfilProfissionalService();
-
+class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
   String get _termoSingular {
-    final perfil = _perfilService.obterPerfil();
+    final perfil =
+        ref.read(perfilProfissionalServiceProvider).obterPerfil();
     return perfil?.termoSingular ?? 'paciente';
   }
 
   String get _termoSingularCapitalizado {
-    final perfil = _perfilService.obterPerfil();
+    final perfil =
+        ref.read(perfilProfissionalServiceProvider).obterPerfil();
     return perfil?.termoSingularCapitalizado ?? 'Paciente';
   }
 
@@ -62,15 +59,15 @@ class _PacienteDetailPageState extends State<PacienteDetailPage> {
 
   String get _nomePacienteExibicao {
     final nomeLimpo = widget.paciente.nome.trim();
-
     if (nomeLimpo.isEmpty) {
       return _termoSingularCapitalizado;
     }
-
     return nomeLimpo;
   }
 
   Future<void> _abrirDialogEditarPaciente() async {
+    final pacienteService = ref.read(pacienteServiceProvider);
+
     final nomeController = TextEditingController(text: widget.paciente.nome);
     final contatoController =
         TextEditingController(text: widget.paciente.contato);
@@ -132,7 +129,7 @@ class _PacienteDetailPageState extends State<PacienteDetailPage> {
                     widget.paciente.observacoes =
                         observacoesController.text.trim();
                     widget.paciente.ativo = ativo;
-                    await _pacienteService.atualizarPaciente(widget.paciente);
+                    await pacienteService.atualizarPaciente(widget.paciente);
                     if (!dialogContext.mounted) return;
                     Navigator.pop(dialogContext);
                     if (!mounted) return;
@@ -266,21 +263,17 @@ class _PacienteDetailPageState extends State<PacienteDetailPage> {
     if (confirmar != true) return;
 
     try {
-      await _sessaoService.arquivarSessao(sessao);
-
+      await ref.read(sessaoServiceProvider).arquivarSessao(sessao);
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Sessão arquivada com sucesso.'),
         ),
       );
-
       setState(() {});
     } catch (erro) {
       Log.erro(erro, contexto: 'paciente_detail_page:arquivarSessao');
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Não foi possível arquivar a sessão. Tente novamente.'),
@@ -321,21 +314,17 @@ class _PacienteDetailPageState extends State<PacienteDetailPage> {
     if (confirmar != true) return;
 
     try {
-      await _sessaoService.restaurarSessao(sessao);
-
+      await ref.read(sessaoServiceProvider).restaurarSessao(sessao);
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Sessão restaurada com sucesso.'),
         ),
       );
-
       setState(() {});
     } catch (erro) {
       Log.erro(erro, contexto: 'paciente_detail_page:restaurarSessao');
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content:
@@ -346,11 +335,13 @@ class _PacienteDetailPageState extends State<PacienteDetailPage> {
   }
 
   Future<void> _abrirOpcoesExportacao() async {
-    final sessoes = _sessaoService.listarSessoesDoPaciente(
+    final sessaoService = ref.read(sessaoServiceProvider);
+    final perfilService = ref.read(perfilProfissionalServiceProvider);
+
+    final sessoes = sessaoService.listarSessoesDoPaciente(
       widget.paciente.id,
     );
-
-    final perfil = _perfilService.obterPerfil();
+    final perfil = perfilService.obterPerfil();
 
     if (perfil == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -495,15 +486,16 @@ class _PacienteDetailPageState extends State<PacienteDetailPage> {
   }
 
   Widget _corpoSessoes(Color corPrincipal) {
+    final sessaoService = ref.read(sessaoServiceProvider);
+
     return StreamBuilder(
-      stream: _sessaoService.observarSessoes(),
+      stream: sessaoService.observarSessoes(),
       builder: (context, snapshot) {
-        final sessoesAtivas = _sessaoService.listarSessoesDoPaciente(
+        final sessoesAtivas = sessaoService.listarSessoesDoPaciente(
           widget.paciente.id,
         );
-
         final sessoesArquivadas =
-            _sessaoService.listarSessoesArquivadasDoPaciente(
+            sessaoService.listarSessoesArquivadasDoPaciente(
           widget.paciente.id,
         );
 
@@ -609,4 +601,3 @@ class _PacienteDetailPageState extends State<PacienteDetailPage> {
     );
   }
 }
-

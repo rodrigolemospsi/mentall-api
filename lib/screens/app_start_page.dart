@@ -1,23 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../services/perfil_profissional_service.dart';
+import '../providers/service_providers.dart';
 import 'home_page.dart';
 import 'perfil_profissional_form_page.dart';
 
-class AppStartPage extends StatefulWidget {
+class AppStartPage extends ConsumerWidget {
   const AppStartPage({super.key});
 
   @override
-  State<AppStartPage> createState() => _AppStartPageState();
-}
-
-class _AppStartPageState extends State<AppStartPage> {
-  final PerfilProfissionalService _perfilService =
-      PerfilProfissionalService();
-
-  @override
-  Widget build(BuildContext context) {
-    final perfil = _perfilService.obterPerfil();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
 
     if (perfil == null) {
       return const PerfilProfissionalFormPage();

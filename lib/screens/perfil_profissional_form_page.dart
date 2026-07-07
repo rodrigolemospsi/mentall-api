@@ -1,23 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/perfil_profissional.dart';
+import '../providers/service_providers.dart';
 import '../services/logger.dart';
-import '../services/perfil_profissional_service.dart';
 import 'home_page.dart';
 
-class PerfilProfissionalFormPage extends StatefulWidget {
+class PerfilProfissionalFormPage extends ConsumerStatefulWidget {
   const PerfilProfissionalFormPage({super.key});
 
   @override
-  State<PerfilProfissionalFormPage> createState() =>
+  ConsumerState<PerfilProfissionalFormPage> createState() =>
       _PerfilProfissionalFormPageState();
 }
 
 class _PerfilProfissionalFormPageState
-    extends State<PerfilProfissionalFormPage> {
-  final PerfilProfissionalService _perfilService =
-      PerfilProfissionalService();
-
+    extends ConsumerState<PerfilProfissionalFormPage> {
   final TextEditingController _nomeController = TextEditingController();
   final TextEditingController _registroController = TextEditingController();
 
@@ -61,7 +59,7 @@ class _PerfilProfissionalFormPageState
         termoPessoaAtendida: _termoSelecionado,
       );
 
-      await _perfilService.salvarPerfil(perfil);
+      await ref.read(perfilProfissionalServiceProvider).salvarPerfil(perfil);
 
       if (!mounted) return;
 
@@ -180,7 +178,6 @@ class _PerfilProfissionalFormPageState
                           ? null
                           : (value) {
                               if (value == null) return;
-
                               setState(() {
                                 _abordagemSelecionada = value;
                               });
@@ -190,7 +187,8 @@ class _PerfilProfissionalFormPageState
                     DropdownButtonFormField<String>(
                       initialValue: _termoSelecionado,
                       decoration: const InputDecoration(
-                        labelText: 'Como prefere se referir à pessoa atendida?',
+                        labelText:
+                            'Como prefere se referir à pessoa atendida?',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.record_voice_over_outlined),
                       ),
@@ -207,7 +205,6 @@ class _PerfilProfissionalFormPageState
                           ? null
                           : (value) {
                               if (value == null) return;
-
                               setState(() {
                                 _termoSelecionado = value;
                               });
@@ -282,11 +279,9 @@ class _PerfilProfissionalFormPageState
 
   String _capitalizarTermo(String termo) {
     final termoLimpo = termo.trim();
-
     if (termoLimpo.isEmpty) {
       return termoLimpo;
     }
-
     return termoLimpo[0].toUpperCase() + termoLimpo.substring(1);
   }
 }
