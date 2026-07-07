@@ -8,6 +8,7 @@ import 'models/paciente.dart';
 import 'models/perfil_profissional.dart';
 import 'models/sessao.dart';
 import 'screens/app_start_page.dart';
+import 'services/hive_migration_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +28,8 @@ void main() async {
   await Hive.openBox<Paciente>('pacientes');
   await Hive.openBox<Sessao>('sessoes');
   await Hive.openBox<PerfilProfissional>('perfil_profissional');
+
+  await HiveMigrationService().executar();
 
   runApp(const ProviderScope(child: MentAllApp()));
 }

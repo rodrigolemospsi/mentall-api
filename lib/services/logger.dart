@@ -5,4 +5,9 @@ class Log {
     final prefixo = contexto != null ? '[$contexto]' : '';
     debugPrint('$prefixo ERRO: $erro');
   }
+
+  static void info(String mensagem, {String? contexto}) {
+    final prefixo = contexto != null ? '[$contexto]' : '';
+    debugPrint('$prefixo INFO: $mensagem');
+  }
 }
