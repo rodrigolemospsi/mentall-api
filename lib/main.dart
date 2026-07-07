@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 
 import 'hive_registrar.g.dart';
@@ -27,7 +28,7 @@ void main() async {
   await Hive.openBox<Sessao>('sessoes');
   await Hive.openBox<PerfilProfissional>('perfil_profissional');
 
-  runApp(const MentAllApp());
+  runApp(const ProviderScope(child: MentAllApp()));
 }
 
 class MentAllApp extends StatelessWidget {
