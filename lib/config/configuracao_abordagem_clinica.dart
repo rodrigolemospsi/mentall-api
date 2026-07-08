@@ -69,6 +69,27 @@ class ConfiguracaoAbordagemClinica {
               'Hipóteses funcionais, padrões e focos de atenção para revisão',
         );
 
+      case AbordagemClinica.analiseDoComportamento:
+        return const ConfiguracaoAbordagemClinica(
+          nomeAbordagem: 'Análise do Comportamento',
+          tituloFormulaClinica: 'Análise funcional',
+          subtituloFormulaClinica:
+              'Campos para registro de antecedentes, respostas comportamentais, consequências e relações funcionais observadas na sessão.',
+          campo1Label: 'Antecedentes, contexto e estímulos discriminativos',
+          campo2Label: 'Respostas, repertórios e padrões comportamentais',
+          campo3Label: 'Consequências, reforçadores e contingências',
+          tituloIntervencoes: 'Intervenções analítico-comportamentais',
+          intervencoesLabel: 'Intervenções realizadas',
+          tecnicasLabel: 'Técnicas ou procedimentos comportamentais utilizados',
+          tituloPlano: 'Monitoramento e continuidade',
+          tarefaLabel: 'Tarefa, observação ou registro entre sessões',
+          planoLabel: 'Foco comportamental para a próxima sessão',
+          eventosLabel: 'Eventos ambientais relevantes',
+          evolucaoLabel: 'Mudanças no repertório comportamental',
+          apontamentosCopilotoLabel:
+              'Hipóteses funcionais, variáveis de manutenção e comportamentos-alvo para revisão',
+        );
+
       case AbordagemClinica.psicanalise:
         return const ConfiguracaoAbordagemClinica(
           nomeAbordagem: 'Psicanálise',

@@ -6,113 +6,140 @@ App Flutter para prontuário clínico adaptado à abordagem terapêutica do prof
 ## Stack
 - **Framework:** Flutter (SDK ^3.12.2)
 - **Linguagem:** Dart / Python (backend)
-- **Estado:** `setState` puro (sem Riverpod/BLoC/Provider ainda)
+- **Estado:** Riverpod 100% — 0 `setState` em todo o app. StreamProvider + StateProvider + ConsumerStatefulWidget
 - **Banco local:** Hive CE (hive_ce + hive_ce_flutter + hive_ce_generator)
 - **Áudio:** record + audioplayers + path_provider
 - **Geração de código:** build_runner + hive_ce_generator
 - **Backend:** Python FastAPI (porta 8000), OpenAI GPT-4.1 (síntese) + gpt-4o-mini-transcribe (transcrição)
+- **Segurança:** Criptografia AES-256-CBC (encrypt + pointycastle) + autenticação JWT no backend (python-jose + passlib)
 
 ## Estrutura
 
 ### Flutter App (`lib/`)
 ```
 lib/
-├── main.dart                         # Entry point, Hive init, tema Material 3
-├── hive_registrar.g.dart             # Generated
+├── main.dart                              # Entry point, Hive init, autenticação backend, tema Material 3
+├── hive_registrar.g.dart                  # Generated
 ├── config/
-│   └── configuracao_abordagem_clinica.dart  # 11 templates de abordagens
+│   └── configuracao_abordagem_clinica.dart # 14 templates de abordagens (inclui Análise do Comportamento)
 ├── models/
-│   ├── paciente.dart / .g.dart       # Hive typeId: 1
-│   ├── perfil_profissional.dart / .g.dart # Hive typeId: 3
-│   ├── sessao.dart / .g.dart         # Hive typeId: 2 (29 campos)
-│   └── prontuario.dart / .g.dart     # Hive typeId: 0 — NÃO USADO (dead code)
+│   ├── enums.dart                          # AbordagemClinica (14), TermoPessoaAtendida, StatusProcessamento, OrigemRelato (6)
+│   ├── paciente.dart / .g.dart             # Hive typeId: 1 (10 campos: +email, +dataAtualizacao)
+│   ├── perfil_profissional.dart / .g.dart  # Hive typeId: 3 (7 campos: +dataAtualizacao)
+│   ├── sessao.dart / .g.dart               # Hive typeId: 2 (30 campos: +transcricaoRevisada)
+│   └── lgpd/
+│       └── registro_auditoria.dart / .g.dart  # Hive typeId: 10
 ├── screens/
-│   ├── app_start_page.dart           # Roteamento inicial
-│   ├── home_page.dart                # Lista de pacientes (790 linhas)
-│   ├── paciente_detail_page.dart     # Detalhes + sessões (1135 linhas)
-│   ├── sessao_form_page.dart         # Formulário de sessão (2253 linhas!)
-│   ├── backup_restore_page.dart      # Export/import JSON (conditional import)
-│   ├── backup_restore_page_web.dart  # Web: Blob download + FileUpload
-│   ├── backup_restore_page_stub.dart # Stub não-web (no-op)
-│   └── perfil_profissional_form_page.dart
+│   ├── app_start_page.dart                 # Roteamento inicial (verifica PIN + perfil)
+│   ├── home_page.dart                      # Lista de pacientes + botão Privacidade
+│   ├── login_page.dart                     # Tela de PIN (configurar/desbloquear)
+│   ├── paciente_detail_page.dart           # Detalhes + sessões + acesso última sessão ~720 linhas
+│   ├── sessao_form_page.dart               # Formulário de sessão ~2090 linhas
+│   ├── backup_restore_page.dart            # Export/import JSON (conditional import)
+│   ├── backup_restore_page_web.dart        # Web: Blob download + FileUpload
+│   ├── backup_restore_page_stub.dart       # Stub não-web (no-op)
+│   ├── perfil_profissional_form_page.dart
+│   └── lgpd/
+│       └── privacidade_seguranca_page.dart  # Tela de Privacidade e Segurança (LGPD)
+├── providers/
+│   └── service_providers.dart              # 12 providers (inclui EncryptionService, AuthService, AuditoriaService)
 ├── services/
-│   ├── paciente_service.dart
-│   ├── perfil_profissional_service.dart
-│   ├── sessao_service.dart
-│   ├── backup_service.dart           # Export/import JSON de todas as boxes Hive
-│   ├── transcricao_relato_service.dart  # Conectado ao backend OpenAI
-│   ├── ia_clinica_service.dart          # Conectado ao backend GPT-4.1
-│   ├── audio_relato_service.dart
-│   └── status_clinico_sessao_service.dart
+│   ├── api_client.dart                     # URL base + JWT auth headers estáticos
+│   ├── paciente_service.dart               # + criptografia AES nos campos sensíveis
+│   ├── perfil_profissional_service.dart    # + criptografia AES
+│   ├── sessao_service.dart                 # + criptografia AES (18 campos)
+│   ├── backup_service.dart                 # Export/import JSON com novos campos
+│   ├── transcricao_relato_service.dart     # Conectado ao backend OpenAI com JWT
+│   ├── ia_clinica_service.dart             # Conectado ao backend GPT-4.1 com JWT
+│   ├── audio_relato_service.dart           # Gravação web/mobile
+│   ├── status_clinico_sessao_service.dart
+│   ├── hive_migration_service.dart         # Schema V3
+│   ├── encryption_service.dart             # AES-256-CBC (encrypt + pointycastle)
+│   ├── auth_service.dart                   # PIN local + JWT backend
+│   ├── pdf_export_service.dart             # 5 tipos: sessão, histórico, relatório clínico, síntese revisada, prontuário completo
+│   ├── logger.dart                         # Log.erro / Log.info / Log.auditoria
+│   └── lgpd/
+│       └── auditoria_service.dart          # Registro de eventos LGPD
 ├── widgets/
-│   └── ... (componentes reutilizáveis)
+│   ├── secao_campos_clinicos_widget.dart   # 5 seções clínicas combinadas (extraído do sessao_form_page)
+│   └── lgpd/
+│       └── aviso_privacidade_ia_card.dart
 ```
 
 ### Backend Python (`backend/`)
 ```
 backend/
-├── main.py                           # FastAPI app (porta 8000), CORS, rotas
-├── .env                              # Chaves de API + config do modelo
-├── .env.example                      # Template com variáveis documentadas
-├── requirements.txt                  # fastapi, uvicorn, openai, google-genai, etc.
+├── main.py                           # FastAPI app (porta 8000), CORS, JWT auth, rotas protegidas
+├── .env                              # Chaves de API + JWT_SECRET
+├── .env.example                      # Template com variáveis documentadas (inclui JWT)
+├── requirements.txt                  # + python-jose[cryptography] + passlib[bcrypt]
 ├── models/
-│   └── schemas.py                    # Pydantic models (SinteseRequest, SinteseResponse, etc.)
+│   └── schemas.py                    # Pydantic models + LoginRequest/LoginResponse
 ├── services/
 │   ├── ia_clinica.py                 # Síntese clínica (OpenAI GPT-4.1 ou Gemini)
 │   └── transcricao.py               # Transcrição de áudio (OpenAI gpt-4o-mini-transcribe)
 └── prompts/
-    └── abordagens.py                 # PROMPT_UNIVERSAL + PROMPTS_ABORDAGEM (13 abordagens)
+    └── abordagens.py                 # 14 abordagens (inclui Análise do Comportamento)
 ```
 
-## Backend — Configuração
+## Segurança
 
-### Variáveis de ambiente (`.env`)
-```
-OPENAI_API_KEY=sk-...               # Para transcrição e síntese (padrão)
-GEMINI_API_KEY=...                   # Fallback se IA_MODEL_PROVIDER=gemini
-IA_MODEL_PROVIDER=openai             # "openai" (padrão) ou "gemini"
-IA_MODEL=gpt-4.1                     # Modelo: gpt-4.1, gpt-4o, gemini-2.0-flash, etc.
-HOST=0.0.0.0
-PORT=8000
-```
+### Autenticação
+- **Backend**: JWT (python-jose) — rota `POST /auth/login`, endpoints protegidos via `Authorization: Bearer <token>`
+- **Flutter**: Autentica automaticamente no backend ao iniciar (`main.dart: _inicializarBackendAuth()`)
+- Token JWT armazenado em `static ApiClient.authToken`, enviado em todas as chamadas API
 
-### Prompt da IA (2 camadas)
-1. **`PROMPT_UNIVERSAL`** — regras éticas, linguagem prudente, formato de 8 pontos (vale para todas as abordagens)
-2. **`PROMPTS_ABORDAGEM`** — instruções específicas por abordagem (observar / sugerir / evitar)
+### Criptografia Local
+- **Algoritmo**: AES-256-CBC (encrypt + pointycastle)
+- **Proteção**: PIN do usuário deriva chave que protege a chave AES mestra
+- **Services**: `PacienteService`, `SessaoService`, `PerfilProfissionalService` criptografam/descriptografam automaticamente
+- **Fallback**: Sem PIN = dados em texto puro; descriptografia detecta texto puro e retorna como está
 
-Montagem final: `UNIVERSAL + ESPECÍFICO + DADOS SESSÃO + MATERIAL CLÍNICO + INSTRUÇÕES JSON`
+### LGPD / Privacidade
+- **Áudio**: Limite de 5 minutos com contador e parada automática
+- **Microtexto**: "Relato breve do profissional após a sessão. Limite: 5 minutos." na tela de gravação
+- **Auditoria**: Registro de eventos (gravação, transcrição, IA, revisão) em `RegistroAuditoria` (typeId 10)
+- **Arquivamento**: Em vez de exclusão (padrão desde o início)
+- **Revisão**: Obrigatória pelo profissional (campo `revisadoPeloProfissional`)
+- **IA**: Apenas apoio documental, nunca substitui julgamento clínico
+- **Tela Privacidade**: Acessível pelo ícone de escudo na Home — PIN, áudio, IA, retenção, auditoria
+- **Exportação**: Aviso de dados sensíveis; 5 formatos de PDF
+- **Logs**: `Log.auditoria()` separado de `Log.erro()`; logs técnicos não contêm dados clínicos
 
-## Problemas Conhecidos (Pendências)
-1. **Segurança:** zero autenticação, zero criptografia — dados clínicos em texto puro
-2. **Testes:** 52 testes (modelos + serviços + status clínico)
-3. ~~**Código morto:** `novo_prontuario_page.dart` e `models/prontuario.dart` (typeId 0)~~ ✅ Removido
-4. **Arquivos enormes:** `sessao_form_page.dart` (2253 linhas), `paciente_detail_page.dart` (1135)
-5. **State management:** `setState` puro, sem reatividade eficiente
-6. ~~**Erros engolidos:** `catch (_)` sem logging por toda parte~~ ✅ Corrigido (`Log` + captura nomeada em 11 pontos)
-7. ~~**IA:** stubs não conectadas a API real~~ ✅ Conectado (GPT-4.1 + gpt-4o-mini-transcribe)
-8. ~~**Backup/Sync:** zero — risco de perda total de dados~~ ✅ Implementado (`BackupService` + UI em `backup_restore_page`)
-9. ~~**Deprecações:** 34 warnings de APIs obsoletas no `flutter analyze`~~ ✅ Corrigido (3 info restantes)
-10. ~~**Branding:** `pubspec.yaml` diz "A new Flutter project."~~ ✅ Descrição atualizada
-11. **Sem migração de schema Hive:** mudanças em modelos quebram dados existentes
-12. **`flutter analyze`:** 3 info `use_build_context_synchronously` (não críticos)
-13. **Chave OpenAI exposta no `.env`:** risco de vazamento (não commitada, mas presente em disco)
-14. **Web: perda de dados Hive:** `flutter run -d chrome` sorteia porta aleatória a cada execução; `localStorage` é isolado por porta. Sempre usar `--web-port 5000`. IndexedDB não soluciona (mesmo isolamento por origem + `read()` síncrono do Hive)
+## Problemas Conhecidos
+
+### Pendentes
+1. **VS Build Tools incompleto**: Windows Desktop workload não instalado — `flutter run -d windows` falha
+2. **Web debug service**: `flutter run -d chrome` falha com timeout no WebkitDebugger (Chrome 150 + Flutter 3.44). Workaround: `flutter build web` + `python -m http.server 5000`
+3. **Sem migração de schema Hive**: mudanças em modelos quebram dados existentes (schema v3 cobre read-rewrite)
+4. **Chave OpenAI exposta no `.env`**: risco de vazamento (não commitada, mas presente em disco)
+
+### Resolvidos
+- ~~Segurança: zero autenticação~~ ✅ JWT backend + criptografia AES local
+- ~~State management: setState (40x)~~ ✅ 0 setState — 100% Riverpod
+- ~~Arquivos enormes~~ ✅ sessao_form_page 2166→2090, campos clínicos extraídos
+- ~~Abordagens incompletas~~ ✅ 14 abordagens (inclui Análise do Comportamento)
+- ~~Campos ausentes~~ ✅ email, dataNascimento, dataAtualizacao, transcricaoRevisada
+- ~~Exportação limitada~~ ✅ 5 tipos de PDF
+- ~~Código morto~~ ✅ CampoClinico removido do backend
 
 ## Comandos
 
 ### App Flutter
-- `flutter analyze` — análise estática (0 warnings)
-- `flutter test` — 52 testes
+- `flutter analyze` — análise estática (0 errors, ~17 warnings/infos cosméticos)
+- `flutter test` — 68 testes
 - `dart run build_runner build` — gerar adapters Hive
-- `flutter build [apk|ios|web|windows|macos|linux]`
+- `flutter build web` — build de produção
 
 ### Web (Chrome)
-- `flutter run -d chrome --web-port 5000` — **sempre use porta fixa** para não perder dados do Hive/localStorage
-- `flutter build web` — build de produção (porta fixa = dados persistem)
+- ⚠️ `flutter run -d chrome` atualmente quebrado (debug service timeout)
+- Alternativa: `flutter build web` + `python -m http.server 5000` no diretório `build/web`
+- **Sempre use porta fixa 5000** para não perder dados do Hive/localStorage
 
 ### Backend
 - `cd backend; python -m uvicorn main:app --reload` — iniciar servidor
 - `cd backend; pip install -r requirements.txt` — instalar dependências
+- Testar auth: `curl -X POST http://localhost:8000/auth/login -H "Content-Type: application/json" -d '{"username":"admin","password":"admin"}'`
 
 ## Observações
 - Projeto acadêmico (TCC), não pronto para venda
@@ -120,5 +147,5 @@ Montagem final: `UNIVERSAL + ESPECÍFICO + DADOS SESSÃO + MATERIAL CLÍNICO + I
 - Síntese clínica: OpenAI GPT-4.1 com response_format json_object + temperature 0.3
 - Transcrição: OpenAI gpt-4o-mini-transcribe
 - Fallback disponível: Google Gemini 2.0 Flash (trocar `IA_MODEL_PROVIDER=gemini`)
-- Potencial comercial moderado-alto, mas precisa de 6–12 meses de engenharia
-- Prioridades futuras: refatorar arquivos gigantes, segurança, state management
+- PerfilProfissionalFormPage widget test: bug de `ListView` + `SliverChildListDelegate` + texto longo (>140 chars) no Card. Solução: `tester.view.physicalSize` ampliado
+- Estrutura LGPD conforme documento `Arquitetura LGPD do MentAll.txt`

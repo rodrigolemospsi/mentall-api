@@ -6,7 +6,7 @@ import '../models/sessao.dart';
 import 'logger.dart';
 
 class HiveMigrationService {
-  static const int _schemaVersaoAtual = 2;
+  static const int _schemaVersaoAtual = 3;
 
   static const String _metaBoxName = 'schema_meta';
   static const String _versaoKey = 'schema_versao';
@@ -37,6 +37,9 @@ class HiveMigrationService {
     switch (versaoDestino) {
       case 2:
         await _migracaoV2();
+        break;
+      case 3:
+        await _migracaoV3();
         break;
       default:
         Log.erro(
@@ -88,6 +91,42 @@ class HiveMigrationService {
 
     if (total > 0) {
       Log.info('HiveMigration V2: $total registros reescritos');
+    }
+  }
+
+  Future<void> _migracaoV3() async {
+    final pacientesBox = Hive.box<Paciente>('pacientes');
+    final sessoesBox = Hive.box<Sessao>('sessoes');
+    final perfilBox = Hive.box<PerfilProfissional>('perfil_profissional');
+
+    int total = 0;
+
+    for (final key in pacientesBox.keys.toList()) {
+      final paciente = pacientesBox.get(key);
+      if (paciente != null) {
+        await paciente.save();
+        total++;
+      }
+    }
+
+    for (final key in sessoesBox.keys.toList()) {
+      final sessao = sessoesBox.get(key);
+      if (sessao != null) {
+        await sessao.save();
+        total++;
+      }
+    }
+
+    for (final key in perfilBox.keys.toList()) {
+      final perfil = perfilBox.get(key);
+      if (perfil != null) {
+        await perfil.save();
+        total++;
+      }
+    }
+
+    if (total > 0) {
+      Log.info('HiveMigration V3: $total registros reescritos');
     }
   }
 }

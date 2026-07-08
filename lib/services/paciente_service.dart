@@ -1,15 +1,18 @@
 import 'package:hive_ce/hive.dart';
 
 import '../models/paciente.dart';
+import 'encryption_service.dart';
 
 class PacienteService {
   final Box<Paciente> _box = Hive.box<Paciente>('pacientes');
+  final EncryptionService? _encryption;
+
+  PacienteService({EncryptionService? encryption}) : _encryption = encryption;
 
   List<Paciente> listarPacientes() {
     final pacientes = _box.values.toList();
-
     _ordenarPorNome(pacientes);
-
+    _decryptPacientes(pacientes);
     return pacientes;
   }
 
@@ -17,9 +20,8 @@ class PacienteService {
     final pacientes = _box.values
         .where((paciente) => paciente.ativo)
         .toList();
-
     _ordenarPorNome(pacientes);
-
+    _decryptPacientes(pacientes);
     return pacientes;
   }
 
@@ -27,9 +29,8 @@ class PacienteService {
     final pacientes = _box.values
         .where((paciente) => !paciente.ativo)
         .toList();
-
     _ordenarPorNome(pacientes);
-
+    _decryptPacientes(pacientes);
     return pacientes;
   }
 
@@ -41,11 +42,11 @@ class PacienteService {
     }
 
     final pacientes = _box.values.where((paciente) {
-      final nomeNormalizado = paciente.nome.trim().toLowerCase();
-
-      return paciente.ativo && nomeNormalizado.contains(termoNormalizado);
+      final nome = _decrypt(paciente.nome).toLowerCase();
+      return paciente.ativo && nome.contains(termoNormalizado);
     }).toList();
 
+    _decryptPacientes(pacientes);
     _ordenarPorNome(pacientes);
 
     return pacientes;
@@ -61,7 +62,11 @@ class PacienteService {
     final match = _box.values.where(
       (paciente) => paciente.id == idNormalizado,
     );
-    return match.isNotEmpty ? match.first : null;
+    if (match.isEmpty) return null;
+
+    final paciente = match.first;
+    _decryptPaciente(paciente);
+    return paciente;
   }
 
   bool existePacienteComId(String id) {
@@ -69,21 +74,32 @@ class PacienteService {
   }
 
   Future<void> adicionarPaciente(Paciente paciente) async {
+    _encryptPaciente(paciente);
     await _box.add(paciente);
+    _decryptPaciente(paciente);
   }
 
   Future<void> atualizarPaciente(Paciente paciente) async {
+    paciente.dataAtualizacao = DateTime.now();
+    _encryptPaciente(paciente);
     await paciente.save();
+    _decryptPaciente(paciente);
   }
 
   Future<void> arquivarPaciente(Paciente paciente) async {
     paciente.ativo = false;
+    paciente.dataAtualizacao = DateTime.now();
+    _encryptPaciente(paciente);
     await paciente.save();
+    _decryptPaciente(paciente);
   }
 
   Future<void> restaurarPaciente(Paciente paciente) async {
     paciente.ativo = true;
+    paciente.dataAtualizacao = DateTime.now();
+    _encryptPaciente(paciente);
     await paciente.save();
+    _decryptPaciente(paciente);
   }
 
   Future<void> excluirPaciente(Paciente paciente) async {
@@ -96,10 +112,39 @@ class PacienteService {
 
   void _ordenarPorNome(List<Paciente> pacientes) {
     pacientes.sort((a, b) {
-      final nomeA = a.nome.trim().toLowerCase();
-      final nomeB = b.nome.trim().toLowerCase();
-
+      final nomeA = _decrypt(a.nome).trim().toLowerCase();
+      final nomeB = _decrypt(b.nome).trim().toLowerCase();
       return nomeA.compareTo(nomeB);
     });
+  }
+
+  String _encrypt(String value) {
+    if (_encryption == null || value.isEmpty) return value;
+    return _encryption!.criptografar(value);
+  }
+
+  String _decrypt(String value) {
+    if (_encryption == null || value.isEmpty) return value;
+    return _encryption!.descriptografar(value);
+  }
+
+  void _encryptPaciente(Paciente p) {
+    p.nome = _encrypt(p.nome);
+    p.contato = _encrypt(p.contato);
+    p.email = _encrypt(p.email);
+    p.observacoes = _encrypt(p.observacoes);
+  }
+
+  void _decryptPaciente(Paciente p) {
+    p.nome = _decrypt(p.nome);
+    p.contato = _decrypt(p.contato);
+    p.email = _decrypt(p.email);
+    p.observacoes = _decrypt(p.observacoes);
+  }
+
+  void _decryptPacientes(List<Paciente> pacientes) {
+    for (final p in pacientes) {
+      _decryptPaciente(p);
+    }
   }
 }

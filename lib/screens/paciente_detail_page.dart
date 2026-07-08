@@ -11,6 +11,8 @@ import '../widgets/lista_sessoes.dart';
 import '../widgets/paciente_resumo_card.dart';
 import 'sessao_form_page.dart';
 
+final _refreshProvider = StateProvider<int>((ref) => 0);
+
 class PacienteDetailPage extends ConsumerStatefulWidget {
   final Paciente paciente;
 
@@ -71,6 +73,8 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
     final nomeController = TextEditingController(text: widget.paciente.nome);
     final contatoController =
         TextEditingController(text: widget.paciente.contato);
+    final emailController =
+        TextEditingController(text: widget.paciente.email);
     final observacoesController =
         TextEditingController(text: widget.paciente.observacoes);
 
@@ -97,6 +101,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
               content: _dialogEditarPacienteBody(
                 nomeController: nomeController,
                 contatoController: contatoController,
+                emailController: emailController,
                 observacoesController: observacoesController,
                 tiposAtendimentoDisponiveis: tiposAtendimentoDisponiveis,
                 tipoAtendimento: tipoAtendimento,
@@ -125,6 +130,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                     }
                     widget.paciente.nome = nome;
                     widget.paciente.contato = contatoController.text.trim();
+                    widget.paciente.email = emailController.text.trim();
                     widget.paciente.tipoAtendimento = tipoAtendimento;
                     widget.paciente.observacoes =
                         observacoesController.text.trim();
@@ -133,7 +139,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                     if (!dialogContext.mounted) return;
                     Navigator.pop(dialogContext);
                     if (!mounted) return;
-                    setState(() {});
+                    ref.read(_refreshProvider.notifier).state++;
                     ScaffoldMessenger.of(dialogContext).showSnackBar(
                       SnackBar(
                         content: Text(
@@ -153,12 +159,14 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
 
     nomeController.dispose();
     contatoController.dispose();
+    emailController.dispose();
     observacoesController.dispose();
   }
 
   Widget _dialogEditarPacienteBody({
     required TextEditingController nomeController,
     required TextEditingController contatoController,
+    required TextEditingController emailController,
     required TextEditingController observacoesController,
     required List<String> tiposAtendimentoDisponiveis,
     required String tipoAtendimento,
@@ -185,6 +193,15 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
             keyboardType: TextInputType.phone,
             decoration: const InputDecoration(
               labelText: 'Contato',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: emailController,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(
+              labelText: 'E-mail',
               border: OutlineInputBorder(),
             ),
           ),
@@ -270,7 +287,6 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
           content: Text('Sessão arquivada com sucesso.'),
         ),
       );
-      setState(() {});
     } catch (erro) {
       Log.erro(erro, contexto: 'paciente_detail_page:arquivarSessao');
       if (!mounted) return;
@@ -321,7 +337,6 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
           content: Text('Sessão restaurada com sucesso.'),
         ),
       );
-      setState(() {});
     } catch (erro) {
       Log.erro(erro, contexto: 'paciente_detail_page:restaurarSessao');
       if (!mounted) return;
@@ -420,7 +435,45 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                   );
                 },
                 icon: const Icon(Icons.history_outlined),
-                label: const Text('Histórico completo'),
+                label: const Text('Historico completo'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  exportService.exportarRelatorioClinico(
+                    paciente: widget.paciente,
+                    sessoes: sessoes,
+                    perfil: perfil,
+                  );
+                },
+                icon: const Icon(Icons.assignment_outlined),
+                label: const Text('Relatorio clinico'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  exportService.exportarSinteseRevisada(
+                    sessao: sessoes.first,
+                    paciente: widget.paciente,
+                    perfil: perfil,
+                  );
+                },
+                icon: const Icon(Icons.rate_review_outlined),
+                label: const Text('Sintese revisada (ultima sessao)'),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
@@ -439,8 +492,27 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                   );
                 },
                 icon: const Icon(Icons.description_outlined),
-                label: const Text('Última sessão'),
+                label: const Text('Ultima sessao'),
                 style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  exportService.exportarProntuarioCompleto(
+                    paciente: widget.paciente,
+                    sessoes: sessoes,
+                    perfil: perfil,
+                  );
+                },
+                icon: const Icon(Icons.folder_zip_outlined),
+                label: const Text('Prontuario completo'),
+                style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
               ),
@@ -454,6 +526,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
   @override
   Widget build(BuildContext context) {
     const Color corPrincipal = Color(0xFF1F6F78);
+    ref.watch(_refreshProvider);
 
     return DefaultTabController(
       length: 2,
@@ -534,6 +607,8 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
+                  if (sessoesAtivas.isNotEmpty)
+                    _acessoUltimaSessao(sessoesAtivas.first, corPrincipal),
                   _tabBarComListas(
                     corPrincipal: corPrincipal,
                     sessoesAtivas: sessoesAtivas,
@@ -546,6 +621,43 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
         );
       },
     );
+  }
+
+  Widget _acessoUltimaSessao(Sessao ultimaSessao, Color corPrincipal) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: OutlinedButton.icon(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SessaoFormPage(
+                paciente: widget.paciente,
+                sessaoExistente: ultimaSessao,
+              ),
+            ),
+          );
+        },
+        icon: const Icon(Icons.skip_next_outlined),
+        label: Text(
+          'Ultima sessao (${_formatarDataRelativa(ultimaSessao.data)})',
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: corPrincipal,
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        ),
+      ),
+    );
+  }
+
+  String _formatarDataRelativa(DateTime data) {
+    final hoje = DateTime.now();
+    final diff = hoje.difference(data);
+
+    if (diff.inDays == 0) return 'hoje';
+    if (diff.inDays == 1) return 'ontem';
+    if (diff.inDays < 7) return 'ha ${diff.inDays} dias';
+    return '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}/${data.year}';
   }
 
   Widget _tabBarComListas({

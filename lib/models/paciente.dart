@@ -31,6 +31,9 @@ class Paciente extends HiveObject {
   @HiveField(8)
   String email;
 
+  @HiveField(9)
+  DateTime? dataAtualizacao;
+
   Paciente({
     required this.id,
     required this.nome,
@@ -41,6 +44,7 @@ class Paciente extends HiveObject {
     this.observacoes = '',
     this.ativo = true,
     DateTime? dataCadastro,
+    this.dataAtualizacao,
   }) : dataCadastro = dataCadastro ?? DateTime.now();
 
   static const String tipoAtendimentoPadrao = 'Particular';
@@ -183,6 +187,7 @@ class Paciente extends HiveObject {
     String? observacoes,
     bool? ativo,
     DateTime? dataCadastro,
+    DateTime? dataAtualizacao,
   }) {
     return Paciente(
       id: id ?? this.id,
@@ -196,6 +201,7 @@ class Paciente extends HiveObject {
       observacoes: observacoes ?? this.observacoes,
       ativo: ativo ?? this.ativo,
       dataCadastro: dataCadastro ?? this.dataCadastro,
+      dataAtualizacao: dataAtualizacao ?? this.dataAtualizacao,
     );
   }
 }

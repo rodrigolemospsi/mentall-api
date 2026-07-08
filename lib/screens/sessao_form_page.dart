@@ -3,22 +3,46 @@ import 'dart:convert';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/configuracao_abordagem_clinica.dart';
 import '../models/paciente.dart';
 import '../models/sessao.dart';
+import '../providers/service_providers.dart';
 import '../services/audio_relato_service.dart';
 import '../services/ia_clinica_service.dart';
 import '../services/logger.dart';
 import '../services/pdf_export_service.dart';
-import '../services/perfil_profissional_service.dart';
 import '../services/sessao_service.dart';
 import '../services/transcricao_relato_service.dart';
 import '../widgets/campo_texto_widget.dart';
+import '../widgets/secao_campos_clinicos_widget.dart';
 import '../widgets/secao_formulario.dart';
 import '../widgets/status_processamento_card.dart';
 
-class SessaoFormPage extends StatefulWidget {
+final _salvandoProvider = StateProvider<bool>((ref) => false);
+final _dataSessaoProvider = StateProvider<DateTime>((ref) => DateTime.now());
+final _humorProvider = StateProvider<double>((ref) => 5);
+final _gravandoAudioProvider = StateProvider<bool>((ref) => false);
+final _audioPausadoProvider = StateProvider<bool>((ref) => false);
+final _reproduzindoAudioProvider = StateProvider<bool>((ref) => false);
+final _duracaoGravacaoProvider = StateProvider<Duration>((ref) => Duration.zero);
+final _audioRelatoPathProvider = StateProvider<String>((ref) => '');
+final _audioRelatoBase64Provider = StateProvider<String>((ref) => '');
+final _erroAudioProvider = StateProvider<String>((ref) => '');
+final _formRebuildProvider = StateProvider<int>((ref) => 0);
+final _transcrevendoRelatoProvider = StateProvider<bool>((ref) => false);
+final _gerandoSinteseIaProvider = StateProvider<bool>((ref) => false);
+final _statusProcessamentoProvider = StateProvider<String>((ref) => 'manual');
+final _erroProcessamentoIaProvider = StateProvider<String>((ref) => '');
+final _revisadoPeloProfissionalProvider = StateProvider<bool>((ref) => false);
+final _geradoComIaProvider = StateProvider<bool>((ref) => false);
+final _dataProcessamentoIaProvider = StateProvider<DateTime?>((ref) => null);
+final _avisoInvalidacaoTranscricaoExibidoProvider = StateProvider<bool>((ref) => false);
+final _audioMantidoProvider = StateProvider<bool>((ref) => false);
+final _origemRelatoProvider = StateProvider<String>((ref) => 'manual');
+
+class SessaoFormPage extends ConsumerStatefulWidget {
   final Paciente paciente;
   final Sessao? sessaoExistente;
 
@@ -29,17 +53,16 @@ class SessaoFormPage extends StatefulWidget {
   });
 
   @override
-  State<SessaoFormPage> createState() => _SessaoFormPageState();
+  ConsumerState<SessaoFormPage> createState() => _SessaoFormPageState();
 }
 
-class _SessaoFormPageState extends State<SessaoFormPage> {
-  final SessaoService _sessaoService = SessaoService();
-  final PerfilProfissionalService _perfilService = PerfilProfissionalService();
-  final AudioRelatoService _audioRelatoService = AudioRelatoService();
-  final TranscricaoRelatoService _transcricaoRelatoService =
-      TranscricaoRelatoService();
-  final IaClinicaService _iaClinicaService = IaClinicaService();
+class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
+  late final SessaoService _sessaoService;
+  late final AudioRelatoService _audioRelatoService;
+  late final TranscricaoRelatoService _transcricaoRelatoService;
+  late final IaClinicaService _iaClinicaService;
   final AudioPlayer _audioPlayer = AudioPlayer();
+  String? _erroInicializacao;
 
   StreamSubscription<void>? _audioPlayerCompleteSubscription;
 
@@ -65,48 +88,97 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
 
   late String _sessaoId;
   late int _numeroSessao;
-  late DateTime _dataSessao;
-
-  double _humor = 5;
-  bool _salvando = false;
-
-  bool _gravandoAudio = false;
-  bool _audioPausado = false;
-  bool _reproduzindoAudio = false;
-  bool _transcrevendoRelato = false;
-  bool _gerandoSinteseIa = false;
 
   Timer? _timerGravacao;
-  Duration _duracaoGravacao = Duration.zero;
 
-  String _audioRelatoPath = '';
-  String _audioRelatoBase64 = '';
-  DateTime? _dataProcessamentoIa;
-  bool _geradoComIa = false;
-  String _statusProcessamento = 'manual';
-  bool _audioMantido = false;
-  bool _revisadoPeloProfissional = false;
-  String _erroProcessamentoIa = '';
-  String _erroAudio = '';
-  String _origemRelato = 'manual';
+  static const Duration _duracaoMaximaAudio = Duration(minutes: 5);
+
+  bool get _transcrevendoRelato => ref.read(_transcrevendoRelatoProvider);
+  set _transcrevendoRelato(bool v) => ref.read(_transcrevendoRelatoProvider.notifier).state = v;
+
+  bool get _gerandoSinteseIa => ref.read(_gerandoSinteseIaProvider);
+  set _gerandoSinteseIa(bool v) => ref.read(_gerandoSinteseIaProvider.notifier).state = v;
+
+  String get _statusProcessamento => ref.read(_statusProcessamentoProvider);
+  set _statusProcessamento(String v) => ref.read(_statusProcessamentoProvider.notifier).state = v;
+
+  String get _erroProcessamentoIa => ref.read(_erroProcessamentoIaProvider);
+  set _erroProcessamentoIa(String v) => ref.read(_erroProcessamentoIaProvider.notifier).state = v;
+
+  bool get _revisadoPeloProfissional => ref.read(_revisadoPeloProfissionalProvider);
+  set _revisadoPeloProfissional(bool v) => ref.read(_revisadoPeloProfissionalProvider.notifier).state = v;
+
+  bool get _geradoComIa => ref.read(_geradoComIaProvider);
+  set _geradoComIa(bool v) => ref.read(_geradoComIaProvider.notifier).state = v;
+
+  DateTime? get _dataProcessamentoIa => ref.read(_dataProcessamentoIaProvider);
+  set _dataProcessamentoIa(DateTime? v) => ref.read(_dataProcessamentoIaProvider.notifier).state = v;
+
+  bool get _avisoInvalidacaoTranscricaoExibido => ref.read(_avisoInvalidacaoTranscricaoExibidoProvider);
+  set _avisoInvalidacaoTranscricaoExibido(bool v) => ref.read(_avisoInvalidacaoTranscricaoExibidoProvider.notifier).state = v;
+
+  bool get _audioMantido => ref.read(_audioMantidoProvider);
+  set _audioMantido(bool v) => ref.read(_audioMantidoProvider.notifier).state = v;
+
+  String get _origemRelato => ref.read(_origemRelatoProvider);
+  set _origemRelato(String v) => ref.read(_origemRelatoProvider.notifier).state = v;
+
+  void _triggerRebuild() {
+    if (mounted) ref.read(_formRebuildProvider.notifier).state++;
+  }
+
+  void _registrarAuditoria(String tipo, String descricao) {
+    try {
+      ref.read(auditoriaServiceProvider).registrar(
+            tipoEvento: tipo,
+            descricao: descricao,
+            pacienteId: widget.paciente.id,
+          );
+    } catch (_) {}
+  }
+
+  bool get _gravandoAudio => ref.read(_gravandoAudioProvider);
+  set _gravandoAudio(bool valor) =>
+      ref.read(_gravandoAudioProvider.notifier).state = valor;
+
+  bool get _audioPausado => ref.read(_audioPausadoProvider);
+  set _audioPausado(bool valor) =>
+      ref.read(_audioPausadoProvider.notifier).state = valor;
+
+  bool get _reproduzindoAudio => ref.read(_reproduzindoAudioProvider);
+  set _reproduzindoAudio(bool valor) =>
+      ref.read(_reproduzindoAudioProvider.notifier).state = valor;
+
+  Duration get _duracaoGravacao => ref.read(_duracaoGravacaoProvider);
+  set _duracaoGravacao(Duration valor) =>
+      ref.read(_duracaoGravacaoProvider.notifier).state = valor;
+
+  String get _audioRelatoPath => ref.read(_audioRelatoPathProvider);
+  set _audioRelatoPath(String valor) =>
+      ref.read(_audioRelatoPathProvider.notifier).state = valor;
+
+  String get _audioRelatoBase64 => ref.read(_audioRelatoBase64Provider);
+  set _audioRelatoBase64(String valor) =>
+      ref.read(_audioRelatoBase64Provider.notifier).state = valor;
+
+  String get _erroAudio => ref.read(_erroAudioProvider);
 
   String _ultimaTranscricaoControlada = '';
   bool _alteracaoProgramaticaTranscricao = false;
-  bool _avisoInvalidacaoTranscricaoExibido = false;
 
   bool get _editando => widget.sessaoExistente != null;
 
   bool get _existeAcaoEmAndamento {
-    return _gravandoAudio || _transcrevendoRelato || _gerandoSinteseIa;
+    return ref.read(_gravandoAudioProvider) || _transcrevendoRelato || _gerandoSinteseIa;
   }
 
   String get _termoSingular {
-    final perfil = _perfilService.obterPerfil();
+    final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
     return perfil?.termoSingular ?? 'paciente';
   }
 
   String get _termoSingularCapitalizado {
-    final perfil = _perfilService.obterPerfil();
+    final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
     return perfil?.termoSingularCapitalizado ?? 'Paciente';
   }
 
@@ -119,7 +191,7 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
   }
 
   String get _abordagemClinica {
-    final perfil = _perfilService.obterPerfil();
+    final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
     final abordagem = perfil?.abordagemClinica.trim() ?? '';
 
     if (abordagem.isEmpty) {
@@ -144,12 +216,12 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
   }
 
   bool get _possuiAudioRelato {
-    return _audioRelatoPath.trim().isNotEmpty ||
-        _audioRelatoBase64.trim().isNotEmpty;
+    return ref.read(_audioRelatoPathProvider).trim().isNotEmpty ||
+        ref.read(_audioRelatoBase64Provider).trim().isNotEmpty;
   }
 
   bool get _possuiAudioRelatoBase64 {
-    return _audioRelatoBase64.trim().isNotEmpty;
+    return ref.read(_audioRelatoBase64Provider).trim().isNotEmpty;
   }
 
   bool get _possuiTranscricaoRelato {
@@ -161,7 +233,7 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
   }
 
   bool get _possuiErroAudio {
-    return _erroAudio.trim().isNotEmpty;
+    return ref.read(_erroAudioProvider).trim().isNotEmpty;
   }
 
   bool get _estaAguardandoRevisao {
@@ -176,56 +248,65 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
   void initState() {
     super.initState();
 
-    _audioPlayerCompleteSubscription = _audioPlayer.onPlayerComplete.listen(
-      (_) {
-        if (!mounted) return;
+    try {
+      _sessaoService = ref.read(sessaoServiceProvider);
+      _audioRelatoService = ref.read(audioRelatoServiceProvider);
+      _transcricaoRelatoService = ref.read(transcricaoRelatoServiceProvider);
+      _iaClinicaService = ref.read(iaClinicaServiceProvider);
 
-        setState(() {
+      _audioPlayerCompleteSubscription = _audioPlayer.onPlayerComplete.listen(
+        (_) {
+          if (!mounted) return;
+
           _reproduzindoAudio = false;
-        });
-      },
-    );
+          _triggerRebuild();
+        },
+      );
 
-    final sessao = widget.sessaoExistente;
+      final sessao = widget.sessaoExistente;
 
-    if (sessao != null) {
-      _sessaoId = sessao.id;
-      _numeroSessao = sessao.numeroSessao;
-      _dataSessao = sessao.data;
-      _humor = sessao.humor.toDouble();
+      if (sessao != null) {
+        _sessaoId = sessao.id;
+        _numeroSessao = sessao.numeroSessao;
+        ref.read(_dataSessaoProvider.notifier).state = sessao.data;
+        ref.read(_humorProvider.notifier).state = sessao.humor.toDouble();
 
-      _temaController.text = sessao.temaPrincipal;
-      _relatoPosSessaoController.text = sessao.relatoPosSessao;
-      _transcricaoRelatoController.text = sessao.transcricaoRelato;
-      _eventosController.text = sessao.eventosImportantes;
-      _pensamentosController.text = sessao.pensamentosAutomaticos;
-      _emocoesController.text = sessao.emocoes;
-      _comportamentosController.text = sessao.comportamentos;
-      _intervencoesController.text = sessao.intervencoes;
-      _tecnicasController.text = sessao.tecnicasTcc;
-      _tarefaController.text = sessao.tarefaCasa;
-      _evolucaoController.text = sessao.evolucaoClinica;
-      _planoController.text = sessao.planoProximaSessao;
-      _observacoesController.text = sessao.observacoes;
-      _apontamentosCopilotoController.text = sessao.apontamentosCopiloto;
+        _temaController.text = sessao.temaPrincipal;
+        _relatoPosSessaoController.text = sessao.relatoPosSessao;
+        _transcricaoRelatoController.text = sessao.transcricaoRelato;
+        _eventosController.text = sessao.eventosImportantes;
+        _pensamentosController.text = sessao.pensamentosAutomaticos;
+        _emocoesController.text = sessao.emocoes;
+        _comportamentosController.text = sessao.comportamentos;
+        _intervencoesController.text = sessao.intervencoes;
+        _tecnicasController.text = sessao.tecnicasTcc;
+        _tarefaController.text = sessao.tarefaCasa;
+        _evolucaoController.text = sessao.evolucaoClinica;
+        _planoController.text = sessao.planoProximaSessao;
+        _observacoesController.text = sessao.observacoes;
+        _apontamentosCopilotoController.text = sessao.apontamentosCopiloto;
 
-      _audioRelatoPath = sessao.audioRelatoPath;
-      _audioRelatoBase64 = sessao.audioRelatoBase64;
-      _dataProcessamentoIa = sessao.dataProcessamentoIa;
-      _geradoComIa = sessao.geradoComIa;
-      _statusProcessamento = sessao.statusProcessamento;
-      _audioMantido = sessao.audioMantido;
-      _revisadoPeloProfissional = sessao.revisadoPeloProfissional;
-      _erroProcessamentoIa = sessao.erroProcessamentoIa;
-      _origemRelato = sessao.origemRelato;
-    } else {
-      _sessaoId = DateTime.now().millisecondsSinceEpoch.toString();
-      _numeroSessao = _sessaoService.proximoNumeroSessao(widget.paciente.id);
-      _dataSessao = DateTime.now();
+        ref.read(_audioRelatoPathProvider.notifier).state = sessao.audioRelatoPath;
+        ref.read(_audioRelatoBase64Provider.notifier).state = sessao.audioRelatoBase64;
+        _dataProcessamentoIa = sessao.dataProcessamentoIa;
+        _geradoComIa = sessao.geradoComIa;
+        _statusProcessamento = sessao.statusProcessamento;
+        _audioMantido = sessao.audioMantido;
+        _revisadoPeloProfissional = sessao.revisadoPeloProfissional;
+        _erroProcessamentoIa = sessao.erroProcessamentoIa;
+        _origemRelato = sessao.origemRelato;
+      } else {
+        _sessaoId = DateTime.now().millisecondsSinceEpoch.toString();
+        _numeroSessao = _sessaoService.proximoNumeroSessao(widget.paciente.id);
+        ref.read(_dataSessaoProvider.notifier).state = DateTime.now();
+      }
+
+      _ultimaTranscricaoControlada = _transcricaoRelatoController.text;
+      _transcricaoRelatoController.addListener(_aoAlterarTranscricaoRelato);
+    } catch (e, stack) {
+      _erroInicializacao = '$e\n$stack';
+      Log.erro(e, contexto: 'sessao_form_page:initState');
     }
-
-    _ultimaTranscricaoControlada = _transcricaoRelatoController.text;
-    _transcricaoRelatoController.addListener(_aoAlterarTranscricaoRelato);
   }
 
   @override
@@ -275,9 +356,8 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
       return;
     }
 
-    setState(() {
-      _invalidarIaERevisaoPorAlteracaoDaTranscricao();
-    });
+    _invalidarIaERevisaoPorAlteracaoDaTranscricao();
+    _triggerRebuild();
 
     if (!_avisoInvalidacaoTranscricaoExibido && mounted) {
       _avisoInvalidacaoTranscricaoExibido = true;
@@ -354,18 +434,21 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
   void _iniciarContadorGravacao() {
     _timerGravacao?.cancel();
 
-    setState(() {
-      _duracaoGravacao = Duration.zero;
-    });
+    ref.read(_duracaoGravacaoProvider.notifier).state = Duration.zero;
 
     _timerGravacao = Timer.periodic(
       const Duration(seconds: 1),
       (_) {
         if (!mounted) return;
 
-        setState(() {
-          _duracaoGravacao += const Duration(seconds: 1);
-        });
+        final novaDuracao =
+            ref.read(_duracaoGravacaoProvider) + const Duration(seconds: 1);
+        ref.read(_duracaoGravacaoProvider.notifier).state = novaDuracao;
+        _triggerRebuild();
+
+        if (novaDuracao >= _duracaoMaximaAudio) {
+          _pararGravacaoRelato();
+        }
       },
     );
   }
@@ -383,9 +466,14 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
       (_) {
         if (!mounted) return;
 
-        setState(() {
-          _duracaoGravacao += const Duration(seconds: 1);
-        });
+        final novaDuracao =
+            ref.read(_duracaoGravacaoProvider) + const Duration(seconds: 1);
+        ref.read(_duracaoGravacaoProvider.notifier).state = novaDuracao;
+        _triggerRebuild();
+
+        if (novaDuracao >= _duracaoMaximaAudio) {
+          _pararGravacaoRelato();
+        }
       },
     );
   }
@@ -427,7 +515,7 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
   }
 
   Source? _criarFonteAudioBase64() {
-    final base64Audio = _normalizarAudioBase64(_audioRelatoBase64);
+    final base64Audio = _normalizarAudioBase64(ref.read(_audioRelatoBase64Provider));
 
     if (base64Audio.isEmpty) {
       return null;
@@ -437,30 +525,30 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
   }
 
   Future<void> _selecionarData() async {
+    final dataAtual = ref.read(_dataSessaoProvider);
     final dataEscolhida = await showDatePicker(
       context: context,
-      initialDate: _dataSessao,
+      initialDate: dataAtual,
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     );
 
     if (!mounted || dataEscolhida == null) return;
 
-    setState(() {
-      _dataSessao = DateTime(
-        dataEscolhida.year,
-        dataEscolhida.month,
-        dataEscolhida.day,
-        _dataSessao.hour,
-        _dataSessao.minute,
-      );
-    });
+    ref.read(_dataSessaoProvider.notifier).state = DateTime(
+      dataEscolhida.year,
+      dataEscolhida.month,
+      dataEscolhida.day,
+      dataAtual.hour,
+      dataAtual.minute,
+    );
   }
 
   Future<void> _selecionarHorario() async {
+    final dataAtual = ref.read(_dataSessaoProvider);
     final horarioAtual = TimeOfDay(
-      hour: _dataSessao.hour,
-      minute: _dataSessao.minute,
+      hour: dataAtual.hour,
+      minute: dataAtual.minute,
     );
 
     final horarioEscolhido = await showTimePicker(
@@ -478,22 +566,20 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
 
     if (!mounted || horarioEscolhido == null) return;
 
-    setState(() {
-      _dataSessao = DateTime(
-        _dataSessao.year,
-        _dataSessao.month,
-        _dataSessao.day,
-        horarioEscolhido.hour,
-        horarioEscolhido.minute,
-      );
-    });
+    ref.read(_dataSessaoProvider.notifier).state = DateTime(
+      dataAtual.year,
+      dataAtual.month,
+      dataAtual.day,
+      horarioEscolhido.hour,
+      horarioEscolhido.minute,
+    );
   }
 
   Future<void> _iniciarGravacaoRelato() async {
     if (_existeAcaoEmAndamento) return;
 
     try {
-      if (_reproduzindoAudio) {
+      if (ref.read(_reproduzindoAudioProvider)) {
         await _audioPlayer.stop();
       }
 
@@ -505,13 +591,14 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
 
       if (!mounted) return;
 
-      setState(() {
-        _origemRelato = 'audio';
-        _erroAudio = '';
-        _gravandoAudio = true;
-        _audioPausado = false;
-        _reproduzindoAudio = false;
-      });
+      _origemRelato = 'audio';
+      ref.read(_erroAudioProvider.notifier).state = '';
+      ref.read(_gravandoAudioProvider.notifier).state = true;
+      ref.read(_audioPausadoProvider.notifier).state = false;
+      ref.read(_reproduzindoAudioProvider.notifier).state = false;
+      _triggerRebuild();
+
+      _registrarAuditoria('Gravacao de audio', 'Inicio da gravacao do relato - sessao $_numeroSessao');
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -527,12 +614,12 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
 
       if (!mounted) return;
 
-      setState(() {
-        _erroAudio = 'Não foi possível iniciar a gravação. Detalhes: $erro';
-        _gravandoAudio = false;
-        _audioPausado = false;
-        _reproduzindoAudio = false;
-      });
+      ref.read(_erroAudioProvider.notifier).state =
+          'Não foi possível iniciar a gravação. Detalhes: $erro';
+      ref.read(_gravandoAudioProvider.notifier).state = false;
+      ref.read(_audioPausadoProvider.notifier).state = false;
+      ref.read(_reproduzindoAudioProvider.notifier).state = false;
+      _triggerRebuild();
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -545,7 +632,7 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
   }
 
   Future<void> _pausarGravacaoRelato() async {
-    if (!_gravandoAudio || _audioPausado) return;
+    if (!ref.read(_gravandoAudioProvider) || ref.read(_audioPausadoProvider)) return;
 
     try {
       await _audioRelatoService.pausarGravacao();
@@ -553,10 +640,9 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
 
       if (!mounted) return;
 
-      setState(() {
-        _audioPausado = true;
-        _erroAudio = '';
-      });
+      ref.read(_audioPausadoProvider.notifier).state = true;
+      ref.read(_erroAudioProvider.notifier).state = '';
+      _triggerRebuild();
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -566,14 +652,14 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
     } catch (erro) {
       if (!mounted) return;
 
-      setState(() {
-        _erroAudio = 'Não foi possível pausar a gravação. Detalhes: $erro';
-      });
+      ref.read(_erroAudioProvider.notifier).state =
+          'Não foi possível pausar a gravação. Detalhes: $erro';
+      _triggerRebuild();
     }
   }
 
   Future<void> _retomarGravacaoRelato() async {
-    if (!_gravandoAudio || !_audioPausado) return;
+    if (!ref.read(_gravandoAudioProvider) || !ref.read(_audioPausadoProvider)) return;
 
     try {
       await _audioRelatoService.retomarGravacao();
@@ -581,10 +667,9 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
 
       if (!mounted) return;
 
-      setState(() {
-        _audioPausado = false;
-        _erroAudio = '';
-      });
+      ref.read(_audioPausadoProvider.notifier).state = false;
+      ref.read(_erroAudioProvider.notifier).state = '';
+      _triggerRebuild();
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -594,14 +679,14 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
     } catch (erro) {
       if (!mounted) return;
 
-      setState(() {
-        _erroAudio = 'Não foi possível retomar a gravação. Detalhes: $erro';
-      });
+      ref.read(_erroAudioProvider.notifier).state =
+          'Não foi possível retomar a gravação. Detalhes: $erro';
+      _triggerRebuild();
     }
   }
 
   Future<void> _pararGravacaoRelato() async {
-  if (!_gravandoAudio) return;
+  if (!ref.read(_gravandoAudioProvider)) return;
 
   try {
     final caminho = await _audioRelatoService.pararGravacao();
@@ -614,10 +699,8 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
       audioBase64 = '';
 
       if (mounted) {
-        setState(() {
-          _erroAudio =
-              'O áudio foi gravado, mas não foi possível criar o backup interno em Base64. Detalhes: $erroBase64';
-        });
+        ref.read(_erroAudioProvider.notifier).state =
+            'O áudio foi gravado, mas não foi possível criar o backup interno em Base64. Detalhes: $erroBase64';
       }
     }
 
@@ -625,32 +708,31 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
 
     if (!mounted) return;
 
-    setState(() {
-      if (caminho != null && caminho.trim().isNotEmpty) {
-        _audioRelatoPath = caminho.trim();
-      }
+    if (caminho != null && caminho.trim().isNotEmpty) {
+      ref.read(_audioRelatoPathProvider.notifier).state = caminho.trim();
+    }
 
-      _audioRelatoBase64 = audioBase64.trim();
+    ref.read(_audioRelatoBase64Provider.notifier).state = audioBase64.trim();
 
-      _origemRelato = 'audio';
-      _statusProcessamento = 'audio_gravado';
-      _audioMantido = true;
+    _origemRelato = 'audio';
+    _statusProcessamento = 'audio_gravado';
+    _audioMantido = true;
 
-      _revisadoPeloProfissional = false;
-      _geradoComIa = false;
-      _dataProcessamentoIa = null;
-      _erroProcessamentoIa = '';
+    _revisadoPeloProfissional = false;
+    _geradoComIa = false;
+    _dataProcessamentoIa = null;
+    _erroProcessamentoIa = '';
 
-      if (_audioRelatoBase64.trim().isNotEmpty) {
-        _erroAudio = '';
-      }
+    if (ref.read(_audioRelatoBase64Provider).trim().isNotEmpty) {
+      ref.read(_erroAudioProvider.notifier).state = '';
+    }
 
-      _atualizarTranscricaoProgramaticamente('');
-      _limparCamposGeradosPelaIa();
+    _atualizarTranscricaoProgramaticamente('');
+    _limparCamposGeradosPelaIa();
 
-      _gravandoAudio = false;
-      _audioPausado = false;
-    });
+    ref.read(_gravandoAudioProvider.notifier).state = false;
+    ref.read(_audioPausadoProvider.notifier).state = false;
+    _triggerRebuild();
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -666,11 +748,11 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
 
     if (!mounted) return;
 
-    setState(() {
-      _erroAudio = 'Não foi possível finalizar a gravação. Detalhes: $erro';
-      _gravandoAudio = false;
-      _audioPausado = false;
-    });
+    ref.read(_erroAudioProvider.notifier).state =
+        'Não foi possível finalizar a gravação. Detalhes: $erro';
+    ref.read(_gravandoAudioProvider.notifier).state = false;
+    ref.read(_audioPausadoProvider.notifier).state = false;
+    _triggerRebuild();
   }
 }   
 
@@ -681,19 +763,19 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
 
       if (!mounted) return;
 
-      setState(() {
-        _gravandoAudio = false;
-        _audioPausado = false;
-        _duracaoGravacao = Duration.zero;
-        _erroAudio = '';
+      ref.read(_gravandoAudioProvider.notifier).state = false;
+      ref.read(_audioPausadoProvider.notifier).state = false;
+      ref.read(_duracaoGravacaoProvider.notifier).state = Duration.zero;
+      ref.read(_erroAudioProvider.notifier).state = '';
 
-        if (!_possuiAudioRelato) {
-          _origemRelato = 'manual';
-          _statusProcessamento = 'manual';
-          _audioMantido = false;
-          _revisadoPeloProfissional = false;
-        }
-      });
+      if (!_possuiAudioRelato) {
+        _origemRelato = 'manual';
+        _statusProcessamento = 'manual';
+        _audioMantido = false;
+        _revisadoPeloProfissional = false;
+      }
+
+      _triggerRebuild();
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -703,9 +785,9 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
     } catch (erro) {
       if (!mounted) return;
 
-      setState(() {
-        _erroAudio = 'Não foi possível cancelar a gravação. Detalhes: $erro';
-      });
+      ref.read(_erroAudioProvider.notifier).state =
+          'Não foi possível cancelar a gravação. Detalhes: $erro';
+      _triggerRebuild();
     }
   }
 
@@ -729,21 +811,20 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
     }
 
     try {
-      if (_reproduzindoAudio) {
+      if (ref.read(_reproduzindoAudioProvider)) {
         await _audioPlayer.stop();
 
         if (!mounted) return;
 
-        setState(() {
-          _reproduzindoAudio = false;
-        });
+        ref.read(_reproduzindoAudioProvider.notifier).state = false;
+        _triggerRebuild();
 
         return;
       }
 
       await _audioPlayer.stop();
 
-      final caminhoAudio = _audioRelatoPath.trim();
+      final caminhoAudio = ref.read(_audioRelatoPathProvider).trim();
 
       Source? fonteAudio;
 
@@ -759,6 +840,7 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
       }
 
       if (fonteAudio == null) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Não há fonte de áudio disponível para reprodução.'),
@@ -784,18 +866,16 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
 
       if (!mounted) return;
 
-      setState(() {
-        _reproduzindoAudio = true;
-        _erroAudio = '';
-      });
+      ref.read(_reproduzindoAudioProvider.notifier).state = true;
+      ref.read(_erroAudioProvider.notifier).state = '';
+      _triggerRebuild();
     } catch (erro) {
       if (!mounted) return;
 
-      setState(() {
-        _reproduzindoAudio = false;
-        _erroAudio =
-            'Não foi possível reproduzir o áudio gravado. Detalhes: $erro';
-      });
+      ref.read(_reproduzindoAudioProvider.notifier).state = false;
+      ref.read(_erroAudioProvider.notifier).state =
+          'Não foi possível reproduzir o áudio gravado. Detalhes: $erro';
+      _triggerRebuild();
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -835,7 +915,7 @@ class _SessaoFormPageState extends State<SessaoFormPage> {
 if (!mounted || confirmar != true) return;
 
     try {
-      if (_reproduzindoAudio) {
+      if (ref.read(_reproduzindoAudioProvider)) {
         await _audioPlayer.stop();
       }
 
@@ -843,29 +923,28 @@ if (!mounted || confirmar != true) return;
 
       if (!mounted) return;
 
-      setState(() {
-        _audioRelatoPath = '';
-        _audioRelatoBase64 = '';
-        _audioMantido = false;
-        _origemRelato = 'manual';
-        _statusProcessamento = 'manual';
+      ref.read(_audioRelatoPathProvider.notifier).state = '';
+      ref.read(_audioRelatoBase64Provider.notifier).state = '';
+      _audioMantido = false;
+      _origemRelato = 'manual';
+      _statusProcessamento = 'manual';
 
-        _reproduzindoAudio = false;
-        _gravandoAudio = false;
-        _audioPausado = false;
-        _transcrevendoRelato = false;
-        _gerandoSinteseIa = false;
-        _duracaoGravacao = Duration.zero;
+      ref.read(_reproduzindoAudioProvider.notifier).state = false;
+      ref.read(_gravandoAudioProvider.notifier).state = false;
+      ref.read(_audioPausadoProvider.notifier).state = false;
+      _transcrevendoRelato = false;
+      _gerandoSinteseIa = false;
+      ref.read(_duracaoGravacaoProvider.notifier).state = Duration.zero;
 
-        _atualizarTranscricaoProgramaticamente('');
-        _limparCamposGeradosPelaIa();
+      _atualizarTranscricaoProgramaticamente('');
+      _limparCamposGeradosPelaIa();
 
-        _geradoComIa = false;
-        _dataProcessamentoIa = null;
-        _erroProcessamentoIa = '';
-        _erroAudio = '';
-        _revisadoPeloProfissional = false;
-      });
+      _geradoComIa = false;
+      _dataProcessamentoIa = null;
+      _erroProcessamentoIa = '';
+      ref.read(_erroAudioProvider.notifier).state = '';
+      _revisadoPeloProfissional = false;
+      _triggerRebuild();
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -875,9 +954,9 @@ if (!mounted || confirmar != true) return;
     } catch (erro) {
       if (!mounted) return;
 
-      setState(() {
-        _erroAudio = 'Não foi possível remover o áudio. Detalhes: $erro';
-      });
+      ref.read(_erroAudioProvider.notifier).state =
+          'Não foi possível remover o áudio. Detalhes: $erro';
+      _triggerRebuild();
     }
   }
 
@@ -898,14 +977,13 @@ if (!mounted || confirmar != true) return;
         await _audioPlayer.stop();
       }
 
-      setState(() {
-        _transcrevendoRelato = true;
-        _reproduzindoAudio = false;
-        _statusProcessamento = 'transcrevendo';
-        _erroProcessamentoIa = '';
-        _erroAudio = '';
-        _revisadoPeloProfissional = false;
-      });
+      _transcrevendoRelato = true;
+      _reproduzindoAudio = false;
+      _statusProcessamento = 'transcrevendo';
+      _erroProcessamentoIa = '';
+      _revisadoPeloProfissional = false;
+      _triggerRebuild();
+      ref.read(_erroAudioProvider.notifier).state = '';
 
       final resultado = await _transcricaoRelatoService.transcreverAudio(
         audioRelatoPath: _audioRelatoPath,
@@ -919,12 +997,11 @@ if (!mounted || confirmar != true) return;
         final textoTranscrito = resultado.transcricao.trim();
 
         if (textoTranscrito.isEmpty) {
-          setState(() {
-            _statusProcessamento = 'audio_gravado';
-            _transcrevendoRelato = false;
-            _erroProcessamentoIa =
-                'O serviço de transcrição concluiu a operação, mas não retornou texto.';
-          });
+          _statusProcessamento = 'audio_gravado';
+          _transcrevendoRelato = false;
+          _erroProcessamentoIa =
+              'O serviço de transcrição concluiu a operação, mas não retornou texto.';
+          _triggerRebuild();
 
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -935,17 +1012,18 @@ if (!mounted || confirmar != true) return;
           return;
         }
 
-        setState(() {
-          _atualizarTranscricaoProgramaticamente(textoTranscrito);
+        _atualizarTranscricaoProgramaticamente(textoTranscrito);
 
-          _statusProcessamento = 'transcrito';
-          _transcrevendoRelato = false;
-          _revisadoPeloProfissional = false;
-          _geradoComIa = false;
-          _dataProcessamentoIa = null;
-          _erroProcessamentoIa = '';
-          _avisoInvalidacaoTranscricaoExibido = false;
-        });
+        _statusProcessamento = 'transcrito';
+        _transcrevendoRelato = false;
+        _revisadoPeloProfissional = false;
+        _geradoComIa = false;
+        _dataProcessamentoIa = null;
+        _erroProcessamentoIa = '';
+        _avisoInvalidacaoTranscricaoExibido = false;
+        _triggerRebuild();
+
+        _registrarAuditoria('Transcricao concluida', 'Transcricao do audio realizada - sessao $_numeroSessao');
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -956,11 +1034,10 @@ if (!mounted || confirmar != true) return;
         return;
       }
 
-      setState(() {
-        _statusProcessamento = 'audio_gravado';
-        _transcrevendoRelato = false;
-        _erroProcessamentoIa = resultado.erro;
-      });
+      _statusProcessamento = 'audio_gravado';
+      _transcrevendoRelato = false;
+      _erroProcessamentoIa = resultado.erro;
+      _triggerRebuild();
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -970,12 +1047,11 @@ if (!mounted || confirmar != true) return;
     } catch (erro) {
       if (!mounted) return;
 
-      setState(() {
-        _statusProcessamento = 'audio_gravado';
-        _transcrevendoRelato = false;
-        _erroProcessamentoIa =
-            'Não foi possível transcrever o relato. Detalhes: $erro';
-      });
+      _statusProcessamento = 'audio_gravado';
+      _transcrevendoRelato = false;
+      _erroProcessamentoIa =
+          'Não foi possível transcrever o relato. Detalhes: $erro';
+      _triggerRebuild();
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1021,14 +1097,13 @@ if (!mounted || confirmar != true) return;
         await _audioPlayer.stop();
       }
 
-      setState(() {
-        _gerandoSinteseIa = true;
-        _reproduzindoAudio = false;
-        _statusProcessamento = 'ia_processando';
-        _erroProcessamentoIa = '';
-        _erroAudio = '';
-        _revisadoPeloProfissional = false;
-      });
+      _gerandoSinteseIa = true;
+      _reproduzindoAudio = false;
+      _statusProcessamento = 'ia_processando';
+      _erroProcessamentoIa = '';
+      _revisadoPeloProfissional = false;
+      _triggerRebuild();
+      ref.read(_erroAudioProvider.notifier).state = '';
 
       final resultado = await _iaClinicaService.gerarSinteseClinica(
         sessaoId: _sessaoId,
@@ -1039,7 +1114,7 @@ if (!mounted || confirmar != true) return;
         transcricaoRelato: transcricao,
         relatoManual: relato,
         temaPrincipal: _temaController.text.trim(),
-        humor: _humor.round(),
+        humor: ref.read(_humorProvider).round(),
       );
 
       if (!mounted) return;
@@ -1105,15 +1180,16 @@ if (!mounted || confirmar != true) return;
           texto: resultado.planoProximaSessao,
         );
 
-        setState(() {
-          _gerandoSinteseIa = false;
-          _geradoComIa = true;
-          _dataProcessamentoIa = DateTime.now();
-          _statusProcessamento = 'ia_processada';
-          _revisadoPeloProfissional = false;
-          _erroProcessamentoIa = '';
-          _avisoInvalidacaoTranscricaoExibido = false;
-        });
+        _gerandoSinteseIa = false;
+        _geradoComIa = true;
+        _dataProcessamentoIa = DateTime.now();
+        _statusProcessamento = 'ia_processada';
+        _revisadoPeloProfissional = false;
+        _erroProcessamentoIa = '';
+        _avisoInvalidacaoTranscricaoExibido = false;
+        _triggerRebuild();
+
+        _registrarAuditoria('Sintese gerada por IA', 'IA gerou sintese clinica - sessao $_numeroSessao');
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1126,12 +1202,11 @@ if (!mounted || confirmar != true) return;
         return;
       }
 
-      setState(() {
-        _gerandoSinteseIa = false;
-        _statusProcessamento =
-            _possuiTranscricaoRelato ? 'transcrito' : 'manual';
-        _erroProcessamentoIa = resultado.erro;
-      });
+      _gerandoSinteseIa = false;
+      _statusProcessamento =
+          _possuiTranscricaoRelato ? 'transcrito' : 'manual';
+      _erroProcessamentoIa = resultado.erro;
+      _triggerRebuild();
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1141,13 +1216,12 @@ if (!mounted || confirmar != true) return;
     } catch (erro) {
       if (!mounted) return;
 
-      setState(() {
-        _gerandoSinteseIa = false;
-        _statusProcessamento =
-            _possuiTranscricaoRelato ? 'transcrito' : 'manual';
-        _erroProcessamentoIa =
-            'Não foi possível gerar a síntese clínica. Detalhes: $erro';
-      });
+      _gerandoSinteseIa = false;
+      _statusProcessamento =
+          _possuiTranscricaoRelato ? 'transcrito' : 'manual';
+      _erroProcessamentoIa =
+          'Não foi possível gerar a síntese clínica. Detalhes: $erro';
+      _triggerRebuild();
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1158,13 +1232,14 @@ if (!mounted || confirmar != true) return;
   }
 
   void _marcarComoRevisado() {
-    setState(() {
-      _revisadoPeloProfissional = true;
-      _statusProcessamento = 'revisado';
-      _erroProcessamentoIa = '';
-      _erroAudio = '';
-      _avisoInvalidacaoTranscricaoExibido = false;
-    });
+    _revisadoPeloProfissional = true;
+    _statusProcessamento = 'revisado';
+    _erroProcessamentoIa = '';
+    _avisoInvalidacaoTranscricaoExibido = false;
+    _triggerRebuild();
+    ref.read(_erroAudioProvider.notifier).state = '';
+
+    _registrarAuditoria('Revisao profissional', 'Sessao $_numeroSessao marcada como revisada');
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -1174,24 +1249,21 @@ if (!mounted || confirmar != true) return;
   }
 
   void _limparErroProcessamento() {
-    setState(() {
-      _erroProcessamentoIa = '';
+    _erroProcessamentoIa = '';
 
-      if (_statusProcessamento == 'erro') {
-        _statusProcessamento =
-            _origemRelato == 'audio' ? 'audio_gravado' : 'manual';
-      }
-    });
+    if (_statusProcessamento == 'erro') {
+      _statusProcessamento =
+          _origemRelato == 'audio' ? 'audio_gravado' : 'manual';
+    }
+    _triggerRebuild();
   }
 
   void _limparErroAudio() {
-    setState(() {
-      _erroAudio = '';
-    });
+    ref.read(_erroAudioProvider.notifier).state = '';
   }
 
   Future<void> _salvarSessao() async {
-    if (_salvando) return;
+    if (ref.read(_salvandoProvider)) return;
 
     if (_existeAcaoEmAndamento) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1209,9 +1281,8 @@ if (!mounted || confirmar != true) return;
 
       if (!mounted) return;
 
-      setState(() {
-        _reproduzindoAudio = false;
-      });
+      _reproduzindoAudio = false;
+      _triggerRebuild();
     }
 
     final tema = _temaController.text.trim();
@@ -1225,17 +1296,18 @@ if (!mounted || confirmar != true) return;
       return;
     }
 
-    setState(() {
-      _salvando = true;
-    });
+    ref.read(_salvandoProvider.notifier).state = true;
 
     try {
+      final dataSessao = ref.read(_dataSessaoProvider);
+      final humor = ref.read(_humorProvider);
+
       if (_editando) {
         final sessao = widget.sessaoExistente!;
 
         sessao.numeroSessao = _numeroSessao;
-        sessao.data = _dataSessao;
-        sessao.humor = _humor.round();
+        sessao.data = dataSessao;
+        sessao.humor = humor.round();
         sessao.temaPrincipal = tema;
         sessao.relatoPosSessao = _relatoPosSessaoController.text.trim();
         sessao.transcricaoRelato = _transcricaoRelatoController.text.trim();
@@ -1264,12 +1336,15 @@ if (!mounted || confirmar != true) return;
 
         await _sessaoService.atualizarSessao(sessao);
       } else {
+        final dataSessao = ref.read(_dataSessaoProvider);
+        final humor = ref.read(_humorProvider);
+
         final novaSessao = Sessao(
           id: _sessaoId,
           pacienteId: widget.paciente.id,
           numeroSessao: _numeroSessao,
-          data: _dataSessao,
-          humor: _humor.round(),
+          data: dataSessao,
+          humor: humor.round(),
           temaPrincipal: tema,
           relatoPosSessao: _relatoPosSessaoController.text.trim(),
           transcricaoRelato: _transcricaoRelatoController.text.trim(),
@@ -1312,9 +1387,7 @@ if (!mounted || confirmar != true) return;
       );
     } finally {
       if (mounted) {
-        setState(() {
-          _salvando = false;
-        });
+        ref.read(_salvandoProvider.notifier).state = false;
       }
     }
   }
@@ -1419,6 +1492,63 @@ if (!mounted || confirmar != true) return;
 
   @override
   Widget build(BuildContext context) {
+    if (_erroInicializacao != null) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF7F9FA),
+        appBar: AppBar(
+          title: const Text('Erro'),
+          backgroundColor: const Color(0xFFD32F2F),
+          foregroundColor: Colors.white,
+        ),
+        body: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            const Icon(Icons.error_outline, color: Color(0xFFD32F2F), size: 48),
+            const SizedBox(height: 16),
+            const Text(
+              'Nao foi possivel abrir o prontuario',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFD32F2F),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Isso pode ser causado por dados incompatíveis de uma versão anterior do app. Tente limpar os dados do aplicativo nas configurações do Android.',
+              style: TextStyle(color: Colors.black54, height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                _erroInicializacao!,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.black87,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.arrow_back),
+              label: const Text('Voltar'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFD32F2F),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    ref.watch(_formRebuildProvider);
     const Color corPrincipal = Color(0xFF1F6F78);
     final configuracao = _configuracaoAbordagem;
 
@@ -1447,16 +1577,21 @@ if (!mounted || confirmar != true) return;
           const SizedBox(height: 16),
           _secaoRelatoIa(corPrincipal),
           const SizedBox(height: 16),
-          _secaoSinteseClinica(configuracao),
+          SecaoCamposClinicosWidget(
+            configuracao: configuracao,
+            eventosController: _eventosController,
+            evolucaoController: _evolucaoController,
+            observacoesController: _observacoesController,
+            pensamentosController: _pensamentosController,
+            emocoesController: _emocoesController,
+            comportamentosController: _comportamentosController,
+            intervencoesController: _intervencoesController,
+            tecnicasController: _tecnicasController,
+            tarefaController: _tarefaController,
+            planoController: _planoController,
+            apontamentosCopilotoController: _apontamentosCopilotoController,
+          ),
           const SizedBox(height: 16),
-          _secaoFormulaClinica(configuracao),
-          const SizedBox(height: 16),
-          _secaoIntervencoes(configuracao),
-          const SizedBox(height: 16),
-          _secaoPlano(configuracao),
-          const SizedBox(height: 16),
-          _secaoApontamentosCopiloto(configuracao),
-          const SizedBox(height: 24),
           _botaoSalvar(corPrincipal),
           const SizedBox(height: 24),
         ],
@@ -1466,7 +1601,7 @@ if (!mounted || confirmar != true) return;
 
   Future<void> _exportarSessao() async {
     final sessao = widget.sessaoExistente;
-    final perfil = _perfilService.obterPerfil();
+    final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
 
     if (sessao == null || perfil == null) return;
 
@@ -1552,7 +1687,7 @@ if (!mounted || confirmar != true) return;
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.calendar_today_outlined),
                 ),
-                child: Text(_formatarData(_dataSessao)),
+                child: Text(_formatarData(ref.watch(_dataSessaoProvider))),
               ),
             ),
             const SizedBox(height: 16),
@@ -1565,7 +1700,7 @@ if (!mounted || confirmar != true) return;
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.schedule_outlined),
                 ),
-                child: Text(_formatarHorario(_dataSessao)),
+                child: Text(_formatarHorario(ref.watch(_dataSessaoProvider))),
               ),
             ),
             const SizedBox(height: 16),
@@ -1579,20 +1714,18 @@ if (!mounted || confirmar != true) return;
             ),
             const SizedBox(height: 20),
             Text(
-              'Humor $_doOuDa $_termoSingular: ${_humor.round()}/10',
+              'Humor $_doOuDa $_termoSingular: ${ref.watch(_humorProvider).round()}/10',
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             Slider(
-              value: _humor,
+              value: ref.watch(_humorProvider),
               min: 0,
               max: 10,
               divisions: 10,
-              label: _humor.round().toString(),
+              label: ref.watch(_humorProvider).round().toString(),
               activeColor: corPrincipal,
               onChanged: (value) {
-                setState(() {
-                  _humor = value;
-                });
+                ref.read(_humorProvider.notifier).state = value;
               },
             ),
           ],
@@ -1620,335 +1753,34 @@ if (!mounted || confirmar != true) return;
           possuiAudioRelato: _possuiAudioRelato,
           audioMantido: _audioMantido,
         ),
-        if (_gravandoAudio || _duracaoGravacao > Duration.zero) ...[
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 12,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.redAccent.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: Colors.redAccent.withValues(alpha: 0.25),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  _audioPausado
-                      ? Icons.pause_circle_outline
-                      : Icons.fiber_manual_record,
-                  color: Colors.redAccent,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  _audioPausado ? 'Pausado' : 'Tempo de gravação',
-                  style: const TextStyle(
-                    color: Colors.black54,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  _formatarDuracaoGravacao(_duracaoGravacao),
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.redAccent,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-        if (_transcrevendoRelato || _gerandoSinteseIa) ...[
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.deepPurple.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.deepPurple.withValues(alpha: 0.25),
-              ),
-            ),
-            child: Row(
-              children: [
-                const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    _gerandoSinteseIa
-                        ? 'Gerando síntese clínica a partir da transcrição. Aguarde...'
-                        : 'Transcrevendo o relato. Aguarde...',
-                    style: const TextStyle(
-                      color: Colors.black54,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-        if (_possuiErroProcessamentoIa) ...[
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.red.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.red.withValues(alpha: 0.35)),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.error_outline, color: Colors.red),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    _erroProcessamentoIa,
-                    style: const TextStyle(
-                      color: Colors.red,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: _limparErroProcessamento,
-                  icon: const Icon(Icons.close),
-                  color: Colors.red,
-                  tooltip: 'Limpar erro',
-                ),
-              ],
-            ),
-          ),
-        ],
-        if (_possuiErroAudio) ...[
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.orange.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.orange.withValues(alpha: 0.35)),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(
-                  Icons.volume_off_outlined,
-                  color: Colors.orange,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    _erroAudio,
-                    style: const TextStyle(
-                      color: Colors.orange,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: _limparErroAudio,
-                  icon: const Icon(Icons.close),
-                  color: Colors.orange,
-                  tooltip: 'Limpar erro de áudio',
-                ),
-              ],
-            ),
-          ),
-        ],
+        _timerGravacaoWidget(),
+        _processamentoEmAndamentoWidget(),
+        _erroProcessamentoIaWidget(),
+        _erroAudioWidget(),
         const SizedBox(height: 12),
         const Text(
           'Áudio do relato',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 15,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Relato breve do profissional após a sessão. Limite: 5 minutos.',
+          style: TextStyle(color: Colors.black45, fontSize: 12),
         ),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            if (!_gravandoAudio)
-              OutlinedButton.icon(
-                onPressed: _existeAcaoEmAndamento
-                    ? null
-                    : _iniciarGravacaoRelato,
-                icon: const Icon(Icons.mic_outlined),
-                label: Text(
-                  _possuiAudioRelato
-                      ? 'Gravar novamente'
-                      : 'Iniciar gravação',
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: corPrincipal,
-                  side: BorderSide(color: corPrincipal),
-                ),
-              ),
-            if (_gravandoAudio && !_audioPausado)
-              OutlinedButton.icon(
-                onPressed: _pausarGravacaoRelato,
-                icon: const Icon(Icons.pause_outlined),
-                label: const Text('Pausar'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.orange,
-                  side: const BorderSide(color: Colors.orange),
-                ),
-              ),
-            if (_gravandoAudio && _audioPausado)
-              OutlinedButton.icon(
-                onPressed: _retomarGravacaoRelato,
-                icon: const Icon(Icons.play_arrow_outlined),
-                label: const Text('Retomar'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: corPrincipal,
-                  side: BorderSide(color: corPrincipal),
-                ),
-              ),
-            if (_gravandoAudio)
-              OutlinedButton.icon(
-                onPressed: _pararGravacaoRelato,
-                icon: const Icon(Icons.stop_outlined),
-                label: const Text('Finalizar'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.red,
-                  side: const BorderSide(color: Colors.red),
-                ),
-              ),
-            if (_gravandoAudio)
-              OutlinedButton.icon(
-                onPressed: _cancelarGravacaoRelato,
-                icon: const Icon(Icons.delete_outline),
-                label: const Text('Cancelar'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.black54,
-                ),
-              ),
-            if (_possuiAudioRelato && !_gravandoAudio)
-              OutlinedButton.icon(
-                onPressed: _existeAcaoEmAndamento
-                    ? null
-                    : _ouvirOuPararAudioRelato,
-                icon: Icon(
-                  _reproduzindoAudio
-                      ? Icons.stop_circle_outlined
-                      : Icons.play_circle_outline,
-                ),
-                label: Text(
-                  _reproduzindoAudio ? 'Parar áudio' : 'Ouvir áudio',
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor:
-                      _reproduzindoAudio ? Colors.red : corPrincipal,
-                  side: BorderSide(
-                    color:
-                        _reproduzindoAudio ? Colors.red : corPrincipal,
-                  ),
-                ),
-              ),
-            if (_possuiAudioRelato && !_gravandoAudio)
-              OutlinedButton.icon(
-                onPressed: _existeAcaoEmAndamento
-                    ? null
-                    : _removerAudioRelato,
-                icon: const Icon(Icons.delete_outline),
-                label: const Text('Remover áudio'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.red,
-                  side: const BorderSide(color: Colors.red),
-                ),
-              ),
-            OutlinedButton.icon(
-              onPressed:
-                  _existeAcaoEmAndamento ? null : _transcreverRelato,
-              icon: _transcrevendoRelato
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.transcribe_outlined),
-              label: Text(
-                _transcrevendoRelato
-                    ? 'Transcrevendo...'
-                    : 'Transcrever áudio',
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: corPrincipal,
-                side: BorderSide(color: corPrincipal),
-              ),
-            ),
-          ],
-        ),
-        if (_possuiAudioRelato) ...[
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _audioRelatoPath.trim().isNotEmpty
-                      ? 'Áudio vinculado: $_audioRelatoPath'
-                      : 'Áudio vinculado: armazenamento interno Base64',
-                  style: const TextStyle(
-                    color: Colors.black54,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-              Switch(
-                value: _audioMantido,
-                activeThumbColor: corPrincipal,
-                onChanged: _existeAcaoEmAndamento
-                    ? null
-                    : (value) {
-                        setState(() {
-                          _audioMantido = value;
-                        });
-                      },
-              ),
-            ],
-          ),
-          Text(
-            _possuiAudioRelatoBase64
-                ? 'Manter áudio original • Backup Base64 disponível'
-                : 'Manter áudio original',
-            style: const TextStyle(
-              color: Colors.black45,
-              fontSize: 12,
-            ),
-          ),
-        ],
+        _botoesAudioWidget(corPrincipal),
+        _audioInfoWidget(corPrincipal),
         const SizedBox(height: 18),
         const Divider(),
         const SizedBox(height: 12),
         const Text(
           'Transcrição e revisão antes da IA',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 15,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
         ),
         const SizedBox(height: 6),
         const Text(
           'A IA usará principalmente a transcrição abaixo. Revise, edite ou complemente este texto antes de gerar a síntese clínica.',
-          style: TextStyle(
-            color: Colors.black54,
-            height: 1.4,
-          ),
+          style: TextStyle(color: Colors.black54, height: 1.4),
         ),
         const SizedBox(height: 12),
         CampoTextoWidget(
@@ -1959,8 +1791,7 @@ if (!mounted || confirmar != true) return;
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
-            onPressed:
-                _existeAcaoEmAndamento ? null : _gerarSinteseComIa,
+            onPressed: _existeAcaoEmAndamento ? null : _gerarSinteseComIa,
             icon: _gerandoSinteseIa
                 ? const SizedBox(
                     width: 18,
@@ -1972,9 +1803,7 @@ if (!mounted || confirmar != true) return;
                   )
                 : const Icon(Icons.auto_awesome_outlined),
             label: Text(
-              _gerandoSinteseIa
-                  ? 'Gerando...'
-                  : 'Gerar síntese com IA',
+              _gerandoSinteseIa ? 'Gerando...' : 'Gerar síntese com IA',
             ),
             style: FilledButton.styleFrom(
               backgroundColor: corPrincipal,
@@ -1988,10 +1817,7 @@ if (!mounted || confirmar != true) return;
         const SizedBox(height: 12),
         const Text(
           'Resultado clínico para revisão',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 15,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
         ),
         const SizedBox(height: 8),
         CampoTextoWidget(
@@ -2006,8 +1832,7 @@ if (!mounted || confirmar != true) return;
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed:
-                  _existeAcaoEmAndamento ? null : _marcarComoRevisado,
+              onPressed: _existeAcaoEmAndamento ? null : _marcarComoRevisado,
               icon: const Icon(Icons.verified_outlined),
               label: const Text('Marcar como revisado pelo profissional'),
               style: FilledButton.styleFrom(
@@ -2022,110 +1847,313 @@ if (!mounted || confirmar != true) return;
     );
   }
 
-  Widget _secaoSinteseClinica(ConfiguracaoAbordagemClinica configuracao) {
-    return SecaoFormulario(
-      titulo: 'Síntese clínica',
-      subtitulo:
-          'Campos estruturados que futuramente poderão ser sugeridos pela IA e revisados pelo profissional.',
+  Widget _timerGravacaoWidget() {
+    if (!_gravandoAudio && _duracaoGravacao <= Duration.zero) {
+      return const SizedBox.shrink();
+    }
+    return Column(children: [
+      const SizedBox(height: 12),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.redAccent.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: Colors.redAccent.withValues(alpha: 0.25),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              _audioPausado
+                  ? Icons.pause_circle_outline
+                  : Icons.fiber_manual_record,
+              color: Colors.redAccent,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              _audioPausado ? 'Pausado' : 'Tempo de gravação',
+              style: const TextStyle(
+                color: Colors.black54,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              _formatarDuracaoGravacao(_duracaoGravacao),
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.redAccent,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ]);
+  }
+
+  Widget _processamentoEmAndamentoWidget() {
+    if (!_transcrevendoRelato && !_gerandoSinteseIa) {
+      return const SizedBox.shrink();
+    }
+    return Column(children: [
+      const SizedBox(height: 12),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.deepPurple.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Colors.deepPurple.withValues(alpha: 0.25),
+          ),
+        ),
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                _gerandoSinteseIa
+                    ? 'Gerando síntese clínica a partir da transcrição. Aguarde...'
+                    : 'Transcrevendo o relato. Aguarde...',
+                style: const TextStyle(
+                  color: Colors.black54,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ]);
+  }
+
+  Widget _erroProcessamentoIaWidget() {
+    if (!_possuiErroProcessamentoIa) return const SizedBox.shrink();
+    return Column(children: [
+      const SizedBox(height: 12),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.red.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.red.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                _erroProcessamentoIa,
+                style: const TextStyle(color: Colors.red, height: 1.4),
+              ),
+            ),
+            IconButton(
+              onPressed: _limparErroProcessamento,
+              icon: const Icon(Icons.close),
+              color: Colors.red,
+              tooltip: 'Limpar erro',
+            ),
+          ],
+        ),
+      ),
+    ]);
+  }
+
+  Widget _erroAudioWidget() {
+    if (!_possuiErroAudio) return const SizedBox.shrink();
+    return Column(children: [
+      const SizedBox(height: 12),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.orange.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.orange.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.volume_off_outlined, color: Colors.orange),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                ref.watch(_erroAudioProvider),
+                style: const TextStyle(color: Colors.orange, height: 1.4),
+              ),
+            ),
+            IconButton(
+              onPressed: _limparErroAudio,
+              icon: const Icon(Icons.close),
+              color: Colors.orange,
+              tooltip: 'Limpar erro de áudio',
+            ),
+          ],
+        ),
+      ),
+    ]);
+  }
+
+  Widget _botoesAudioWidget(Color corPrincipal) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
       children: [
-        CampoTextoWidget(
-          controller: _eventosController,
-          label: configuracao.eventosLabel,
-          maxLines: 4,
-        ),
-        CampoTextoWidget(
-          controller: _evolucaoController,
-          label: configuracao.evolucaoLabel,
-          maxLines: 4,
-        ),
-        CampoTextoWidget(
-          controller: _observacoesController,
-          label: 'Observações livres',
-          maxLines: 4,
+        if (!_gravandoAudio)
+          OutlinedButton.icon(
+            onPressed: _existeAcaoEmAndamento ? null : _iniciarGravacaoRelato,
+            icon: const Icon(Icons.mic_outlined),
+            label: Text(
+              _possuiAudioRelato ? 'Gravar novamente' : 'Iniciar gravação',
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: corPrincipal,
+              side: BorderSide(color: corPrincipal),
+            ),
+          ),
+        if (_gravandoAudio && !_audioPausado)
+          OutlinedButton.icon(
+            onPressed: _pausarGravacaoRelato,
+            icon: const Icon(Icons.pause_outlined),
+            label: const Text('Pausar'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.orange,
+              side: const BorderSide(color: Colors.orange),
+            ),
+          ),
+        if (_gravandoAudio && _audioPausado)
+          OutlinedButton.icon(
+            onPressed: _retomarGravacaoRelato,
+            icon: const Icon(Icons.play_arrow_outlined),
+            label: const Text('Retomar'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: corPrincipal,
+              side: BorderSide(color: corPrincipal),
+            ),
+          ),
+        if (_gravandoAudio)
+          OutlinedButton.icon(
+            onPressed: _pararGravacaoRelato,
+            icon: const Icon(Icons.stop_outlined),
+            label: const Text('Finalizar'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.red,
+              side: const BorderSide(color: Colors.red),
+            ),
+          ),
+        if (_gravandoAudio)
+          OutlinedButton.icon(
+            onPressed: _cancelarGravacaoRelato,
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('Cancelar'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.black54,
+            ),
+          ),
+        if (_possuiAudioRelato && !_gravandoAudio)
+          OutlinedButton.icon(
+            onPressed: _existeAcaoEmAndamento
+                ? null
+                : _ouvirOuPararAudioRelato,
+            icon: Icon(
+              _reproduzindoAudio
+                  ? Icons.stop_circle_outlined
+                  : Icons.play_circle_outline,
+            ),
+            label: Text(
+              _reproduzindoAudio ? 'Parar áudio' : 'Ouvir áudio',
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor:
+                  _reproduzindoAudio ? Colors.red : corPrincipal,
+              side: BorderSide(
+                color: _reproduzindoAudio ? Colors.red : corPrincipal,
+              ),
+            ),
+          ),
+        if (_possuiAudioRelato && !_gravandoAudio)
+          OutlinedButton.icon(
+            onPressed:
+                _existeAcaoEmAndamento ? null : _removerAudioRelato,
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('Remover áudio'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.red,
+              side: const BorderSide(color: Colors.red),
+            ),
+          ),
+        OutlinedButton.icon(
+          onPressed: _existeAcaoEmAndamento ? null : _transcreverRelato,
+          icon: _transcrevendoRelato
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.transcribe_outlined),
+          label: Text(
+            _transcrevendoRelato ? 'Transcrevendo...' : 'Transcrever áudio',
+          ),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: corPrincipal,
+            side: BorderSide(color: corPrincipal),
+          ),
         ),
       ],
     );
   }
 
-  Widget _secaoFormulaClinica(ConfiguracaoAbordagemClinica configuracao) {
-    return SecaoFormulario(
-      titulo: configuracao.tituloFormulaClinica,
-      subtitulo: configuracao.subtituloFormulaClinica,
-      children: [
-        CampoTextoWidget(
-          controller: _pensamentosController,
-          label: configuracao.campo1Label,
-          maxLines: 3,
-        ),
-        CampoTextoWidget(
-          controller: _emocoesController,
-          label: configuracao.campo2Label,
-          maxLines: 3,
-        ),
-        CampoTextoWidget(
-          controller: _comportamentosController,
-          label: configuracao.campo3Label,
-          maxLines: 3,
-        ),
-      ],
-    );
-  }
-
-  Widget _secaoIntervencoes(ConfiguracaoAbordagemClinica configuracao) {
-    return SecaoFormulario(
-      titulo: configuracao.tituloIntervencoes,
-      children: [
-        CampoTextoWidget(
-          controller: _intervencoesController,
-          label: configuracao.intervencoesLabel,
-          maxLines: 4,
-        ),
-        CampoTextoWidget(
-          controller: _tecnicasController,
-          label: configuracao.tecnicasLabel,
-          maxLines: 3,
-        ),
-      ],
-    );
-  }
-
-  Widget _secaoPlano(ConfiguracaoAbordagemClinica configuracao) {
-    return SecaoFormulario(
-      titulo: configuracao.tituloPlano,
-      children: [
-        CampoTextoWidget(
-          controller: _tarefaController,
-          label: configuracao.tarefaLabel,
-          maxLines: 3,
-        ),
-        CampoTextoWidget(
-          controller: _planoController,
-          label: configuracao.planoLabel,
-          maxLines: 4,
-        ),
-      ],
-    );
-  }
-
-  Widget _secaoApontamentosCopiloto(ConfiguracaoAbordagemClinica configuracao) {
-    return SecaoFormulario(
-      titulo: 'Apontamentos do Copiloto',
-      subtitulo:
-          'Espaço para hipóteses, focos de atenção e possibilidades clínicas sugeridas pela IA, sempre para revisão do profissional e considerando a abordagem ${configuracao.nomeAbordagem}.',
-      children: [
-        CampoTextoWidget(
-          controller: _apontamentosCopilotoController,
-          label: configuracao.apontamentosCopilotoLabel,
-          maxLines: 6,
-        ),
-      ],
-    );
+  Widget _audioInfoWidget(Color corPrincipal) {
+    if (!_possuiAudioRelato) return const SizedBox.shrink();
+    return Column(children: [
+      const SizedBox(height: 12),
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              _audioRelatoPath.trim().isNotEmpty
+                  ? 'Áudio vinculado: $_audioRelatoPath'
+                  : 'Áudio vinculado: armazenamento interno Base64',
+              style: const TextStyle(color: Colors.black54, fontSize: 13),
+            ),
+          ),
+          Switch(
+            value: _audioMantido,
+            activeThumbColor: corPrincipal,
+            onChanged: _existeAcaoEmAndamento
+                ? null
+                : (value) {
+                    _audioMantido = value;
+                    _triggerRebuild();
+                  },
+          ),
+        ],
+      ),
+      Text(
+        _possuiAudioRelatoBase64
+            ? 'Manter áudio original • Backup Base64 disponível'
+            : 'Manter áudio original',
+        style: const TextStyle(color: Colors.black45, fontSize: 12),
+      ),
+    ]);
   }
 
   Widget _botaoSalvar(Color corPrincipal) {
+    final salvando = ref.watch(_salvandoProvider);
     return FilledButton.icon(
-      onPressed: _salvando ? null : _salvarSessao,
-      icon: _salvando
+      onPressed: salvando ? null : _salvarSessao,
+      icon: salvando
           ? const SizedBox(
               width: 18,
               height: 18,
@@ -2135,7 +2163,7 @@ if (!mounted || confirmar != true) return;
               ),
             )
           : const Icon(Icons.save_outlined),
-      label: Text(_salvando ? 'Salvando...' : 'Salvar sessão'),
+      label: Text(salvando ? 'Salvando...' : 'Salvar sessão'),
       style: FilledButton.styleFrom(
         backgroundColor: corPrincipal,
         foregroundColor: Colors.white,

@@ -1,0 +1,569 @@
+PROMPT PARA DESENVOLVER DO ZERO O APP MENTALL
+
+Você será responsável por desenvolver do zero o MentAll, um aplicativo profissional de prontuário inteligente para psicólogos clínicos.
+
+O objetivo é criar um produto robusto, simples de usar, seguro e futuramente comercializável, com foco em registro de pacientes, sessões, relato pós-sessão por áudio, transcrição, apoio de Inteligência Artificial e revisão obrigatória pelo profissional.
+
+1. Nome do Aplicativo
+O aplicativo se chamará: MentAll. O nome deve ser usado como identidade principal do produto.
+
+2. Conceito Geral
+O MentAll é um aplicativo de prontuário psicológico inteligente. Ele deve permitir que psicólogos clínicos organizem seus atendimentos de forma prática, segura e profissional, usando IA apenas como apoio documental.
+O app deve ajudar o profissional a:
+* Cadastrar pacientes, clientes ou pessoas atendidas;
+* Registrar sessões clínicas;
+* Fazer relato pós-sessão por texto ou áudio;
+* Transcrever o áudio do relato;
+* Gerar síntese clínica com IA;
+* Gerar apontamentos clínicos com IA;
+* Revisar e validar o conteúdo;
+* Preservar histórico clínico;
+* Exportar registros futuramente;
+* Trabalhar conforme sua abordagem clínica.
+
+A ideia central é:
+* O psicólogo atende.
+* Depois da sessão, registra rapidamente seu relato em um áudio.
+* O sistema organiza, transcreve e sugere uma síntese.
+* O psicólogo revisa todos os pontos do prontuário.
+* O prontuário fica salvo com segurança.
+
+3. Filosofia do Produto
+O MentAll deve ser construído com a seguinte filosofia:
+* Simples de usar;
+* Profissional;
+* Seguro;
+* Ético;
+* Comercializável;
+* Adaptável à abordagem clínica do psicólogo;
+* Focado em reduzir tempo de documentação;
+* Focado em preservar responsabilidade clínica humana.
+
+4. Público-Alvo
+O público-alvo inicial são psicólogos clínicos autônomos.
+O app deve atender principalmente profissionais que:
+* Fazem atendimentos clínicos individuais presenciais ou online;
+* Precisam registrar sessões;
+* Querem economizar tempo após os atendimentos;
+* Desejam usar IA de forma ética e controlada;
+* Precisam de organização simples e segura;
+* Diferentes abordagens clínicas para o terapeuta escolher.
+
+5. Plataformas Desejadas
+Desenvolver inicialmente para:
+* Android;
+* Web.
+* iOS;
+
+
+6. Funcionalidades do MVP
+O primeiro MVP precisa conter:
+6.1. Onboarding Inicial
+Ao abrir o app pela primeira vez, o profissional deve configurar:
+* Nome;
+* Identificação profissional, se desejar;
+* Abordagem clínica principal;
+* Termo preferido para se referir às pessoas atendidas.
+Termos possíveis:
+* Paciente;
+* Cliente;
+* Pessoa atendida.
+Essa escolha deve alterar textos da interface.
+Exemplo: Se escolher:
+* “cliente”:
+o Novo cliente
+o Clientes ativos
+o Clientes arquivados
+o Editar cliente
+* Se escolher “paciente”:
+o Novo paciente
+o Pacientes ativos
+o Pacientes arquivados
+o Editar paciente
+* Se escolher “Pessoa atendida”
+o Nova pessoa atendida
+o Pessoas atendidas ativas
+o Pessoas atendidas arquivadas
+o Editar pessoa atendida
+6.2. Perfil Profissional
+Criar tela de perfil profissional com:
+* Nome;
+* Registro profissional, se quiser inserir;
+* Abordagem clínica principal;
+* Termo preferido;
+* Opções futuras de assinatura, backup e segurança.
+
+6.3. Abordagem Clínica
+O app deve permitir que o profissional escolha sua abordagem clínica.
+Abordagens iniciais:
+* TCC;
+* Análise do Comportamento
+* Psicanálise;
+* Psicodinâmica;
+* Humanista;
+* Fenomenológico-existencial;
+* Logoterapia;
+* Gestalt-terapia;
+* Sistêmica;
+* ACT;
+* DBT;
+* Terapia do Esquema;
+* Integrativa;
+* Outra.
+Criar uma configuração central para controlar labels e prompts conforme abordagem.
+Essa configuração deve futuramente alimentar os prompts de IA.
+
+6.4. Home
+A Home deve ser simples e objetiva.
+Deve conter:
+* Saudação ao profissional;
+* Botão para novo paciente/cliente/pessoa atendida;
+* Lista de ativos;
+* Aba de arquivados;
+* Acesso rápido ao perfil;
+* Acesso às configurações;
+* Possível botão para nova sessão.
+
+6.5. Cadastro de Paciente
+Criar cadastro com campos essenciais.
+Campos sugeridos:
+* Nome;
+* Data de nascimento;
+* Telefone;
+* E-mail;
+* Observações gerais;
+* Data de cadastro;
+* Status ativo/arquivado.
+Evitar excesso de campos obrigatórios.
+O app deve ser simples.
+
+6.6. Detalhe do Paciente
+A tela de detalhe deve mostrar:
+* Dados básicos;
+* Botão para editar;
+* Botão para arquivar/restaurar;
+* Lista de sessões;
+* Botão para nova sessão;
+* Histórico organizado por data.
+
+6.7. Arquivar em Vez de Excluir
+Regra fundamental:
+Não excluir registros clínicos por padrão.
+Arquivar e restaurar.
+Isso vale para:
+* Pacientes;
+* Sessões.
+Exclusão definitiva, se existir futuramente, deve ser protegida e não ser fluxo principal.
+
+6.8. Sessões Clínicas
+Cada paciente pode ter várias sessões.
+A sessão deve conter:
+* *Paciente vinculado; (*paciente, cliente ou pessoa atendida)
+* Data;
+* Hora;
+* Título opcional;
+* Relato clínico;
+* Áudio do relato pós-sessão;
+* Transcrição;
+* Síntese gerada por IA;
+* Apontamentos do copiloto;
+* Status de processamento;
+* Origem do relato;
+* Indicação se foi revisada pelo profissional;
+* Arquivada ou ativa.
+
+7. Modelo de Dados Sugerido
+7.1. Profissional
+Campos sugeridos:
+id
+nome
+Registro Profissional
+Abordagem Clinica
+Termo Pessoa Atendida
+Data de Criação
+Data de Atualização
+
+7.2. Paciente
+Campos sugeridos:
+id
+nome
+Data de Nascimento
+telefone
+email
+observações
+arquivado
+Data de Cadastro
+Data de Atualização
+
+7.3. Sessão
+Campos sugeridos:
+id
+pacienteId
+dataHora
+titulo
+relatoManual
+audioRelatoPath
+audioRelatoBase64
+transcricao
+transcricaoRevisada
+sinteseIa
+apontamentosCopiloto
+statusProcessamento
+origemRelato
+revisadoPeloProfissional
+audioMantido
+erroProcessamentoIa
+dataProcessamentoIa
+arquivada
+dataCriacao
+dataAtualizacao
+
+8. Enums Sugeridos
+Criar enums para evitar textos soltos.
+8.1. AbordagemClinica
+Tcc
+Análise do Comportamento
+psicanalise
+psicodinamica
+humanista
+fenomenológico Existencial
+logoterapia
+gestalt
+sistemica
+act
+dbt
+terapiaDoEsquema
+integrativa
+outra
+8.2. Termo
+Pessoa Atendida
+paciente
+cliente
+pessoa Atendida
+8.3. Status de Processamento
+pendente
+gravando
+transcrevendo
+transcrito
+processando IA
+concluído
+erro
+8.4. Origem de Relato 
+digitado
+audio
+transcrição
+ia
+misto
+
+9. Áudio do Relato Pós-Sessão
+O app deve permitir que o psicólogo grave um relato após a sessão.
+Funcionalidades obrigatórias:
+* Solicitar permissão de microfone;
+* Iniciar gravação;
+* Pausar gravação;
+* Retomar gravação;
+* Finalizar gravação;
+* Reproduzir gravação;
+* Remover gravação;
+* Regravar;
+* Mostrar contador de tempo;
+* Salvar áudio de forma persistente.
+O áudio deve ser do relato do profissional após a sessão, não da sessão inteira com o paciente.
+
+10. Transcrição
+Deve ser pensado em Futuramente, poderá integrar ao Whisper;
+Regras:
+* A transcrição deve ser editável; Quando a transcrição for alterada, a IA anterior deve ser invalidada e os campos preenchidos, apagados; A revisão profissional deve voltar para pendente; A transcrição deve poder ser salva sem gerar IA.
+
+11. Inteligência Artificial
+A IA deve gerar:
+* Síntese objetiva da sessão;
+* Temas principais;
+* Pontos clínicos relevantes;
+* Hipóteses a investigar;
+* Pontos de atenção para próxima sessão;
+* Apontamentos do copiloto;
+* Sugestão de registro profissional.
+A IA nunca deve:
+* Dar diagnóstico definitivo;
+* Substituir o psicólogo;
+* Gerar conclusão clínica fechada;
+* Falar com certeza onde cabe hipótese;
+* Produzir orientação que dispense julgamento profissional.
+Linguagem recomendada:
+"Pode indicar..."
+"Sugere-se investigar..."
+"Pode ser relevante observar..."
+"Hipótese clínica a ser avaliada pelo profissional..."
+"Ponto para acompanhamento em sessões futuras..."
+
+12. IA Adaptada por Abordagem
+A IA deve considerar a abordagem clínica escolhida no perfil do profissional e ser conduzida dentro daquela abordagem. Um exemplo bem prático, que deve ser feito em todas as abordagens:
+A IA pode observar:
+* Comportamentos relatados com maior frequência ao longo da sessão.
+* Padrões de esquiva, fuga ou evitação presentes nos relatos.
+* Situações antecedentes associadas aos comportamentos descritos.
+* Consequências que possam estar contribuindo para a manutenção dos comportamentos.
+* Possíveis relações entre contexto, comportamento e resultado observado.
+* Mudanças no repertório comportamental em comparação a sessões anteriores.
+* Eventos ambientais relevantes para a compreensão do caso.
+* Indícios de comportamentos de aproximação, enfrentamento ou flexibilidade comportamental.
+* Reforçadores potenciais mencionados pelo cliente.
+* Comportamentos que parecem ocorrer sob controle de regras, expectativas ou demandas sociais.
+* Variáveis contextuais que possam influenciar a ocorrência dos comportamentos.
+* Possíveis padrões recorrentes de interação interpessoal relatados na sessão.
+A IA pode sugerir:
+* Hipóteses funcionais preliminares para investigação clínica.
+* Comportamentos-alvo para monitoramento terapêutico.
+* Situações que mereçam análise funcional mais aprofundada.
+* Perguntas de investigação para próximas sessões.
+* Possíveis relações entre antecedentes, comportamentos e consequências.
+* Indicadores para acompanhamento da evolução do caso.
+* Áreas do repertório comportamental que podem ser fortalecidas durante o processo terapêutico.
+A IA deve evitar:
+* Realizar diagnóstico psicológico ou psiquiátrico.
+* Determinar a função de um comportamento como fato conclusivo.
+* Inferir características de personalidade sem embasamento clínico.
+* Tratar hipóteses como conclusões definitivas.
+* Substituir a análise, interpretação ou decisão profissional do psicólogo.
+* Fazer julgamentos morais ou avaliações de valor sobre os comportamentos relatados.
+* Desconsiderar a influência do contexto na análise dos comportamentos.
+13. Revisão Profissional
+Toda sessão deve ter controle de revisão.
+Campo: revisado Pelo Profissional
+Regra:
+A sessão só é considerada finalizada quando revisada pelo profissional.
+Deve haver botão: Marcar como revisada
+Sempre que conteúdo clínico relevante mudar, voltar para: revisado Pelo Profissional = false
+Eventos que invalidam revisão:
+* Nova gravação;
+* Remoção de áudio;
+* Regravação;
+* Alteração da transcrição;
+* Alteração do relato manual;
+* Nova geração de IA;
+* Edição da síntese;
+* Edição dos apontamentos.
+
+14. Invalidação da IA
+Sempre que a base do conteúdo mudar, a IA antiga deve ser invalidada.
+Eventos que invalidam IA:
+* Nova transcrição;
+* Edição da transcrição;
+* Novo áudio;
+* Remoção de áudio;
+* Alteração do relato manual.
+
+15. Interface da Tela de Sessão
+A tela de sessão deve ser organizada em blocos.
+Sugestão:
+1. Dados da sessão
+   - Data
+   - Hora
+   - Paciente
+   - Título opcional
+
+2. Relato manual
+   - Campo de texto livre
+
+3. Áudio do relato
+   - Botão gravar
+ 	  - Pausar
+  	 - Retomar
+  	 - Finalizar
+         - Reproduzir
+  	 - Remover
+         - Regravar
+   - Botão Transcrever áudio
+
+4. Transcrição
+   - Campo editável
+   - Salvar transcrição
+
+
+5. IA clínica
+   - Botão Gerar síntese com IA
+   - Síntese
+   - Apontamentos do copiloto
+   - Status de processamento
+
+6. Revisão profissional
+   - Marcar como revisada
+   - Indicador: revisada / pendente
+
+16. Tela de Detalhe do Paciente
+Deve conter:
+* Nome;
+* Dados básicos;
+* Status ativo/arquivado;
+* Botão editar;
+* Botão arquivar/restaurar;
+* Botão nova sessão;
+* Histórico de sessões;
+* Indicador de sessões revisadas ou pendentes;
+* Acesso rápido à última sessão.
+
+17. Tela Home
+A Home deve conter:
+* Lista de pessoas atendidas ativas;
+* Aba para arquivadas;
+* Botão novo cadastro;
+* Botão perfil;
+* Busca simples;
+* Indicador de sessões pendentes de revisão, se possível.
+
+18. Segurança e Privacidade
+Este app lida com dados clínicos sensíveis.
+Desde o início, considerar:
+* Armazenamento local seguro;
+* Possibilidade futura de criptografia;
+* Evitar logs com dados clínicos;
+* Não expor dados de pacientes em mensagens de erro;
+* Preparar futura autenticação;
+* Preparar futuro backup seguro;
+* Preparar futura sincronização criptografada;
+* Criar política para exportação de dados;
+* Evitar dependência de serviços externos sem consentimento do profissional.
+Considerar:
+* Consentimento;
+* Segurança;
+* Minimização de dados;
+* Clareza sobre envio de informações;
+* Possibilidade de anonimização.
+
+19. LGPD e Ética
+Como o app lida com dados pessoais e clínicos, precisa ser pensado para conformidade com boas práticas de privacidade.
+Prever futuramente:
+* Termos de uso;
+* Política de privacidade;
+* Consentimento informado;
+* Controle de exclusão/exportação;
+* Backup seguro;
+* Segurança no armazenamento;
+* Registro de revisão profissional.
+Não implementar recursos que façam o psicólogo perder controle sobre o conteúdo clínico.
+
+20. Exportação 
+Preparar arquitetura para exportação em PDF.
+Tipos de exportação desejados:
+* Sessão individual;
+* Histórico do paciente;
+* Relatório clínico;
+* Síntese revisada;
+* Prontuário completo.
+A exportação deve deixar claro:
+* Data da sessão;
+* Profissional;
+* Pessoa atendida;
+* Conteúdo revisado;
+* Se houve apoio de IA;
+* Data de revisão.
+
+21. Sincronização
+A arquitetura deve permitir:
+* Login;
+* Backup;
+* Sincronização entre dispositivos;
+* Versão Web com banco em nuvem;
+* Assinatura comercial.
+Não acoplar a regra de negócio diretamente ao Hive, para facilitar migração futura.
+
+22. Monetização
+Pensar o app como produto comercial.
+Possíveis planos:
+* Gratuito limitado;
+* Profissional mensal;
+* Créditos de IA;
+* Exportação avançada;
+A arquitetura deve permitir controle de:
+* Usuário;
+* Assinatura;
+* Limites;
+* Recursos disponíveis por plano.
+
+23. Design e Experiência
+O design deve ser:
+* Limpo;
+* Acolhedor;
+* Profissional;
+* Minimalista;
+* Fácil de usar;
+* Sem excesso de campos;
+* Com linguagem clara;
+* Adequado para uso clínico.
+Evitar:
+* Interface infantil;
+* Cores muito chamativas;
+* Excesso de botões;
+* Fluxos confusos;
+* Jargão técnico desnecessário;
+* Muitas etapas para registrar uma sessão.
+
+24. Tema Visual Sugerido
+Sugestão visual:
+* Tons claros;
+* Fundo limpo;
+* Cards arredondados;
+* Ícones discretos;
+* Botões bem identificados;
+* Alertas suaves para revisão pendente.
+
+25. Testes Obrigatórios
+Criar testes para fluxos essenciais.
+Testar:
+* Criar profissional;
+* Alterar termo preferido;
+* Criar paciente;
+* Editar paciente;
+* Arquivar paciente;
+* Restaurar paciente;
+* Criar sessão;
+* Editar sessão;
+* Arquivar sessão;
+* Restaurar sessão;
+* Gravar áudio;
+* Salvar áudio;
+* Remover áudio;
+* Persistir áudio;
+* Reproduzir áudio salvo;
+* Editar transcrição;
+* Invalidar IA;
+* Invalidar revisão;
+* Gerar síntese;
+* Marcar sessão como revisada.
+
+
+26. Cuidados Técnicos
+Evitar:
+* Código duplicado;
+* Regras clínicas espalhadas;
+* Estado difícil de manter;
+* Dependência excessiva de tela;
+* Perda de dados ao navegar;
+* Excluir dados clínicos sem confirmação;
+* Misturar IA com decisão clínica;
+* Deixar áudio Web dependente apenas de blob;
+* Salvar dados sensíveis em logs.
+Priorizar:
+* Organização;
+* Testabilidade;
+* Clareza;
+* Robustez;
+* Simplicidade;
+* Separação de responsabilidades;
+* Persistência confiável;
+* Preparação para escala.
+
+27. Resultado Final Desejado
+Construir um app chamado MentAll, para Android, ios e Web, que funcione como prontuário inteligente para psicólogos.
+O app deve combinar:
+* Organização clínica;
+* Registro de sessões;
+* Relato por áudio;
+* Transcrição;
+* IA como apoio;
+* Revisão profissional;
+* Segurança;
+* Simplicidade;
+* Potencial comercial.
+O produto deve estar preparado para evoluir de um MVP local para uma plataforma profissional com nuvem, assinatura, exportação e IA real.

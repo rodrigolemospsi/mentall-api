@@ -24,6 +24,9 @@ class PerfilProfissional extends HiveObject {
   @HiveField(5)
   DateTime dataCriacao;
 
+  @HiveField(6)
+  DateTime? dataAtualizacao;
+
   PerfilProfissional({
     required this.id,
     required this.nome,
@@ -31,6 +34,7 @@ class PerfilProfissional extends HiveObject {
     this.abordagemClinica = 'Integrativa',
     this.termoPessoaAtendida = 'paciente',
     DateTime? dataCriacao,
+    this.dataAtualizacao,
   }) : dataCriacao = dataCriacao ?? DateTime.now();
 
   static const String abordagemClinicaPadrao = 'Integrativa';
@@ -188,6 +192,7 @@ class PerfilProfissional extends HiveObject {
     String? abordagemClinica,
     String? termoPessoaAtendida,
     DateTime? dataCriacao,
+    DateTime? dataAtualizacao,
   }) {
     return PerfilProfissional(
       id: id ?? this.id,
@@ -196,6 +201,7 @@ class PerfilProfissional extends HiveObject {
       abordagemClinica: abordagemClinica ?? this.abordagemClinica,
       termoPessoaAtendida: termoPessoaAtendida ?? this.termoPessoaAtendida,
       dataCriacao: dataCriacao ?? this.dataCriacao,
+      dataAtualizacao: dataAtualizacao ?? this.dataAtualizacao,
     );
   }
 

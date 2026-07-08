@@ -25,10 +25,6 @@ class SinteseRequest(BaseModel):
     humor: int
 
 
-class CampoClinico(BaseModel):
-    valor: str
-
-
 class SinteseResponse(BaseModel):
     sucesso: bool
     relato_clinico_organizado: str = ""
@@ -49,3 +45,13 @@ class SinteseResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str = "ok"
     versao: str = "1.0.0"
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"

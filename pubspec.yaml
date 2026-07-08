@@ -43,6 +43,8 @@ dependencies:
   pdf: ^3.11.3
   printing: ^5.14.2
   flutter_riverpod: ^2.6.1
+  encrypt: ^5.0.3
+  pointycastle: ^3.9.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

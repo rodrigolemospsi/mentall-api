@@ -149,6 +149,9 @@ class Sessao extends HiveObject {
   @HiveField(28)
   String audioRelatoBase64;
 
+  @HiveField(29)
+  String transcricaoRevisada;
+
   Sessao({
     required this.id,
     required this.pacienteId,
@@ -171,6 +174,7 @@ class Sessao extends HiveObject {
     this.arquivada = false,
     this.audioRelatoPath = '',
     this.transcricaoRelato = '',
+    this.transcricaoRevisada = '',
     this.dataProcessamentoIa,
     this.geradoComIa = false,
     this.statusProcessamento = 'manual',
@@ -210,6 +214,8 @@ class Sessao extends HiveObject {
 
   bool get possuiTranscricaoRelato => transcricaoRelato.trim().isNotEmpty;
 
+  bool get possuiTranscricaoRevisada => transcricaoRevisada.trim().isNotEmpty;
+
   bool get possuiErroProcessamentoIa =>
       erroProcessamentoIa.trim().isNotEmpty;
 
@@ -236,7 +242,8 @@ class Sessao extends HiveObject {
         observacoes.trim().isNotEmpty ||
         relatoPosSessao.trim().isNotEmpty ||
         apontamentosCopiloto.trim().isNotEmpty ||
-        transcricaoRelato.trim().isNotEmpty;
+        transcricaoRelato.trim().isNotEmpty ||
+        transcricaoRevisada.trim().isNotEmpty;
   }
 
   /// Indica se existe conteúdo gerado pela IA.
@@ -341,6 +348,7 @@ class Sessao extends HiveObject {
     String? erroProcessamentoIa,
     String? origemRelato,
     String? audioRelatoBase64,
+    String? transcricaoRevisada,
   }) {
     return Sessao(
       id: id ?? this.id,
@@ -366,6 +374,7 @@ class Sessao extends HiveObject {
       arquivada: arquivada ?? this.arquivada,
       audioRelatoPath: audioRelatoPath ?? this.audioRelatoPath,
       transcricaoRelato: transcricaoRelato ?? this.transcricaoRelato,
+      transcricaoRevisada: transcricaoRevisada ?? this.transcricaoRevisada,
       dataProcessamentoIa:
           dataProcessamentoIa ?? this.dataProcessamentoIa,
       geradoComIa: geradoComIa ?? this.geradoComIa,

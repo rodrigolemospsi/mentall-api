@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -43,7 +44,8 @@ class TranscricaoRelatoService {
     required String sessaoId,
   }) async {
     final caminhoLimpo = audioRelatoPath.trim();
-    final base64Limpo = _normalizarAudioBase64(audioRelatoBase64);
+    String base64Limpo = _normalizarAudioBase64(audioRelatoBase64);
+    String formato = 'wav';
 
     final possuiCaminhoAudio = caminhoLimpo.isNotEmpty;
     final possuiAudioBase64 = base64Limpo.isNotEmpty;
@@ -54,14 +56,35 @@ class TranscricaoRelatoService {
       );
     }
 
+    if (!possuiAudioBase64 && possuiCaminhoAudio) {
+      try {
+        final arquivo = File(caminhoLimpo);
+        if (!await arquivo.exists()) {
+          return ResultadoTranscricaoRelato.falha(
+            erro: 'Arquivo de áudio não encontrado no dispositivo.',
+          );
+        }
+        final bytes = await arquivo.readAsBytes();
+        base64Limpo = base64Encode(bytes);
+        final ext = caminhoLimpo.split('.').last;
+        if (ext.isNotEmpty && ext.length <= 5) {
+          formato = ext;
+        }
+      } catch (e) {
+        return ResultadoTranscricaoRelato.falha(
+          erro: 'Não foi possível ler o arquivo de áudio. Detalhes: $e',
+        );
+      }
+    }
+
     try {
       final response = await http
           .post(
             Uri.parse('${ApiClient.baseUrl}/transcrever'),
-            headers: {'Content-Type': 'application/json'},
+            headers: ApiClient.defaultHeaders(),
             body: jsonEncode({
               'audio_base64': base64Limpo,
-              'formato': 'wav',
+              'formato': formato,
             }),
           )
           .timeout(ApiClient.timeout);

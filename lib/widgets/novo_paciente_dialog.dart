@@ -15,7 +15,9 @@ Future<void> mostrarDialogNovoPaciente({
 }) async {
   final nomeController = TextEditingController();
   final contatoController = TextEditingController();
+  final emailController = TextEditingController();
   final observacoesController = TextEditingController();
+  DateTime? dataNascimento;
 
   String tipoAtendimento = 'Particular';
   bool salvando = false;
@@ -47,6 +49,51 @@ Future<void> mostrarDialogNovoPaciente({
                       decoration: const InputDecoration(
                         labelText: 'Contato',
                         border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                        labelText: 'E-mail',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    InkWell(
+                      onTap: salvando
+                          ? null
+                          : () async {
+                              final picked = await showDatePicker(
+                                context: dialogContext,
+                                initialDate:
+                                    dataNascimento ?? DateTime.now(),
+                                firstDate: DateTime(1900),
+                                lastDate: DateTime.now(),
+                                helpText: 'Data de nascimento',
+                              );
+                              if (picked != null) {
+                                setDialogState(() {
+                                  dataNascimento = picked;
+                                });
+                              }
+                            },
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Data de nascimento',
+                          border: OutlineInputBorder(),
+                        ),
+                        child: Text(
+                          dataNascimento != null
+                              ? '${dataNascimento!.day.toString().padLeft(2, '0')}/${dataNascimento!.month.toString().padLeft(2, '0')}/${dataNascimento!.year}'
+                              : 'Informe a data de nascimento',
+                          style: TextStyle(
+                            color: dataNascimento != null
+                                ? null
+                                : Colors.grey.shade600,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -128,6 +175,8 @@ Future<void> mostrarDialogNovoPaciente({
                                   .toString(),
                               nome: nome,
                               contato: contatoController.text.trim(),
+                              email: emailController.text.trim(),
+                              dataNascimento: dataNascimento,
                               tipoAtendimento: tipoAtendimento,
                               observacoes: observacoesController.text.trim(),
                             );
@@ -181,6 +230,7 @@ Future<void> mostrarDialogNovoPaciente({
     await Future<void>.delayed(const Duration(milliseconds: 300));
     nomeController.dispose();
     contatoController.dispose();
+    emailController.dispose();
     observacoesController.dispose();
   }
 }

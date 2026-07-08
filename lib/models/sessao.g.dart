@@ -38,6 +38,7 @@ class SessaoAdapter extends TypeAdapter<Sessao> {
       arquivada: fields[18] == null ? false : fields[18] as bool,
       audioRelatoPath: fields[19] == null ? '' : fields[19] as String,
       transcricaoRelato: fields[20] == null ? '' : fields[20] as String,
+      transcricaoRevisada: fields[29] == null ? '' : fields[29] as String,
       dataProcessamentoIa: fields[21] as DateTime?,
       geradoComIa: fields[22] == null ? false : fields[22] as bool,
       statusProcessamento: fields[23] == null ? 'manual' : fields[23] as String,
@@ -52,7 +53,7 @@ class SessaoAdapter extends TypeAdapter<Sessao> {
   @override
   void write(BinaryWriter writer, Sessao obj) {
     writer
-      ..writeByte(29)
+      ..writeByte(30)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -110,7 +111,9 @@ class SessaoAdapter extends TypeAdapter<Sessao> {
       ..writeByte(27)
       ..write(obj.origemRelato)
       ..writeByte(28)
-      ..write(obj.audioRelatoBase64);
+      ..write(obj.audioRelatoBase64)
+      ..writeByte(29)
+      ..write(obj.transcricaoRevisada);
   }
 
   @override

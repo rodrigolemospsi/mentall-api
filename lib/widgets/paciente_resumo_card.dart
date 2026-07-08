@@ -106,6 +106,14 @@ class PacienteResumoCard extends StatelessWidget {
               titulo: 'Contato',
               valor: _contatoExibicao,
             ),
+            if (paciente.possuiEmail) ...[
+              const SizedBox(height: 10),
+              InfoLinha(
+                icone: Icons.email_outlined,
+                titulo: 'E-mail',
+                valor: paciente.email.trim(),
+              ),
+            ],
             const SizedBox(height: 10),
             InfoLinha(
               icone: Icons.event_note_outlined,

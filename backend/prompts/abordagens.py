@@ -405,8 +405,8 @@ Evite:
 """,
 }
 
-# Análise do Comportamento não está no dropdown do app, mas mantido para uso interno
-PROMPTS_ABORDAGEM["Análise do comportamento"] = """
+# Análise do Comportamento
+PROMPTS_ABORDAGEM["Análise do Comportamento"] = """
 Adapte a análise para a Análise do Comportamento.
 
 Observe, quando houver elementos no relato:

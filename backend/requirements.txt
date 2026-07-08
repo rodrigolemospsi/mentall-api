@@ -5,3 +5,5 @@ google-genai
 python-dotenv
 python-multipart
 pydantic
+python-jose[cryptography]
+passlib[bcrypt]

@@ -1,28 +1,28 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../services/backup_service.dart';
+import '../providers/service_providers.dart';
 import 'backup_restore_page_stub.dart'
     if (dart.library.html) 'backup_restore_page_web.dart';
 
-class BackupRestorePage extends StatefulWidget {
+final _exportandoProvider = StateProvider<bool>((ref) => false);
+final _importandoProvider = StateProvider<bool>((ref) => false);
+
+class BackupRestorePage extends ConsumerStatefulWidget {
   const BackupRestorePage({super.key});
 
   @override
-  State<BackupRestorePage> createState() => _BackupRestorePageState();
+  ConsumerState<BackupRestorePage> createState() => _BackupRestorePageState();
 }
 
-class _BackupRestorePageState extends State<BackupRestorePage> {
-  final BackupService _backupService = BackupService();
-  bool _exportando = false;
-  bool _importando = false;
-
+class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
   Future<void> _exportar() async {
-    setState(() => _exportando = true);
+    ref.read(_exportandoProvider.notifier).state = true;
 
     try {
-      final json = _backupService.exportarParaJson();
+      final json = ref.read(backupServiceProvider).exportarParaJson();
       final nomeArquivo =
           'mentall_backup_${DateTime.now().millisecondsSinceEpoch}.json';
 
@@ -34,7 +34,7 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
       if (!mounted) return;
       _mostrarSnackBar('Erro ao exportar: $e', Colors.red);
     } finally {
-      if (mounted) setState(() => _exportando = false);
+      if (mounted) ref.read(_exportandoProvider.notifier).state = false;
     }
   }
 
@@ -43,9 +43,10 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
       final jsonString = await selecionarArquivoJsonWeb();
       if (jsonString == null) return;
 
-      setState(() => _importando = true);
+      ref.read(_importandoProvider.notifier).state = true;
 
-      final resultado = await _backupService.importarDeJson(jsonString);
+      final resultado =
+          await ref.read(backupServiceProvider).importarDeJson(jsonString);
 
       if (!mounted) return;
       _mostrarSnackBar(resultado, Colors.green);
@@ -53,7 +54,7 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
       if (!mounted) return;
       _mostrarSnackBar('Erro ao importar: $e', Colors.red);
     } finally {
-      if (mounted) setState(() => _importando = false);
+      if (mounted) ref.read(_importandoProvider.notifier).state = false;
     }
   }
 
@@ -66,6 +67,8 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
   @override
   Widget build(BuildContext context) {
     const Color corPrincipal = Color(0xFF1F6F78);
+    final exportando = ref.watch(_exportandoProvider);
+    final importando = ref.watch(_importandoProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FA),
@@ -101,8 +104,8 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
                   ),
                   const SizedBox(height: 16),
                   FilledButton.icon(
-                    onPressed: _exportando ? null : _exportar,
-                    icon: _exportando
+                    onPressed: exportando ? null : _exportar,
+                    icon: exportando
                         ? const SizedBox(
                             width: 18,
                             height: 18,
@@ -112,8 +115,7 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
                             ),
                           )
                         : const Icon(Icons.download),
-                    label: Text(
-                        _exportando ? 'Exportando...' : 'Exportar backup'),
+                    label: Text(exportando ? 'Exportando...' : 'Exportar backup'),
                     style: FilledButton.styleFrom(
                       backgroundColor: corPrincipal,
                       foregroundColor: Colors.white,
@@ -148,8 +150,8 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
                   ),
                   const SizedBox(height: 16),
                   FilledButton.icon(
-                    onPressed: _importando ? null : _importar,
-                    icon: _importando
+                    onPressed: importando ? null : _importar,
+                    icon: importando
                         ? const SizedBox(
                             width: 18,
                             height: 18,
@@ -159,8 +161,7 @@ class _BackupRestorePageState extends State<BackupRestorePage> {
                             ),
                           )
                         : const Icon(Icons.upload),
-                    label: Text(
-                        _importando ? 'Importando...' : 'Importar backup'),
+                    label: Text(importando ? 'Importando...' : 'Importar backup'),
                     style: FilledButton.styleFrom(
                       backgroundColor: corPrincipal,
                       foregroundColor: Colors.white,

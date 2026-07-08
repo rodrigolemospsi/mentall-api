@@ -3,13 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/service_providers.dart';
 import '../models/paciente.dart';
+import '../services/api_client.dart';
 import '../services/logger.dart';
 import '../widgets/estado_vazio_pacientes.dart';
 import '../widgets/novo_paciente_dialog.dart';
 import '../widgets/paciente_card_home.dart';
 import 'backup_restore_page.dart';
+import 'lgpd/privacidade_seguranca_page.dart';
 import 'paciente_detail_page.dart';
 import 'perfil_profissional_form_page.dart';
+
+final _buscaTermoProvider = StateProvider<String>((ref) => '');
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -19,27 +23,11 @@ class HomePage extends ConsumerStatefulWidget {
 }
 
 class _HomePageState extends ConsumerState<HomePage> {
-  final TextEditingController _buscaController = TextEditingController();
-  String _termoBusca = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _buscaController.addListener(() {
-      setState(() => _termoBusca = _buscaController.text.trim().toLowerCase());
-    });
-  }
-
-  @override
-  void dispose() {
-    _buscaController.dispose();
-    super.dispose();
-  }
-
-  List<Paciente> _filtrarPacientes(List<Paciente> pacientes) {
-    if (_termoBusca.isEmpty) return pacientes;
+  List<Paciente> _filtrarPacientes(
+      List<Paciente> pacientes, String termoBusca) {
+    if (termoBusca.isEmpty) return pacientes;
     return pacientes.where((p) {
-      return p.nome.trim().toLowerCase().contains(_termoBusca);
+      return p.nome.trim().toLowerCase().contains(termoBusca);
     }).toList();
   }
 
@@ -142,6 +130,60 @@ class _HomePageState extends ConsumerState<HomePage> {
         builder: (_) => const PerfilProfissionalFormPage(),
       ),
     );
+  }
+
+  Future<void> _abrirConfigServidor() async {
+    final controller = TextEditingController(text: ApiClient.baseUrlExibicao);
+    final formKey = GlobalKey<FormState>();
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Servidor backend'),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'URL do servidor',
+                hintText: 'http://192.168.1.24:8000',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.dns_outlined),
+              ),
+              keyboardType: TextInputType.url,
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Informe a URL';
+                final uri = Uri.tryParse(v.trim());
+                if (uri == null || !uri.hasScheme) return 'URL invalida';
+                return null;
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (!(formKey.currentState?.validate() ?? false)) return;
+                await ApiClient.setBaseUrl(controller.text.trim());
+                if (!ctx.mounted) return;
+                Navigator.pop(ctx);
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('URL do servidor atualizada.')),
+                );
+              },
+              child: const Text('Salvar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    controller.dispose();
   }
 
   Future<void> _abrirDialogNovoPaciente() async {
@@ -271,12 +313,15 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     final pacientesAtivosAsync = ref.watch(pacientesAtivosProvider);
     final pacientesArquivadosAsync = ref.watch(pacientesArquivadosProvider);
+    final termoBusca = ref.watch(_buscaTermoProvider);
 
     final pacientesAtivos = _filtrarPacientes(
       pacientesAtivosAsync.valueOrNull ?? [],
+      termoBusca,
     );
     final pacientesArquivados = _filtrarPacientes(
       pacientesArquivadosAsync.valueOrNull ?? [],
+      termoBusca,
     );
 
     return DefaultTabController(
@@ -306,6 +351,23 @@ class _HomePageState extends ConsumerState<HomePage> {
                 );
               },
             ),
+            IconButton(
+              icon: const Icon(Icons.shield_outlined),
+              tooltip: 'Privacidade e Seguranca',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const PrivacidadeSegurancaPage(),
+                  ),
+                );
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.dns_outlined),
+              tooltip: 'Configurar servidor',
+              onPressed: _abrirConfigServidor,
+            ),
           ],
           bottom: TabBar(
             labelColor: Colors.white,
@@ -328,7 +390,9 @@ class _HomePageState extends ConsumerState<HomePage> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: TextField(
-                controller: _buscaController,
+                onChanged: (value) =>
+                    ref.read(_buscaTermoProvider.notifier).state =
+                        value.trim().toLowerCase(),
                 decoration: InputDecoration(
                   hintText: _buscarHint,
                   prefixIcon: const Icon(Icons.search),

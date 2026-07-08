@@ -130,7 +130,7 @@ class IaClinicaService {
       final response = await http
           .post(
             Uri.parse('${ApiClient.baseUrl}/gerar-sintese'),
-            headers: {'Content-Type': 'application/json'},
+            headers: ApiClient.defaultHeaders(),
             body: jsonEncode({
               'sessao_id': sessaoId,
               'numero_sessao': numeroSessao,

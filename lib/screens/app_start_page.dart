@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/service_providers.dart';
 import 'home_page.dart';
+import 'login_page.dart';
 import 'perfil_profissional_form_page.dart';
 
 class AppStartPage extends ConsumerWidget {
@@ -10,6 +11,12 @@ class AppStartPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final authService = ref.read(authServiceProvider);
+
+    if (!authService.desbloqueado && authService.requerPin) {
+      return const LoginPage();
+    }
+
     final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
 
     if (perfil == null) {

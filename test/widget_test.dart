@@ -12,7 +12,7 @@ import 'package:prontuario_tcc/services/status_clinico_sessao_service.dart';
 
 void main() {
   setUpAll(() async {
-    Hive.init('test/temp_hive');
+    Hive.init('test/temp_hive/models_services');
     Hive.registerAdapters();
     await Hive.openBox<Paciente>('pacientes');
     await Hive.openBox<Sessao>('sessoes');
@@ -20,6 +20,9 @@ void main() {
   });
 
   tearDownAll(() async {
+    await Hive.box<Paciente>('pacientes').close();
+    await Hive.box<Sessao>('sessoes').close();
+    await Hive.box<PerfilProfissional>('perfil_profissional').close();
     await Hive.deleteBoxFromDisk('pacientes');
     await Hive.deleteBoxFromDisk('sessoes');
     await Hive.deleteBoxFromDisk('perfil_profissional');

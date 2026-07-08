@@ -1,5 +1,6 @@
 enum AbordagemClinica {
   tcc('TCC'),
+  analiseDoComportamento('Análise do Comportamento'),
   psicanalise('Psicanálise'),
   psicodinamica('Psicodinâmica'),
   humanista('Humanista'),
@@ -122,8 +123,10 @@ enum StatusProcessamento {
 enum OrigemRelato {
   manual('manual'),
   audio('audio'),
-  importado('importado'),
-  ia('ia');
+  transcricao('transcricao'),
+  ia('ia'),
+  misto('misto'),
+  importado('importado');
 
   final String value;
   const OrigemRelato(this.value);

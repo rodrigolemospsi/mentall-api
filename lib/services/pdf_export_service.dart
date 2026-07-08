@@ -59,6 +59,69 @@ class PdfExportService {
     }
   }
 
+  Future<void> exportarRelatorioClinico({
+    required Paciente paciente,
+    required List<Sessao> sessoes,
+    required PerfilProfissional perfil,
+  }) async {
+    try {
+      final pdf = await _gerarPdfRelatorioClinico(
+        paciente: paciente,
+        sessoes: sessoes,
+        perfil: perfil,
+      );
+      await _salvarOuImprimir(
+        pdf: pdf,
+        nomeArquivo: 'relatorio_clinico_${paciente.nome}.pdf',
+      );
+    } catch (e) {
+      Log.erro(e, contexto: 'PdfExportService.exportarRelatorioClinico');
+      rethrow;
+    }
+  }
+
+  Future<void> exportarSinteseRevisada({
+    required Sessao sessao,
+    required Paciente paciente,
+    required PerfilProfissional perfil,
+  }) async {
+    try {
+      final pdf = await _gerarPdfSinteseRevisada(
+        sessao: sessao,
+        paciente: paciente,
+        perfil: perfil,
+      );
+      await _salvarOuImprimir(
+        pdf: pdf,
+        nomeArquivo: 'sintese_revisada_sessao_${sessao.numeroSessao}_${paciente.nome}.pdf',
+      );
+    } catch (e) {
+      Log.erro(e, contexto: 'PdfExportService.exportarSinteseRevisada');
+      rethrow;
+    }
+  }
+
+  Future<void> exportarProntuarioCompleto({
+    required Paciente paciente,
+    required List<Sessao> sessoes,
+    required PerfilProfissional perfil,
+  }) async {
+    try {
+      final pdf = await _gerarPdfProntuarioCompleto(
+        paciente: paciente,
+        sessoes: sessoes,
+        perfil: perfil,
+      );
+      await _salvarOuImprimir(
+        pdf: pdf,
+        nomeArquivo: 'prontuario_completo_${paciente.nome}.pdf',
+      );
+    } catch (e) {
+      Log.erro(e, contexto: 'PdfExportService.exportarProntuarioCompleto');
+      rethrow;
+    }
+  }
+
   Future<Uint8List> _gerarPdfSessao({
     required Sessao sessao,
     required Paciente paciente,
@@ -561,6 +624,448 @@ class PdfExportService {
     return pw.Container(
       height: 1,
       color: _corFundo,
+    );
+  }
+
+  Future<Uint8List> _gerarPdfRelatorioClinico({
+    required Paciente paciente,
+    required List<Sessao> sessoes,
+    required PerfilProfissional perfil,
+  }) async {
+    final config = ConfiguracaoAbordagemClinica.porNome(
+      perfil.abordagemClinica,
+    );
+
+    final sessoesAtivas =
+        sessoes.where((s) => s.estaAtiva).toList()
+          ..sort((a, b) => b.data.compareTo(a.data));
+
+    final doc = pw.Document();
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(24),
+        header: (context) => _cabecalhoPagina(perfil),
+        footer: (context) => _rodapePagina(context),
+        build: (context) => [
+          _tituloSecao('Relatorio Clinico'),
+          pw.SizedBox(height: 4),
+          pw.Text(
+            paciente.nomeExibicao,
+            style: pw.TextStyle(
+              fontSize: 18,
+              fontWeight: pw.FontWeight.bold,
+              color: _corPrimaria,
+            ),
+          ),
+          pw.SizedBox(height: 16),
+          _dadosPaciente(paciente),
+          pw.SizedBox(height: 8),
+          _dadosProfissionalResumido(perfil, config),
+          pw.SizedBox(height: 8),
+          _linhaSeparadora(),
+          pw.SizedBox(height: 16),
+          _tituloSecao('Resumo das Sessoes'),
+          pw.SizedBox(height: 8),
+          _tabelaResumoSessoes(sessoesAtivas),
+          pw.SizedBox(height: 16),
+          _tituloSecao('Evolucao Clinica'),
+          pw.SizedBox(height: 8),
+          ..._evolucaoClinicaSessoes(sessoesAtivas),
+          pw.SizedBox(height: 16),
+          _secaoDisclaimerIa(),
+          pw.SizedBox(height: 8),
+          _secaoExportacao(),
+        ],
+      ),
+    );
+    return doc.save();
+  }
+
+  Future<Uint8List> _gerarPdfSinteseRevisada({
+    required Sessao sessao,
+    required Paciente paciente,
+    required PerfilProfissional perfil,
+  }) async {
+    final config = ConfiguracaoAbordagemClinica.porNome(
+      perfil.abordagemClinica,
+    );
+
+    final doc = pw.Document();
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(24),
+        header: (context) => _cabecalhoPagina(perfil),
+        footer: (context) => _rodapePagina(context),
+        build: (context) => [
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    _tituloSecao('Sintese Revisada'),
+                    pw.SizedBox(height: 4),
+                    pw.Text(
+                      'Sessao ${sessao.numeroSessao} — ${paciente.nomeExibicao}',
+                      style: pw.TextStyle(
+                        fontSize: 18,
+                        fontWeight: pw.FontWeight.bold,
+                        color: _corPrimaria,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _badgeRevisao(sessao.revisadoPeloProfissional),
+            ],
+          ),
+          pw.SizedBox(height: 12),
+          _cabecalhoSessao(sessao),
+          pw.SizedBox(height: 8),
+          _linhaSeparadora(),
+          pw.SizedBox(height: 12),
+          if (sessao.relatoPosSessao.trim().isNotEmpty) ...[
+            _tituloSecao('Relato Clinico Organizado'),
+            pw.SizedBox(height: 4),
+            _blocoTexto(sessao.relatoPosSessao),
+            pw.SizedBox(height: 12),
+          ],
+          if (sessao.transcricaoRevisada.trim().isNotEmpty) ...[
+            _tituloSecao('Transcricao Revisada'),
+            pw.SizedBox(height: 4),
+            _blocoTexto(sessao.transcricaoRevisada),
+            pw.SizedBox(height: 12),
+          ] else if (sessao.transcricaoRelato.trim().isNotEmpty) ...[
+            _tituloSecao('Transcricao'),
+            pw.SizedBox(height: 4),
+            _blocoTexto(sessao.transcricaoRelato),
+            pw.SizedBox(height: 12),
+          ],
+          if (sessao.apontamentosCopiloto.trim().isNotEmpty) ...[
+            _tituloSecao('Apontamentos do Copiloto'),
+            pw.SizedBox(height: 4),
+            pw.Container(
+              padding: const pw.EdgeInsets.all(10),
+              decoration: pw.BoxDecoration(
+                color: PdfColors.blue50,
+                borderRadius:
+                    const pw.BorderRadius.all(pw.Radius.circular(6)),
+              ),
+              child: pw.Text(
+                sessao.apontamentosCopiloto,
+                style: pw.TextStyle(
+                  fontSize: 10,
+                  height: 1.4,
+                  fontStyle: pw.FontStyle.italic,
+                ),
+              ),
+            ),
+            pw.SizedBox(height: 12),
+          ],
+          _secaoClinica(sessao, config),
+          pw.SizedBox(height: 12),
+          _secaoRevisao(sessao),
+          pw.SizedBox(height: 12),
+          _secaoDisclaimerIa(),
+          pw.SizedBox(height: 8),
+          _secaoExportacao(),
+        ],
+      ),
+    );
+    return doc.save();
+  }
+
+  Future<Uint8List> _gerarPdfProntuarioCompleto({
+    required Paciente paciente,
+    required List<Sessao> sessoes,
+    required PerfilProfissional perfil,
+  }) async {
+    final config = ConfiguracaoAbordagemClinica.porNome(
+      perfil.abordagemClinica,
+    );
+
+    final sessoesAtivas =
+        sessoes.where((s) => s.estaAtiva).toList()
+          ..sort((a, b) => b.data.compareTo(a.data));
+
+    final doc = pw.Document();
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(24),
+        header: (context) => _cabecalhoPagina(perfil),
+        footer: (context) => _rodapePagina(context),
+        build: (context) => [
+          _tituloSecao('Prontuario Completo'),
+          pw.SizedBox(height: 4),
+          pw.Text(
+            paciente.nomeExibicao,
+            style: pw.TextStyle(
+              fontSize: 18,
+              fontWeight: pw.FontWeight.bold,
+              color: _corPrimaria,
+            ),
+          ),
+          pw.SizedBox(height: 12),
+          _dadosPaciente(paciente),
+          pw.SizedBox(height: 8),
+          _dadosProfissionalResumido(perfil, config),
+          pw.SizedBox(height: 8),
+          _linhaSeparadora(),
+          pw.SizedBox(height: 16),
+          if (sessoesAtivas.isEmpty)
+            pw.Text(
+              'Nenhuma sessao registrada.',
+              style: pw.TextStyle(
+                color: _corSecundaria,
+                fontSize: 12,
+              ),
+            )
+          else
+            ...sessoesAtivas.map((s) => _secaoSessaoCompleta(
+                  sessao: s,
+                  config: config,
+                  paciente: paciente,
+                )),
+          pw.SizedBox(height: 16),
+          _secaoDisclaimerIa(),
+          pw.SizedBox(height: 8),
+          _secaoExportacao(),
+        ],
+      ),
+    );
+    return doc.save();
+  }
+
+  pw.Widget _dadosProfissionalResumido(
+    PerfilProfissional perfil,
+    ConfiguracaoAbordagemClinica config,
+  ) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(12),
+      decoration: pw.BoxDecoration(
+        color: _corFundo,
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          _campoInfo('Profissional', perfil.nomeExibicao),
+          if (perfil.possuiRegistroProfissional)
+            _campoInfo('Registro', perfil.registroProfissional),
+          _campoInfo('Abordagem clinica', config.nomeAbordagem),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _tabelaResumoSessoes(List<Sessao> sessoes) {
+    if (sessoes.isEmpty) {
+      return pw.Text(
+        'Nenhuma sessao registrada.',
+        style: pw.TextStyle(
+          color: _corSecundaria,
+          fontSize: 11,
+          fontStyle: pw.FontStyle.italic,
+        ),
+      );
+    }
+
+    return pw.Table(
+      border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+      columnWidths: {
+        0: const pw.FlexColumnWidth(0.5),
+        1: const pw.FlexColumnWidth(1.5),
+        2: const pw.FlexColumnWidth(2),
+        3: const pw.FlexColumnWidth(1),
+        4: const pw.FlexColumnWidth(1),
+      },
+      children: [
+        pw.TableRow(
+          decoration: pw.BoxDecoration(color: _corPrimaria),
+          children: [
+            _celulaTabela('#', bold: true, corFonte: PdfColors.white),
+            _celulaTabela('Data', bold: true, corFonte: PdfColors.white),
+            _celulaTabela('Tema', bold: true, corFonte: PdfColors.white),
+            _celulaTabela('Humor', bold: true, corFonte: PdfColors.white),
+            _celulaTabela('Status', bold: true, corFonte: PdfColors.white),
+          ],
+        ),
+        ...sessoes.map(
+          (s) => pw.TableRow(
+            children: [
+              _celulaTabela('${s.numeroSessao}'),
+              _celulaTabela(_formatarData(s.data)),
+              _celulaTabela(s.temaPrincipal.trim().isEmpty
+                  ? '—'
+                  : s.temaPrincipal),
+              _celulaTabela('${s.humor}/10'),
+              _celulaTabela(
+                s.revisadoPeloProfissional ? 'Revisado' : 'Pendente',
+                corFonte: s.revisadoPeloProfissional
+                    ? PdfColors.green700
+                    : PdfColors.orange700,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  pw.Widget _celulaTabela(
+    String texto, {
+    bool bold = false,
+    PdfColor? corFonte,
+  }) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(5),
+      child: pw.Text(
+        texto,
+        style: pw.TextStyle(
+          fontSize: 9,
+          fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+          color: corFonte,
+        ),
+      ),
+    );
+  }
+
+  List<pw.Widget> _evolucaoClinicaSessoes(List<Sessao> sessoes) {
+    final widgets = <pw.Widget>[];
+
+    for (final s in sessoes) {
+      if (s.evolucaoClinica.trim().isEmpty && s.observacoes.trim().isEmpty) {
+        continue;
+      }
+
+      widgets.add(
+        pw.Container(
+          padding: const pw.EdgeInsets.all(10),
+          margin: const pw.EdgeInsets.only(bottom: 8),
+          decoration: pw.BoxDecoration(
+            color: PdfColors.grey50,
+            borderRadius:
+                const pw.BorderRadius.all(pw.Radius.circular(6)),
+          ),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                'Sessao ${s.numeroSessao} — ${_formatarData(s.data)}',
+                style: pw.TextStyle(
+                  fontSize: 11,
+                  fontWeight: pw.FontWeight.bold,
+                  color: _corPrimaria,
+                ),
+              ),
+              pw.SizedBox(height: 4),
+              if (s.evolucaoClinica.trim().isNotEmpty) ...[
+                pw.Text(
+                  s.evolucaoClinica,
+                  style: const pw.TextStyle(fontSize: 10, height: 1.4),
+                ),
+                pw.SizedBox(height: 4),
+              ],
+              if (s.observacoes.trim().isNotEmpty)
+                pw.Text(
+                  s.observacoes,
+                  style: pw.TextStyle(
+                    fontSize: 10,
+                    height: 1.4,
+                    color: _corSecundaria,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (widgets.isEmpty) {
+      widgets.add(
+        pw.Text(
+          'Nenhuma evolucao clinica registrada.',
+          style: pw.TextStyle(
+            color: _corSecundaria,
+            fontSize: 11,
+            fontStyle: pw.FontStyle.italic,
+          ),
+        ),
+      );
+    }
+
+    return widgets;
+  }
+
+  pw.Widget _secaoSessaoCompleta({
+    required Sessao sessao,
+    required ConfiguracaoAbordagemClinica config,
+    required Paciente paciente,
+  }) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        _linhaSeparadora(),
+        pw.SizedBox(height: 12),
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text(
+              'Sessao ${sessao.numeroSessao} — ${_formatarData(sessao.data)} as ${_formatarHorario(sessao.data)}',
+              style: pw.TextStyle(
+                fontSize: 14,
+                fontWeight: pw.FontWeight.bold,
+                color: _corPrimaria,
+              ),
+            ),
+            _badgeRevisao(sessao.revisadoPeloProfissional),
+          ],
+        ),
+        pw.SizedBox(height: 8),
+        _cabecalhoSessao(sessao),
+        pw.SizedBox(height: 8),
+        _secaoClinica(sessao, config),
+        pw.SizedBox(height: 8),
+        _secaoRevisao(sessao),
+        pw.SizedBox(height: 16),
+      ],
+    );
+  }
+
+  pw.Widget _badgeRevisao(bool revisado) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: pw.BoxDecoration(
+        color: revisado ? PdfColors.green50 : PdfColors.orange50,
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+      ),
+      child: pw.Text(
+        revisado ? 'Revisado' : 'Pendente',
+        style: pw.TextStyle(
+          fontSize: 10,
+          fontWeight: pw.FontWeight.bold,
+          color: revisado ? PdfColors.green700 : PdfColors.orange700,
+        ),
+      ),
+    );
+  }
+
+  pw.Widget _blocoTexto(String texto) {
+    return pw.Container(
+      width: double.infinity,
+      padding: const pw.EdgeInsets.all(10),
+      decoration: pw.BoxDecoration(
+        color: _corFundo,
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+      ),
+      child: pw.Text(
+        texto,
+        style: const pw.TextStyle(fontSize: 10, height: 1.4),
+      ),
     );
   }
 

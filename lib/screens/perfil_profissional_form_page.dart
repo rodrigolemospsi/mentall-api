@@ -5,6 +5,13 @@ import '../models/perfil_profissional.dart';
 import '../providers/service_providers.dart';
 import '../services/logger.dart';
 import 'home_page.dart';
+import 'lgpd/politica_privacidade_page.dart';
+import 'lgpd/termos_uso_page.dart';
+
+final _abordagemProvider = StateProvider<String>((ref) => 'Integrativa');
+final _termoProvider = StateProvider<String>((ref) => 'paciente');
+final _salvandoProvider = StateProvider<bool>((ref) => false);
+final _aceitouTermosProvider = StateProvider<bool>((ref) => false);
 
 class PerfilProfissionalFormPage extends ConsumerStatefulWidget {
   const PerfilProfissionalFormPage({super.key});
@@ -19,11 +26,6 @@ class _PerfilProfissionalFormPageState
   final TextEditingController _nomeController = TextEditingController();
   final TextEditingController _registroController = TextEditingController();
 
-  String _abordagemSelecionada = 'Integrativa';
-  String _termoSelecionado = 'paciente';
-
-  bool _salvando = false;
-
   @override
   void dispose() {
     _nomeController.dispose();
@@ -32,7 +34,7 @@ class _PerfilProfissionalFormPageState
   }
 
   Future<void> _salvarPerfil() async {
-    if (_salvando) return;
+    if (ref.read(_salvandoProvider)) return;
 
     final nome = _nomeController.text.trim();
     final registro = _registroController.text.trim();
@@ -46,17 +48,25 @@ class _PerfilProfissionalFormPageState
       return;
     }
 
-    setState(() {
-      _salvando = true;
-    });
+    ref.read(_salvandoProvider.notifier).state = true;
 
     try {
+      if (!ref.read(_aceitouTermosProvider)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Aceite os Termos de Uso e Politica de Privacidade para continuar.'),
+          ),
+        );
+        ref.read(_salvandoProvider.notifier).state = false;
+        return;
+      }
+
       final perfil = PerfilProfissional(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         nome: nome,
         registroProfissional: registro,
-        abordagemClinica: _abordagemSelecionada,
-        termoPessoaAtendida: _termoSelecionado,
+        abordagemClinica: ref.read(_abordagemProvider),
+        termoPessoaAtendida: ref.read(_termoProvider),
       );
 
       await ref.read(perfilProfissionalServiceProvider).salvarPerfil(perfil);
@@ -81,17 +91,16 @@ class _PerfilProfissionalFormPageState
         ),
       );
     } finally {
-      if (mounted) {
-        setState(() {
-          _salvando = false;
-        });
-      }
+      if (mounted) ref.read(_salvandoProvider.notifier).state = false;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     const Color corPrincipal = Color(0xFF1F6F78);
+    final abordagemSelecionada = ref.watch(_abordagemProvider);
+    final termoSelecionado = ref.watch(_termoProvider);
+    final salvando = ref.watch(_salvandoProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FA),
@@ -160,7 +169,7 @@ class _PerfilProfissionalFormPageState
                     ),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(
-                      initialValue: _abordagemSelecionada,
+                      initialValue: abordagemSelecionada,
                       decoration: const InputDecoration(
                         labelText: 'Abordagem clínica principal',
                         border: OutlineInputBorder(),
@@ -174,18 +183,17 @@ class _PerfilProfissionalFormPageState
                             ),
                           )
                           .toList(),
-                      onChanged: _salvando
+                      onChanged: salvando
                           ? null
                           : (value) {
                               if (value == null) return;
-                              setState(() {
-                                _abordagemSelecionada = value;
-                              });
+                              ref.read(_abordagemProvider.notifier).state =
+                                  value;
                             },
                     ),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(
-                      initialValue: _termoSelecionado,
+                      initialValue: termoSelecionado,
                       decoration: const InputDecoration(
                         labelText:
                             'Como prefere se referir à pessoa atendida?',
@@ -201,13 +209,11 @@ class _PerfilProfissionalFormPageState
                             ),
                           )
                           .toList(),
-                      onChanged: _salvando
+                      onChanged: salvando
                           ? null
                           : (value) {
                               if (value == null) return;
-                              setState(() {
-                                _termoSelecionado = value;
-                              });
+                              ref.read(_termoProvider.notifier).state = value;
                             },
                     ),
                   ],
@@ -247,10 +253,12 @@ class _PerfilProfissionalFormPageState
                 ),
               ),
             ),
+            const SizedBox(height: 16),
+            _secaoConsentimento(corPrincipal),
             const SizedBox(height: 24),
             FilledButton.icon(
-              onPressed: _salvando ? null : _salvarPerfil,
-              icon: _salvando
+              onPressed: salvando ? null : _salvarPerfil,
+              icon: salvando
                   ? const SizedBox(
                       width: 18,
                       height: 18,
@@ -261,7 +269,7 @@ class _PerfilProfissionalFormPageState
                     )
                   : const Icon(Icons.check_circle_outline),
               label: Text(
-                _salvando ? 'Salvando...' : 'Salvar e começar',
+                salvando ? 'Salvando...' : 'Salvar e começar',
               ),
               style: FilledButton.styleFrom(
                 backgroundColor: corPrincipal,
@@ -283,5 +291,68 @@ class _PerfilProfissionalFormPageState
       return termoLimpo;
     }
     return termoLimpo[0].toUpperCase() + termoLimpo.substring(1);
+  }
+
+  Widget _secaoConsentimento(Color corPrincipal) {
+    final aceitou = ref.watch(_aceitouTermosProvider);
+
+    return Card(
+      elevation: 0,
+      color: Colors.blueGrey.shade50,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: Colors.blueGrey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Checkbox(
+                  value: aceitou,
+                  activeColor: corPrincipal,
+                  onChanged: (value) {
+                    ref.read(_aceitouTermosProvider.notifier).state =
+                        value ?? false;
+                  },
+                ),
+                const Expanded(
+                  child: Text(
+                    'Eu li e aceito os Termos de Uso e a Politica de Privacidade.',
+                    style: TextStyle(height: 1.4),
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const TermosUsoPage()),
+                    );
+                  },
+                  child: const Text('Termos de Uso'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const PoliticaPrivacidadePage()),
+                    );
+                  },
+                  child: const Text('Politica de Privacidade'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
