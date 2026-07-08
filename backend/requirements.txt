@@ -1,6 +1,7 @@
 fastapi
 uvicorn
-openai
+openai>=1.0.0,<2.0.0
+httpx
 google-genai
 python-dotenv
 python-multipart

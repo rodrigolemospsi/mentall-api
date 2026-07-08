@@ -1,6 +1,7 @@
 import base64
 import io
 import os
+import traceback
 
 from openai import OpenAI
 
@@ -32,5 +33,5 @@ def transcrever_audio(audio_base64: str, formato: str = "wav") -> dict:
         return {
             "sucesso": False,
             "transcricao": "",
-            "erro": f"Erro ao transcrever áudio: {str(e)}",
+            "erro": f"Erro ao transcrever áudio: {type(e).__name__}: {str(e)}",
         }

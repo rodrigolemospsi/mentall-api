@@ -16,7 +16,7 @@ class ApiClient {
 
   static String get baseUrlExibicao => baseUrl;
 
-  static const Duration timeout = Duration(seconds: 30);
+  static const Duration timeout = Duration(seconds: 120);
 
   static String? _authToken;
 
