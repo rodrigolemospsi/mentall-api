@@ -107,7 +107,18 @@ app.add_middleware(
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 def health():
-    return HealthResponse(status="ok", versao="1.0.0")
+    openai_key = os.getenv("OPENAI_API_KEY")
+    project_id = os.getenv("OPENAI_PROJECT_ID")
+    return HealthResponse(
+        status="ok",
+        versao="1.0.0",
+        debug_info={
+            "openai_key_configured": bool(openai_key),
+            "openai_key_prefix": (openai_key[:20] + "...") if openai_key else "N/A",
+            "openai_project_id_configured": bool(project_id),
+            "openai_project_id": project_id or "N/A",
+        },
+    )
 
 
 @app.post("/auth/login", response_model=LoginResponse, tags=["Autenticacao"])

@@ -45,6 +45,7 @@ class SinteseResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str = "ok"
     versao: str = "1.0.0"
+    debug_info: dict | None = None
 
 
 class LoginRequest(BaseModel):
