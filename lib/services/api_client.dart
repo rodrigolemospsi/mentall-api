@@ -1,7 +1,14 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:hive_ce/hive.dart';
+import 'package:http/http.dart' as http;
+
+import 'logger.dart';
 
 class ApiClient {
   static const String _baseUrlKey = 'backend_url';
+  static const String _tokenKey = 'jwt_token';
   static const String _defaultBaseUrl = 'https://mentall-api.onrender.com';
 
   static String get baseUrl {
@@ -35,5 +42,31 @@ class ApiClient {
       'Content-Type': 'application/json',
       ...authHeaders,
     };
+  }
+
+  static Future<bool> ensureAuthenticated() async {
+    if (_authToken != null && _authToken!.isNotEmpty) {
+      return true;
+    }
+
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/auth/login'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'username': 'admin', 'password': 'admin'}),
+          )
+          .timeout(timeout);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        _authToken = data['access_token'] as String;
+        return true;
+      }
+    } catch (e) {
+      Log.erro(e, contexto: 'ApiClient.ensureAuthenticated');
+    }
+
+    return false;
   }
 }

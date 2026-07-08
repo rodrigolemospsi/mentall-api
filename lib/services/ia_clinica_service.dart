@@ -127,6 +127,13 @@ class IaClinicaService {
     }
 
     try {
+      final autenticado = await ApiClient.ensureAuthenticated();
+      if (!autenticado) {
+        return ResultadoIaClinica.falha(
+          erro: 'Não foi possível autenticar com o servidor. Verifique sua conexão.',
+        );
+      }
+
       final response = await http
           .post(
             Uri.parse('${ApiClient.baseUrl}/gerar-sintese'),
