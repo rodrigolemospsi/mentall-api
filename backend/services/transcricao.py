@@ -7,10 +7,14 @@ from openai import OpenAI
 
 
 def _client():
-    return OpenAI(
-        api_key=os.getenv("OPENAI_API_KEY"),
-        project=os.getenv("OPENAI_PROJECT_ID"),
-    )
+    api_key = os.getenv("OPENAI_API_KEY")
+    project_id = os.getenv("OPENAI_PROJECT_ID")
+    if not api_key:
+        raise Exception("OPENAI_API_KEY not set")
+    kwargs = {"api_key": api_key}
+    if project_id:
+        kwargs["project"] = project_id
+    return OpenAI(**kwargs)
 
 
 def transcrever_audio(audio_base64: str, formato: str = "wav") -> dict:
