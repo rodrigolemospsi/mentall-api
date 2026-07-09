@@ -11,9 +11,12 @@ import '../models/sessao.dart';
 import 'logger.dart';
 
 class PdfExportService {
-  static const PdfColor _corPrimaria = PdfColor.fromInt(0xFF1F6F78);
-  static const PdfColor _corSecundaria = PdfColor.fromInt(0xFF455A64);
-  static const PdfColor _corFundo = PdfColor.fromInt(0xFFF5F5F5);
+  static const PdfColor _primaria = PdfColor.fromInt(0xFF2563EB);
+  static const PdfColor _primariaClara = PdfColor.fromInt(0xFFDBEAFE);
+  static const PdfColor _secundaria = PdfColor.fromInt(0xFF64748B);
+  static const PdfColor _fundo = PdfColor.fromInt(0xFFF8FAFC);
+  static const PdfColor _superficie = PdfColor.fromInt(0xFFF1F5F9);
+  static const PdfColor _linha = PdfColor.fromInt(0xFFE2E8F0);
 
   PdfExportService();
 
@@ -157,18 +160,18 @@ class PdfExportService {
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(24),
+        margin: const pw.EdgeInsets.all(28),
         header: (context) => _cabecalhoPagina(perfil),
         footer: (context) => _rodapePagina(context),
         build: (context) => [
           _tituloSecao('Histórico Clínico'),
-          pw.SizedBox(height: 4),
+          pw.SizedBox(height: 0),
           pw.Text(
             paciente.nomeExibicao,
             style: pw.TextStyle(
-              fontSize: 18,
+              fontSize: 16,
               fontWeight: pw.FontWeight.bold,
-              color: _corPrimaria,
+              color: _primaria,
             ),
           ),
           pw.SizedBox(height: 16),
@@ -180,7 +183,7 @@ class PdfExportService {
             pw.Text(
               'Nenhuma sessão registrada.',
               style: pw.TextStyle(
-                color: _corSecundaria,
+                color: _secundaria,
                 fontSize: 12,
               ),
             )
@@ -202,28 +205,30 @@ class PdfExportService {
 
   pw.Widget _cabecalhoPagina(PerfilProfissional perfil) {
     return pw.Container(
-      padding: const pw.EdgeInsets.only(bottom: 8),
+      padding: const pw.EdgeInsets.only(bottom: 6),
       decoration: pw.BoxDecoration(
         border: pw.Border(
-          bottom: pw.BorderSide(color: _corPrimaria, width: 1.5),
+          bottom: pw.BorderSide(color: _linha, width: 0.5),
         ),
       ),
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: pw.CrossAxisAlignment.end,
         children: [
           pw.Text(
             'MentAll',
             style: pw.TextStyle(
-              fontSize: 16,
+              fontSize: 13,
               fontWeight: pw.FontWeight.bold,
-              color: _corPrimaria,
+              color: _primaria,
+              letterSpacing: 1.2,
             ),
           ),
           pw.Text(
             perfil.nomeExibicao,
             style: pw.TextStyle(
-              fontSize: 10,
-              color: _corSecundaria,
+              fontSize: 8,
+              color: _secundaria,
             ),
           ),
         ],
@@ -234,15 +239,15 @@ class PdfExportService {
   pw.Widget _rodapePagina(pw.Context context) {
     final pageCount = context.pageNumber;
     return pw.Container(
-      padding: const pw.EdgeInsets.only(top: 8),
+      padding: const pw.EdgeInsets.only(top: 6),
       decoration: pw.BoxDecoration(
         border: pw.Border(
-          top: pw.BorderSide(color: _corFundo, width: 1),
+          top: pw.BorderSide(color: _linha, width: 0.5),
         ),
       ),
       child: pw.Text(
         'Página $pageCount',
-        style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey),
+        style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey400),
         textAlign: pw.TextAlign.center,
       ),
     );
@@ -257,18 +262,18 @@ class PdfExportService {
   }) {
     return pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.all(24),
+      margin: const pw.EdgeInsets.all(28),
       header: (context) => _cabecalhoPagina(perfil),
       footer: (context) => _rodapePagina(context),
       build: (context) => [
         _tituloSecao('Registro de Sessão'),
-        pw.SizedBox(height: 4),
+        pw.SizedBox(height: 2),
         pw.Text(
           'Sessão ${sessao.numeroSessao} — ${paciente.nomeExibicao}',
           style: pw.TextStyle(
-            fontSize: 18,
+            fontSize: 16,
             fontWeight: pw.FontWeight.bold,
-            color: _corPrimaria,
+            color: _primaria,
           ),
         ),
         pw.SizedBox(height: 16),
@@ -293,46 +298,15 @@ class PdfExportService {
     return pw.Container(
       padding: const pw.EdgeInsets.all(12),
       decoration: pw.BoxDecoration(
-        color: _corFundo,
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+        color: _superficie,
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
       ),
       child: pw.Row(
         children: [
           pw.Expanded(
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                _campoInfo('Data', '$data às $hora'),
-                _campoInfo('Humor', '${sessao.humor}/10'),
-                if (sessao.temaPrincipal.trim().isNotEmpty)
-                  _campoInfo('Tema', sessao.temaPrincipal),
-              ],
-            ),
+            child: _campoInfo('Data', '$data às $hora'),
           ),
-          pw.Container(
-            padding: const pw.EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: 4,
-            ),
-            decoration: pw.BoxDecoration(
-              color: sessao.revisadoPeloProfissional
-                  ? PdfColors.green50
-                  : PdfColors.orange50,
-              borderRadius: const pw.BorderRadius.all(
-                pw.Radius.circular(4),
-              ),
-            ),
-            child: pw.Text(
-              sessao.revisadoPeloProfissional ? 'Revisado' : 'Pendente',
-              style: pw.TextStyle(
-                fontSize: 10,
-                fontWeight: pw.FontWeight.bold,
-                color: sessao.revisadoPeloProfissional
-                    ? PdfColors.green700
-                    : PdfColors.orange700,
-              ),
-            ),
-          ),
+          _badgeRevisao(sessao.revisadoPeloProfissional),
         ],
       ),
     );
@@ -340,20 +314,24 @@ class PdfExportService {
 
   pw.Widget _campoInfo(String rotulo, String valor) {
     return pw.Padding(
-      padding: const pw.EdgeInsets.only(bottom: 2),
+      padding: const pw.EdgeInsets.only(bottom: 4),
       child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(
-            '$rotulo: ',
+            rotulo,
             style: pw.TextStyle(
-              fontSize: 10,
+              fontSize: 9,
               fontWeight: pw.FontWeight.bold,
-              color: _corSecundaria,
+              color: _secundaria,
             ),
           ),
-          pw.Text(
-            valor,
-            style: const pw.TextStyle(fontSize: 10),
+          pw.SizedBox(width: 6),
+          pw.Expanded(
+            child: pw.Text(
+              valor,
+              style: const pw.TextStyle(fontSize: 9),
+            ),
           ),
         ],
       ),
@@ -369,33 +347,32 @@ class PdfExportService {
     void addCampo(String label, String texto) {
       if (texto.trim().isEmpty) return;
       campos.add(pw.Padding(
-        padding: const pw.EdgeInsets.only(bottom: 10),
+        padding: const pw.EdgeInsets.only(bottom: 12),
         child: pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             pw.Text(
-              label,
+              label.toUpperCase(),
               style: pw.TextStyle(
-                fontSize: 11,
+                fontSize: 8,
                 fontWeight: pw.FontWeight.bold,
-                color: _corPrimaria,
+                color: _secundaria,
+                letterSpacing: 0.8,
               ),
             ),
-            pw.SizedBox(height: 2),
+            pw.SizedBox(height: 4),
             pw.Container(
-              width: double.infinity,
-              padding: const pw.EdgeInsets.all(8),
+              padding: const pw.EdgeInsets.only(left: 10),
               decoration: pw.BoxDecoration(
-                color: _corFundo,
-                borderRadius: const pw.BorderRadius.all(
-                  pw.Radius.circular(4),
+                border: pw.Border(
+                  left: pw.BorderSide(color: _primariaClara, width: 2),
                 ),
               ),
               child: pw.Text(
                 texto,
                 style: const pw.TextStyle(
                   fontSize: 10,
-                  height: 1.4,
+                  height: 1.5,
                 ),
               ),
             ),
@@ -404,19 +381,16 @@ class PdfExportService {
       ));
     }
 
+    final sintese = _concatenarSintese(sessao);
+    final formulacao = _concatenarFormulacao(sessao);
+    final intervencoes = _concatenarIntervencoes(sessao);
+
     addCampo('Relato pós-sessão', sessao.relatoPosSessao);
     addCampo('Transcrição', sessao.transcricaoRelato);
-    addCampo(config.eventosLabel, sessao.eventosImportantes);
-    addCampo(config.evolucaoLabel, sessao.evolucaoClinica);
-    addCampo('Observações', sessao.observacoes);
-    addCampo(config.campo1Label, sessao.pensamentosAutomaticos);
-    addCampo(config.campo2Label, sessao.emocoes);
-    addCampo(config.campo3Label, sessao.comportamentos);
-    addCampo(config.intervencoesLabel, sessao.intervencoes);
-    addCampo(config.tecnicasLabel, sessao.tecnicasTcc);
-    addCampo(config.tarefaLabel, sessao.tarefaCasa);
-    addCampo(config.planoLabel, sessao.planoProximaSessao);
-    addCampo('Apontamentos do Copiloto', sessao.apontamentosCopiloto);
+    addCampo('Síntese clínica', sintese);
+    addCampo(config.tituloFormulaClinica, formulacao);
+    addCampo(config.tituloIntervencoes, intervencoes);
+    addCampo('Apontamentos', sessao.apontamentosCopiloto);
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -425,8 +399,8 @@ class PdfExportService {
               pw.Text(
                 'Nenhum conteúdo clínico registrado nesta sessão.',
                 style: pw.TextStyle(
-                  color: _corSecundaria,
-                  fontSize: 11,
+                  color: _secundaria,
+                  fontSize: 10,
                   fontStyle: pw.FontStyle.italic,
                 ),
               ),
@@ -435,22 +409,46 @@ class PdfExportService {
     );
   }
 
+  String _concatenarSintese(Sessao s) {
+    final partes = <String>[];
+    if (s.eventosImportantes.trim().isNotEmpty) partes.add(s.eventosImportantes.trim());
+    if (s.evolucaoClinica.trim().isNotEmpty) partes.add(s.evolucaoClinica.trim());
+    if (s.observacoes.trim().isNotEmpty) partes.add(s.observacoes.trim());
+    return partes.join('\n\n');
+  }
+
+  String _concatenarFormulacao(Sessao s) {
+    final partes = <String>[];
+    if (s.pensamentosAutomaticos.trim().isNotEmpty) partes.add(s.pensamentosAutomaticos.trim());
+    if (s.emocoes.trim().isNotEmpty) partes.add(s.emocoes.trim());
+    if (s.comportamentos.trim().isNotEmpty) partes.add(s.comportamentos.trim());
+    return partes.join('\n\n');
+  }
+
+  String _concatenarIntervencoes(Sessao s) {
+    final partes = <String>[];
+    if (s.intervencoes.trim().isNotEmpty) partes.add(s.intervencoes.trim());
+    if (s.tecnicasTcc.trim().isNotEmpty) partes.add(s.tecnicasTcc.trim());
+    return partes.join('\n\n');
+  }
+
   pw.Widget _secaoRevisao(Sessao sessao) {
     return pw.Container(
-      padding: const pw.EdgeInsets.all(12),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: pw.BoxDecoration(
-        color: _corFundo,
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+        border: pw.Border.all(color: _linha, width: 0.5),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
       ),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(
-            'Controle de revisão',
+            'CONTROLE DE REVISÃO',
             style: pw.TextStyle(
-              fontSize: 12,
+              fontSize: 7,
               fontWeight: pw.FontWeight.bold,
-              color: _corPrimaria,
+              color: _secundaria,
+              letterSpacing: 0.8,
             ),
           ),
           pw.SizedBox(height: 6),
@@ -459,7 +457,7 @@ class PdfExportService {
             sessao.revisadoPeloProfissional ? 'Sim' : 'Não',
           ),
           _campoInfo(
-            'Status de processamento',
+            'Status',
             sessao.statusProcessamento,
           ),
           _campoInfo(
@@ -474,7 +472,7 @@ class PdfExportService {
             ),
           if (sessao.dataProcessamentoIa != null)
             _campoInfo(
-              'Data do processamento por IA',
+              'Processamento IA',
               '${_formatarData(sessao.dataProcessamentoIa!)} às '
                   '${_formatarHorario(sessao.dataProcessamentoIa!)}',
             ),
@@ -487,16 +485,12 @@ class PdfExportService {
     final agora = DateTime.now();
 
     return pw.Container(
-      padding: const pw.EdgeInsets.all(8),
-      decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: PdfColors.grey300, width: 0.5),
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
-      ),
+      padding: const pw.EdgeInsets.symmetric(vertical: 6),
       child: pw.Text(
         'Documento exportado do MentAll em '
         '${_formatarData(agora)} às ${_formatarHorario(agora)}. '
         'Documento clínico para uso profissional.',
-        style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey),
+        style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey400),
         textAlign: pw.TextAlign.center,
       ),
     );
@@ -507,16 +501,16 @@ class PdfExportService {
       margin: const pw.EdgeInsets.only(top: 8),
       padding: const pw.EdgeInsets.all(8),
       decoration: pw.BoxDecoration(
-        color: _corFundo,
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+        color: _fundo,
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
       ),
       child: pw.Text(
         'Este documento pode conter conteúdo auxiliado por inteligência artificial. '
         'A IA é uma ferramenta de apoio à documentação clínica e não substitui o '
         'julgamento profissional do psicólogo. Todo o conteúdo aqui presente foi '
         'revisado e validado pelo profissional responsável.',
-        style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey700),
-        textAlign: pw.TextAlign.justify,
+        style: const pw.TextStyle(fontSize: 6.5, color: PdfColors.grey500, height: 1.4),
+        textAlign: pw.TextAlign.center,
       ),
     );
   }
@@ -525,22 +519,19 @@ class PdfExportService {
     return pw.Container(
       padding: const pw.EdgeInsets.all(12),
       decoration: pw.BoxDecoration(
-        color: _corFundo,
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+        color: _superficie,
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
       ),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           _campoInfo('Nome', paciente.nomeExibicao),
           _campoInfo(
-            'Data de cadastro',
+            'Cadastro',
             _formatarData(paciente.dataCadastro),
           ),
           if (paciente.possuiDataNascimento)
-            _campoInfo(
-              'Idade',
-              paciente.idadeExibicao,
-            ),
+            _campoInfo('Idade', paciente.idadeExibicao),
           if (paciente.possuiContato)
             _campoInfo('Contato', paciente.contatoExibicao),
           if (paciente.possuiObservacoes)
@@ -566,8 +557,8 @@ class PdfExportService {
       pw.Container(
         padding: const pw.EdgeInsets.all(12),
         decoration: pw.BoxDecoration(
-          color: PdfColors.grey50,
-          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+          color: _fundo,
+          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
         ),
         child: pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -580,22 +571,20 @@ class PdfExportService {
                   style: pw.TextStyle(
                     fontSize: 13,
                     fontWeight: pw.FontWeight.bold,
-                    color: _corPrimaria,
+                    color: _primaria,
                   ),
                 ),
                 pw.Text(
                   '${_formatarData(sessao.data)} às '
                   '${_formatarHorario(sessao.data)}',
                   style: pw.TextStyle(
-                    fontSize: 10,
-                    color: _corSecundaria,
+                    fontSize: 9,
+                    color: _secundaria,
                   ),
                 ),
               ],
             ),
-            pw.SizedBox(height: 8),
-            _campoInfo('Tema', sessao.temaPrincipal),
-            _campoInfo('Humor', '${sessao.humor}/10'),
+            pw.SizedBox(height: 6),
             if (sessao.relatoPosSessao.trim().isNotEmpty)
               _campoInfo('Relato', sessao.relatoPosSessao),
           ],
@@ -611,19 +600,20 @@ class PdfExportService {
 
   pw.Widget _tituloSecao(String texto) {
     return pw.Text(
-      texto,
+      texto.toUpperCase(),
       style: pw.TextStyle(
-        fontSize: 14,
+        fontSize: 9,
         fontWeight: pw.FontWeight.bold,
-        color: _corPrimaria,
+        color: _secundaria,
+        letterSpacing: 0.8,
       ),
     );
   }
 
   pw.Widget _linhaSeparadora() {
     return pw.Container(
-      height: 1,
-      color: _corFundo,
+      height: 0.5,
+      color: _linha,
     );
   }
 
@@ -644,7 +634,7 @@ class PdfExportService {
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(24),
+        margin: const pw.EdgeInsets.all(28),
         header: (context) => _cabecalhoPagina(perfil),
         footer: (context) => _rodapePagina(context),
         build: (context) => [
@@ -653,9 +643,9 @@ class PdfExportService {
           pw.Text(
             paciente.nomeExibicao,
             style: pw.TextStyle(
-              fontSize: 18,
+              fontSize: 16,
               fontWeight: pw.FontWeight.bold,
-              color: _corPrimaria,
+              color: _primaria,
             ),
           ),
           pw.SizedBox(height: 16),
@@ -695,7 +685,7 @@ class PdfExportService {
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(24),
+        margin: const pw.EdgeInsets.all(28),
         header: (context) => _cabecalhoPagina(perfil),
         footer: (context) => _rodapePagina(context),
         build: (context) => [
@@ -711,9 +701,9 @@ class PdfExportService {
                     pw.Text(
                       'Sessao ${sessao.numeroSessao} — ${paciente.nomeExibicao}',
                       style: pw.TextStyle(
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: pw.FontWeight.bold,
-                        color: _corPrimaria,
+                        color: _primaria,
                       ),
                     ),
                   ],
@@ -745,7 +735,7 @@ class PdfExportService {
             pw.SizedBox(height: 12),
           ],
           if (sessao.apontamentosCopiloto.trim().isNotEmpty) ...[
-            _tituloSecao('Apontamentos do Copiloto'),
+            _tituloSecao('Apontamentos'),
             pw.SizedBox(height: 4),
             pw.Container(
               padding: const pw.EdgeInsets.all(10),
@@ -795,7 +785,7 @@ class PdfExportService {
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(24),
+        margin: const pw.EdgeInsets.all(28),
         header: (context) => _cabecalhoPagina(perfil),
         footer: (context) => _rodapePagina(context),
         build: (context) => [
@@ -804,9 +794,9 @@ class PdfExportService {
           pw.Text(
             paciente.nomeExibicao,
             style: pw.TextStyle(
-              fontSize: 18,
+              fontSize: 16,
               fontWeight: pw.FontWeight.bold,
-              color: _corPrimaria,
+              color: _primaria,
             ),
           ),
           pw.SizedBox(height: 12),
@@ -820,7 +810,7 @@ class PdfExportService {
             pw.Text(
               'Nenhuma sessao registrada.',
               style: pw.TextStyle(
-                color: _corSecundaria,
+                color: _secundaria,
                 fontSize: 12,
               ),
             )
@@ -847,8 +837,8 @@ class PdfExportService {
     return pw.Container(
       padding: const pw.EdgeInsets.all(12),
       decoration: pw.BoxDecoration(
-        color: _corFundo,
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+        color: _superficie,
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
       ),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -856,7 +846,7 @@ class PdfExportService {
           _campoInfo('Profissional', perfil.nomeExibicao),
           if (perfil.possuiRegistroProfissional)
             _campoInfo('Registro', perfil.registroProfissional),
-          _campoInfo('Abordagem clinica', config.nomeAbordagem),
+          _campoInfo('Abordagem clínica', config.nomeAbordagem),
         ],
       ),
     );
@@ -867,42 +857,37 @@ class PdfExportService {
       return pw.Text(
         'Nenhuma sessao registrada.',
         style: pw.TextStyle(
-          color: _corSecundaria,
-          fontSize: 11,
+          color: _secundaria,
+          fontSize: 10,
           fontStyle: pw.FontStyle.italic,
         ),
       );
     }
 
     return pw.Table(
-      border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
+      border: pw.TableBorder.all(color: _linha, width: 0.5),
       columnWidths: {
         0: const pw.FlexColumnWidth(0.5),
-        1: const pw.FlexColumnWidth(1.5),
-        2: const pw.FlexColumnWidth(2),
-        3: const pw.FlexColumnWidth(1),
-        4: const pw.FlexColumnWidth(1),
+        1: const pw.FlexColumnWidth(2),
+        2: const pw.FlexColumnWidth(1),
       },
       children: [
         pw.TableRow(
-          decoration: pw.BoxDecoration(color: _corPrimaria),
+          decoration: pw.BoxDecoration(color: _primaria),
           children: [
             _celulaTabela('#', bold: true, corFonte: PdfColors.white),
             _celulaTabela('Data', bold: true, corFonte: PdfColors.white),
-            _celulaTabela('Tema', bold: true, corFonte: PdfColors.white),
-            _celulaTabela('Humor', bold: true, corFonte: PdfColors.white),
             _celulaTabela('Status', bold: true, corFonte: PdfColors.white),
           ],
         ),
         ...sessoes.map(
           (s) => pw.TableRow(
+            decoration: pw.BoxDecoration(
+              color: sessoes.indexOf(s).isEven ? PdfColors.white : _fundo,
+            ),
             children: [
               _celulaTabela('${s.numeroSessao}'),
               _celulaTabela(_formatarData(s.data)),
-              _celulaTabela(s.temaPrincipal.trim().isEmpty
-                  ? '—'
-                  : s.temaPrincipal),
-              _celulaTabela('${s.humor}/10'),
               _celulaTabela(
                 s.revisadoPeloProfissional ? 'Revisado' : 'Pendente',
                 corFonte: s.revisadoPeloProfissional
@@ -938,7 +923,8 @@ class PdfExportService {
     final widgets = <pw.Widget>[];
 
     for (final s in sessoes) {
-      if (s.evolucaoClinica.trim().isEmpty && s.observacoes.trim().isEmpty) {
+      final sintese = _concatenarSintese(s);
+      if (sintese.isEmpty) {
         continue;
       }
 
@@ -947,9 +933,9 @@ class PdfExportService {
           padding: const pw.EdgeInsets.all(10),
           margin: const pw.EdgeInsets.only(bottom: 8),
           decoration: pw.BoxDecoration(
-            color: PdfColors.grey50,
+            color: _fundo,
             borderRadius:
-                const pw.BorderRadius.all(pw.Radius.circular(6)),
+                const pw.BorderRadius.all(pw.Radius.circular(8)),
           ),
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -957,28 +943,16 @@ class PdfExportService {
               pw.Text(
                 'Sessao ${s.numeroSessao} — ${_formatarData(s.data)}',
                 style: pw.TextStyle(
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: pw.FontWeight.bold,
-                  color: _corPrimaria,
+                  color: _primaria,
                 ),
               ),
               pw.SizedBox(height: 4),
-              if (s.evolucaoClinica.trim().isNotEmpty) ...[
-                pw.Text(
-                  s.evolucaoClinica,
-                  style: const pw.TextStyle(fontSize: 10, height: 1.4),
-                ),
-                pw.SizedBox(height: 4),
-              ],
-              if (s.observacoes.trim().isNotEmpty)
-                pw.Text(
-                  s.observacoes,
-                  style: pw.TextStyle(
-                    fontSize: 10,
-                    height: 1.4,
-                    color: _corSecundaria,
-                  ),
-                ),
+              pw.Text(
+                sintese,
+                style: const pw.TextStyle(fontSize: 9, height: 1.5),
+              ),
             ],
           ),
         ),
@@ -990,8 +964,8 @@ class PdfExportService {
         pw.Text(
           'Nenhuma evolucao clinica registrada.',
           style: pw.TextStyle(
-            color: _corSecundaria,
-            fontSize: 11,
+            color: _secundaria,
+            fontSize: 10,
             fontStyle: pw.FontStyle.italic,
           ),
         ),
@@ -1014,19 +988,19 @@ class PdfExportService {
         pw.Row(
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
-            pw.Text(
-              'Sessao ${sessao.numeroSessao} — ${_formatarData(sessao.data)} as ${_formatarHorario(sessao.data)}',
-              style: pw.TextStyle(
-                fontSize: 14,
-                fontWeight: pw.FontWeight.bold,
-                color: _corPrimaria,
+            pw.Expanded(
+              child: pw.Text(
+                'Sessao ${sessao.numeroSessao} — ${_formatarData(sessao.data)} às ${_formatarHorario(sessao.data)}',
+                style: pw.TextStyle(
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                  color: _primaria,
+                ),
               ),
             ),
             _badgeRevisao(sessao.revisadoPeloProfissional),
           ],
         ),
-        pw.SizedBox(height: 8),
-        _cabecalhoSessao(sessao),
         pw.SizedBox(height: 8),
         _secaoClinica(sessao, config),
         pw.SizedBox(height: 8),
@@ -1042,11 +1016,15 @@ class PdfExportService {
       decoration: pw.BoxDecoration(
         color: revisado ? PdfColors.green50 : PdfColors.orange50,
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+        border: pw.Border.all(
+          color: revisado ? PdfColors.green200 : PdfColors.orange200,
+          width: 0.5,
+        ),
       ),
       child: pw.Text(
         revisado ? 'Revisado' : 'Pendente',
         style: pw.TextStyle(
-          fontSize: 10,
+          fontSize: 8,
           fontWeight: pw.FontWeight.bold,
           color: revisado ? PdfColors.green700 : PdfColors.orange700,
         ),
@@ -1057,14 +1035,15 @@ class PdfExportService {
   pw.Widget _blocoTexto(String texto) {
     return pw.Container(
       width: double.infinity,
-      padding: const pw.EdgeInsets.all(10),
+      padding: const pw.EdgeInsets.only(left: 10),
       decoration: pw.BoxDecoration(
-        color: _corFundo,
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+        border: pw.Border(
+          left: pw.BorderSide(color: _primariaClara, width: 2),
+        ),
       ),
       child: pw.Text(
         texto,
-        style: const pw.TextStyle(fontSize: 10, height: 1.4),
+        style: const pw.TextStyle(fontSize: 10, height: 1.5),
       ),
     );
   }
