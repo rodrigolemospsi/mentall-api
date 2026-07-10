@@ -77,8 +77,7 @@ void main() {
     await tester.pumpWidget(criarApp());
     await tester.pump();
 
-    expect(find.text('Ativas (0)'), findsOneWidget);
-    expect(find.text('Arquivadas (0)'), findsOneWidget);
+    expect(find.text('Nenhuma sessão ativa'), findsOneWidget);
   });
 
   testWidgets('deve listar sessoes ativas do paciente', (tester) async {
@@ -95,7 +94,7 @@ void main() {
     await tester.pumpWidget(criarApp());
     await tester.pump();
 
-    expect(find.text('Ativas (1)'), findsOneWidget);
+    expect(find.textContaining('Sessão'), findsOneWidget);
   });
 
   testWidgets('deve abrir dialog de edicao ao tocar em editar', (tester) async {

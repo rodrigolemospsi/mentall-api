@@ -5,7 +5,7 @@ class TermosUsoPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color corPrincipal = Color(0xFF1F6F78);
+    const Color corPrincipal = Color(0xFF2563EB);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FA),
@@ -124,7 +124,7 @@ class _Termo extends StatelessWidget {
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF1F6F78),
+              color: Color(0xFF2563EB),
             ),
           ),
           const SizedBox(height: 8),

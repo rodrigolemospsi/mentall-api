@@ -23,6 +23,7 @@ class ResultadoIaClinica {
   final String tecnicas;
   final String tarefaCasa;
   final String planoProximaSessao;
+  final String artigosSugeridos;
 
   final String erro;
 
@@ -40,6 +41,7 @@ class ResultadoIaClinica {
     required this.tecnicas,
     required this.tarefaCasa,
     required this.planoProximaSessao,
+    required this.artigosSugeridos,
     required this.erro,
   });
 
@@ -56,6 +58,7 @@ class ResultadoIaClinica {
     required String tecnicas,
     required String tarefaCasa,
     required String planoProximaSessao,
+    required String artigosSugeridos,
   }) {
     return ResultadoIaClinica(
       sucesso: true,
@@ -71,6 +74,7 @@ class ResultadoIaClinica {
       tecnicas: tecnicas,
       tarefaCasa: tarefaCasa,
       planoProximaSessao: planoProximaSessao,
+      artigosSugeridos: artigosSugeridos,
       erro: '',
     );
   }
@@ -92,6 +96,7 @@ class ResultadoIaClinica {
       tecnicas: '',
       tarefaCasa: '',
       planoProximaSessao: '',
+      artigosSugeridos: '',
       erro: erro,
     );
   }
@@ -106,8 +111,7 @@ class IaClinicaService {
     required String abordagemClinica,
     required String transcricaoRelato,
     required String relatoManual,
-    required String temaPrincipal,
-    required int humor,
+    String temaPrincipal = '',
   }) async {
     final transcricaoLimpa = transcricaoRelato.trim();
     final relatoManualLimpo = relatoManual.trim();
@@ -144,11 +148,10 @@ class IaClinicaService {
               'nome_pessoa_atendida': nomeLimpo.isNotEmpty ? nomeLimpo : nomePessoaAtendida,
               'termo_pessoa_atendida': termoLimpo.isNotEmpty ? termoLimpo : termoPessoaAtendida,
               'abordagem_clinica': abordagemLimpa.isNotEmpty ? abordagemLimpa : 'Integrativa',
-              'transcricao_relato': transcricaoLimpa,
-              'relato_manual': relatoManualLimpo,
-              'tema_principal': temaLimpo,
-              'humor': humor,
-            }),
+            'transcricao_relato': transcricaoLimpa,
+            'relato_manual': relatoManualLimpo,
+            'tema_principal': temaLimpo,
+          }),
           )
           .timeout(ApiClient.timeout);
 
@@ -176,6 +179,8 @@ class IaClinicaService {
             tarefaCasa: data['tarefa_casa'] as String? ?? '',
             planoProximaSessao:
                 data['plano_proxima_sessao'] as String? ?? '',
+            artigosSugeridos:
+                data['artigos_sugeridos'] as String? ?? '',
           );
         } else {
           return ResultadoIaClinica.falha(

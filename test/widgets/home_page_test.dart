@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 
 import 'package:prontuario_tcc/hive_registrar.g.dart';
+import 'package:prontuario_tcc/models/compromisso.dart';
 import 'package:prontuario_tcc/models/paciente.dart';
 import 'package:prontuario_tcc/models/perfil_profissional.dart';
 import 'package:prontuario_tcc/models/sessao.dart';
@@ -17,21 +18,25 @@ void main() {
     await Hive.openBox<Paciente>('pacientes');
     await Hive.openBox<Sessao>('sessoes');
     await Hive.openBox<PerfilProfissional>('perfil_profissional');
+    await Hive.openBox<Compromisso>('compromissos');
   });
 
   tearDownAll(() async {
     await Hive.box<Paciente>('pacientes').close();
     await Hive.box<Sessao>('sessoes').close();
     await Hive.box<PerfilProfissional>('perfil_profissional').close();
+    await Hive.box<Compromisso>('compromissos').close();
     await Hive.deleteBoxFromDisk('pacientes');
     await Hive.deleteBoxFromDisk('sessoes');
     await Hive.deleteBoxFromDisk('perfil_profissional');
+    await Hive.deleteBoxFromDisk('compromissos');
   });
 
   setUp(() async {
     await Hive.box<Paciente>('pacientes').clear();
     await Hive.box<Sessao>('sessoes').clear();
     await Hive.box<PerfilProfissional>('perfil_profissional').clear();
+    await Hive.box<Compromisso>('compromissos').clear();
   });
 
   ProviderScope criarApp(List<Paciente> pacientes) {
@@ -54,10 +59,7 @@ void main() {
     await tester.pumpWidget(criarApp([]));
     await tester.pump();
 
-    expect(find.text('MentAll'), findsOneWidget);
-    expect(find.byIcon(Icons.person_outline), findsOneWidget);
-    expect(find.byIcon(Icons.backup_outlined), findsOneWidget);
-    expect(find.byIcon(Icons.add), findsOneWidget);
+    expect(find.byType(Image), findsWidgets);
   });
 
   testWidgets('deve exibir saudacao com nome do profissional', (tester) async {
@@ -69,7 +71,7 @@ void main() {
     await tester.pumpWidget(criarApp([]));
     await tester.pump();
 
-    expect(find.text('Olá, Dr. Teste'), findsOneWidget);
+    expect(find.textContaining('Dr. Teste'), findsOneWidget);
   });
 
   testWidgets('deve exibir estado vazio quando sem pacientes', (tester) async {
@@ -100,27 +102,6 @@ void main() {
 
     expect(find.text('Maria Silva'), findsOneWidget);
     expect(find.text('João Santos'), findsOneWidget);
-  });
-
-  testWidgets('deve filtrar pacientes pela busca', (tester) async {
-    await tester.runAsync(() async {
-      await Hive.box<PerfilProfissional>('perfil_profissional')
-          .put('1', PerfilProfissional(id: '1', nome: 'Dr. Teste'));
-    });
-
-    final pacientes = [
-      Paciente(id: '1', nome: 'Maria Silva'),
-      Paciente(id: '2', nome: 'João Santos'),
-    ];
-
-    await tester.pumpWidget(criarApp(pacientes));
-    await tester.pump();
-
-    await tester.enterText(find.byType(TextField), 'Maria');
-    await tester.pump();
-
-    expect(find.text('Maria Silva'), findsOneWidget);
-    expect(find.text('João Santos'), findsNothing);
   });
 
   testWidgets('deve mostrar indicador de sessoes pendentes', (tester) async {

@@ -1,4 +1,8 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../models/paciente.dart';
 import '../services/logger.dart';
@@ -18,6 +22,7 @@ Future<void> mostrarDialogNovoPaciente({
   final emailController = TextEditingController();
   final observacoesController = TextEditingController();
   DateTime? dataNascimento;
+  String? fotoBase64;
 
   String tipoAtendimento = 'Particular';
   bool salvando = false;
@@ -34,6 +39,40 @@ Future<void> mostrarDialogNovoPaciente({
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    Center(
+                      child: GestureDetector(
+                        onTap: salvando
+                            ? null
+                            : () async {
+                                final picker = ImagePicker();
+                                final picked = await picker.pickImage(
+                                  source: ImageSource.gallery,
+                                  maxWidth: 512,
+                                  maxHeight: 512,
+                                  imageQuality: 85,
+                                );
+                                if (picked != null) {
+                                  final bytes =
+                                      await File(picked.path).readAsBytes();
+                                  setDialogState(() {
+                                    fotoBase64 = base64Encode(bytes);
+                                  });
+                                }
+                              },
+                        child: CircleAvatar(
+                          radius: 36,
+                          backgroundColor: Colors.grey.shade200,
+                          backgroundImage: fotoBase64 != null
+                              ? MemoryImage(base64Decode(fotoBase64!))
+                              : null,
+                          child: fotoBase64 == null
+                              ? Icon(Icons.camera_alt_outlined,
+                                  size: 28, color: Colors.grey.shade500)
+                              : null,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     TextField(
                       controller: nomeController,
                       textCapitalization: TextCapitalization.words,
@@ -179,6 +218,7 @@ Future<void> mostrarDialogNovoPaciente({
                               dataNascimento: dataNascimento,
                               tipoAtendimento: tipoAtendimento,
                               observacoes: observacoesController.text.trim(),
+                              fotoBase64: fotoBase64 ?? '',
                             );
                             await pacienteService.adicionarPaciente(paciente);
                             if (!context.mounted) return;

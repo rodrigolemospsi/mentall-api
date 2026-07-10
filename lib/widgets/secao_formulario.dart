@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
 
 class SecaoFormulario extends StatelessWidget {
-  final String titulo;
+  final String? titulo;
   final String? subtitulo;
   final List<Widget> children;
 
   const SecaoFormulario({
     super.key,
-    required this.titulo,
+    this.titulo,
     required this.children,
     this.subtitulo,
   });
 
   @override
   Widget build(BuildContext context) {
+    final temTitulo = titulo != null && titulo!.trim().isNotEmpty;
+    final temSubtitulo = subtitulo != null && subtitulo!.trim().isNotEmpty;
+
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(
@@ -24,14 +27,15 @@ class SecaoFormulario extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              titulo,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+            if (temTitulo)
+              Text(
+                titulo!,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            if (subtitulo != null) ...[
+            if (temSubtitulo) ...[
               const SizedBox(height: 6),
               Text(
                 subtitulo!,
@@ -41,7 +45,7 @@ class SecaoFormulario extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(height: 16),
+            if (temTitulo || temSubtitulo) const SizedBox(height: 16),
             ...children,
           ],
         ),

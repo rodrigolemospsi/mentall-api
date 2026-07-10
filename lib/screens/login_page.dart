@@ -96,7 +96,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    const Color corPrincipal = Color(0xFF1F6F78);
+    const Color corPrincipal = Color(0xFF2563EB);
     final erro = ref.watch(_erroProvider);
     final processando = ref.watch(_processandoProvider);
     final authService = ref.read(authServiceProvider);
@@ -124,13 +124,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text(
-                  'MentAll',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: corPrincipal,
-                  ),
+                Image.asset(
+                  'assets/images/logo_mentall.png',
+                  height: 48,
                 ),
                 const SizedBox(height: 8),
                 Text(

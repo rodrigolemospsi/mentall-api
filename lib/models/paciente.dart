@@ -34,6 +34,12 @@ class Paciente extends HiveObject {
   @HiveField(9)
   DateTime? dataAtualizacao;
 
+  @HiveField(10)
+  String modoAtendimento;
+
+  @HiveField(11)
+  String fotoBase64;
+
   Paciente({
     required this.id,
     required this.nome,
@@ -41,6 +47,8 @@ class Paciente extends HiveObject {
     this.contato = '',
     this.email = '',
     this.tipoAtendimento = 'Particular',
+    this.modoAtendimento = '',
+    this.fotoBase64 = '',
     this.observacoes = '',
     this.ativo = true,
     DateTime? dataCadastro,
@@ -58,6 +66,8 @@ class Paciente extends HiveObject {
     'Híbrido',
     'Outro',
   ];
+
+  bool get possuiFoto => fotoBase64.trim().isNotEmpty;
 
   bool get possuiEmail {
     return email.trim().isNotEmpty;
@@ -184,6 +194,8 @@ class Paciente extends HiveObject {
     String? contato,
     String? email,
     String? tipoAtendimento,
+    String? modoAtendimento,
+    String? fotoBase64,
     String? observacoes,
     bool? ativo,
     DateTime? dataCadastro,
@@ -198,6 +210,8 @@ class Paciente extends HiveObject {
       contato: contato ?? this.contato,
       email: email ?? this.email,
       tipoAtendimento: tipoAtendimento ?? this.tipoAtendimento,
+      modoAtendimento: modoAtendimento ?? this.modoAtendimento,
+      fotoBase64: fotoBase64 ?? this.fotoBase64,
       observacoes: observacoes ?? this.observacoes,
       ativo: ativo ?? this.ativo,
       dataCadastro: dataCadastro ?? this.dataCadastro,

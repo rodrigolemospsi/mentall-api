@@ -152,6 +152,9 @@ class Sessao extends HiveObject {
   @HiveField(29)
   String transcricaoRevisada;
 
+  @HiveField(30)
+  String artigosSugeridos;
+
   Sessao({
     required this.id,
     required this.pacienteId,
@@ -183,6 +186,7 @@ class Sessao extends HiveObject {
     this.erroProcessamentoIa = '',
     this.origemRelato = 'manual',
     this.audioRelatoBase64 = '',
+    this.artigosSugeridos = '',
   });
 
   bool get possuiRelatoPosSessao => relatoPosSessao.trim().isNotEmpty;
@@ -349,6 +353,7 @@ class Sessao extends HiveObject {
     String? origemRelato,
     String? audioRelatoBase64,
     String? transcricaoRevisada,
+    String? artigosSugeridos,
   }) {
     return Sessao(
       id: id ?? this.id,
@@ -375,6 +380,7 @@ class Sessao extends HiveObject {
       audioRelatoPath: audioRelatoPath ?? this.audioRelatoPath,
       transcricaoRelato: transcricaoRelato ?? this.transcricaoRelato,
       transcricaoRevisada: transcricaoRevisada ?? this.transcricaoRevisada,
+      artigosSugeridos: artigosSugeridos ?? this.artigosSugeridos,
       dataProcessamentoIa:
           dataProcessamentoIa ?? this.dataProcessamentoIa,
       geradoComIa: geradoComIa ?? this.geradoComIa,

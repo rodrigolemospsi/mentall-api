@@ -46,7 +46,7 @@ class PacienteResumoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color corPrincipal = Color(0xFF1F6F78);
+    const Color corPrincipal = Color(0xFF2563EB);
 
     return Card(
       elevation: 1,
@@ -120,12 +120,14 @@ class PacienteResumoCard extends StatelessWidget {
               titulo: 'Sessões ativas',
               valor: quantidadeSessoes.toString(),
             ),
-            const SizedBox(height: 10),
-            InfoLinha(
-              icone: Icons.archive_outlined,
-              titulo: 'Sessões arquivadas',
-              valor: quantidadeSessoesArquivadas.toString(),
-            ),
+            if (quantidadeSessoesArquivadas > 0) ...[
+              const SizedBox(height: 10),
+              InfoLinha(
+                icone: Icons.archive_outlined,
+                titulo: 'Sessões arquivadas',
+                valor: quantidadeSessoesArquivadas.toString(),
+              ),
+            ],
             if (paciente.observacoes.trim().isNotEmpty) ...[
               const SizedBox(height: 16),
               const Text(

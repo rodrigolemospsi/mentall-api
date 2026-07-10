@@ -525,7 +525,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    const Color corPrincipal = Color(0xFF1F6F78);
+    const Color corPrincipal = Color(0xFF2563EB);
     ref.watch(_refreshProvider);
 
     return DefaultTabController(
@@ -607,8 +607,6 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  if (sessoesAtivas.isNotEmpty)
-                    _acessoUltimaSessao(sessoesAtivas.first, corPrincipal),
                   _tabBarComListas(
                     corPrincipal: corPrincipal,
                     sessoesAtivas: sessoesAtivas,
@@ -623,48 +621,31 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
     );
   }
 
-  Widget _acessoUltimaSessao(Sessao ultimaSessao, Color corPrincipal) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: OutlinedButton.icon(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => SessaoFormPage(
-                paciente: widget.paciente,
-                sessaoExistente: ultimaSessao,
-              ),
-            ),
-          );
-        },
-        icon: const Icon(Icons.skip_next_outlined),
-        label: Text(
-          'Ultima sessao (${_formatarDataRelativa(ultimaSessao.data)})',
-        ),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: corPrincipal,
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-        ),
-      ),
-    );
-  }
-
-  String _formatarDataRelativa(DateTime data) {
-    final hoje = DateTime.now();
-    final diff = hoje.difference(data);
-
-    if (diff.inDays == 0) return 'hoje';
-    if (diff.inDays == 1) return 'ontem';
-    if (diff.inDays < 7) return 'ha ${diff.inDays} dias';
-    return '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}/${data.year}';
-  }
 
   Widget _tabBarComListas({
     required Color corPrincipal,
     required List<Sessao> sessoesAtivas,
     required List<Sessao> sessoesArquivadas,
   }) {
+    if (sessoesArquivadas.isEmpty) {
+      return Card(
+        elevation: 1,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.55,
+          child: ListaSessoesAtivas(
+            sessoes: sessoesAtivas,
+            paciente: widget.paciente,
+            termoSingular: _termoSingular,
+            doOuDa: _doOuDa,
+            onArquivar: _confirmarArquivamentoSessao,
+          ),
+        ),
+      );
+    }
+
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(

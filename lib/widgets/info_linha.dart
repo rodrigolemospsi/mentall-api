@@ -14,7 +14,7 @@ class InfoLinha extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color corPrincipal = Color(0xFF1F6F78);
+    const Color corPrincipal = Color(0xFF2563EB);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,

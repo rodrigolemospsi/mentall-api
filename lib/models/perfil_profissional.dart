@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:hive_ce/hive.dart';
 
+import 'endereco_consultorio.dart';
 import 'enums.dart';
 
 part 'perfil_profissional.g.dart';
@@ -27,6 +30,12 @@ class PerfilProfissional extends HiveObject {
   @HiveField(6)
   DateTime? dataAtualizacao;
 
+  @HiveField(7)
+  String modalidadesAtendimentoJson;
+
+  @HiveField(8)
+  String enderecosConsultoriosJson;
+
   PerfilProfissional({
     required this.id,
     required this.nome,
@@ -35,6 +44,8 @@ class PerfilProfissional extends HiveObject {
     this.termoPessoaAtendida = 'paciente',
     DateTime? dataCriacao,
     this.dataAtualizacao,
+    this.modalidadesAtendimentoJson = '[]',
+    this.enderecosConsultoriosJson = '[]',
   }) : dataCriacao = dataCriacao ?? DateTime.now();
 
   static const String abordagemClinicaPadrao = 'Integrativa';
@@ -181,6 +192,56 @@ class PerfilProfissional extends HiveObject {
     return 'Sessões arquivadas';
   }
 
+  List<String> get modalidadesAtendimento {
+    try {
+      final decoded = jsonDecode(modalidadesAtendimentoJson);
+      if (decoded is List) {
+        return decoded.cast<String>();
+      }
+    } catch (_) {}
+    return <String>[];
+  }
+
+  set modalidadesAtendimento(List<String> valor) {
+    modalidadesAtendimentoJson = jsonEncode(valor);
+  }
+
+  List<EnderecoConsultorio> get enderecosConsultorios {
+    try {
+      final decoded = jsonDecode(enderecosConsultoriosJson);
+      if (decoded is List) {
+        return decoded
+            .map((e) => EnderecoConsultorio.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (_) {}
+    return <EnderecoConsultorio>[];
+  }
+
+  set enderecosConsultorios(List<EnderecoConsultorio> valor) {
+    enderecosConsultoriosJson =
+        jsonEncode(valor.map((e) => e.toJson()).toList());
+  }
+
+  bool get atendeOnline =>
+      modalidadesAtendimento.contains('Online');
+
+  bool get atendePresencial =>
+      modalidadesAtendimento.contains('Presencial');
+
+  List<String> get opcoesModoAtendimento {
+    final opcoes = <String>[];
+    if (atendeOnline) {
+      opcoes.add('Online');
+    }
+    for (final endereco in enderecosConsultorios) {
+      if (endereco.apelido.trim().isNotEmpty) {
+        opcoes.add(endereco.apelido.trim());
+      }
+    }
+    return opcoes;
+  }
+
   String get nenhumaSessaoArquivadaMensagem {
     return 'Nenhuma sessão arquivada.';
   }
@@ -193,6 +254,8 @@ class PerfilProfissional extends HiveObject {
     String? termoPessoaAtendida,
     DateTime? dataCriacao,
     DateTime? dataAtualizacao,
+    String? modalidadesAtendimentoJson,
+    String? enderecosConsultoriosJson,
   }) {
     return PerfilProfissional(
       id: id ?? this.id,
@@ -202,6 +265,10 @@ class PerfilProfissional extends HiveObject {
       termoPessoaAtendida: termoPessoaAtendida ?? this.termoPessoaAtendida,
       dataCriacao: dataCriacao ?? this.dataCriacao,
       dataAtualizacao: dataAtualizacao ?? this.dataAtualizacao,
+      modalidadesAtendimentoJson:
+          modalidadesAtendimentoJson ?? this.modalidadesAtendimentoJson,
+      enderecosConsultoriosJson:
+          enderecosConsultoriosJson ?? this.enderecosConsultoriosJson,
     );
   }
 

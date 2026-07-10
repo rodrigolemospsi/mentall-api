@@ -1,12 +1,10 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
-import 'package:http/http.dart' as http;
 
 import 'hive_registrar.g.dart';
+import 'models/compromisso.dart';
 import 'models/lgpd/registro_auditoria.dart';
 import 'models/paciente.dart';
 import 'models/perfil_profissional.dart';
@@ -14,7 +12,6 @@ import 'models/sessao.dart';
 import 'screens/app_start_page.dart';
 import 'services/api_client.dart';
 import 'services/hive_migration_service.dart';
-import 'services/logger.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,23 +19,26 @@ void main() async {
   if (kIsWeb) {
     final port = Uri.base.port;
     debugPrint(
-      '🌐 MentAll rodando na porta $port — '
-      'use --web-port 5000 para manter os dados entre execuções.',
+      '\u{1F310} MentAll rodando na porta $port \u{2014} '
+      'use --web-port 5000 para manter os dados entre execu\u00E7\u00F5es.',
     );
   }
 
   await Hive.initFlutter();
   Hive.registerAdapters();
 
-  await Hive.openBox<Paciente>('pacientes');
-  await Hive.openBox<Sessao>('sessoes');
-  await Hive.openBox<PerfilProfissional>('perfil_profissional');
-  await Hive.openBox<RegistroAuditoria>('auditoria');
-  await Hive.openBox<String>('app_config');
+  await Future.wait([
+    Hive.openBox<Paciente>('pacientes'),
+    Hive.openBox<Sessao>('sessoes'),
+    Hive.openBox<Compromisso>('compromissos'),
+    Hive.openBox<PerfilProfissional>('perfil_profissional'),
+    Hive.openBox<RegistroAuditoria>('auditoria'),
+    Hive.openBox<String>('app_config'),
+  ]);
 
   await HiveMigrationService().executar();
 
-  await _inicializarBackendAuth();
+  _inicializarBackendAuth();
 
   ErrorWidget.builder = (FlutterErrorDetails details) {
     return Material(
@@ -59,7 +59,7 @@ void main() async {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Ocorreu um erro ao exibir esta tela. Isso pode ser causado por dados incompatíveis de uma versão anterior do app.',
+              'Ocorreu um erro ao exibir esta tela. Isso pode ser causado por dados incompat\u00EDveis de uma vers\u00E3o anterior do app.',
               style: TextStyle(color: Colors.black54, height: 1.4),
             ),
             const SizedBox(height: 16),
@@ -80,32 +80,13 @@ void main() async {
   runApp(const ProviderScope(child: MentAllApp()));
 }
 
-Future<void> _inicializarBackendAuth() async {
-  final authBox = await Hive.openBox<String>('auth_meta');
-  final tokenExistente = authBox.get('jwt_token');
-
-  if (tokenExistente != null && tokenExistente.isNotEmpty) {
-    ApiClient.authToken = tokenExistente;
-  }
-
+void _inicializarBackendAuth() {
   try {
-    final response = await http.post(
-      Uri.parse('${ApiClient.baseUrl}/auth/login'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'username': 'admin', 'password': 'admin'}),
-    );
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final token = data['access_token'] as String;
-      await authBox.put('jwt_token', token);
+    final token = Hive.box<String>('app_config').get('jwt_token');
+    if (token != null && token.isNotEmpty) {
       ApiClient.authToken = token;
     }
-  } catch (e) {
-    Log.erro(e, contexto: 'main:auth');
-  }
-
-  await authBox.close();
+  } catch (_) {}
 }
 
 class MentAllApp extends StatelessWidget {
@@ -113,7 +94,7 @@ class MentAllApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color corPrincipal = Color(0xFF1F6F78);
+    const Color corPrincipal = Color(0xFF2563EB);
 
     return MaterialApp(
       title: 'MentAll',

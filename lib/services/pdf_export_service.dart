@@ -1,5 +1,4 @@
-import 'dart:typed_data';
-
+import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -18,7 +17,22 @@ class PdfExportService {
   static const PdfColor _superficie = PdfColor.fromInt(0xFFF1F5F9);
   static const PdfColor _linha = PdfColor.fromInt(0xFFE2E8F0);
 
-  PdfExportService();
+  static Uint8List? _logoBytes;
+  static pw.MemoryImage? _logoImage;
+
+  static Future<void> _carregarLogo() async {
+    if (_logoBytes != null) return;
+    try {
+      _logoBytes = (await rootBundle.load('assets/images/logo_mentall.png'))
+          .buffer
+          .asUint8List();
+      _logoImage = pw.MemoryImage(_logoBytes!);
+    } catch (_) {}
+  }
+
+  PdfExportService() {
+    _carregarLogo();
+  }
 
   Future<void> exportarSessao({
     required Sessao sessao,
@@ -215,15 +229,18 @@ class PdfExportService {
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         crossAxisAlignment: pw.CrossAxisAlignment.end,
         children: [
-          pw.Text(
-            'MentAll',
-            style: pw.TextStyle(
-              fontSize: 13,
-              fontWeight: pw.FontWeight.bold,
-              color: _primaria,
-              letterSpacing: 1.2,
+          if (_logoImage != null)
+            pw.Image(_logoImage!, height: 22)
+          else
+            pw.Text(
+              'MentAll',
+              style: pw.TextStyle(
+                fontSize: 13,
+                fontWeight: pw.FontWeight.bold,
+                color: _primaria,
+                letterSpacing: 1.2,
+              ),
             ),
-          ),
           pw.Text(
             perfil.nomeExibicao,
             style: pw.TextStyle(
@@ -391,6 +408,7 @@ class PdfExportService {
     addCampo(config.tituloFormulaClinica, formulacao);
     addCampo(config.tituloIntervencoes, intervencoes);
     addCampo('Apontamentos', sessao.apontamentosCopiloto);
+    addCampo('Artigos sugeridos', sessao.artigosSugeridos);
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,

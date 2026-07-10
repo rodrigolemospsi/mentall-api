@@ -120,6 +120,23 @@ enum StatusProcessamento {
   bool get processamentoConcluido => this == StatusProcessamento.revisado;
 }
 
+enum StatusCompromisso {
+  agendado('agendado'),
+  realizado('realizado'),
+  cancelado('cancelado'),
+  faltou('faltou');
+
+  final String value;
+  const StatusCompromisso(this.value);
+
+  static StatusCompromisso fromString(String s) {
+    return StatusCompromisso.values.firstWhere(
+      (sc) => sc.value == s,
+      orElse: () => StatusCompromisso.agendado,
+    );
+  }
+}
+
 enum OrigemRelato {
   manual('manual'),
   audio('audio'),

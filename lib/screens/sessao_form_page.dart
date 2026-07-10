@@ -18,7 +18,6 @@ import '../services/transcricao_relato_service.dart';
 import '../widgets/campo_texto_widget.dart';
 import '../widgets/secao_campos_clinicos_widget.dart';
 import '../widgets/secao_formulario.dart';
-import '../widgets/status_processamento_card.dart';
 
 final _salvandoProvider = StateProvider<bool>((ref) => false);
 final _dataSessaoProvider = StateProvider<DateTime>((ref) => DateTime.now());
@@ -41,6 +40,8 @@ final _dataProcessamentoIaProvider = StateProvider<DateTime?>((ref) => null);
 final _avisoInvalidacaoTranscricaoExibidoProvider = StateProvider<bool>((ref) => false);
 final _audioMantidoProvider = StateProvider<bool>((ref) => false);
 final _origemRelatoProvider = StateProvider<String>((ref) => 'manual');
+final _artigosSugeridosProvider = StateProvider<String>((ref) => '');
+final _modoEdicaoProvider = StateProvider<bool>((ref) => false);
 
 class SessaoFormPage extends ConsumerStatefulWidget {
   final Paciente paciente;
@@ -66,24 +67,15 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
   StreamSubscription<void>? _audioPlayerCompleteSubscription;
 
-  final TextEditingController _temaController = TextEditingController();
   final TextEditingController _relatoPosSessaoController =
       TextEditingController();
   final TextEditingController _transcricaoRelatoController =
       TextEditingController();
-  final TextEditingController _eventosController = TextEditingController();
-  final TextEditingController _pensamentosController = TextEditingController();
-  final TextEditingController _emocoesController = TextEditingController();
-  final TextEditingController _comportamentosController =
-      TextEditingController();
+  final TextEditingController _sinteseController = TextEditingController();
+  final TextEditingController _formulacaoController = TextEditingController();
   final TextEditingController _intervencoesController =
       TextEditingController();
-  final TextEditingController _tecnicasController = TextEditingController();
-  final TextEditingController _tarefaController = TextEditingController();
-  final TextEditingController _evolucaoController = TextEditingController();
-  final TextEditingController _planoController = TextEditingController();
-  final TextEditingController _observacoesController = TextEditingController();
-  final TextEditingController _apontamentosCopilotoController =
+  final TextEditingController _apontamentosController =
       TextEditingController();
 
   late String _sessaoId;
@@ -122,6 +114,12 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
   String get _origemRelato => ref.read(_origemRelatoProvider);
   set _origemRelato(String v) => ref.read(_origemRelatoProvider.notifier).state = v;
+
+  String get _artigosSugeridos => ref.read(_artigosSugeridosProvider);
+  set _artigosSugeridos(String v) => ref.read(_artigosSugeridosProvider.notifier).state = v;
+
+  bool get _modoEdicao => ref.read(_modoEdicaoProvider);
+  set _modoEdicao(bool v) => ref.read(_modoEdicaoProvider.notifier).state = v;
 
   void _triggerRebuild() {
     if (mounted) ref.read(_formRebuildProvider.notifier).state++;
@@ -244,6 +242,22 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
         _statusProcessamento == 'ia_processada';
   }
 
+  String _concatenarSintese(Sessao s) {
+    final partes = <String>[];
+    if (s.eventosImportantes.trim().isNotEmpty) partes.add(s.eventosImportantes.trim());
+    if (s.evolucaoClinica.trim().isNotEmpty) partes.add(s.evolucaoClinica.trim());
+    if (s.observacoes.trim().isNotEmpty) partes.add(s.observacoes.trim());
+    return partes.join('\n\n');
+  }
+
+  String _concatenarFormulacao(Sessao s) {
+    final partes = <String>[];
+    if (s.pensamentosAutomaticos.trim().isNotEmpty) partes.add(s.pensamentosAutomaticos.trim());
+    if (s.emocoes.trim().isNotEmpty) partes.add(s.emocoes.trim());
+    if (s.comportamentos.trim().isNotEmpty) partes.add(s.comportamentos.trim());
+    return partes.join('\n\n');
+  }
+
   @override
   void initState() {
     super.initState();
@@ -269,22 +283,13 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
         _sessaoId = sessao.id;
         _numeroSessao = sessao.numeroSessao;
         ref.read(_dataSessaoProvider.notifier).state = sessao.data;
-        ref.read(_humorProvider.notifier).state = sessao.humor.toDouble();
 
-        _temaController.text = sessao.temaPrincipal;
         _relatoPosSessaoController.text = sessao.relatoPosSessao;
         _transcricaoRelatoController.text = sessao.transcricaoRelato;
-        _eventosController.text = sessao.eventosImportantes;
-        _pensamentosController.text = sessao.pensamentosAutomaticos;
-        _emocoesController.text = sessao.emocoes;
-        _comportamentosController.text = sessao.comportamentos;
+        _sinteseController.text = _concatenarSintese(sessao);
+        _formulacaoController.text = _concatenarFormulacao(sessao);
         _intervencoesController.text = sessao.intervencoes;
-        _tecnicasController.text = sessao.tecnicasTcc;
-        _tarefaController.text = sessao.tarefaCasa;
-        _evolucaoController.text = sessao.evolucaoClinica;
-        _planoController.text = sessao.planoProximaSessao;
-        _observacoesController.text = sessao.observacoes;
-        _apontamentosCopilotoController.text = sessao.apontamentosCopiloto;
+        _apontamentosController.text = sessao.apontamentosCopiloto;
 
         ref.read(_audioRelatoPathProvider.notifier).state = sessao.audioRelatoPath;
         ref.read(_audioRelatoBase64Provider.notifier).state = sessao.audioRelatoBase64;
@@ -294,11 +299,14 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
         _audioMantido = sessao.audioMantido;
         _revisadoPeloProfissional = sessao.revisadoPeloProfissional;
         _erroProcessamentoIa = sessao.erroProcessamentoIa;
+        _artigosSugeridos = sessao.artigosSugeridos;
         _origemRelato = sessao.origemRelato;
+        _modoEdicao = false;
       } else {
         _sessaoId = DateTime.now().millisecondsSinceEpoch.toString();
         _numeroSessao = _sessaoService.proximoNumeroSessao(widget.paciente.id);
         ref.read(_dataSessaoProvider.notifier).state = DateTime.now();
+        _modoEdicao = true;
       }
 
       _ultimaTranscricaoControlada = _transcricaoRelatoController.text;
@@ -313,25 +321,20 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   void dispose() {
     _transcricaoRelatoController.removeListener(_aoAlterarTranscricaoRelato);
 
-    _temaController.dispose();
     _relatoPosSessaoController.dispose();
     _transcricaoRelatoController.dispose();
-    _eventosController.dispose();
-    _pensamentosController.dispose();
-    _emocoesController.dispose();
-    _comportamentosController.dispose();
+    _sinteseController.dispose();
+    _formulacaoController.dispose();
     _intervencoesController.dispose();
-    _tecnicasController.dispose();
-    _tarefaController.dispose();
-    _evolucaoController.dispose();
-    _planoController.dispose();
-    _observacoesController.dispose();
-    _apontamentosCopilotoController.dispose();
+    _apontamentosController.dispose();
+    _sinteseController.dispose();
+    _formulacaoController.dispose();
+    _intervencoesController.dispose();
+    _apontamentosController.dispose();
 
     _timerGravacao?.cancel();
     _audioPlayerCompleteSubscription?.cancel();
     _audioPlayer.dispose();
-    _audioRelatoService.dispose();
 
     super.dispose();
   }
@@ -379,6 +382,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
     _revisadoPeloProfissional = false;
     _dataProcessamentoIa = null;
     _erroProcessamentoIa = '';
+    _artigosSugeridos = '';
 
     if (_transcricaoRelatoController.text.trim().isNotEmpty) {
       _statusProcessamento = 'transcrito';
@@ -417,18 +421,10 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
   void _limparCamposGeradosPelaIa() {
     _relatoPosSessaoController.clear();
-    _apontamentosCopilotoController.clear();
-
-    _eventosController.clear();
-    _pensamentosController.clear();
-    _emocoesController.clear();
-    _comportamentosController.clear();
+    _sinteseController.clear();
+    _formulacaoController.clear();
     _intervencoesController.clear();
-    _tecnicasController.clear();
-    _tarefaController.clear();
-    _evolucaoController.clear();
-    _planoController.clear();
-    _observacoesController.clear();
+    _apontamentosController.clear();
   }
 
   void _iniciarContadorGravacao() {
@@ -1113,8 +1109,7 @@ if (!mounted || confirmar != true) return;
         abordagemClinica: _abordagemClinica,
         transcricaoRelato: transcricao,
         relatoManual: relato,
-        temaPrincipal: _temaController.text.trim(),
-        humor: ref.read(_humorProvider).round(),
+        temaPrincipal: '',
       );
 
       if (!mounted) return;
@@ -1125,59 +1120,29 @@ if (!mounted || confirmar != true) return;
           texto: resultado.relatoClinicoOrganizado,
         );
 
+        final sintese = [
+          if (resultado.eventosImportantes.isNotEmpty) resultado.eventosImportantes,
+          if (resultado.evolucaoClinica.isNotEmpty) resultado.evolucaoClinica,
+          if (resultado.observacoes.isNotEmpty) resultado.observacoes,
+        ].join('\n\n');
+        _preencherController(controller: _sinteseController, texto: sintese);
+
+        final formulacao = [
+          if (resultado.pensamentosAutomaticos.isNotEmpty) resultado.pensamentosAutomaticos,
+          if (resultado.emocoes.isNotEmpty) resultado.emocoes,
+          if (resultado.comportamentos.isNotEmpty) resultado.comportamentos,
+        ].join('\n\n');
+        _preencherController(controller: _formulacaoController, texto: formulacao);
+
+        final intervencoes = [
+          if (resultado.intervencoes.isNotEmpty) resultado.intervencoes,
+          if (resultado.tecnicas.isNotEmpty) resultado.tecnicas,
+        ].join('\n\n');
+        _preencherController(controller: _intervencoesController, texto: intervencoes);
+
         _preencherController(
-          controller: _apontamentosCopilotoController,
+          controller: _apontamentosController,
           texto: resultado.apontamentosCopiloto,
-        );
-
-        _preencherController(
-          controller: _eventosController,
-          texto: resultado.eventosImportantes,
-        );
-
-        _preencherController(
-          controller: _evolucaoController,
-          texto: resultado.evolucaoClinica,
-        );
-
-        _preencherController(
-          controller: _observacoesController,
-          texto: resultado.observacoes,
-        );
-
-        _preencherController(
-          controller: _pensamentosController,
-          texto: resultado.pensamentosAutomaticos,
-        );
-
-        _preencherController(
-          controller: _emocoesController,
-          texto: resultado.emocoes,
-        );
-
-        _preencherController(
-          controller: _comportamentosController,
-          texto: resultado.comportamentos,
-        );
-
-        _preencherController(
-          controller: _intervencoesController,
-          texto: resultado.intervencoes,
-        );
-
-        _preencherController(
-          controller: _tecnicasController,
-          texto: resultado.tecnicas,
-        );
-
-        _preencherController(
-          controller: _tarefaController,
-          texto: resultado.tarefaCasa,
-        );
-
-        _preencherController(
-          controller: _planoController,
-          texto: resultado.planoProximaSessao,
         );
 
         _gerandoSinteseIa = false;
@@ -1234,8 +1199,6 @@ if (!mounted || confirmar != true) return;
   void _marcarComoRevisado() {
     _revisadoPeloProfissional = true;
     _statusProcessamento = 'revisado';
-    _erroProcessamentoIa = '';
-    _avisoInvalidacaoTranscricaoExibido = false;
     _triggerRebuild();
     ref.read(_erroAudioProvider.notifier).state = '';
 
@@ -1285,44 +1248,33 @@ if (!mounted || confirmar != true) return;
       _triggerRebuild();
     }
 
-    final tema = _temaController.text.trim();
-
-    if (tema.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Informe o tema principal da sessão.'),
-        ),
-      );
-      return;
-    }
+    final tema = _transcricaoRelatoController.text.trim();
 
     ref.read(_salvandoProvider.notifier).state = true;
 
     try {
       final dataSessao = ref.read(_dataSessaoProvider);
-      final humor = ref.read(_humorProvider);
 
       if (_editando) {
         final sessao = widget.sessaoExistente!;
 
         sessao.numeroSessao = _numeroSessao;
         sessao.data = dataSessao;
-        sessao.humor = humor.round();
+        sessao.humor = 5;
         sessao.temaPrincipal = tema;
         sessao.relatoPosSessao = _relatoPosSessaoController.text.trim();
         sessao.transcricaoRelato = _transcricaoRelatoController.text.trim();
-        sessao.eventosImportantes = _eventosController.text.trim();
-        sessao.pensamentosAutomaticos = _pensamentosController.text.trim();
-        sessao.emocoes = _emocoesController.text.trim();
-        sessao.comportamentos = _comportamentosController.text.trim();
+        sessao.eventosImportantes = _sinteseController.text.trim();
+        sessao.evolucaoClinica = '';
+        sessao.observacoes = '';
+        sessao.pensamentosAutomaticos = _formulacaoController.text.trim();
+        sessao.emocoes = '';
+        sessao.comportamentos = '';
         sessao.intervencoes = _intervencoesController.text.trim();
-        sessao.tecnicasTcc = _tecnicasController.text.trim();
-        sessao.tarefaCasa = _tarefaController.text.trim();
-        sessao.evolucaoClinica = _evolucaoController.text.trim();
-        sessao.planoProximaSessao = _planoController.text.trim();
-        sessao.observacoes = _observacoesController.text.trim();
-        sessao.apontamentosCopiloto =
-            _apontamentosCopilotoController.text.trim();
+        sessao.tecnicasTcc = '';
+        sessao.tarefaCasa = '';
+        sessao.planoProximaSessao = '';
+        sessao.apontamentosCopiloto = _apontamentosController.text.trim();
 
         sessao.audioRelatoPath = _audioRelatoPath;
         sessao.audioRelatoBase64 = _audioRelatoBase64;
@@ -1333,32 +1285,33 @@ if (!mounted || confirmar != true) return;
         sessao.revisadoPeloProfissional = _revisadoPeloProfissional;
         sessao.erroProcessamentoIa = _erroProcessamentoIa;
         sessao.origemRelato = _origemRelato;
+        sessao.artigosSugeridos = _artigosSugeridos;
 
         await _sessaoService.atualizarSessao(sessao);
+        _modoEdicao = false;
       } else {
         final dataSessao = ref.read(_dataSessaoProvider);
-        final humor = ref.read(_humorProvider);
 
         final novaSessao = Sessao(
           id: _sessaoId,
           pacienteId: widget.paciente.id,
           numeroSessao: _numeroSessao,
           data: dataSessao,
-          humor: humor.round(),
+          humor: 5,
           temaPrincipal: tema,
           relatoPosSessao: _relatoPosSessaoController.text.trim(),
           transcricaoRelato: _transcricaoRelatoController.text.trim(),
-          eventosImportantes: _eventosController.text.trim(),
-          pensamentosAutomaticos: _pensamentosController.text.trim(),
-          emocoes: _emocoesController.text.trim(),
-          comportamentos: _comportamentosController.text.trim(),
+          eventosImportantes: _sinteseController.text.trim(),
+          evolucaoClinica: '',
+          observacoes: '',
+          pensamentosAutomaticos: _formulacaoController.text.trim(),
+          emocoes: '',
+          comportamentos: '',
           intervencoes: _intervencoesController.text.trim(),
-          tecnicasTcc: _tecnicasController.text.trim(),
-          tarefaCasa: _tarefaController.text.trim(),
-          evolucaoClinica: _evolucaoController.text.trim(),
-          planoProximaSessao: _planoController.text.trim(),
-          observacoes: _observacoesController.text.trim(),
-          apontamentosCopiloto: _apontamentosCopilotoController.text.trim(),
+          tecnicasTcc: '',
+          tarefaCasa: '',
+          planoProximaSessao: '',
+          apontamentosCopiloto: _apontamentosController.text.trim(),
           audioRelatoPath: _audioRelatoPath,
           audioRelatoBase64: _audioRelatoBase64,
           dataProcessamentoIa: _dataProcessamentoIa,
@@ -1368,9 +1321,11 @@ if (!mounted || confirmar != true) return;
           revisadoPeloProfissional: _revisadoPeloProfissional,
           erroProcessamentoIa: _erroProcessamentoIa,
           origemRelato: _origemRelato,
+          artigosSugeridos: _artigosSugeridos,
         );
 
         await _sessaoService.adicionarSessao(novaSessao);
+        _modoEdicao = false;
       }
 
       if (!mounted) return;
@@ -1549,7 +1504,7 @@ if (!mounted || confirmar != true) return;
     }
 
     ref.watch(_formRebuildProvider);
-    const Color corPrincipal = Color(0xFF1F6F78);
+    const Color corPrincipal = Color(0xFF2563EB);
     final configuracao = _configuracaoAbordagem;
 
     return Scaffold(
@@ -1573,26 +1528,32 @@ if (!mounted || confirmar != true) return;
         children: [
           _cardCabecalho(configuracao),
           const SizedBox(height: 16),
-          _cardInformacoesGerais(corPrincipal),
-          const SizedBox(height: 16),
-          _secaoRelatoIa(corPrincipal),
-          const SizedBox(height: 16),
-          SecaoCamposClinicosWidget(
-            configuracao: configuracao,
-            eventosController: _eventosController,
-            evolucaoController: _evolucaoController,
-            observacoesController: _observacoesController,
-            pensamentosController: _pensamentosController,
-            emocoesController: _emocoesController,
-            comportamentosController: _comportamentosController,
-            intervencoesController: _intervencoesController,
-            tecnicasController: _tecnicasController,
-            tarefaController: _tarefaController,
-            planoController: _planoController,
-            apontamentosCopilotoController: _apontamentosCopilotoController,
+          IgnorePointer(
+            ignoring: _editando && !_modoEdicao,
+            child: Column(
+              children: [
+                _cardInformacoesGerais(corPrincipal),
+                const SizedBox(height: 16),
+                _secaoRelatoIa(corPrincipal),
+                const SizedBox(height: 16),
+                SecaoCamposClinicosWidget(
+                  configuracao: configuracao,
+                  sinteseController: _sinteseController,
+                  formulacaoController: _formulacaoController,
+                  intervencoesController: _intervencoesController,
+                  apontamentosController: _apontamentosController,
+                ),
+                if (_artigosSugeridos.trim().isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _secaoArtigosSugeridos(),
+                ],
+              ],
+            ),
           ),
-          const SizedBox(height: 16),
-          _botaoSalvar(corPrincipal),
+          if (_modoEdicao || !_editando) ...[
+            const SizedBox(height: 16),
+            _botaoSalvar(corPrincipal),
+          ],
           const SizedBox(height: 24),
         ],
       ),
@@ -1634,24 +1595,31 @@ if (!mounted || confirmar != true) return;
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              _nomePessoaAtendidaExibicao,
+              _nomePessoaAtendidaExibicao.toUpperCase(),
               style: const TextStyle(
                 fontSize: 21,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 6),
-            Text(
-              'Sessão $_numeroSessao',
-              style: const TextStyle(color: Colors.black54),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Abordagem: ${configuracao.nomeAbordagem}',
-              style: const TextStyle(
-                color: Colors.black45,
-                fontSize: 13,
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Sessão $_numeroSessao',
+                    style: const TextStyle(color: Colors.black54),
+                  ),
+                ),
+                if (_editando && !_modoEdicao)
+                  TextButton.icon(
+                    onPressed: () {
+                      _modoEdicao = true;
+                      _triggerRebuild();
+                    },
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: const Text('Editar'),
+                  ),
+              ],
             ),
           ],
         ),
@@ -1670,14 +1638,6 @@ if (!mounted || confirmar != true) return;
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Informações gerais',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
             InkWell(
               onTap: _selecionarData,
               borderRadius: BorderRadius.circular(12),
@@ -1703,31 +1663,6 @@ if (!mounted || confirmar != true) return;
                 child: Text(_formatarHorario(ref.watch(_dataSessaoProvider))),
               ),
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _temaController,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                labelText: 'Tema principal',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'Humor $_doOuDa $_termoSingular: ${ref.watch(_humorProvider).round()}/10',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            Slider(
-              value: ref.watch(_humorProvider),
-              min: 0,
-              max: 10,
-              divisions: 10,
-              label: ref.watch(_humorProvider).round().toString(),
-              activeColor: corPrincipal,
-              onChanged: (value) {
-                ref.read(_humorProvider.notifier).state = value;
-              },
-            ),
           ],
         ),
       ),
@@ -1736,58 +1671,20 @@ if (!mounted || confirmar != true) return;
 
   Widget _secaoRelatoIa(Color corPrincipal) {
     return SecaoFormulario(
-      titulo: 'Relato pós-sessão com IA',
-      subtitulo:
-          'Grave o relato do profissional após a sessão, transcreva o áudio, revise a transcrição e só então gere a síntese clínica com IA.',
       children: [
-        StatusProcessamentoCard(
-          status: _labelStatusProcessamento(),
-          cor: _corStatusProcessamento(),
-          icone: _iconeStatusProcessamento(),
-          origemRelato: _origemRelato,
-          geradoComIa: _geradoComIa,
-          revisadoPeloProfissional: _revisadoPeloProfissional,
-          dataProcessamentoIa: _dataProcessamentoIa == null
-              ? null
-              : _formatarDataHora(_dataProcessamentoIa!),
-          possuiAudioRelato: _possuiAudioRelato,
-          audioMantido: _audioMantido,
-        ),
         _timerGravacaoWidget(),
         _processamentoEmAndamentoWidget(),
         _erroProcessamentoIaWidget(),
         _erroAudioWidget(),
-        const SizedBox(height: 12),
-        const Text(
-          'Áudio do relato',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'Relato breve do profissional após a sessão. Limite: 5 minutos.',
-          style: TextStyle(color: Colors.black45, fontSize: 12),
-        ),
-        const SizedBox(height: 8),
         _botoesAudioWidget(corPrincipal),
         _audioInfoWidget(corPrincipal),
-        const SizedBox(height: 18),
-        const Divider(),
-        const SizedBox(height: 12),
-        const Text(
-          'Transcrição e revisão antes da IA',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          'A IA usará principalmente a transcrição abaixo. Revise, edite ou complemente este texto antes de gerar a síntese clínica.',
-          style: TextStyle(color: Colors.black54, height: 1.4),
-        ),
         const SizedBox(height: 12),
         CampoTextoWidget(
           controller: _transcricaoRelatoController,
-          label: 'Transcrição bruta do relato',
+          label: 'Transcrição',
           maxLines: 5,
         ),
+        const SizedBox(height: 12),
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
@@ -1812,17 +1709,10 @@ if (!mounted || confirmar != true) return;
             ),
           ),
         ),
-        const SizedBox(height: 18),
-        const Divider(),
         const SizedBox(height: 12),
-        const Text(
-          'Resultado clínico para revisão',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-        ),
-        const SizedBox(height: 8),
         CampoTextoWidget(
           controller: _relatoPosSessaoController,
-          label: 'Relato clínico organizado para revisão',
+          label: 'Relato clínico organizado',
           maxLines: 8,
         ),
         if (_estaAguardandoRevisao ||
@@ -1834,7 +1724,7 @@ if (!mounted || confirmar != true) return;
             child: FilledButton.icon(
               onPressed: _existeAcaoEmAndamento ? null : _marcarComoRevisado,
               icon: const Icon(Icons.verified_outlined),
-              label: const Text('Marcar como revisado pelo profissional'),
+              label: const Text('Marcar como revisado'),
               style: FilledButton.styleFrom(
                 backgroundColor: corPrincipal,
                 foregroundColor: Colors.white,
@@ -2116,20 +2006,17 @@ if (!mounted || confirmar != true) return;
 
   Widget _audioInfoWidget(Color corPrincipal) {
     if (!_possuiAudioRelato) return const SizedBox.shrink();
-    return Column(children: [
-      const SizedBox(height: 12),
-      Row(
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Row(
         children: [
-          Expanded(
-            child: Text(
-              _audioRelatoPath.trim().isNotEmpty
-                  ? 'Áudio vinculado: $_audioRelatoPath'
-                  : 'Áudio vinculado: armazenamento interno Base64',
-              style: const TextStyle(color: Colors.black54, fontSize: 13),
-            ),
+          const Text(
+            'Manter áudio salvo',
+            style: TextStyle(color: Colors.black54, fontSize: 13),
           ),
           Switch(
             value: _audioMantido,
+            activeTrackColor: corPrincipal.withValues(alpha: 0.4),
             activeThumbColor: corPrincipal,
             onChanged: _existeAcaoEmAndamento
                 ? null
@@ -2140,13 +2027,48 @@ if (!mounted || confirmar != true) return;
           ),
         ],
       ),
-      Text(
-        _possuiAudioRelatoBase64
-            ? 'Manter áudio original • Backup Base64 disponível'
-            : 'Manter áudio original',
-        style: const TextStyle(color: Colors.black45, fontSize: 12),
+    );
+  }
+
+  Widget _secaoArtigosSugeridos() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFDBEAFE), width: 0.5),
       ),
-    ]);
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.menu_book_outlined, size: 18, color: Color(0xFF2563EB)),
+              SizedBox(width: 8),
+              Text(
+                'INDICAÇÕES DE ARTIGOS',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF2563EB),
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            _artigosSugeridos,
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1.5,
+              color: Color(0xFF334155),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _botaoSalvar(Color corPrincipal) {

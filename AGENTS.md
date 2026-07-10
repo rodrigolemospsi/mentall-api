@@ -87,7 +87,7 @@ lib/
 │   └── lgpd/
 │       └── auditoria_service.dart          # Registro de eventos LGPD
 ├── widgets/
-│   ├── secao_campos_clinicos_widget.dart   # 5 seções clínicas combinadas (extraído do sessao_form_page)
+  │   ├── secao_campos_clinicos_widget.dart   # 4 seções clínicas simplificadas: síntese, formulação, intervenções, apontamentos
 │   └── lgpd/
 │       └── aviso_privacidade_ia_card.dart
 ```
@@ -181,11 +181,23 @@ Chamadas à API (`TranscricaoRelatoService`, `IaClinicaService`) devem chamar `A
 - ~~Exportação limitada~~ ✅ 5 tipos de PDF
 - ~~Código morto~~ ✅ CampoClinico removido do backend
 - ~~StreamProvider lista vazia~~ ✅ async* com yield inicial (08/07/2026)
-- ~~Tela vermelha SessaoFormPage~~ ✅ try-catch initState + ErrorWidget.builder (08/07/2026)
-- ~~UI não respondia a ações de áudio~~ ✅ _triggerRebuild() em 9 métodos (08/07/2026)
-- ~~APK sem permissão INTERNET~~ ✅ AndroidManifest atualizado (08/07/2026)
-- ~~URL backend hardcoded~~ ✅ Configurável via Hive + diálogo na Home (08/07/2026)
-- ~~Transcrição não enviava áudio no mobile~~ ✅ Leitura de arquivo .m4a + Base64 (08/07/2026)
+  - ~~Tela vermelha SessaoFormPage~~ ✅ try-catch initState + ErrorWidget.builder (08/07/2026)
+  - ~~UI não respondia a ações de áudio~~ ✅ _triggerRebuild() em 9 métodos (08/07/2026)
+  - ~~APK sem permissão INTERNET~~ ✅ AndroidManifest atualizado (08/07/2026)
+  - ~~URL backend hardcoded~~ ✅ Configurável via Hive + diálogo na Home (08/07/2026)
+  - ~~Transcrição não enviava áudio no mobile~~ ✅ Leitura de arquivo .m4a + Base64 (08/07/2026)
+  - ~~SessaoFormPage: UI complexa com 12 campos~~ ✅ Simplificado para 5 campos: transcrição, relato, síntese, formulação, intervenções, apontamentos (08/07/2026)
+
+## Layout da Sessão (após redesenho 08/07/2026)
+A tela de sessão foi simplificada:
+- **Cabeçalho**: nome em maiúsculo/negrito + "Sessão N" (sem abordagem)
+- **Info**: apenas data e horário (sem tema principal, sem humor)
+- **Breve relato**: controles de áudio + transcrição + botão IA + relato clínico organizado
+- **Síntese clínica**: 1 campo combinado (eventos + evolução + observações)
+- **Formulação clínica**: 1 campo combinado (pensamentos + emoções + comportamentos)
+- **Intervenções**: 1 campo combinado (intervenções + técnicas)
+- **Apontamentos**: 1 campo (renomeado de "Apontamentos do Copiloto")
+- Removidos: Tarefas e planos, status card, humor, tema principal
 
 ## Comandos
 

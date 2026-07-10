@@ -37,7 +37,7 @@ class SessaoInfoChip extends StatelessWidget {
       case 'acao_necessaria':
         return Colors.deepOrange;
       default:
-        return const Color(0xFF1F6F78);
+        return const Color(0xFF2563EB);
     }
   }
 

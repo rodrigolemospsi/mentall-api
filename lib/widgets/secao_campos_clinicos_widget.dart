@@ -6,32 +6,18 @@ import 'secao_formulario.dart';
 
 class SecaoCamposClinicosWidget extends StatelessWidget {
   final ConfiguracaoAbordagemClinica configuracao;
-  final TextEditingController eventosController;
-  final TextEditingController evolucaoController;
-  final TextEditingController observacoesController;
-  final TextEditingController pensamentosController;
-  final TextEditingController emocoesController;
-  final TextEditingController comportamentosController;
+  final TextEditingController sinteseController;
+  final TextEditingController formulacaoController;
   final TextEditingController intervencoesController;
-  final TextEditingController tecnicasController;
-  final TextEditingController tarefaController;
-  final TextEditingController planoController;
-  final TextEditingController apontamentosCopilotoController;
+  final TextEditingController apontamentosController;
 
   const SecaoCamposClinicosWidget({
     super.key,
     required this.configuracao,
-    required this.eventosController,
-    required this.evolucaoController,
-    required this.observacoesController,
-    required this.pensamentosController,
-    required this.emocoesController,
-    required this.comportamentosController,
+    required this.sinteseController,
+    required this.formulacaoController,
     required this.intervencoesController,
-    required this.tecnicasController,
-    required this.tarefaController,
-    required this.planoController,
-    required this.apontamentosCopilotoController,
+    required this.apontamentosController,
   });
 
   @override
@@ -44,33 +30,18 @@ class SecaoCamposClinicosWidget extends StatelessWidget {
         const SizedBox(height: 16),
         _secaoIntervencoes(),
         const SizedBox(height: 16),
-        _secaoPlano(),
-        const SizedBox(height: 16),
-        _secaoApontamentosCopiloto(),
+        _secaoApontamentos(),
       ],
     );
   }
 
   Widget _secaoSinteseClinica() {
     return SecaoFormulario(
-      titulo: 'Síntese clínica',
-      subtitulo:
-          'Campos estruturados que futuramente poderão ser sugeridos pela IA e revisados pelo profissional.',
       children: [
         CampoTextoWidget(
-          controller: eventosController,
-          label: configuracao.eventosLabel,
-          maxLines: 4,
-        ),
-        CampoTextoWidget(
-          controller: evolucaoController,
-          label: configuracao.evolucaoLabel,
-          maxLines: 4,
-        ),
-        CampoTextoWidget(
-          controller: observacoesController,
-          label: 'Observações livres',
-          maxLines: 4,
+          controller: sinteseController,
+          label: 'Síntese clínica',
+          maxLines: 6,
         ),
       ],
     );
@@ -78,23 +49,11 @@ class SecaoCamposClinicosWidget extends StatelessWidget {
 
   Widget _secaoFormulaClinica() {
     return SecaoFormulario(
-      titulo: configuracao.tituloFormulaClinica,
-      subtitulo: configuracao.subtituloFormulaClinica,
       children: [
         CampoTextoWidget(
-          controller: pensamentosController,
-          label: configuracao.campo1Label,
-          maxLines: 3,
-        ),
-        CampoTextoWidget(
-          controller: emocoesController,
-          label: configuracao.campo2Label,
-          maxLines: 3,
-        ),
-        CampoTextoWidget(
-          controller: comportamentosController,
-          label: configuracao.campo3Label,
-          maxLines: 3,
+          controller: formulacaoController,
+          label: configuracao.tituloFormulaClinica,
+          maxLines: 6,
         ),
       ],
     );
@@ -102,49 +61,22 @@ class SecaoCamposClinicosWidget extends StatelessWidget {
 
   Widget _secaoIntervencoes() {
     return SecaoFormulario(
-      titulo: configuracao.tituloIntervencoes,
       children: [
         CampoTextoWidget(
           controller: intervencoesController,
-          label: configuracao.intervencoesLabel,
-          maxLines: 4,
-        ),
-        CampoTextoWidget(
-          controller: tecnicasController,
-          label: configuracao.tecnicasLabel,
-          maxLines: 3,
-        ),
-      ],
-    );
-  }
-
-  Widget _secaoPlano() {
-    return SecaoFormulario(
-      titulo: configuracao.tituloPlano,
-      children: [
-        CampoTextoWidget(
-          controller: tarefaController,
-          label: configuracao.tarefaLabel,
-          maxLines: 3,
-        ),
-        CampoTextoWidget(
-          controller: planoController,
-          label: configuracao.planoLabel,
+          label: configuracao.tituloIntervencoes,
           maxLines: 4,
         ),
       ],
     );
   }
 
-  Widget _secaoApontamentosCopiloto() {
+  Widget _secaoApontamentos() {
     return SecaoFormulario(
-      titulo: 'Apontamentos do Copiloto',
-      subtitulo:
-          'Espaço para hipóteses, focos de atenção e possibilidades clínicas sugeridas pela IA, sempre para revisão do profissional e considerando a abordagem ${configuracao.nomeAbordagem}.',
       children: [
         CampoTextoWidget(
-          controller: apontamentosCopilotoController,
-          label: configuracao.apontamentosCopilotoLabel,
+          controller: apontamentosController,
+          label: 'Apontamentos',
           maxLines: 6,
         ),
       ],

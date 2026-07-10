@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/paciente.dart';
 
@@ -28,17 +31,9 @@ class PacienteCardHome extends StatelessWidget {
     return nomeLimpo;
   }
 
-  String get _tipoAtendimentoExibicao {
-    final tipoLimpo = paciente.tipoAtendimento.trim();
-    if (tipoLimpo.isEmpty) {
-      return 'Particular';
-    }
-    return tipoLimpo;
-  }
-
   @override
   Widget build(BuildContext context) {
-    const Color corPrincipal = Color(0xFF1F6F78);
+    const Color corPrincipal = Color(0xFF2563EB);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -57,18 +52,24 @@ class PacienteCardHome extends StatelessWidget {
           child: Row(
             children: [
               CircleAvatar(
+                radius: 24,
                 backgroundColor: listaArquivada
                     ? Colors.grey.withValues(alpha: 0.14)
                     : corPrincipal.withValues(alpha: 0.12),
-                child: Text(
-                  paciente.inicial,
-                  style: TextStyle(
-                    color: listaArquivada
-                        ? Colors.grey.shade700
-                        : corPrincipal,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                backgroundImage: paciente.possuiFoto
+                    ? MemoryImage(base64Decode(paciente.fotoBase64))
+                    : null,
+                child: paciente.possuiFoto
+                    ? null
+                    : Text(
+                        paciente.inicial,
+                        style: TextStyle(
+                          color: listaArquivada
+                              ? Colors.grey.shade700
+                              : corPrincipal,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -84,17 +85,14 @@ class PacienteCardHome extends StatelessWidget {
                           fontSize: 16,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _tipoAtendimentoExibicao,
-                        style: const TextStyle(
-                          color: Colors.black54,
-                        ),
-                      ),
                       const SizedBox(height: 6),
                       _StatusPacienteChip(
                         ativo: paciente.ativo,
                       ),
+                      if (paciente.possuiContato) ...[
+                        const SizedBox(height: 8),
+                        _WhatsAppButton(contato: paciente.contato.trim()),
+                      ],
                     ],
                   ),
                 ),
@@ -180,6 +178,55 @@ class _StatusPacienteChip extends StatelessWidget {
           color: cor,
           fontSize: 12,
           fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _WhatsAppButton extends StatelessWidget {
+  final String contato;
+
+  const _WhatsAppButton({required this.contato});
+
+  String get _numeroLimpo {
+    return contato.replaceAll(RegExp(r'[^\d]'), '');
+  }
+
+  Future<void> _abrirWhatsApp() async {
+    final numero = _numeroLimpo;
+    if (numero.isEmpty) return;
+
+    final uri = Uri.parse('https://wa.me/$numero');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _abrirWhatsApp,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFF25D366).withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.chat_bubble_outline, size: 14, color: Color(0xFF075E54)),
+            SizedBox(width: 6),
+            Text(
+              'WhatsApp',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF075E54),
+              ),
+            ),
+          ],
         ),
       ),
     );

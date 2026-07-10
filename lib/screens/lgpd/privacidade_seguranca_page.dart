@@ -11,7 +11,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    const Color corPrincipal = Color(0xFF1F6F78);
+    const Color corPrincipal = Color(0xFF2563EB);
     final authService = ref.read(authServiceProvider);
 
     return Scaffold(
@@ -67,7 +67,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
             titulo: 'Audio do Relato',
             children: const [
               ListTile(
-                leading: Icon(Icons.mic_outlined, color: Color(0xFF1F6F78)),
+                leading: Icon(Icons.mic_outlined, color: Color(0xFF2563EB)),
                 title: Text('Finalidade do audio'),
                 subtitle: Text(
                   'O audio no MentAll foi projetado para registrar um relato '
@@ -84,7 +84,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
             titulo: 'IA e Privacidade',
             children: const [
               ListTile(
-                leading: Icon(Icons.auto_awesome_outlined, color: Color(0xFF1F6F78)),
+                leading: Icon(Icons.auto_awesome_outlined, color: Color(0xFF2563EB)),
                 title: Text('Apoio documental'),
                 subtitle: Text(
                   'A IA do MentAll atua apenas como apoio documental. '
@@ -100,7 +100,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
             titulo: 'Dados e Retencao',
             children: [
               ListTile(
-                leading: const Icon(Icons.archive_outlined, color: Color(0xFF1F6F78)),
+                leading: const Icon(Icons.archive_outlined, color: Color(0xFF2563EB)),
                 title: const Text('Arquivamento em vez de exclusao'),
                 subtitle: const Text(
                   'O MentAll mantem a regra de arquivar em vez de excluir. '
@@ -110,7 +110,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
               ),
               const Divider(indent: 16),
               ListTile(
-                leading: const Icon(Icons.folder_outlined, color: Color(0xFF1F6F78)),
+                leading: const Icon(Icons.folder_outlined, color: Color(0xFF2563EB)),
                 title: const Text('Exportacao de dados'),
                 subtitle: const Text(
                   'Voce pode exportar sessoes, historicos e o prontuario completo '
@@ -125,7 +125,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
             titulo: 'Auditoria',
             children: [
               ListTile(
-                leading: const Icon(Icons.history_outlined, color: Color(0xFF1F6F78)),
+                leading: const Icon(Icons.history_outlined, color: Color(0xFF2563EB)),
                 title: const Text('Registro de eventos'),
                 subtitle: const Text(
                   'O MentAll registra eventos relevantes para fins de auditoria, '
@@ -143,7 +143,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
             titulo: 'Documentos Legais',
             children: [
               ListTile(
-                leading: const Icon(Icons.description_outlined, color: Color(0xFF1F6F78)),
+                leading: const Icon(Icons.description_outlined, color: Color(0xFF2563EB)),
                 title: const Text('Termos de Uso'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
@@ -155,7 +155,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
               ),
               const Divider(indent: 16),
               ListTile(
-                leading: const Icon(Icons.privacy_tip_outlined, color: Color(0xFF1F6F78)),
+                leading: const Icon(Icons.privacy_tip_outlined, color: Color(0xFF2563EB)),
                 title: const Text('Politica de Privacidade'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
@@ -190,7 +190,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF1F6F78),
+                  color: Color(0xFF2563EB),
                 ),
               ),
             ),

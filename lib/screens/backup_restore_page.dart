@@ -66,7 +66,7 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
 
   @override
   Widget build(BuildContext context) {
-    const Color corPrincipal = Color(0xFF1F6F78);
+    const Color corPrincipal = Color(0xFF2563EB);
     final exportando = ref.watch(_exportandoProvider);
     final importando = ref.watch(_importandoProvider);
 

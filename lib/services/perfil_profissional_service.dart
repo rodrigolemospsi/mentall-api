@@ -38,6 +38,8 @@ class PerfilProfissionalService {
     perfilExistente.registroProfissional = perfil.registroProfissional;
     perfilExistente.abordagemClinica = perfil.abordagemClinica;
     perfilExistente.termoPessoaAtendida = perfil.termoPessoaAtendida;
+    perfilExistente.modalidadesAtendimentoJson = perfil.modalidadesAtendimentoJson;
+    perfilExistente.enderecosConsultoriosJson = perfil.enderecosConsultoriosJson;
     perfilExistente.dataAtualizacao = DateTime.now();
 
     _encryptPerfil(perfilExistente);

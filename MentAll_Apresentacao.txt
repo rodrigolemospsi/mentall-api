@@ -1,0 +1,172 @@
+================================================================================
+                         MENTALL — PRONTUÁRIO CLÍNICO COM IA
+           Mais tempo para a clínica, menos tempo com a papelada.
+================================================================================
+
+O QUE É O MENTALL
+
+O MentAll é um aplicativo de prontuário clínico eletrônico desenvolvido
+especificamente para psicólogos. Diferente de prontuários genéricos, ele se
+adapta à SUA abordagem terapêutica — TCC, Psicanálise, ACT, DBT, Terapia do
+Esquema, Sistêmica e outras — e utiliza inteligência artificial como assistente
+de documentação, nunca como substituto do seu julgamento clínico.
+
+Ele foi projetado para resolver um problema real da rotina clínica: o tempo
+gasto com registros e anotações entre sessões.
+
+
+POR QUE USAR O MENTALL
+
+1. FOCO NO PACIENTE, NÃO NO PAPEL
+   Após a sessão, grave um breve relato de áudio (até 5 minutos) com suas
+   impressões clínicas. O app transcreve automaticamente e organiza o conteúdo
+   nos campos do prontuário. Você revisa, ajusta e salva.
+
+2. SUA ABORDAGEM, SUA LINGUAGEM
+   O MentAll adapta os campos clínicos à abordagem do profissional. São 14
+   abordagens disponíveis:
+   • TCC                      • Psicanálise
+   • Análise do Comportamento • Psicodinâmica
+   • ACT                      • DBT
+   • Terapia do Esquema       • Humanista
+   • Fenomenológico-existencial • Logoterapia
+   • Gestalt-terapia          • Sistêmica
+   • Integrativa              • Outra (personalizável)
+
+   Cada abordagem altera os rótulos dos campos (ex: "Pensamentos automáticos" na
+   TCC, "Significados" na Fenomenológica, "Esquemas" na Terapia do Esquema).
+
+3. SÍNTESE CLÍNICA COM IA (GPT-4.1)
+   A partir do seu relato ou da transcrição do áudio, a IA gera:
+   • Um relato clínico organizado, pronto para o prontuário
+   • Síntese clínica (eventos, evolução, observações)
+   • Formulação clínica adaptada à sua abordagem
+   • Intervenções realizadas e técnicas utilizadas
+   • Apontamentos do Copiloto com observações e hipóteses clínicas
+   • Indicação de artigos científicos em português para leitura complementar
+
+   TUDO o que a IA gera é marcado como "não revisado" e exige sua validação
+   antes de compor definitivamente o prontuário. A IA é apoio, não substituta.
+
+4. SEGURANÇA DE VERDADE
+   • Criptografia AES-256-CBC nos dados sensíveis armazenados localmente
+   • PIN de acesso ao app (protege contra acesso não autorizado ao celular)
+   • Autenticação JWT no backend (token criptografado entre app e servidor)
+   • Dados clínicos NUNCA saem do app sem criptografia
+   • Auditoria completa: cada ação (gravação, transcrição, IA, revisão) é
+     registrada com data e hora
+   • Backups exportáveis em JSON criptografado e PDF
+   • Arquivamento em vez de exclusão (LGPD)
+
+5. AGENDA INTEGRADA
+   • Compromissos do dia na tela inicial, com navegação entre datas
+   • Status de cada sessão: Agendado, Realizado, Cancelado, Faltou
+   • Integração com o prontuário: agende e registre no mesmo lugar
+   • Visão rápida de quem você atende hoje
+
+6. ORGANIZAÇÃO DOS PACIENTES
+   • Cadastro completo: nome, contato, e-mail, data de nascimento, foto
+   • Terminologia personalizável (paciente/cliente/pessoa atendida)
+   • WhatsApp direto do card do paciente (abre conversa no celular)
+   • Indicador visual de sessões pendentes de revisão
+   • Histórico de sessões com evolução clínica
+
+7. EXPORTAÇÃO PROFISSIONAL EM PDF
+   Gere documentos com qualidade profissional em 5 formatos:
+   • Registro individual de sessão
+   • Histórico clínico do paciente
+   • Relatório clínico com evolução
+   • Síntese revisada da sessão
+   • Prontuário completo
+
+   Design limpo, paleta azul minimalista, margens profissionais, sem poluição
+   visual. Pronto para anexar, imprimir ou compartilhar.
+
+8. PRIVACIDADE E ÉTICA
+   • Conformidade com princípios da LGPD
+   • Áudio limitado a 5 minutos com parada automática
+   • Aviso claro sobre uso de IA em todos os documentos gerados
+   • Tela dedicada de Privacidade e Segurança
+   • O profissional SEMPRE decide o que entra no prontuário
+
+9. RÁPIDO E LEVE
+   • Dados armazenados localmente (Hive) — funciona offline
+   • Abertura instantânea do app (sem espera por servidor)
+   • Sincronização com IA apenas quando você solicita
+   • Ícones e logo profissional com splash screen azul
+
+
+FUNCIONALIDADES PRINCIPAIS
+
++---------------------------+--------------------------------------------+
+| FUNCIONALIDADE            | DESCRIÇÃO                                  |
++---------------------------+--------------------------------------------+
+| Gravação de áudio         | Relato pós-sessão em áudio (até 5 min)     |
+| Transcrição automática    | OpenAI Whisper — fala para texto           |
+| Síntese clínica com IA    | GPT-4.1 organiza campos do prontuário      |
+| Artigos científicos       | IA sugere 2 artigos por sessão             |
+| 14 abordagens clínicas    | Campos adaptados à sua linha teórica       |
+| Agenda integrada          | Compromissos com status e navegação        |
+| Foto do paciente          | Armazenamento local com criptografia       |
+| WhatsApp integrado        | Conversa direta pelo contato cadastrado    |
+| PDF profissional          | 5 formatos de exportação                   |
+| Criptografia AES-256      | Proteção local dos dados                   |
+| PIN de acesso             | Bloqueio de tela com senha                 |
+| JWT + backend seguro      | Autenticação nas chamadas de IA            |
+| Backup e restauração      | Export/import JSON completo                |
+| Privacidade LGPD          | Auditoria, arquivamento, revisão obrigatória|
+| Offline-first             | Funciona sem internet para registros       |
++---------------------------+--------------------------------------------+
+
+
+PARA QUEM É O MENTALL
+
+Psicólogos clínicos que:
+• Atendem regularmente e precisam documentar sessões
+• Valorizam seu tempo e querem automatizar a burocracia
+• Desejam registros clínicos de qualidade com mínimo esforço
+• Trabalham com diferentes abordagens ou abordagem específica
+• Precisam de segurança real nos dados dos pacientes
+• Querem um app que se adapta à sua rotina, e não o contrário
+
+
+NÚMEROS DO PROJETO
+
+• 14 abordagens terapêuticas suportadas
+• +2.000 linhas de código na tela de sessão (maturidade do formulário)
+• 68 testes automatizados
+• Criptografia AES-256-CBC com chave derivada do PIN
+• 5 formatos de exportação PDF com design profissional
+• Backend Python com GPT-4.1 e Whisper da OpenAI
+• Token JWT com 8 horas de validade
+• Tempo médio de registro por sessão: de 10-15 minutos para 2-3 minutos
+
+
+O QUE O MENTALL NÃO É
+
+• NÃO é um prontuário genérico adaptado da medicina
+• NÃO substitui o julgamento clínico do profissional
+• NÃO armazena dados clínicos em nuvens públicas
+• NÃO gera conteúdo sem supervisão e revisão
+• NÃO é um robô-terapeuta — é um assistente de documentação
+
+
+COMEÇAR É SIMPLES
+
+1. Instale o app no celular Android
+2. Configure seu perfil profissional e abordagem clínica
+3. Cadastre seu primeiro paciente
+4. Agende uma sessão na agenda integrada
+5. Após o atendimento, grave um breve relato em áudio
+6. Revise a transcrição e a síntese gerada pela IA
+7. Marque como revisado — pronto, sua sessão está documentada
+
+
+CONTATO
+
+Repositório GitHub: https://github.com/rodrigolemospsi/mentall-api
+Projeto acadêmico de TCC — Universidade [sua universidade]
+
+================================================================================
+     "A tecnologia deve servir à clínica, e não o contrário."
+================================================================================

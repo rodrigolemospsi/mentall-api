@@ -22,7 +22,7 @@ class SinteseRequest(BaseModel):
     transcricao_relato: str
     relato_manual: str
     tema_principal: str
-    humor: int
+    humor: int = 0
 
 
 class SinteseResponse(BaseModel):

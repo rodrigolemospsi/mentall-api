@@ -61,6 +61,9 @@ class ApiClient {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         _authToken = data['access_token'] as String;
+        try {
+          await Hive.box<String>('app_config').put('jwt_token', _authToken!);
+        } catch (_) {}
         return true;
       }
     } catch (e) {

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 
 import 'package:prontuario_tcc/hive_registrar.g.dart';
+import 'package:prontuario_tcc/models/compromisso.dart';
 import 'package:prontuario_tcc/models/paciente.dart';
 import 'package:prontuario_tcc/models/perfil_profissional.dart';
 import 'package:prontuario_tcc/models/sessao.dart';
@@ -17,21 +18,25 @@ void main() {
     await Hive.openBox<PerfilProfissional>('perfil_profissional');
     await Hive.openBox<Paciente>('pacientes');
     await Hive.openBox<Sessao>('sessoes');
+    await Hive.openBox<Compromisso>('compromissos');
   });
 
   tearDownAll(() async {
     await Hive.box<PerfilProfissional>('perfil_profissional').close();
     await Hive.box<Paciente>('pacientes').close();
     await Hive.box<Sessao>('sessoes').close();
+    await Hive.box<Compromisso>('compromissos').close();
     await Hive.deleteBoxFromDisk('perfil_profissional');
     await Hive.deleteBoxFromDisk('pacientes');
     await Hive.deleteBoxFromDisk('sessoes');
+    await Hive.deleteBoxFromDisk('compromissos');
   });
 
   setUp(() async {
     await Hive.box<PerfilProfissional>('perfil_profissional').clear();
     await Hive.box<Paciente>('pacientes').clear();
     await Hive.box<Sessao>('sessoes').clear();
+    await Hive.box<Compromisso>('compromissos').clear();
   });
 
   testWidgets('sem perfil mostra configuracao', (tester) async {
@@ -68,6 +73,6 @@ void main() {
     await tester.pump();
 
     expect(find.text('Configuração inicial'), findsNothing);
-    expect(find.textContaining('Olá'), findsOneWidget);
+    expect(find.textContaining('Dr. Teste'), findsOneWidget);
   });
 }

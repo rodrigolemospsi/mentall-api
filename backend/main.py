@@ -166,7 +166,6 @@ def sintese(request: SinteseRequest):
         transcricao_relato=request.transcricao_relato,
         relato_manual=request.relato_manual,
         tema_principal=request.tema_principal,
-        humor=request.humor,
     )
 
     if not resultado["sucesso"]:

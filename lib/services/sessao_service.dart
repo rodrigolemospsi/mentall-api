@@ -164,6 +164,7 @@ class SessaoService {
     s.erroProcessamentoIa = _encrypt(s.erroProcessamentoIa);
     s.audioRelatoBase64 = _encrypt(s.audioRelatoBase64);
     s.audioRelatoPath = _encrypt(s.audioRelatoPath);
+    s.artigosSugeridos = _encrypt(s.artigosSugeridos);
   }
 
   void _decryptSessao(Sessao s) {
@@ -185,6 +186,7 @@ class SessaoService {
     s.erroProcessamentoIa = _decrypt(s.erroProcessamentoIa);
     s.audioRelatoBase64 = _decrypt(s.audioRelatoBase64);
     s.audioRelatoPath = _decrypt(s.audioRelatoPath);
+    s.artigosSugeridos = _decrypt(s.artigosSugeridos);
   }
 
   void _decryptSessoes(List<Sessao> sessoes) {

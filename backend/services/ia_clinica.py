@@ -42,7 +42,6 @@ def _montar_prompt_sintese(
     abordagem_clinica: str,
     material_base: str,
     tema_principal: str,
-    humor: int,
     prompt_abordagem: str,
 ) -> str:
     termo = termo_pessoa_atendida or "paciente"
@@ -58,7 +57,6 @@ def _montar_prompt_sintese(
 Número da sessão: {numero_sessao}
 {termo.capitalize()}: {nome}
 Tema principal informado: {tema}
-Humor informado: {humor}/10
 
 --- MATERIAL CLÍNICO ---
 {material_base}
@@ -77,8 +75,19 @@ Com base no material acima, gere um JSON válido com a seguinte estrutura (sem m
     "intervencoes": "Intervenções realizadas pelo profissional durante a sessão: perguntas, devolutivas, psicoeducação, validações, confrontações, exercícios, etc.",
     "tecnicas": "Técnicas ou recursos clínicos utilizados, compatíveis com a abordagem {abordagem_clinica}.",
     "tarefa_casa": "Tarefa, reflexão, exercício ou observação combinada com o {termo} para o período entre sessões. Se não houver, deixe vazio.",
-    "plano_proxima_sessao": "Foco, temas pendentes ou objetivos para a próxima sessão."
-}}
+    "plano_proxima_sessao": "Foco, temas pendentes ou objetivos para a próxima sessão.",
+    "artigos_sugeridos": "Indicação de exatamente 2 artigos científicos em português, baseados no conteúdo da sessão. Use o formato: '1. Título: ... Link: ...\\n2. Título: ... Link: ...'. Caso não encontre artigos reais nas plataformas SciELO, Oasisbr, BDTD ou CAPES, deixe vazio. NÃO invente referências."
+}} 
+
+ARTIGOS CIENTÍFICOS SUGERIDOS:
+Com base em toda a sessão clínica analisada (relato, síntese clínica, temas emergentes, hipóteses compreensivas, demandas, intervenções e focos terapêuticos), indique exatamente 2 artigos científicos em português como sugestão de leitura complementar para o profissional. Critérios:
+1. Apenas artigos científicos em português.
+2. Diretamente relacionados ao conteúdo clínico da sessão.
+3. Compatíveis com a síntese clínica, evitando sugestões genéricas.
+4. Priorizar artigos reconhecidos, relevantes e entre os mais citados do tema.
+5. Buscar exclusivamente em: SciELO, Oasisbr, BDTD, Portal de Periódicos CAPES.
+6. NÃO indicar livros, capítulos, dissertações, teses, blogs, sites, materiais didáticos, vídeos ou textos opinativos.
+7. Se não houver segurança de que o artigo existe e atende aos critérios, NÃO invente — deixe o campo vazio.
 
 IMPORTANTE:
 - Use o termo "{termo}" para se referir à pessoa atendida
@@ -103,6 +112,7 @@ def _parse_resultado_sucesso(resultado_raw: dict) -> dict:
         "tecnicas": resultado_raw.get("tecnicas", ""),
         "tarefa_casa": resultado_raw.get("tarefa_casa", ""),
         "plano_proxima_sessao": resultado_raw.get("plano_proxima_sessao", ""),
+        "artigos_sugeridos": resultado_raw.get("artigos_sugeridos", ""),
         "erro": "",
     }
 
@@ -173,7 +183,6 @@ def gerar_sintese(
     transcricao_relato: str,
     relato_manual: str,
     tema_principal: str,
-    humor: int,
 ) -> dict:
     try:
         prompt_abordagem = obter_prompt_abordagem(abordagem_clinica)
@@ -193,7 +202,6 @@ def gerar_sintese(
             abordagem_clinica=abordagem_clinica,
             material_base=material_base,
             tema_principal=tema_principal,
-            humor=humor,
             prompt_abordagem=prompt_abordagem,
         )
 

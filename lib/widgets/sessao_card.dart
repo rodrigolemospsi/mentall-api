@@ -34,8 +34,6 @@ class SessaoCard extends StatelessWidget {
     return '$hora:$minuto';
   }
 
-  bool get _temTema => sessao.temaPrincipal.trim().isNotEmpty;
-
   IconData _iconeStatus(String codigo) {
     switch (codigo) {
       case 'vazia':
@@ -59,7 +57,7 @@ class SessaoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color corPrincipal = Color(0xFF1F6F78);
+    const Color corPrincipal = Color(0xFF2563EB);
 
     final dataFormatada = _formatarData(sessao.data);
     final horarioFormatado = _formatarHorario(sessao.data);
@@ -111,9 +109,7 @@ class SessaoCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _temTema
-                            ? sessao.temaPrincipal.trim()
-                            : 'Sessão ${sessao.numeroSessao}',
+                        'Sessão ${sessao.numeroSessao} - $dataFormatada',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -121,25 +117,10 @@ class SessaoCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        '$dataFormatada às $horarioFormatado',
+                        '$horarioFormatado',
                         style: const TextStyle(color: Colors.black54),
                       ),
                       const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.mood_outlined,
-                            size: 18,
-                            color: Colors.grey.shade700,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Humor: ${sessao.humor}/10',
-                            style: const TextStyle(color: Colors.black87),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
