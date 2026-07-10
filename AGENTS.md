@@ -187,6 +187,88 @@ Chamadas à API (`TranscricaoRelatoService`, `IaClinicaService`) devem chamar `A
   - ~~URL backend hardcoded~~ ✅ Configurável via Hive + diálogo na Home (08/07/2026)
   - ~~Transcrição não enviava áudio no mobile~~ ✅ Leitura de arquivo .m4a + Base64 (08/07/2026)
   - ~~SessaoFormPage: UI complexa com 12 campos~~ ✅ Simplificado para 5 campos: transcrição, relato, síntese, formulação, intervenções, apontamentos (08/07/2026)
+  - ~~Gravação quebrava após remover áudio~~ ✅ _audioRelatoService.dispose() removido — AudioRelatoService é singleton (09/07/2026)
+  - ~~Abertura lenta do app~~ ✅ _inicializarBackendAuth() assíncrono removido do main(); boxes paralelas; splash azul (09/07/2026)
+  - ~~Tabs no AppBar~~ ✅ Movidas para o body logo acima da lista de pacientes (09/07/2026)
+  - ~~Cor antiga verde-azulado (#1F6F78)~~ ✅ Substituída por azul #2563EB em todo o app (09/07/2026)
+  - ~~Humor no card de sessão~~ ✅ Removido do widget e do prompt da IA (09/07/2026)
+  - ~~9 testes quebrados~~ ✅ Corrigidos: home_page, app_start, paciente_detail (09/07/2026)
+
+## Novas Funcionalidades (09/07/2026)
+
+### Agenda Inline na Home
+- Agenda completa integrada na tela inicial com navegação entre datas
+- Componente `_AgendaInline` com seletor de data, lista de compromissos e botão "Novo compromisso"
+- Navegação entre dias com `_agendaDataProvider`
+- Provider `compromissosHojeProvider` no `service_providers.dart`
+- Modelo `Compromisso` (Hive typeId 4) com status: agendado, realizado, cancelado, faltou
+- Serviço `CompromissoService` com CRUD completo
+- Diálogo `CompromissoFormDialog` para criar/editar compromissos
+
+### Foto do Paciente
+- Campo `fotoBase64` (@HiveField(11)) no modelo `Paciente`
+- Seleção de foto via `image_picker` no diálogo de cadastro
+- Exibição no `PacienteCardHome` como `CircleAvatar` com `MemoryImage`
+- Fallback para inicial quando sem foto
+
+### WhatsApp Integrado
+- Botão no card do paciente abaixo do chip "Ativo"
+- Abre conversa externa via `url_launcher` com `https://wa.me/<numero>`
+- Número limpo de caracteres não numéricos
+- Query adicionada ao AndroidManifest para Android 11+
+
+### Logo e Identidade Visual
+- Logo `assets/images/logo_mentall.png` no AppBar, tela de login e cabeçalho de PDFs
+- Ícone do app gerado via `flutter_launcher_icons` (com adaptive icon)
+- Splash screen nativa azul #2563EB (sem flash branco)
+- Nome do app "MentAll" no AndroidManifest (antes era "prontuario_tcc")
+- Paleta de cores azul minimalista aplicada em 17 arquivos
+
+### Edição Bloqueada
+- Sessão salva fica bloqueada por padrão (`_modoEdicao = false`)
+- Botão "Editar" no cabeçalho ao lado de "Sessão N"
+- Campos protegidos com `IgnorePointer` quando bloqueado
+- Botão "Salvar" visível apenas no modo edição
+
+### Indicação de Artigos Científicos
+- Campo `artigosSugeridos` (@HiveField(30)) no modelo `Sessao`
+- Backend gera via GPT-4.1 sugestões de artigos em português (SciELO, Oasisbr, BDTD, CAPES)
+- Exibição na tela de sessão após "Apontamentos" em card azul claro
+- Não inventa referências — campo vazio se não encontrar
+
+### Outras Melhorias
+- Home com `CustomScrollView` (resolve overflow em telas pequenas)
+- Busca de pacientes removida da home (simplificação)
+- Perfil profissional movido para menu "Mais"
+- Botão "Marcar como revisado" (texto simplificado)
+- IA não envia mais parâmetro `humor` (removido do prompt, schema e endpoint)
+- Testes atualizados: 67/67 passando
+
+## Cores do App
+```
+Primary:         #2563EB   Azul principal (AppBar, FAB, títulos, ações)
+Primary Light:   #DBEAFE   Borda de cards de destaque
+Primary BG:      #EFF6FF   Fundo de cards de destaque
+Text Heading:    #1E293B   Títulos
+Text Body:       #334155   Corpo de texto
+Text Secondary:  #475569   Texto secundário
+Text Muted:      #64748B   Texto suave
+Placeholder:     #94A3B8   Placeholders, tabs inativas
+Disabled:        #CBD5E1   Elementos desabilitados
+Page BG:         #F7F9FA   Fundo de todas as telas
+Card BG:         #F8FAFC   Fundo de cards (PDF)
+Surface:         #F1F5F9   Superfícies alternativas
+Divider:         #E2E8F0   Separadores e bordas sutis
+Success:         #2E7D32   Ativo, realizado, OK
+Error:           #D32F2F   Erros
+Warning:         #E65100   Pendente de revisão
+Warning BG:      #FFF3E0   Fundo de aviso
+Danger:          #C62828   Faltou, ação destrutiva
+WhatsApp BG:     #25D366   Fundo botão WhatsApp
+WhatsApp Text:   #075E54   Texto botão WhatsApp
+Scheduled:       #1976D2   Status agendado
+Cancelled:       #757575   Cancelado, inativo
+```
 
 ## Layout da Sessão (após redesenho 08/07/2026)
 A tela de sessão foi simplificada:
