@@ -24,7 +24,7 @@ def transcrever_audio(audio_base64: str, formato: str = "wav") -> dict:
         audio_file.name = f"audio.{formato}"
 
         transcricao = _client().audio.transcriptions.create(
-            model="gpt-4o-mini-transcribe",
+            model="gpt-4o-transcribe",
             file=audio_file,
             language="pt",
             response_format="text",

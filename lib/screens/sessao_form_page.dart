@@ -280,6 +280,8 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       final sessao = widget.sessaoExistente;
 
       if (sessao != null) {
+        _audioRelatoService.cancelarGravacao();
+
         _sessaoId = sessao.id;
         _numeroSessao = sessao.numeroSessao;
         ref.read(_dataSessaoProvider.notifier).state = sessao.data;
@@ -303,6 +305,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
         _origemRelato = sessao.origemRelato;
         _modoEdicao = false;
       } else {
+        _resetarEstadoSessao();
         _sessaoId = DateTime.now().millisecondsSinceEpoch.toString();
         _numeroSessao = _sessaoService.proximoNumeroSessao(widget.paciente.id);
         ref.read(_dataSessaoProvider.notifier).state = DateTime.now();
@@ -323,10 +326,6 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
     _relatoPosSessaoController.dispose();
     _transcricaoRelatoController.dispose();
-    _sinteseController.dispose();
-    _formulacaoController.dispose();
-    _intervencoesController.dispose();
-    _apontamentosController.dispose();
     _sinteseController.dispose();
     _formulacaoController.dispose();
     _intervencoesController.dispose();
@@ -425,6 +424,44 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
     _formulacaoController.clear();
     _intervencoesController.clear();
     _apontamentosController.clear();
+    _artigosSugeridos = '';
+  }
+
+  void _resetarEstadoSessao() {
+    ref.read(_audioRelatoPathProvider.notifier).state = '';
+    ref.read(_audioRelatoBase64Provider.notifier).state = '';
+    ref.read(_gravandoAudioProvider.notifier).state = false;
+    ref.read(_audioPausadoProvider.notifier).state = false;
+    ref.read(_reproduzindoAudioProvider.notifier).state = false;
+    ref.read(_duracaoGravacaoProvider.notifier).state = Duration.zero;
+    ref.read(_erroAudioProvider.notifier).state = '';
+    ref.read(_transcrevendoRelatoProvider.notifier).state = false;
+    ref.read(_gerandoSinteseIaProvider.notifier).state = false;
+    ref.read(_statusProcessamentoProvider.notifier).state = 'manual';
+    ref.read(_erroProcessamentoIaProvider.notifier).state = '';
+    ref.read(_revisadoPeloProfissionalProvider.notifier).state = false;
+    ref.read(_geradoComIaProvider.notifier).state = false;
+    ref.read(_dataProcessamentoIaProvider.notifier).state = null;
+    ref.read(_avisoInvalidacaoTranscricaoExibidoProvider.notifier).state = false;
+    ref.read(_audioMantidoProvider.notifier).state = false;
+    ref.read(_origemRelatoProvider.notifier).state = 'manual';
+    ref.read(_artigosSugeridosProvider.notifier).state = '';
+    ref.read(_salvandoProvider.notifier).state = false;
+    ref.read(_formRebuildProvider.notifier).state = 0;
+
+    _relatoPosSessaoController.clear();
+    _transcricaoRelatoController.clear();
+    _sinteseController.clear();
+    _formulacaoController.clear();
+    _intervencoesController.clear();
+    _apontamentosController.clear();
+
+    _ultimaTranscricaoControlada = '';
+    _avisoInvalidacaoTranscricaoExibido = false;
+    _timerGravacao?.cancel();
+    _timerGravacao = null;
+
+    _audioRelatoService.cancelarGravacao();
   }
 
   void _iniciarContadorGravacao() {
@@ -1144,6 +1181,8 @@ if (!mounted || confirmar != true) return;
           controller: _apontamentosController,
           texto: resultado.apontamentosCopiloto,
         );
+
+        _artigosSugeridos = resultado.artigosSugeridos;
 
         _gerandoSinteseIa = false;
         _geradoComIa = true;

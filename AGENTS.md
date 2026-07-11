@@ -10,7 +10,7 @@ App Flutter para prontuário clínico adaptado à abordagem terapêutica do prof
 - **Banco local:** Hive CE (hive_ce + hive_ce_flutter + hive_ce_generator)
 - **Áudio:** record + audioplayers + path_provider
 - **Geração de código:** build_runner + hive_ce_generator
-- **Backend:** Python FastAPI, OpenAI GPT-4.1 (síntese) + gpt-4o-mini-transcribe (transcrição)
+- **Backend:** Python FastAPI, OpenAI GPT-4.1 (síntese) + gpt-4o-transcribe (transcrição)
 - **Deploy backend:** Render.com (plano gratuito, cold start ~30-60s)
 - **Segurança:** Criptografia AES-256-CBC (encrypt + pointycastle) + autenticação JWT no backend (python-jose + passlib)
 
