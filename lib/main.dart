@@ -34,6 +34,8 @@ void main() async {
     Hive.openBox<PerfilProfissional>('perfil_profissional'),
     Hive.openBox<RegistroAuditoria>('auditoria'),
     Hive.openBox<String>('app_config'),
+    Hive.openBox<String>('auth_meta'),
+    Hive.openBox<String>('encryption_meta'),
   ]);
 
   await HiveMigrationService().executar();
@@ -60,7 +62,7 @@ void main() async {
             const SizedBox(height: 8),
             const Text(
               'Ocorreu um erro ao exibir esta tela. Isso pode ser causado por dados incompat\u00EDveis de uma vers\u00E3o anterior do app.',
-              style: TextStyle(color: Colors.black54, height: 1.4),
+              style: const TextStyle(color: Color(0xFF475569), height: 1.4),
             ),
             const SizedBox(height: 16),
             Text(
@@ -82,7 +84,7 @@ void main() async {
 
 void _inicializarBackendAuth() {
   try {
-    final token = Hive.box<String>('app_config').get('jwt_token');
+    final token = Hive.box<String>('auth_meta').get('jwt_token');
     if (token != null && token.isNotEmpty) {
       ApiClient.authToken = token;
     }
@@ -137,3 +139,4 @@ class MentAllApp extends StatelessWidget {
     );
   }
 }
+

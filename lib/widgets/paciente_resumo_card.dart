@@ -87,7 +87,7 @@ class PacienteResumoCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         _tipoAtendimentoExibicao,
-                        style: const TextStyle(color: Colors.black54),
+                        style: const TextStyle(color: Color(0xFF475569)),
                       ),
                     ],
                   ),

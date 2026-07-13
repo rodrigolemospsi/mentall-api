@@ -26,7 +26,7 @@ class EncryptionService {
   Future<void> inicializar() async {
     if (_inicializado) return;
 
-    _box = await Hive.openBox<String>(_boxName);
+    _box = Hive.box<String>(_boxName);
     _inicializado = true;
 
     final ivBase64 = _box.get(_ivKey);
@@ -36,9 +36,13 @@ class EncryptionService {
   }
 
   bool get possuiPinConfigurado {
-    if (!_inicializado) return false;
-    final hash = _box.get(_verificationKey);
-    return hash != null && hash.isNotEmpty;
+    try {
+      final box = Hive.box<String>(_boxName);
+      final hash = box.get(_verificationKey);
+      return hash != null && hash.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> configurarPin(String pin) async {

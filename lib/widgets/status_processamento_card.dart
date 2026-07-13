@@ -54,7 +54,7 @@ class StatusProcessamentoCard extends StatelessWidget {
                 Text(
                   'Origem do relato: $origemRelato',
                   style: const TextStyle(
-                    color: Colors.black54,
+                    color: const Color(0xFF475569),
                     fontSize: 13,
                   ),
                 ),
@@ -63,7 +63,7 @@ class StatusProcessamentoCard extends StatelessWidget {
                       ? 'Conteúdo auxiliado por IA'
                       : 'Sem processamento por IA',
                   style: const TextStyle(
-                    color: Colors.black54,
+                    color: const Color(0xFF475569),
                     fontSize: 13,
                   ),
                 ),
@@ -72,7 +72,7 @@ class StatusProcessamentoCard extends StatelessWidget {
                       ? 'Revisado pelo profissional'
                       : 'Ainda não marcado como revisado',
                   style: const TextStyle(
-                    color: Colors.black54,
+                    color: const Color(0xFF475569),
                     fontSize: 13,
                   ),
                 ),
@@ -80,7 +80,7 @@ class StatusProcessamentoCard extends StatelessWidget {
                   Text(
                     'Último processamento: $dataProcessamentoIa',
                     style: const TextStyle(
-                      color: Colors.black54,
+                      color: const Color(0xFF475569),
                       fontSize: 13,
                     ),
                   ),
@@ -90,7 +90,7 @@ class StatusProcessamentoCard extends StatelessWidget {
                         ? 'Áudio original mantido'
                         : 'Áudio original poderá ser descartado',
                     style: const TextStyle(
-                      color: Colors.black54,
+                      color: const Color(0xFF475569),
                       fontSize: 13,
                     ),
                   ),

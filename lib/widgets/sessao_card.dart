@@ -85,7 +85,7 @@ class SessaoCard extends StatelessWidget {
                 );
               },
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
+          padding: const EdgeInsets.all(16),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -113,12 +113,13 @@ class SessaoCard extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
+                          color: Color(0xFF1E293B),
                         ),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         '$horarioFormatado',
-                        style: const TextStyle(color: Colors.black54),
+                        style: const TextStyle(color: Color(0xFF475569)),
                       ),
                       const SizedBox(height: 6),
                       Wrap(
@@ -151,7 +152,7 @@ class SessaoCard extends StatelessWidget {
               ),
               PopupMenuButton<String>(
                 tooltip: 'Opções da sessão',
-                icon: const Icon(Icons.more_vert, color: Colors.black45),
+                icon: const Icon(Icons.more_vert, color: Color(0xFF64748B)),
                 onSelected: (value) {
                   if (value == 'arquivar' && onArquivar != null) {
                     onArquivar!();

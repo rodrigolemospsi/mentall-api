@@ -100,7 +100,7 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
                   const SizedBox(height: 8),
                   const Text(
                     'Gera um arquivo JSON com todos os pacientes, sessões e configurações do perfil.',
-                    style: TextStyle(color: Colors.black54, height: 1.4),
+                    style: const TextStyle(color: Color(0xFF475569), height: 1.4),
                   ),
                   const SizedBox(height: 16),
                   FilledButton.icon(
@@ -146,7 +146,7 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
                   const SizedBox(height: 8),
                   const Text(
                     'Restaura dados de um arquivo JSON. Itens com ID já existente são ignorados (sem sobrescrita).',
-                    style: TextStyle(color: Colors.black54, height: 1.4),
+                    style: const TextStyle(color: Color(0xFF475569), height: 1.4),
                   ),
                   const SizedBox(height: 16),
                   FilledButton.icon(

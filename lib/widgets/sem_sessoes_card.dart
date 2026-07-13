@@ -22,13 +22,14 @@ class SemSessoesCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icone, size: 48, color: corPrincipal.withValues(alpha: 0.7)),
+            Icon(icone, size: 64, color: corPrincipal.withValues(alpha: 0.7)),
             const SizedBox(height: 12),
             Text(
               titulo,
               style: const TextStyle(
-                fontSize: 17,
+                fontSize: 18,
                 fontWeight: FontWeight.w600,
+                color: Color(0xFF1E293B),
               ),
               textAlign: TextAlign.center,
             ),
@@ -37,7 +38,7 @@ class SemSessoesCard extends StatelessWidget {
               mensagem,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: Colors.black54,
+                color: Color(0xFF64748B),
                 height: 1.4,
               ),
             ),

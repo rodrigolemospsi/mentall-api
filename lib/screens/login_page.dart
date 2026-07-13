@@ -126,7 +126,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 const SizedBox(height: 24),
                 Image.asset(
                   'assets/images/logo_mentall.png',
-                  height: 48,
+                  height: 72,
                 ),
                 const SizedBox(height: 8),
                 Text(

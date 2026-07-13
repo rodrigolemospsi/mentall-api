@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/service_providers.dart';
+import '../../services/lgpd/pdf_arquitetura_lgpd_service.dart';
 import '../login_page.dart';
 import 'politica_privacidade_page.dart';
 import 'termos_uso_page.dart';
@@ -20,6 +21,23 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
         title: const Text('Privacidade e Seguranca'),
         backgroundColor: corPrincipal,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            tooltip: 'Exportar PDF da Arquitetura LGPD',
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            onPressed: () async {
+              try {
+                await PdfArquiteturaLgpdService().exportar();
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Erro ao gerar PDF. Tente novamente.')),
+                  );
+                }
+              }
+            },
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),

@@ -40,15 +40,16 @@ class EstadoVazioPacientes extends StatelessWidget {
               listaArquivada
                   ? Icons.archive_outlined
                   : Icons.psychology_alt_outlined,
-              size: 72,
+              size: 64,
               color: corPrincipal.withValues(alpha: 0.7),
             ),
             const SizedBox(height: 16),
             Text(
               titulo,
               style: const TextStyle(
-                fontSize: 20,
+                fontSize: 18,
                 fontWeight: FontWeight.w600,
+                color: Color(0xFF1E293B),
               ),
               textAlign: TextAlign.center,
             ),
@@ -56,8 +57,8 @@ class EstadoVazioPacientes extends StatelessWidget {
             Text(
               mensagem,
               style: const TextStyle(
-                fontSize: 15,
-                color: Colors.black54,
+                fontSize: 14,
+                color: Color(0xFF64748B),
                 height: 1.4,
               ),
               textAlign: TextAlign.center,

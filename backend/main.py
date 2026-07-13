@@ -14,6 +14,8 @@ from models.schemas import (
     LoginResponse,
     SinteseRequest,
     SinteseResponse,
+    SmsRequest,
+    SmsResponse,
     TranscricaoRequest,
     TranscricaoResponse,
 )
@@ -187,6 +189,65 @@ def sintese(request: SinteseRequest):
         plano_proxima_sessao=resultado["plano_proxima_sessao"],
         erro="",
     )
+
+
+@app.post(
+    "/enviar-sms",
+    response_model=SmsResponse,
+    tags=["Mensagens"],
+    dependencies=[Depends(_verificar_token)],
+)
+def enviar_sms(request: SmsRequest):
+    if not request.telefone.strip():
+        raise HTTPException(status_code=400, detail="Telefone nao informado.")
+    if not request.mensagem.strip():
+        raise HTTPException(status_code=400, detail="Mensagem nao informada.")
+
+    account_sid = os.getenv("TWILIO_ACCOUNT_SID", "")
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN", "")
+    twilio_phone = os.getenv("TWILIO_PHONE_NUMBER", "")
+
+    if not account_sid or not auth_token or not twilio_phone:
+        return SmsResponse(
+            sucesso=False,
+            erro="Servico de SMS nao configurado. Configure TWILIO_ACCOUNT_SID, "
+                 "TWILIO_AUTH_TOKEN e TWILIO_PHONE_NUMBER no ambiente.",
+        )
+
+    try:
+        import requests
+
+        telefone = request.telefone.strip()
+        if not telefone.startswith("+"):
+            if telefone.startswith("55") and len(telefone) >= 12:
+                telefone = "+" + telefone
+            else:
+                telefone = "+55" + telefone
+
+        url = f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
+        data = {
+            "From": twilio_phone,
+            "To": telefone,
+            "Body": request.mensagem,
+        }
+
+        resp = requests.post(url, data=data, auth=(account_sid, auth_token), timeout=30)
+
+        if resp.status_code in (200, 201):
+            return SmsResponse(
+                sucesso=True,
+                mensagem=f"SMS enviado para {telefone}",
+            )
+        else:
+            return SmsResponse(
+                sucesso=False,
+                erro=f"Erro Twilio ({resp.status_code}): {resp.text[:300]}",
+            )
+    except Exception as e:
+        return SmsResponse(
+            sucesso=False,
+            erro=f"Erro ao enviar SMS: {str(e)}",
+        )
 
 
 if __name__ == "__main__":

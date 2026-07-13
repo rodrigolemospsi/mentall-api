@@ -12,6 +12,7 @@ import '../services/backup_service.dart';
 import '../services/lgpd/auditoria_service.dart';
 import '../models/compromisso.dart';
 import '../services/compromisso_service.dart';
+import '../services/lembrete_service.dart';
 import '../services/transcricao_relato_service.dart';
 
 final encryptionServiceProvider = Provider<EncryptionService>((ref) {
@@ -76,6 +77,10 @@ final auditoriaServiceProvider = Provider<AuditoriaService>((ref) {
 
 final compromissoServiceProvider = Provider<CompromissoService>((ref) {
   return CompromissoService();
+});
+
+final lembreteServiceProvider = Provider<LembreteService>((ref) {
+  return LembreteService();
 });
 
 final compromissosHojeProvider = StreamProvider<List<Compromisso>>((ref) async* {

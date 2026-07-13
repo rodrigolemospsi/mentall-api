@@ -141,7 +141,7 @@ class _PerfilProfissionalFormPageState
                     const Text(
                       'Antes de cadastrar pessoas atendidas, configure seu perfil profissional e suas preferências clínicas.',
                       style: TextStyle(
-                        color: Colors.black54,
+                        color: const Color(0xFF475569),
                         height: 1.4,
                       ),
                     ),
@@ -298,10 +298,10 @@ class _PerfilProfissionalFormPageState
 
     return Card(
       elevation: 0,
-      color: Colors.blueGrey.shade50,
+      color: const Color(0xFFEFF6FF),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: Colors.blueGrey.shade200),
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFDBEAFE)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),

@@ -8,7 +8,6 @@ import 'logger.dart';
 
 class ApiClient {
   static const String _baseUrlKey = 'backend_url';
-  static const String _tokenKey = 'jwt_token';
   static const String _defaultBaseUrl = 'https://mentall-api.onrender.com';
 
   static String get baseUrl {
@@ -50,6 +49,15 @@ class ApiClient {
     }
 
     try {
+      final authMeta = Hive.box<String>('auth_meta');
+      final cached = authMeta.get('jwt_token');
+      if (cached != null && cached.isNotEmpty) {
+        _authToken = cached;
+        return true;
+      }
+    } catch (_) {}
+
+    try {
       final response = await http
           .post(
             Uri.parse('$baseUrl/auth/login'),
@@ -62,7 +70,7 @@ class ApiClient {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         _authToken = data['access_token'] as String;
         try {
-          await Hive.box<String>('app_config').put('jwt_token', _authToken!);
+          await Hive.box<String>('auth_meta').put('jwt_token', _authToken!);
         } catch (_) {}
         return true;
       }

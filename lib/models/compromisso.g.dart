@@ -27,13 +27,18 @@ class CompromissoAdapter extends TypeAdapter<Compromisso> {
       sessaoId: fields[7] as String?,
       dataCriacao: fields[8] as DateTime?,
       dataAtualizacao: fields[9] as DateTime?,
+      lembreteAtivado: fields[10] == null ? false : fields[10] as bool,
+      minutosAntecedencia: fields[11] == null
+          ? 1440
+          : (fields[11] as num).toInt(),
+      mensagemLembrete: fields[12] == null ? '' : fields[12] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, Compromisso obj) {
     writer
-      ..writeByte(10)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -53,7 +58,13 @@ class CompromissoAdapter extends TypeAdapter<Compromisso> {
       ..writeByte(8)
       ..write(obj.dataCriacao)
       ..writeByte(9)
-      ..write(obj.dataAtualizacao);
+      ..write(obj.dataAtualizacao)
+      ..writeByte(10)
+      ..write(obj.lembreteAtivado)
+      ..writeByte(11)
+      ..write(obj.minutosAntecedencia)
+      ..writeByte(12)
+      ..write(obj.mensagemLembrete);
   }
 
   @override

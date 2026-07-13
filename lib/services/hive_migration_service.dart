@@ -60,33 +60,39 @@ class HiveMigrationService {
     int total = 0;
 
     for (final key in pacientesBox.keys.toList()) {
-      final paciente = pacientesBox.get(key);
-      if (paciente != null) {
-        await paciente.save();
-        total++;
-      }
+      try {
+        final paciente = pacientesBox.get(key);
+        if (paciente != null) {
+          await paciente.save();
+          total++;
+        }
+      } catch (_) {}
     }
 
     for (final key in sessoesBox.keys.toList()) {
-      final sessao = sessoesBox.get(key);
-      if (sessao != null) {
-        if (sessao.origemRelato.isEmpty) {
-          sessao.origemRelato = 'manual';
+      try {
+        final sessao = sessoesBox.get(key);
+        if (sessao != null) {
+          if (sessao.origemRelato.isEmpty) {
+            sessao.origemRelato = 'manual';
+          }
+          if (sessao.statusProcessamento.isEmpty) {
+            sessao.statusProcessamento = 'manual';
+          }
+          await sessao.save();
+          total++;
         }
-        if (sessao.statusProcessamento.isEmpty) {
-          sessao.statusProcessamento = 'nao_processado';
-        }
-        await sessao.save();
-        total++;
-      }
+      } catch (_) {}
     }
 
     for (final key in perfilBox.keys.toList()) {
-      final perfil = perfilBox.get(key);
-      if (perfil != null) {
-        await perfil.save();
-        total++;
-      }
+      try {
+        final perfil = perfilBox.get(key);
+        if (perfil != null) {
+          await perfil.save();
+          total++;
+        }
+      } catch (_) {}
     }
 
     if (total > 0) {
@@ -102,27 +108,33 @@ class HiveMigrationService {
     int total = 0;
 
     for (final key in pacientesBox.keys.toList()) {
-      final paciente = pacientesBox.get(key);
-      if (paciente != null) {
-        await paciente.save();
-        total++;
-      }
+      try {
+        final paciente = pacientesBox.get(key);
+        if (paciente != null) {
+          await paciente.save();
+          total++;
+        }
+      } catch (_) {}
     }
 
     for (final key in sessoesBox.keys.toList()) {
-      final sessao = sessoesBox.get(key);
-      if (sessao != null) {
-        await sessao.save();
-        total++;
-      }
+      try {
+        final sessao = sessoesBox.get(key);
+        if (sessao != null) {
+          await sessao.save();
+          total++;
+        }
+      } catch (_) {}
     }
 
     for (final key in perfilBox.keys.toList()) {
-      final perfil = perfilBox.get(key);
-      if (perfil != null) {
-        await perfil.save();
-        total++;
-      }
+      try {
+        final perfil = perfilBox.get(key);
+        if (perfil != null) {
+          await perfil.save();
+          total++;
+        }
+      } catch (_) {}
     }
 
     if (total > 0) {

@@ -25,6 +25,8 @@ class BackupService {
           'data_criacao': p.dataCriacao.toIso8601String(),
           if (p.dataAtualizacao != null)
             'data_atualizacao': p.dataAtualizacao!.toIso8601String(),
+          'modalidades_atendimento_json': p.modalidadesAtendimentoJson,
+          'enderecos_consultorios_json': p.enderecosConsultoriosJson,
         };
       }).toList(),
       'pacientes': pacientes.values.map((p) {
@@ -40,6 +42,8 @@ class BackupService {
           'data_cadastro': p.dataCadastro.toIso8601String(),
           if (p.dataAtualizacao != null)
             'data_atualizacao': p.dataAtualizacao!.toIso8601String(),
+          'modo_atendimento': p.modoAtendimento,
+          'foto_base64': p.fotoBase64,
         };
       }).toList(),
       'sessoes': sessoes.values.map((s) {
@@ -74,6 +78,7 @@ class BackupService {
           'erro_processamento_ia': s.erroProcessamentoIa,
           'origem_relato': s.origemRelato,
           'audio_relato_base64': s.audioRelatoBase64,
+          'artigos_sugeridos': s.artigosSugeridos,
         };
       }).toList(),
     };
@@ -117,6 +122,8 @@ class BackupService {
           dataAtualizacao: map['data_atualizacao'] != null
               ? DateTime.parse(map['data_atualizacao'] as String)
               : null,
+          modoAtendimento: map['modo_atendimento'] as String? ?? '',
+          fotoBase64: map['foto_base64'] as String? ?? '',
         );
 
         if (pacientesBox.values.any((p) => p.id == paciente.id) == false) {
@@ -166,6 +173,7 @@ class BackupService {
               map['erro_processamento_ia'] as String? ?? '',
           origemRelato: map['origem_relato'] as String? ?? 'manual',
           audioRelatoBase64: map['audio_relato_base64'] as String? ?? '',
+          artigosSugeridos: map['artigos_sugeridos'] as String? ?? '',
         );
 
         if (sessoesBox.values.any((s) => s.id == sessao.id) == false) {
@@ -191,6 +199,10 @@ class BackupService {
           dataAtualizacao: map['data_atualizacao'] != null
               ? DateTime.parse(map['data_atualizacao'] as String)
               : null,
+          modalidadesAtendimentoJson:
+              map['modalidades_atendimento_json'] as String? ?? '[]',
+          enderecosConsultoriosJson:
+              map['enderecos_consultorios_json'] as String? ?? '[]',
         );
 
         if (perfilBox.values.any((p) => p.id == perfil.id) == false) {

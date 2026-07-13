@@ -2,9 +2,11 @@ import 'package:hive_ce/hive.dart';
 
 import '../models/compromisso.dart';
 import '../models/enums.dart';
+import 'lembrete_service.dart';
 
 class CompromissoService {
   final Box<Compromisso> _box = Hive.box<Compromisso>('compromissos');
+  final LembreteService _lembreteService = LembreteService();
 
   List<Compromisso> listarTodos() {
     final compromissos = _box.values.toList();
@@ -74,22 +76,26 @@ class CompromissoService {
   }
 
   Future<void> remover(Compromisso compromisso) async {
+    await _lembreteService.cancelarLembrete(compromisso.id);
     await compromisso.delete();
   }
 
   Future<void> marcarComoRealizado(Compromisso compromisso) async {
+    await _lembreteService.cancelarLembrete(compromisso.id);
     compromisso.statusEnum = StatusCompromisso.realizado;
     compromisso.dataAtualizacao = DateTime.now();
     await compromisso.save();
   }
 
   Future<void> marcarComoCancelado(Compromisso compromisso) async {
+    await _lembreteService.cancelarLembrete(compromisso.id);
     compromisso.statusEnum = StatusCompromisso.cancelado;
     compromisso.dataAtualizacao = DateTime.now();
     await compromisso.save();
   }
 
   Future<void> marcarComoFaltou(Compromisso compromisso) async {
+    await _lembreteService.cancelarLembrete(compromisso.id);
     compromisso.statusEnum = StatusCompromisso.faltou;
     compromisso.dataAtualizacao = DateTime.now();
     await compromisso.save();

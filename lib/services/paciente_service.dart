@@ -120,12 +120,12 @@ class PacienteService {
 
   String _encrypt(String value) {
     if (_encryption == null || value.isEmpty) return value;
-    return _encryption!.criptografar(value);
+    return _encryption.criptografar(value);
   }
 
   String _decrypt(String value) {
     if (_encryption == null || value.isEmpty) return value;
-    return _encryption!.descriptografar(value);
+    return _encryption.descriptografar(value);
   }
 
   void _encryptPaciente(Paciente p) {

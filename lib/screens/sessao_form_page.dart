@@ -21,7 +21,6 @@ import '../widgets/secao_formulario.dart';
 
 final _salvandoProvider = StateProvider<bool>((ref) => false);
 final _dataSessaoProvider = StateProvider<DateTime>((ref) => DateTime.now());
-final _humorProvider = StateProvider<double>((ref) => 5);
 final _gravandoAudioProvider = StateProvider<bool>((ref) => false);
 final _audioPausadoProvider = StateProvider<bool>((ref) => false);
 final _reproduzindoAudioProvider = StateProvider<bool>((ref) => false);
@@ -136,30 +135,18 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   }
 
   bool get _gravandoAudio => ref.read(_gravandoAudioProvider);
-  set _gravandoAudio(bool valor) =>
-      ref.read(_gravandoAudioProvider.notifier).state = valor;
 
   bool get _audioPausado => ref.read(_audioPausadoProvider);
-  set _audioPausado(bool valor) =>
-      ref.read(_audioPausadoProvider.notifier).state = valor;
 
   bool get _reproduzindoAudio => ref.read(_reproduzindoAudioProvider);
   set _reproduzindoAudio(bool valor) =>
       ref.read(_reproduzindoAudioProvider.notifier).state = valor;
 
   Duration get _duracaoGravacao => ref.read(_duracaoGravacaoProvider);
-  set _duracaoGravacao(Duration valor) =>
-      ref.read(_duracaoGravacaoProvider.notifier).state = valor;
 
   String get _audioRelatoPath => ref.read(_audioRelatoPathProvider);
-  set _audioRelatoPath(String valor) =>
-      ref.read(_audioRelatoPathProvider.notifier).state = valor;
 
   String get _audioRelatoBase64 => ref.read(_audioRelatoBase64Provider);
-  set _audioRelatoBase64(String valor) =>
-      ref.read(_audioRelatoBase64Provider.notifier).state = valor;
-
-  String get _erroAudio => ref.read(_erroAudioProvider);
 
   String _ultimaTranscricaoControlada = '';
   bool _alteracaoProgramaticaTranscricao = false;
@@ -178,14 +165,6 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   String get _termoSingularCapitalizado {
     final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
     return perfil?.termoSingularCapitalizado ?? 'Paciente';
-  }
-
-  bool get _termoFeminino {
-    return _termoSingular == 'pessoa atendida';
-  }
-
-  String get _doOuDa {
-    return _termoFeminino ? 'da' : 'do';
   }
 
   String get _abordagemClinica {
@@ -284,7 +263,6 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
         _sessaoId = sessao.id;
         _numeroSessao = sessao.numeroSessao;
-        ref.read(_dataSessaoProvider.notifier).state = sessao.data;
 
         _relatoPosSessaoController.text = sessao.relatoPosSessao;
         _transcricaoRelatoController.text = sessao.transcricaoRelato;
@@ -293,23 +271,30 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
         _intervencoesController.text = sessao.intervencoes;
         _apontamentosController.text = sessao.apontamentosCopiloto;
 
-        ref.read(_audioRelatoPathProvider.notifier).state = sessao.audioRelatoPath;
-        ref.read(_audioRelatoBase64Provider.notifier).state = sessao.audioRelatoBase64;
-        _dataProcessamentoIa = sessao.dataProcessamentoIa;
-        _geradoComIa = sessao.geradoComIa;
-        _statusProcessamento = sessao.statusProcessamento;
-        _audioMantido = sessao.audioMantido;
-        _revisadoPeloProfissional = sessao.revisadoPeloProfissional;
-        _erroProcessamentoIa = sessao.erroProcessamentoIa;
-        _artigosSugeridos = sessao.artigosSugeridos;
-        _origemRelato = sessao.origemRelato;
-        _modoEdicao = false;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ref.read(_dataSessaoProvider.notifier).state = sessao.data;
+          ref.read(_audioRelatoPathProvider.notifier).state = sessao.audioRelatoPath;
+          ref.read(_audioRelatoBase64Provider.notifier).state = sessao.audioRelatoBase64;
+          _dataProcessamentoIa = sessao.dataProcessamentoIa;
+          _geradoComIa = sessao.geradoComIa;
+          _statusProcessamento = sessao.statusProcessamento;
+          _audioMantido = sessao.audioMantido;
+          _revisadoPeloProfissional = sessao.revisadoPeloProfissional;
+          _erroProcessamentoIa = sessao.erroProcessamentoIa;
+          _artigosSugeridos = sessao.artigosSugeridos;
+          _origemRelato = sessao.origemRelato;
+          _modoEdicao = false;
+        });
       } else {
         _resetarEstadoSessao();
         _sessaoId = DateTime.now().millisecondsSinceEpoch.toString();
         _numeroSessao = _sessaoService.proximoNumeroSessao(widget.paciente.id);
-        ref.read(_dataSessaoProvider.notifier).state = DateTime.now();
-        _modoEdicao = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ref.read(_dataSessaoProvider.notifier).state = DateTime.now();
+          _modoEdicao = true;
+        });
       }
 
       _ultimaTranscricaoControlada = _transcricaoRelatoController.text;
@@ -428,27 +413,6 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   }
 
   void _resetarEstadoSessao() {
-    ref.read(_audioRelatoPathProvider.notifier).state = '';
-    ref.read(_audioRelatoBase64Provider.notifier).state = '';
-    ref.read(_gravandoAudioProvider.notifier).state = false;
-    ref.read(_audioPausadoProvider.notifier).state = false;
-    ref.read(_reproduzindoAudioProvider.notifier).state = false;
-    ref.read(_duracaoGravacaoProvider.notifier).state = Duration.zero;
-    ref.read(_erroAudioProvider.notifier).state = '';
-    ref.read(_transcrevendoRelatoProvider.notifier).state = false;
-    ref.read(_gerandoSinteseIaProvider.notifier).state = false;
-    ref.read(_statusProcessamentoProvider.notifier).state = 'manual';
-    ref.read(_erroProcessamentoIaProvider.notifier).state = '';
-    ref.read(_revisadoPeloProfissionalProvider.notifier).state = false;
-    ref.read(_geradoComIaProvider.notifier).state = false;
-    ref.read(_dataProcessamentoIaProvider.notifier).state = null;
-    ref.read(_avisoInvalidacaoTranscricaoExibidoProvider.notifier).state = false;
-    ref.read(_audioMantidoProvider.notifier).state = false;
-    ref.read(_origemRelatoProvider.notifier).state = 'manual';
-    ref.read(_artigosSugeridosProvider.notifier).state = '';
-    ref.read(_salvandoProvider.notifier).state = false;
-    ref.read(_formRebuildProvider.notifier).state = 0;
-
     _relatoPosSessaoController.clear();
     _transcricaoRelatoController.clear();
     _sinteseController.clear();
@@ -462,6 +426,30 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
     _timerGravacao = null;
 
     _audioRelatoService.cancelarGravacao();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(_audioRelatoPathProvider.notifier).state = '';
+      ref.read(_audioRelatoBase64Provider.notifier).state = '';
+      ref.read(_gravandoAudioProvider.notifier).state = false;
+      ref.read(_audioPausadoProvider.notifier).state = false;
+      ref.read(_reproduzindoAudioProvider.notifier).state = false;
+      ref.read(_duracaoGravacaoProvider.notifier).state = Duration.zero;
+      ref.read(_erroAudioProvider.notifier).state = '';
+      ref.read(_transcrevendoRelatoProvider.notifier).state = false;
+      ref.read(_gerandoSinteseIaProvider.notifier).state = false;
+      ref.read(_statusProcessamentoProvider.notifier).state = 'manual';
+      ref.read(_erroProcessamentoIaProvider.notifier).state = '';
+      ref.read(_revisadoPeloProfissionalProvider.notifier).state = false;
+      ref.read(_geradoComIaProvider.notifier).state = false;
+      ref.read(_dataProcessamentoIaProvider.notifier).state = null;
+      ref.read(_avisoInvalidacaoTranscricaoExibidoProvider.notifier).state = false;
+      ref.read(_audioMantidoProvider.notifier).state = false;
+      ref.read(_origemRelatoProvider.notifier).state = 'manual';
+      ref.read(_artigosSugeridosProvider.notifier).state = '';
+      ref.read(_salvandoProvider.notifier).state = false;
+      ref.read(_formRebuildProvider.notifier).state = 0;
+    });
   }
 
   void _iniciarContadorGravacao() {
@@ -1286,9 +1274,6 @@ if (!mounted || confirmar != true) return;
       _reproduzindoAudio = false;
       _triggerRebuild();
     }
-
-    final tema = _transcricaoRelatoController.text.trim();
-
     ref.read(_salvandoProvider.notifier).state = true;
 
     try {
@@ -1299,8 +1284,7 @@ if (!mounted || confirmar != true) return;
 
         sessao.numeroSessao = _numeroSessao;
         sessao.data = dataSessao;
-        sessao.humor = 5;
-        sessao.temaPrincipal = tema;
+        sessao.temaPrincipal = '';
         sessao.relatoPosSessao = _relatoPosSessaoController.text.trim();
         sessao.transcricaoRelato = _transcricaoRelatoController.text.trim();
         sessao.eventosImportantes = _sinteseController.text.trim();
@@ -1336,8 +1320,7 @@ if (!mounted || confirmar != true) return;
           pacienteId: widget.paciente.id,
           numeroSessao: _numeroSessao,
           data: dataSessao,
-          humor: 5,
-          temaPrincipal: tema,
+          temaPrincipal: '',
           relatoPosSessao: _relatoPosSessaoController.text.trim(),
           transcricaoRelato: _transcricaoRelatoController.text.trim(),
           eventosImportantes: _sinteseController.text.trim(),
@@ -1401,89 +1384,6 @@ if (!mounted || confirmar != true) return;
     return '$hora:$minuto';
   }
 
-  String _formatarDataHora(DateTime data) {
-    return '${_formatarData(data)} às ${_formatarHorario(data)}';
-  }
-
-  String _labelStatusProcessamento() {
-    if (_gravandoAudio && _audioPausado) return 'Gravação pausada';
-    if (_gravandoAudio) return 'Gravando relato';
-    if (_reproduzindoAudio) return 'Reproduzindo áudio';
-    if (_transcrevendoRelato) return 'Transcrevendo relato';
-    if (_gerandoSinteseIa) return 'Gerando síntese clínica';
-
-    switch (_statusProcessamento) {
-      case 'manual':
-        return 'Manual';
-      case 'audio_gravado':
-        return 'Áudio gravado';
-      case 'transcrevendo':
-        return 'Transcrevendo relato';
-      case 'transcrito':
-        return 'Transcrição concluída';
-      case 'ia_processando':
-        return 'Gerando síntese clínica';
-      case 'ia_processada':
-        return 'Processado por IA';
-      case 'revisado':
-        return 'Revisado pelo profissional';
-      case 'erro':
-        return 'Erro no processamento';
-      default:
-        return 'Status não identificado';
-    }
-  }
-
-  Color _corStatusProcessamento() {
-    if (_gravandoAudio) return Colors.redAccent;
-    if (_reproduzindoAudio) return Colors.blue;
-    if (_transcrevendoRelato) return Colors.deepPurple;
-    if (_gerandoSinteseIa) return Colors.purple;
-
-    switch (_statusProcessamento) {
-      case 'revisado':
-        return Colors.green;
-      case 'ia_processada':
-      case 'ia_processando':
-      case 'transcrito':
-      case 'transcrevendo':
-        return Colors.orange;
-      case 'erro':
-        return Colors.red;
-      case 'audio_gravado':
-        return Colors.blueGrey;
-      case 'manual':
-      default:
-        return Colors.black54;
-    }
-  }
-
-  IconData _iconeStatusProcessamento() {
-    if (_gravandoAudio && _audioPausado) return Icons.pause_circle_outline;
-    if (_gravandoAudio) return Icons.fiber_manual_record;
-    if (_reproduzindoAudio) return Icons.volume_up_outlined;
-    if (_transcrevendoRelato) return Icons.transcribe_outlined;
-    if (_gerandoSinteseIa) return Icons.auto_awesome_outlined;
-
-    switch (_statusProcessamento) {
-      case 'revisado':
-        return Icons.verified_outlined;
-      case 'ia_processando':
-      case 'ia_processada':
-        return Icons.auto_awesome_outlined;
-      case 'transcrevendo':
-      case 'transcrito':
-        return Icons.notes_outlined;
-      case 'erro':
-        return Icons.error_outline;
-      case 'audio_gravado':
-        return Icons.mic_outlined;
-      case 'manual':
-      default:
-        return Icons.edit_note_outlined;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_erroInicializacao != null) {
@@ -1510,7 +1410,7 @@ if (!mounted || confirmar != true) return;
             const SizedBox(height: 8),
             const Text(
               'Isso pode ser causado por dados incompatíveis de uma versão anterior do app. Tente limpar os dados do aplicativo nas configurações do Android.',
-              style: TextStyle(color: Colors.black54, height: 1.4),
+              style: TextStyle(color: Color(0xFF475569), height: 1.4),
             ),
             const SizedBox(height: 16),
             Container(
@@ -1569,25 +1469,31 @@ if (!mounted || confirmar != true) return;
           const SizedBox(height: 16),
           IgnorePointer(
             ignoring: _editando && !_modoEdicao,
-            child: Column(
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 250),
+              opacity: (_editando && !_modoEdicao) ? 0.65 : 1.0,
+              child: Column(
               children: [
                 _cardInformacoesGerais(corPrincipal),
                 const SizedBox(height: 16),
                 _secaoRelatoIa(corPrincipal),
-                const SizedBox(height: 16),
-                SecaoCamposClinicosWidget(
-                  configuracao: configuracao,
-                  sinteseController: _sinteseController,
-                  formulacaoController: _formulacaoController,
-                  intervencoesController: _intervencoesController,
-                  apontamentosController: _apontamentosController,
-                ),
-                if (_artigosSugeridos.trim().isNotEmpty) ...[
+                if (_geradoComIa) ...[
                   const SizedBox(height: 16),
-                  _secaoArtigosSugeridos(),
+                  SecaoCamposClinicosWidget(
+                    configuracao: configuracao,
+                    sinteseController: _sinteseController,
+                    formulacaoController: _formulacaoController,
+                    intervencoesController: _intervencoesController,
+                    apontamentosController: _apontamentosController,
+                  ),
+                  if (_artigosSugeridos.trim().isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    _secaoArtigosSugeridos(),
+                  ],
                 ],
               ],
             ),
+          ),
           ),
           if (_modoEdicao || !_editando) ...[
             const SizedBox(height: 16),
@@ -1646,7 +1552,7 @@ if (!mounted || confirmar != true) return;
                 Expanded(
                   child: Text(
                     'Sessão $_numeroSessao',
-                    style: const TextStyle(color: Colors.black54),
+                    style: const TextStyle(color: Color(0xFF475569)),
                   ),
                 ),
                 if (_editando && !_modoEdicao)
@@ -1748,12 +1654,14 @@ if (!mounted || confirmar != true) return;
             ),
           ),
         ),
-        const SizedBox(height: 12),
-        CampoTextoWidget(
-          controller: _relatoPosSessaoController,
-          label: 'Relato clínico organizado',
-          maxLines: 8,
-        ),
+        if (_geradoComIa) ...[
+          const SizedBox(height: 12),
+          CampoTextoWidget(
+            controller: _relatoPosSessaoController,
+            label: 'Relato clínico organizado',
+            maxLines: 8,
+          ),
+        ],
         if (_estaAguardandoRevisao ||
             (!_revisadoPeloProfissional &&
                 (_geradoComIa || _possuiTranscricaoRelato))) ...[
@@ -1804,7 +1712,7 @@ if (!mounted || confirmar != true) return;
             Text(
               _audioPausado ? 'Pausado' : 'Tempo de gravação',
               style: const TextStyle(
-                color: Colors.black54,
+                color: Color(0xFF475569),
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -1853,7 +1761,7 @@ if (!mounted || confirmar != true) return;
                     ? 'Gerando síntese clínica a partir da transcrição. Aguarde...'
                     : 'Transcrevendo o relato. Aguarde...',
                 style: const TextStyle(
-                  color: Colors.black54,
+                  color: Color(0xFF475569),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -1987,7 +1895,7 @@ if (!mounted || confirmar != true) return;
             icon: const Icon(Icons.delete_outline),
             label: const Text('Cancelar'),
             style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.black54,
+              foregroundColor: Color(0xFF475569),
             ),
           ),
         if (_possuiAudioRelato && !_gravandoAudio)
@@ -2051,7 +1959,7 @@ if (!mounted || confirmar != true) return;
         children: [
           const Text(
             'Manter áudio salvo',
-            style: TextStyle(color: Colors.black54, fontSize: 13),
+            style: TextStyle(color: Color(0xFF475569), fontSize: 13),
           ),
           Switch(
             value: _audioMantido,

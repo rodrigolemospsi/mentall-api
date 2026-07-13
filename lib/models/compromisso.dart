@@ -36,6 +36,15 @@ class Compromisso extends HiveObject {
   @HiveField(9)
   DateTime? dataAtualizacao;
 
+  @HiveField(10)
+  bool lembreteAtivado;
+
+  @HiveField(11)
+  int minutosAntecedencia;
+
+  @HiveField(12)
+  String mensagemLembrete;
+
   Compromisso({
     required this.id,
     required this.pacienteId,
@@ -47,6 +56,9 @@ class Compromisso extends HiveObject {
     this.sessaoId,
     DateTime? dataCriacao,
     this.dataAtualizacao,
+    this.lembreteAtivado = false,
+    this.minutosAntecedencia = 1440,
+    this.mensagemLembrete = '',
   })  : dataHoraFim = dataHoraFim ??
             dataHoraInicio.add(const Duration(minutes: 50)),
         dataCriacao = dataCriacao ?? DateTime.now();
@@ -91,6 +103,9 @@ class Compromisso extends HiveObject {
     String? sessaoId,
     DateTime? dataCriacao,
     DateTime? dataAtualizacao,
+    bool? lembreteAtivado,
+    int? minutosAntecedencia,
+    String? mensagemLembrete,
   }) {
     return Compromisso(
       id: id ?? this.id,
@@ -103,6 +118,40 @@ class Compromisso extends HiveObject {
       sessaoId: sessaoId ?? this.sessaoId,
       dataCriacao: dataCriacao ?? this.dataCriacao,
       dataAtualizacao: dataAtualizacao ?? this.dataAtualizacao,
+      lembreteAtivado: lembreteAtivado ?? this.lembreteAtivado,
+      minutosAntecedencia: minutosAntecedencia ?? this.minutosAntecedencia,
+      mensagemLembrete: mensagemLembrete ?? this.mensagemLembrete,
     );
+  }
+
+  String gerarMensagemLembretePadrao(String nomePaciente, String nomeProfissional) {
+    return 'Olá {nome}, lembrete da sua sessao com {profissional} '
+        'em {data} as {hora}. Ate la!';
+  }
+
+  String formatarMensagemLembrete(String nomePaciente, String nomeProfissional) {
+    final data = '${dataHoraInicio.day.toString().padLeft(2, '0')}/'
+        '${dataHoraInicio.month.toString().padLeft(2, '0')}/'
+        '${dataHoraInicio.year}';
+    final hora = horarioInicioFormatado;
+    var msg = mensagemLembrete.isNotEmpty
+        ? mensagemLembrete
+        : gerarMensagemLembretePadrao(nomePaciente, nomeProfissional);
+    return msg
+        .replaceAll('{nome}', nomePaciente)
+        .replaceAll('{profissional}', nomeProfissional)
+        .replaceAll('{data}', data)
+        .replaceAll('{hora}', hora);
+  }
+
+  DateTime get horarioLembrete =>
+      dataHoraInicio.subtract(Duration(minutes: minutosAntecedencia));
+
+  String get antecedenciaFormatada {
+    if (minutosAntecedencia < 60) return '${minutosAntecedencia}min';
+    final horas = minutosAntecedencia ~/ 60;
+    final mins = minutosAntecedencia % 60;
+    if (mins == 0) return '${horas}h';
+    return '${horas}h${mins}min';
   }
 }

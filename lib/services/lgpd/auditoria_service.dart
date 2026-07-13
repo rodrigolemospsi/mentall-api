@@ -5,25 +5,16 @@ import '../logger.dart';
 
 class AuditoriaService {
   static const String _boxName = 'auditoria';
-  late final Box<RegistroAuditoria> _box;
-
-  bool _inicializado = false;
 
   AuditoriaService();
 
-  Future<void> inicializar() async {
-    if (_inicializado) return;
-    _box = await Hive.openBox<RegistroAuditoria>(_boxName);
-    _inicializado = true;
-  }
+  Box<RegistroAuditoria> get _box => Hive.box<RegistroAuditoria>(_boxName);
 
   Future<void> registrar({
     required String tipoEvento,
     required String descricao,
     String pacienteId = '',
   }) async {
-    if (!_inicializado) return;
-
     try {
       final registro = RegistroAuditoria(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -41,8 +32,6 @@ class AuditoriaService {
   }
 
   List<RegistroAuditoria> listar({int limite = 200}) {
-    if (!_inicializado) return [];
-
     final todos = _box.values.toList()
       ..sort((a, b) => b.dataHora.compareTo(a.dataHora));
 
@@ -50,8 +39,6 @@ class AuditoriaService {
   }
 
   List<RegistroAuditoria> listarPorPaciente(String pacienteId, {int limite = 100}) {
-    if (!_inicializado) return [];
-
     final filtrados = _box.values
         .where((r) => r.pacienteId == pacienteId)
         .toList()
@@ -61,7 +48,6 @@ class AuditoriaService {
   }
 
   Future<int> contar() async {
-    if (!_inicializado) return 0;
     return _box.length;
   }
 }

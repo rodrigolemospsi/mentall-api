@@ -40,7 +40,7 @@ class SecaoFormulario extends StatelessWidget {
               Text(
                 subtitulo!,
                 style: const TextStyle(
-                  color: Colors.black54,
+                  color: const Color(0xFF64748B),
                   height: 1.4,
                 ),
               ),

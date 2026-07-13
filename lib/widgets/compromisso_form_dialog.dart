@@ -6,6 +6,7 @@ import '../models/paciente.dart';
 Future<Compromisso?> mostrarCompromissoFormDialog({
   required BuildContext context,
   required List<Paciente> pacientes,
+  String termoPessoa = 'Pessoa atendida',
   DateTime? dataSugerida,
   Compromisso? compromissoExistente,
 }) async {
@@ -13,6 +14,7 @@ Future<Compromisso?> mostrarCompromissoFormDialog({
     context: context,
     builder: (ctx) => _CompromissoFormDialog(
       pacientes: pacientes,
+      termoPessoa: termoPessoa,
       dataSugerida: dataSugerida ?? DateTime.now(),
       compromissoExistente: compromissoExistente,
     ),
@@ -21,11 +23,13 @@ Future<Compromisso?> mostrarCompromissoFormDialog({
 
 class _CompromissoFormDialog extends StatefulWidget {
   final List<Paciente> pacientes;
+  final String termoPessoa;
   final DateTime dataSugerida;
   final Compromisso? compromissoExistente;
 
   const _CompromissoFormDialog({
     required this.pacientes,
+    required this.termoPessoa,
     required this.dataSugerida,
     this.compromissoExistente,
   });
@@ -42,6 +46,9 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
   late TimeOfDay _horaFim;
   late TextEditingController _tituloController;
   late TextEditingController _observacoesController;
+  late TextEditingController _mensagemLembreteController;
+  late bool _lembreteAtivado;
+  late int _minutosAntecedencia;
 
   bool get _editando => widget.compromissoExistente != null;
 
@@ -60,6 +67,9 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
       _horaFim = TimeOfDay.fromDateTime(existente.dataHoraFim);
       _tituloController = TextEditingController(text: existente.titulo);
       _observacoesController = TextEditingController(text: existente.observacoes);
+      _mensagemLembreteController = TextEditingController(text: existente.mensagemLembrete);
+      _lembreteAtivado = existente.lembreteAtivado;
+      _minutosAntecedencia = existente.minutosAntecedencia;
 
       final pacienteEncontrado = widget.pacientes
           .where((p) => p.id == existente.pacienteId)
@@ -78,6 +88,9 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
       _horaFim = TimeOfDay(hour: agora.hour + 1, minute: 0);
       _tituloController = TextEditingController();
       _observacoesController = TextEditingController();
+      _mensagemLembreteController = TextEditingController();
+      _lembreteAtivado = false;
+      _minutosAntecedencia = 1440;
       _pacienteSelecionado = widget.pacientes.first;
     }
   }
@@ -86,6 +99,7 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
   void dispose() {
     _tituloController.dispose();
     _observacoesController.dispose();
+    _mensagemLembreteController.dispose();
     super.dispose();
   }
 
@@ -156,6 +170,9 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
       status: existente?.status ?? 'agendado',
       sessaoId: existente?.sessaoId,
       dataCriacao: existente?.dataCriacao,
+      lembreteAtivado: _lembreteAtivado,
+      minutosAntecedencia: _minutosAntecedencia,
+      mensagemLembrete: _mensagemLembreteController.text.trim(),
     );
 
     Navigator.pop(context, compromisso);
@@ -166,6 +183,14 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
     final mes = data.month.toString().padLeft(2, '0');
     final ano = data.year.toString();
     return '$dia/$mes/$ano';
+  }
+
+  String _formatarAntecedencia() {
+    if (_minutosAntecedencia < 60) return '$_minutosAntecedencia min';
+    final horas = _minutosAntecedencia ~/ 60;
+    final mins = _minutosAntecedencia % 60;
+    if (mins == 0) return '$horas h';
+    return '${horas}h${mins}min';
   }
 
   @override
@@ -181,8 +206,8 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
             children: [
               DropdownButtonFormField<Paciente>(
                 initialValue: _pacienteSelecionado,
-                decoration: const InputDecoration(
-                  labelText: 'Pessoa atendida',
+                decoration: InputDecoration(
+                  labelText: widget.termoPessoa,
                   prefixIcon: Icon(Icons.person_outline),
                   border: OutlineInputBorder(),
                 ),
@@ -258,6 +283,79 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
                   border: OutlineInputBorder(),
                 ),
                 maxLines: 2,
+              ),
+              const SizedBox(height: 20),
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text(
+                        'Lembrete via SMS',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: Text(
+                        _lembreteAtivado
+                            ? 'Enviar ${_formatarAntecedencia()} antes da sessao'
+                            : 'Notificar o paciente automaticamente',
+                      ),
+                      value: _lembreteAtivado,
+                      onChanged: (v) =>
+                          setState(() => _lembreteAtivado = v),
+                      activeThumbColor: const Color(0xFF2563EB),
+                    ),
+                    if (_lembreteAtivado) ...[
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<int>(
+                        initialValue: _minutosAntecedencia,
+                        decoration: const InputDecoration(
+                          labelText: 'Antecedencia do lembrete',
+                          prefixIcon: Icon(Icons.timer_outlined),
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 30, child: Text('30 minutos')),
+                          DropdownMenuItem(value: 60, child: Text('1 hora')),
+                          DropdownMenuItem(value: 120, child: Text('2 horas')),
+                          DropdownMenuItem(value: 180, child: Text('3 horas')),
+                          DropdownMenuItem(value: 360, child: Text('6 horas')),
+                          DropdownMenuItem(value: 720, child: Text('12 horas')),
+                          DropdownMenuItem(value: 1440, child: Text('24 horas')),
+                          DropdownMenuItem(value: 2880, child: Text('48 horas')),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) {
+                            setState(() => _minutosAntecedencia = v);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _mensagemLembreteController,
+                        maxLines: 3,
+                        textCapitalization: TextCapitalization.sentences,
+                        decoration: InputDecoration(
+                          labelText: 'Mensagem do lembrete',
+                          hintText:
+                              'Use {nome}, {data}, {hora} e {profissional} '
+                              'como placeholders',
+                          prefixIcon: const Icon(Icons.message_outlined),
+                          border: const OutlineInputBorder(),
+                          alignLabelWithHint: true,
+                          helperText: _mensagemLembreteController.text.isEmpty
+                              ? 'Ex: Ola {nome}, lembrete da sessao em {data} as {hora}.'
+                              : null,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ],
           ),

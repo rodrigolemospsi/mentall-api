@@ -131,18 +131,35 @@ class SessaoService {
         .length;
   }
 
+  int contarSessoesPendentesPorPaciente(String pacienteId) {
+    return _box.values
+        .where((s) =>
+            s.pacienteId == pacienteId &&
+            !s.arquivada &&
+            s.revisaoPendente)
+        .length;
+  }
+
+  List<Sessao> listarSessoesPendentesRevisao() {
+    final pendentes = _box.values
+        .where((s) => !s.arquivada && s.revisaoPendente)
+        .toList();
+    pendentes.sort((a, b) => b.data.compareTo(a.data));
+    return pendentes;
+  }
+
   Stream<BoxEvent> observarSessoes() {
     return _box.watch();
   }
 
   String _encrypt(String value) {
     if (_encryption == null || value.isEmpty) return value;
-    return _encryption!.criptografar(value);
+    return _encryption.criptografar(value);
   }
 
   String _decrypt(String value) {
     if (_encryption == null || value.isEmpty) return value;
-    return _encryption!.descriptografar(value);
+    return _encryption.descriptografar(value);
   }
 
   void _encryptSessao(Sessao s) {

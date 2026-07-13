@@ -9,6 +9,7 @@ class PacienteCardHome extends StatelessWidget {
   final Paciente paciente;
   final String termoSingular;
   final bool listaArquivada;
+  final int sessoesPendentes;
   final VoidCallback onTap;
   final VoidCallback onArquivar;
   final VoidCallback onRestaurar;
@@ -18,6 +19,7 @@ class PacienteCardHome extends StatelessWidget {
     required this.paciente,
     required this.termoSingular,
     required this.listaArquivada,
+    this.sessoesPendentes = 0,
     required this.onTap,
     required this.onArquivar,
     required this.onRestaurar,
@@ -83,25 +85,34 @@ class PacienteCardHome extends StatelessWidget {
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 16,
+                          color: Color(0xFF1E293B),
                         ),
                       ),
                       const SizedBox(height: 6),
-                      _StatusPacienteChip(
-                        ativo: paciente.ativo,
+                      Row(
+                        children: [
+                          _StatusPacienteChip(
+                            ativo: paciente.ativo,
+                          ),
+                          if (sessoesPendentes > 0) ...[
+                            const SizedBox(width: 8),
+                            _PendenciasBadge(pendentes: sessoesPendentes),
+                          ],
+                        ],
                       ),
-                      if (paciente.possuiContato) ...[
-                        const SizedBox(height: 8),
-                        _WhatsAppButton(contato: paciente.contato.trim()),
-                      ],
                     ],
                   ),
                 ),
               ),
+              if (paciente.possuiContato)
+                _WhatsAppLogoButton(contato: paciente.contato.trim()),
+              const SizedBox(width: 4),
               PopupMenuButton<String>(
                 tooltip: 'Opções $termoSingular',
                 icon: const Icon(
                   Icons.more_vert,
-                  color: Colors.black45,
+                  color: Color(0xFF64748B),
+                  size: 20,
                 ),
                 onSelected: (value) {
                   if (value == 'arquivar') {
@@ -142,7 +153,7 @@ class PacienteCardHome extends StatelessWidget {
               ),
               const Icon(
                 Icons.chevron_right,
-                color: Colors.black38,
+                color: Color(0xFFCBD5E1),
               ),
             ],
           ),
@@ -184,10 +195,43 @@ class _StatusPacienteChip extends StatelessWidget {
   }
 }
 
-class _WhatsAppButton extends StatelessWidget {
+class _PendenciasBadge extends StatelessWidget {
+  final int pendentes;
+
+  const _PendenciasBadge({required this.pendentes});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE65100).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.rate_review_outlined,
+              size: 11, color: Color(0xFFE65100)),
+          const SizedBox(width: 3),
+          Text(
+            '$pendentes',
+            style: const TextStyle(
+              color: Color(0xFFE65100),
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WhatsAppLogoButton extends StatelessWidget {
   final String contato;
 
-  const _WhatsAppButton({required this.contato});
+  const _WhatsAppLogoButton({required this.contato});
 
   String get _numeroLimpo {
     return contato.replaceAll(RegExp(r'[^\d]'), '');
@@ -207,26 +251,15 @@ class _WhatsAppButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: _abrirWhatsApp,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: const Color(0xFF25D366).withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.chat_bubble_outline, size: 14, color: Color(0xFF075E54)),
-            SizedBox(width: 6),
-            Text(
-              'WhatsApp',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF075E54),
-              ),
-            ),
-          ],
+      child: const SizedBox(
+        width: 48,
+        height: 48,
+        child: Center(
+          child: Image(
+            image: AssetImage('assets/images/logo_whats.png'),
+            width: 28,
+            height: 28,
+          ),
         ),
       ),
     );

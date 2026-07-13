@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -53,7 +52,7 @@ Future<void> mostrarDialogNovoPaciente({
                                 );
                                 if (picked != null) {
                                   final bytes =
-                                      await File(picked.path).readAsBytes();
+                                      await picked.readAsBytes();
                                   setDialogState(() {
                                     fotoBase64 = base64Encode(bytes);
                                   });

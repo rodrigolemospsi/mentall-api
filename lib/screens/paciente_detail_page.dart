@@ -15,10 +15,12 @@ final _refreshProvider = StateProvider<int>((ref) => 0);
 
 class PacienteDetailPage extends ConsumerStatefulWidget {
   final Paciente paciente;
+  final Sessao? sessaoParaAbrir;
 
   const PacienteDetailPage({
     super.key,
     required this.paciente,
+    this.sessaoParaAbrir,
   });
 
   @override
@@ -27,6 +29,25 @@ class PacienteDetailPage extends ConsumerStatefulWidget {
 }
 
 class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.sessaoParaAbrir != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SessaoFormPage(
+              paciente: widget.paciente,
+              sessaoExistente: widget.sessaoParaAbrir,
+            ),
+          ),
+        );
+      });
+    }
+  }
+
   String get _termoSingular {
     final perfil =
         ref.read(perfilProfissionalServiceProvider).obterPerfil();
@@ -77,6 +98,8 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
         TextEditingController(text: widget.paciente.email);
     final observacoesController =
         TextEditingController(text: widget.paciente.observacoes);
+    final modoAtendimentoController =
+        TextEditingController(text: widget.paciente.modoAtendimento);
 
     String tipoAtendimento = widget.paciente.tipoAtendimento.trim().isEmpty
         ? 'Particular'
@@ -103,6 +126,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                 contatoController: contatoController,
                 emailController: emailController,
                 observacoesController: observacoesController,
+                modoAtendimentoController: modoAtendimentoController,
                 tiposAtendimentoDisponiveis: tiposAtendimentoDisponiveis,
                 tipoAtendimento: tipoAtendimento,
                 ativo: ativo,
@@ -134,6 +158,8 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                     widget.paciente.tipoAtendimento = tipoAtendimento;
                     widget.paciente.observacoes =
                         observacoesController.text.trim();
+                    widget.paciente.modoAtendimento =
+                        modoAtendimentoController.text.trim();
                     widget.paciente.ativo = ativo;
                     await pacienteService.atualizarPaciente(widget.paciente);
                     if (!dialogContext.mounted) return;
@@ -161,6 +187,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
     contatoController.dispose();
     emailController.dispose();
     observacoesController.dispose();
+    modoAtendimentoController.dispose();
   }
 
   Widget _dialogEditarPacienteBody({
@@ -168,6 +195,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
     required TextEditingController contatoController,
     required TextEditingController emailController,
     required TextEditingController observacoesController,
+    required TextEditingController modoAtendimentoController,
     required List<String> tiposAtendimentoDisponiveis,
     required String tipoAtendimento,
     required bool ativo,
@@ -222,6 +250,16 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
               if (value == null) return;
               setDialogState(() => onTipoAlterado(value));
             },
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: modoAtendimentoController,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(
+              labelText: 'Modalidade de atendimento',
+              hintText: 'Ex: Online, Presencial, Híbrido',
+              border: OutlineInputBorder(),
+            ),
           ),
           const SizedBox(height: 12),
           SwitchListTile(
@@ -655,7 +693,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
         children: [
           TabBar(
             labelColor: corPrincipal,
-            unselectedLabelColor: Colors.black54,
+            unselectedLabelColor: const Color(0xFF94A3B8),
             indicatorColor: corPrincipal,
             tabs: [
               Tab(

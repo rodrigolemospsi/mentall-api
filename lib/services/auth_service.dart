@@ -23,7 +23,7 @@ class AuthService {
   EncryptionService get encryption => _encryptionService;
 
   Future<void> inicializar() async {
-    _box = await Hive.openBox<String>(_authBoxName);
+    _box = Hive.box<String>(_authBoxName);
     final token = _box.get(_tokenKey);
     if (token != null && token.isNotEmpty) {
       ApiClient.authToken = token;

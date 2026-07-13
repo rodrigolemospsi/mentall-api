@@ -70,14 +70,17 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
     }
 
     final data = dataSugerida ?? ref.read(_dataSelecionadaProvider);
+    final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
     final compromisso = await mostrarCompromissoFormDialog(
       context: context,
       pacientes: pacientes,
+      termoPessoa: perfil?.termoSingularCapitalizado ?? 'Pessoa atendida',
       dataSugerida: data,
     );
 
     if (compromisso == null) return;
     await service.adicionar(compromisso);
+    await _agendarLembrete(ref, compromisso);
   }
 
   Future<void> _editarCompromisso(Compromisso compromisso) async {
@@ -87,11 +90,28 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
     final editado = await mostrarCompromissoFormDialog(
       context: context,
       pacientes: pacientes,
+      termoPessoa: ref.read(perfilProfissionalServiceProvider).obterPerfil()?.termoSingularCapitalizado ?? 'Pessoa atendida',
       compromissoExistente: compromisso,
     );
 
     if (editado == null) return;
     await service.atualizar(editado);
+    await _agendarLembrete(ref, editado);
+  }
+
+  Future<void> _agendarLembrete(WidgetRef ref, Compromisso compromisso) async {
+    if (!compromisso.lembreteAtivado || !compromisso.isAgendado) return;
+    final pacienteService = ref.read(pacienteServiceProvider);
+    final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
+    final paciente = pacienteService.buscarPacientePorId(compromisso.pacienteId);
+    if (paciente == null) return;
+    final lembreteService = ref.read(lembreteServiceProvider);
+    await lembreteService.agendarLembrete(
+      compromisso: compromisso,
+      nomePaciente: paciente.nome,
+      nomeProfissional: perfil?.nome ?? 'Profissional',
+      telefonePaciente: paciente.contato,
+    );
   }
 
   Future<void> _confirmarRemocao(Compromisso compromisso) async {
@@ -108,7 +128,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.red.shade600,
+              backgroundColor: const Color(0xFFD32F2F),
             ),
             child: const Text('Remover'),
           ),
@@ -302,7 +322,7 @@ class _EstadoVazioAgenda extends StatelessWidget {
             Icon(
               Icons.event_available_outlined,
               size: 64,
-              color: Colors.grey.shade400,
+              color: const Color(0xFFCBD5E1),
             ),
             const SizedBox(height: 16),
             Text(
@@ -311,14 +331,14 @@ class _EstadoVazioAgenda extends StatelessWidget {
                   : 'Nenhum compromisso para esta data',
               style: TextStyle(
                 fontSize: 18,
-                color: Colors.grey.shade600,
+                              color: const Color(0xFF475569),
                 fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Adicione sessões para organizar seu dia.',
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+              style: const TextStyle(fontSize: 14, color: Color(0xFF64748B)),
             ),
             const SizedBox(height: 24),
             OutlinedButton.icon(
@@ -458,7 +478,7 @@ class _CompromissoCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         side: BorderSide(
           color: compromisso.isAgendado ? corStatus.withValues(alpha: 0.3) : Colors.transparent,
           width: compromisso.isAgendado ? 1.5 : 0,
@@ -466,9 +486,9 @@ class _CompromissoCard extends StatelessWidget {
       ),
       child: InkWell(
         onTap: onEditar,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -481,18 +501,18 @@ class _CompromissoCard extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF7F9FA),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.access_time, size: 16, color: Colors.grey.shade700),
+                        const Icon(Icons.access_time, size: 16, color: Color(0xFF475569)),
                         const SizedBox(width: 6),
                         Text(
                           '${compromisso.horarioInicioFormatado} - ${compromisso.horarioFimFormatado}',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade800,
+                            color: Color(0xFF1E293B),
                             fontSize: 14,
                           ),
                         ),
@@ -502,12 +522,24 @@ class _CompromissoCard extends StatelessWidget {
                   const SizedBox(width: 10),
                   Text(
                     compromisso.duracaoFormatada,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 12,
-                      color: Colors.grey.shade500,
+                      color: Color(0xFF64748B),
                     ),
                   ),
                   const Spacer(),
+                  if (compromisso.lembreteAtivado && compromisso.isAgendado)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Tooltip(
+                        message: 'Lembrete: ${compromisso.antecedenciaFormatada} antes',
+                        child: Icon(
+                          Icons.notifications_active_rounded,
+                          size: 18,
+                          color: corStatus.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ),
                   _ChipStatus(
                     label: _labelStatus(status),
                     cor: corStatus,
@@ -549,7 +581,7 @@ class _CompromissoCard extends StatelessWidget {
                             titulo,
                             style: TextStyle(
                               fontSize: 13,
-                              color: Colors.grey.shade600,
+                color: const Color(0xFF64748B),
                             ),
                           ),
                       ],
@@ -573,11 +605,11 @@ class _CompromissoCard extends StatelessWidget {
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF7F9FA),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     compromisso.observacoes.trim(),
-                    style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                    style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
                   ),
                 ),
               ],
@@ -618,7 +650,7 @@ class _CompromissoCard extends StatelessWidget {
                   _AcaoPequena(
                     icone: Icons.delete_outline,
                     label: 'Remover',
-                    cor: Colors.red.shade400,
+                    cor: const Color(0xFFD32F2F),
                     onPressed: onRemover,
                   ),
                 ],
@@ -689,12 +721,10 @@ class _AcaoPequena extends StatelessWidget {
       icon: Icon(icone, size: 14, color: cor),
       label: Text(
         label,
-        style: TextStyle(fontSize: 11, color: cor),
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: cor),
       ),
       style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        minimumSize: Size.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       ),
     );
   }
