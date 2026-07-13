@@ -2,6 +2,7 @@ import json
 import os
 
 from google import genai
+from google.genai import types
 from openai import OpenAI
 
 from prompts.abordagens import PROMPT_UNIVERSAL, obter_prompt_abordagem
@@ -15,6 +16,8 @@ def _get_model_name() -> str:
     provider = _get_provider()
     if provider == "openai":
         return os.getenv("IA_MODEL", "gpt-4.1")
+    if provider == "deepseek":
+        return os.getenv("IA_MODEL", "deepseek-chat")
     return os.getenv("IA_MODEL", "gemini-2.0-flash")
 
 
@@ -32,6 +35,16 @@ def _openai_client():
     return OpenAI(
         api_key=api_key,
         project=os.getenv("OPENAI_PROJECT_ID"),
+    )
+
+
+def _deepseek_client():
+    api_key = os.getenv("DEEPSEEK_API_KEY")
+    if not api_key:
+        return None
+    return OpenAI(
+        api_key=api_key,
+        base_url="https://api.deepseek.com/v1",
     )
 
 
@@ -123,10 +136,15 @@ def _gerar_sintese_gemini(prompt: str) -> dict:
         return {"sucesso": False, "erro": "GEMINI_API_KEY não configurada."}
 
     try:
+        config = types.GenerateContentConfig(
+            response_mime_type="application/json",
+            tools=[types.Tool(google_search=types.GoogleSearch())],
+        )
+
         response = client.models.generate_content(
             model=_get_model_name(),
             contents=prompt,
-            config={"response_mime_type": "application/json"},
+            config=config,
         )
 
         conteudo = response.text
@@ -134,7 +152,11 @@ def _gerar_sintese_gemini(prompt: str) -> dict:
             return {"sucesso": False, "erro": "Resposta vazia da IA."}
 
         resultado = json.loads(conteudo)
-        return _parse_resultado_sucesso(resultado)
+        parsed = _parse_resultado_sucesso(resultado)
+
+        parsed["artigos_sugeridos"] = _extrair_artigos_grounding(response, resultado)
+
+        return parsed
 
     except json.JSONDecodeError:
         return {"sucesso": False, "erro": "Resposta da IA não pôde ser interpretada. Tente novamente."}
@@ -142,11 +164,48 @@ def _gerar_sintese_gemini(prompt: str) -> dict:
         return {"sucesso": False, "erro": f"Erro ao gerar síntese clínica: {str(e)}"}
 
 
+def _extrair_artigos_grounding(response, resultado: dict) -> str:
+    fontes = []
+    try:
+        if response.candidates:
+            candidate = response.candidates[0]
+            gmeta = getattr(candidate, "grounding_metadata", None)
+            if gmeta:
+                chunks = getattr(gmeta, "grounding_chunks", None) or []
+                for chunk in chunks:
+                    web = getattr(chunk, "web", None)
+                    if web:
+                        uri = getattr(web, "uri", None)
+                        title = getattr(web, "title", None)
+                        if uri:
+                            fontes.append((title or "Artigo", uri))
+    except Exception:
+        pass
+
+    if fontes:
+        linhas = []
+        for i, (titulo, link) in enumerate(fontes[:2], 1):
+            linhas.append(f"{i}. {titulo}: {link}")
+        return "\n".join(linhas)
+
+    return resultado.get("artigos_sugeridos", "")
+
+
 def _gerar_sintese_openai(prompt: str) -> dict:
     client = _openai_client()
     if not client:
         return {"sucesso": False, "erro": "OPENAI_API_KEY não configurada."}
+    return _gerar_sintese_openai_compat(client, prompt)
 
+
+def _gerar_sintese_deepseek(prompt: str) -> dict:
+    client = _deepseek_client()
+    if not client:
+        return {"sucesso": False, "erro": "DEEPSEEK_API_KEY não configurada."}
+    return _gerar_sintese_openai_compat(client, prompt)
+
+
+def _gerar_sintese_openai_compat(client, prompt: str) -> dict:
     try:
         response = client.chat.completions.create(
             model=_get_model_name(),
@@ -172,6 +231,57 @@ def _gerar_sintese_openai(prompt: str) -> dict:
         return {"sucesso": False, "erro": "Resposta da IA não pôde ser interpretada. Tente novamente."}
     except Exception as e:
         return {"sucesso": False, "erro": f"Erro ao gerar síntese clínica: {str(e)}"}
+
+
+def _buscar_artigos_grounding(
+    numero_sessao: int,
+    nome_pessoa_atendida: str,
+    termo_pessoa_atendida: str,
+    abordagem_clinica: str,
+    sintese_clinica: str,
+) -> str:
+    client = _gemini_client()
+    if not client:
+        return ""
+
+    termo = termo_pessoa_atendida or "paciente"
+    nome = nome_pessoa_atendida or "não informado"
+
+    prompt = f"""
+Busque exatamente 2 artigos científicos em português relacionados ao seguinte caso clínico.
+
+Abordagem: {abordagem_clinica}
+Sessão número: {numero_sessao}
+{termo.capitalize()}: {nome}
+
+Síntese clínica da sessão:
+{sintese_clinica}
+
+Responda APENAS com um JSON no formato:
+{{"artigos": [{{"titulo": "...", "link": "..."}}, {{"titulo": "...", "link": "..."}}]}}
+
+IMPORTANTE:
+- Busque apenas em SciELO, BDTD, Oasisbr e Portal de Periódicos CAPES.
+- Priorize artigos diretamente relacionados ao conteúdo da sessão e à abordagem {abordagem_clinica}.
+- Se não encontrar artigos reais, retorne lista vazia.
+"""
+
+    try:
+        config = types.GenerateContentConfig(
+            response_mime_type="application/json",
+            tools=[types.Tool(google_search=types.GoogleSearch())],
+        )
+
+        response = client.models.generate_content(
+            model=_get_model_name(),
+            contents=prompt,
+            config=config,
+        )
+
+        return _extrair_artigos_grounding(response, {})
+
+    except Exception:
+        return ""
 
 
 def gerar_sintese(
@@ -208,12 +318,26 @@ def gerar_sintese(
         provider = _get_provider()
 
         if provider == "openai":
-            return _gerar_sintese_openai(prompt)
+            resultado = _gerar_sintese_openai(prompt)
+        elif provider == "deepseek":
+            resultado = _gerar_sintese_deepseek(prompt)
+        elif provider == "gemini":
+            resultado = _gerar_sintese_gemini(prompt)
+        else:
+            return {"sucesso": False, "erro": f"Provedor desconhecido: {provider}. Use 'openai', 'deepseek' ou 'gemini'."}
 
-        if provider == "gemini":
-            return _gerar_sintese_gemini(prompt)
+        if resultado.get("sucesso") and provider != "gemini":
+            artigos_grounded = _buscar_artigos_grounding(
+                numero_sessao=numero_sessao,
+                nome_pessoa_atendida=nome_pessoa_atendida,
+                termo_pessoa_atendida=termo_pessoa_atendida,
+                abordagem_clinica=abordagem_clinica,
+                sintese_clinica=resultado.get("relato_clinico_organizado", ""),
+            )
+            if artigos_grounded:
+                resultado["artigos_sugeridos"] = artigos_grounded
 
-        return {"sucesso": False, "erro": f"Provedor desconhecido: {provider}. Use 'openai' ou 'gemini'."}
+        return resultado
 
     except Exception as e:
         return {"sucesso": False, "erro": f"Erro ao gerar síntese clínica: {str(e)}"}
