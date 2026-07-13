@@ -187,6 +187,7 @@ def sintese(request: SinteseRequest):
         tecnicas=resultado["tecnicas"],
         tarefa_casa=resultado["tarefa_casa"],
         plano_proxima_sessao=resultado["plano_proxima_sessao"],
+        artigos_sugeridos=resultado["artigos_sugeridos"],
         erro="",
     )
 

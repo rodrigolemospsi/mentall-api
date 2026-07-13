@@ -39,6 +39,7 @@ class SinteseResponse(BaseModel):
     tecnicas: str = ""
     tarefa_casa: str = ""
     plano_proxima_sessao: str = ""
+    artigos_sugeridos: str = ""
     erro: str = ""
 
 
