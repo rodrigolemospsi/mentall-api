@@ -1,6 +1,7 @@
 import json
 import os
 
+import requests
 from google import genai
 from google.genai import types
 from openai import OpenAI
@@ -35,16 +36,6 @@ def _openai_client():
     return OpenAI(
         api_key=api_key,
         project=os.getenv("OPENAI_PROJECT_ID"),
-    )
-
-
-def _deepseek_client():
-    api_key = os.getenv("DEEPSEEK_API_KEY")
-    if not api_key:
-        return None
-    return OpenAI(
-        api_key=api_key,
-        base_url="https://api.deepseek.com",
     )
 
 
@@ -199,10 +190,53 @@ def _gerar_sintese_openai(prompt: str) -> dict:
 
 
 def _gerar_sintese_deepseek(prompt: str) -> dict:
-    client = _deepseek_client()
-    if not client:
+    api_key = os.getenv("DEEPSEEK_API_KEY")
+    if not api_key:
         return {"sucesso": False, "erro": "DEEPSEEK_API_KEY não configurada."}
-    return _gerar_sintese_openai_compat(client, prompt)
+
+    model = _get_model_name()
+
+    try:
+        resp = requests.post(
+            "https://api.deepseek.com/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "Você é um assistente clínico especializado em psicologia. Gere JSON válido sem markdown.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                "response_format": {"type": "json_object"},
+                "temperature": 0.3,
+            },
+            timeout=120,
+        )
+
+        if resp.status_code != 200:
+            return {
+                "sucesso": False,
+                "erro": f"DeepSeek retornou {resp.status_code}: {resp.text[:200]}",
+            }
+
+        data = resp.json()
+        conteudo = data["choices"][0]["message"]["content"]
+
+        if not conteudo:
+            return {"sucesso": False, "erro": "Resposta vazia da IA."}
+
+        resultado = json.loads(conteudo)
+        return _parse_resultado_sucesso(resultado)
+
+    except json.JSONDecodeError:
+        return {"sucesso": False, "erro": "Resposta da IA não pôde ser interpretada. Tente novamente."}
+    except Exception as e:
+        return {"sucesso": False, "erro": f"Erro ao gerar síntese: {type(e).__name__}: {str(e)}"}
 
 
 def _gerar_sintese_openai_compat(client, prompt: str) -> dict:
