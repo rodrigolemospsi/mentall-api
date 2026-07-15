@@ -29,6 +29,13 @@ OPENALEX_FILTROS_BASE = "language:pt,type:article,from_publication_date:2010-01-
 OPENALEX_FILTRO_PSICOLOGIA = "primary_topic.field.id:fields/32"
 
 
+def _openalex_params(params: dict) -> dict:
+    mailto = os.getenv("OPENALEX_MAILTO", "").strip()
+    if mailto:
+        params["mailto"] = mailto
+    return params
+
+
 def _extrair_pid_scielo(link: str) -> str:
     ultimo = link.rstrip("/").rsplit("/", 1)[-1]
     return ultimo.rsplit("-", 1)[0] if "-" in ultimo else ultimo
@@ -122,11 +129,11 @@ def diagnosticar_busca_artigos(especifico: str, amplo: str) -> dict:
             try:
                 resp = requests.get(
                     "https://api.openalex.org/works",
-                    params={
+                    params=_openalex_params({
                         "filter": filtro,
                         "sort": "relevance_score:desc",
                         "per-page": MAX_CANDIDATOS_POR_TEMA,
-                    },
+                    }),
                     timeout=10,
                 )
                 tentativa["status"] = resp.status_code
@@ -182,11 +189,11 @@ def _buscar_candidatos_openalex(consulta: str) -> list:
         try:
             resp = requests.get(
                 "https://api.openalex.org/works",
-                params={
+                params=_openalex_params({
                     "filter": filtro,
                     "sort": "relevance_score:desc",
                     "per-page": MAX_CANDIDATOS_POR_TEMA,
-                },
+                }),
                 timeout=10,
             )
             if resp.status_code != 200:

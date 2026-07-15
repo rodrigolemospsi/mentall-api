@@ -23,3 +23,5 @@ services:
         sync: false
       - key: APP_PASSWORD_HASH
         sync: false
+      - key: OPENALEX_MAILTO
+        sync: false
