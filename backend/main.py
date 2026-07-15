@@ -19,7 +19,7 @@ from models.schemas import (
     TranscricaoRequest,
     TranscricaoResponse,
 )
-from services.ia_clinica import gerar_sintese
+from services.ia_clinica import diagnosticar_busca_artigos, gerar_sintese
 from services.transcricao import transcrever_audio
 
 load_dotenv()
@@ -130,6 +130,11 @@ def health():
             "ia_model": modelo_efetivo,
         },
     )
+
+
+@app.get("/debug/artigos", tags=["Debug"])
+def debug_artigos(especifico: str = "", amplo: str = ""):
+    return diagnosticar_busca_artigos(especifico, amplo)
 
 
 @app.post("/auth/login", response_model=LoginResponse, tags=["Autenticacao"])
