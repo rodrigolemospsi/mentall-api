@@ -1,5 +1,6 @@
 import json
 import os
+import xml.etree.ElementTree as ET
 from urllib.parse import quote_plus
 
 import requests
@@ -14,6 +15,106 @@ BASES_PESQUISA = [
     ("Periódicos CAPES", "https://www.periodicos.capes.gov.br/index.php/acervo/buscador.html?q={consulta}"),
     ("Oasisbr", "https://oasisbr.ibict.br/vufind/Search/Results?lookfor={consulta}&type=AllFields"),
 ]
+
+SCIELO_RSS_URL = "https://search.scielo.org/"
+SCIELO_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    "Accept": "application/rss+xml, application/xml, text/xml, */*",
+    "Accept-Language": "pt-BR,pt;q=0.9",
+}
+MAX_ARTIGOS_TOTAL = 3
+MAX_ARTIGOS_POR_TEMA = 2
+
+
+def _extrair_pid_scielo(link: str) -> str:
+    ultimo = link.rstrip("/").rsplit("/", 1)[-1]
+    return ultimo.rsplit("-", 1)[0] if "-" in ultimo else ultimo
+
+
+def _formatar_autores(autores_raw: str) -> str:
+    autores = [a.strip() for a in (autores_raw or "").split(";") if a.strip()]
+    if not autores:
+        return ""
+    if len(autores) > 3:
+        return "; ".join(autores[:3]) + " et al."
+    return "; ".join(autores)
+
+
+def _buscar_artigos_scielo(temas_pesquisa: list) -> str:
+    temas_validos = [
+        str(t).strip() for t in (temas_pesquisa or []) if str(t).strip()
+    ][:2]
+    if not temas_validos:
+        return ""
+
+    artigos = []
+    pids_vistos = set()
+
+    for tema in temas_validos:
+        if len(artigos) >= MAX_ARTIGOS_TOTAL:
+            break
+        try:
+            resp = requests.get(
+                SCIELO_RSS_URL,
+                params={
+                    "q": tema,
+                    "lang": "pt",
+                    "output": "rss",
+                    "count": 10,
+                    "sort": "RELEVANCE",
+                    "filter[la][]": "pt",
+                },
+                headers=SCIELO_HEADERS,
+                timeout=10,
+            )
+            if resp.status_code != 200:
+                continue
+
+            root = ET.fromstring(resp.content)
+            adicionados_tema = 0
+            for item in root.iter("item"):
+                if adicionados_tema >= MAX_ARTIGOS_POR_TEMA:
+                    break
+                if len(artigos) >= MAX_ARTIGOS_TOTAL:
+                    break
+
+                titulo = (item.findtext("title") or "").strip()
+                link = (item.findtext("link") or "").strip()
+                if not titulo or not link:
+                    continue
+
+                pid = _extrair_pid_scielo(link)
+                if pid in pids_vistos:
+                    continue
+                pids_vistos.add(pid)
+
+                titulo_pt = titulo.split(" / ")[0].strip()
+                autores = _formatar_autores(item.findtext("author") or "")
+                artigos.append((titulo_pt, autores, link))
+                adicionados_tema += 1
+
+        except Exception:
+            continue
+
+    if not artigos:
+        return ""
+
+    linhas = []
+    for i, (titulo, autores, link) in enumerate(artigos, 1):
+        linha = f"{i}. {titulo}"
+        if autores:
+            linha += f" — {autores}"
+        linhas.append(linha)
+        linhas.append(f"   Acesse: {link}")
+
+    return "\n".join(linhas)
+
+
+def _montar_artigos(temas_pesquisa: list) -> str:
+    artigos_reais = _buscar_artigos_scielo(temas_pesquisa)
+    if artigos_reais:
+        return artigos_reais
+    return _montar_artigos_sugeridos(temas_pesquisa)
 
 
 def _montar_artigos_sugeridos(temas_pesquisa: list) -> str:
@@ -140,7 +241,7 @@ def _parse_resultado_sucesso(resultado_raw: dict) -> dict:
         "tecnicas": resultado_raw.get("tecnicas", ""),
         "tarefa_casa": resultado_raw.get("tarefa_casa", ""),
         "plano_proxima_sessao": resultado_raw.get("plano_proxima_sessao", ""),
-        "artigos_sugeridos": _montar_artigos_sugeridos(
+        "artigos_sugeridos": _montar_artigos(
             resultado_raw.get("temas_pesquisa", [])
         ),
         "erro": "",
