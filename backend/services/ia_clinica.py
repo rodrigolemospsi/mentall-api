@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import xml.etree.ElementTree as ET
 from urllib.parse import quote_plus
 
@@ -23,7 +24,9 @@ SCIELO_HEADERS = {
     "Accept-Language": "pt-BR,pt;q=0.9",
 }
 MAX_ARTIGOS_TOTAL = 3
-MAX_ARTIGOS_POR_TEMA = 2
+MAX_CANDIDATOS_POR_TEMA = 5
+OPENALEX_FILTROS_BASE = "language:pt,type:article,from_publication_date:2010-01-01"
+OPENALEX_FILTRO_PSICOLOGIA = "primary_topic.field.id:fields/32"
 
 
 def _extrair_pid_scielo(link: str) -> str:
@@ -40,116 +43,98 @@ def _formatar_autores(autores_raw: str) -> str:
     return "; ".join(autores)
 
 
-def _buscar_artigos_scielo(temas_pesquisa: list) -> str:
-    temas_validos = [
-        str(t).strip() for t in (temas_pesquisa or []) if str(t).strip()
-    ][:2]
-    if not temas_validos:
+def _limpar_html(texto: str) -> str:
+    return re.sub(r"<[^>]+>", " ", texto or "").replace("\xa0", " ").strip()
+
+
+def _reconstruir_resumo_openalex(inverted_index: dict) -> str:
+    if not inverted_index:
         return ""
+    posicoes = []
+    for palavra, indices in inverted_index.items():
+        for i in indices:
+            posicoes.append((i, palavra))
+    posicoes.sort()
+    return " ".join(palavra for _, palavra in posicoes)[:400]
 
-    artigos = []
-    pids_vistos = set()
 
-    for tema in temas_validos:
-        if len(artigos) >= MAX_ARTIGOS_TOTAL:
-            break
-        try:
-            resp = requests.get(
-                SCIELO_RSS_URL,
-                params={
-                    "q": tema,
-                    "lang": "pt",
-                    "output": "rss",
-                    "count": 10,
-                    "sort": "RELEVANCE",
-                    "filter[la][]": "pt",
-                },
-                headers=SCIELO_HEADERS,
-                timeout=10,
-            )
-            if resp.status_code != 200:
+def _buscar_candidatos_scielo(consulta: str) -> list:
+    try:
+        resp = requests.get(
+            SCIELO_RSS_URL,
+            params={
+                "q": consulta,
+                "lang": "pt",
+                "output": "rss",
+                "count": 10,
+                "sort": "RELEVANCE",
+                "filter[la][]": "pt",
+            },
+            headers=SCIELO_HEADERS,
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            return []
+
+        root = ET.fromstring(resp.content)
+        candidatos = []
+        pids_vistos = set()
+        for item in root.iter("item"):
+            if len(candidatos) >= MAX_CANDIDATOS_POR_TEMA:
+                break
+
+            titulo = (item.findtext("title") or "").strip()
+            link = (item.findtext("link") or "").strip()
+            if not titulo or not link:
                 continue
 
-            root = ET.fromstring(resp.content)
-            adicionados_tema = 0
-            for item in root.iter("item"):
-                if adicionados_tema >= MAX_ARTIGOS_POR_TEMA:
-                    break
-                if len(artigos) >= MAX_ARTIGOS_TOTAL:
-                    break
+            pid = _extrair_pid_scielo(link)
+            if pid in pids_vistos:
+                continue
+            pids_vistos.add(pid)
 
-                titulo = (item.findtext("title") or "").strip()
-                link = (item.findtext("link") or "").strip()
-                if not titulo or not link:
-                    continue
+            candidatos.append({
+                "id": pid,
+                "titulo": titulo.split(" / ")[0].strip(),
+                "autores": _formatar_autores(item.findtext("author") or ""),
+                "link": link,
+                "ano": None,
+                "citacoes": None,
+                "resumo": _limpar_html(item.findtext("description") or "")[:400],
+            })
+        return candidatos
 
-                pid = _extrair_pid_scielo(link)
-                if pid in pids_vistos:
-                    continue
-                pids_vistos.add(pid)
-
-                titulo_pt = titulo.split(" / ")[0].strip()
-                autores = _formatar_autores(item.findtext("author") or "")
-                artigos.append((titulo_pt, autores, link))
-                adicionados_tema += 1
-
-        except Exception:
-            continue
-
-    if not artigos:
-        return ""
-
-    linhas = []
-    for i, (titulo, autores, link) in enumerate(artigos, 1):
-        linha = f"{i}. {titulo}"
-        if autores:
-            linha += f" — {autores}"
-        linhas.append(linha)
-        linhas.append(f"   Acesse: {link}")
-
-    return "\n".join(linhas)
+    except Exception:
+        return []
 
 
-def _buscar_artigos_openalex(temas_pesquisa: list) -> str:
-    temas_validos = [
-        str(t).strip() for t in (temas_pesquisa or []) if str(t).strip()
-    ][:2]
-    if not temas_validos:
-        return ""
+def _buscar_candidatos_openalex(consulta: str) -> list:
+    consulta_limpa = consulta.replace(",", " ").replace(":", " ").strip()
+    filtros = (
+        f"title_and_abstract.search:{consulta_limpa},{OPENALEX_FILTROS_BASE},{OPENALEX_FILTRO_PSICOLOGIA}",
+        f"title_and_abstract.search:{consulta_limpa},{OPENALEX_FILTROS_BASE}",
+    )
 
-    artigos = []
-    ids_vistos = set()
-
-    for tema in temas_validos:
-        if len(artigos) >= MAX_ARTIGOS_TOTAL:
-            break
+    for filtro in filtros:
         try:
             resp = requests.get(
                 "https://api.openalex.org/works",
                 params={
-                    "search": tema,
-                    "filter": "language:pt,type:article",
+                    "filter": filtro,
                     "sort": "relevance_score:desc",
-                    "per-page": 5,
+                    "per-page": MAX_CANDIDATOS_POR_TEMA,
                 },
                 timeout=10,
             )
             if resp.status_code != 200:
                 continue
 
-            adicionados_tema = 0
+            candidatos = []
             for work in resp.json().get("results", []):
-                if adicionados_tema >= MAX_ARTIGOS_POR_TEMA:
-                    break
-                if len(artigos) >= MAX_ARTIGOS_TOTAL:
-                    break
-
                 titulo = (work.get("title") or "").strip()
                 link = (work.get("doi") or work.get("id") or "").strip()
-                work_id = work.get("id", "")
-                if not titulo or not link or work_id in ids_vistos:
+                if not titulo or not link:
                     continue
-                ids_vistos.add(work_id)
 
                 nomes = [
                     a.get("author", {}).get("display_name", "").strip()
@@ -158,45 +143,156 @@ def _buscar_artigos_openalex(temas_pesquisa: list) -> str:
                 nomes = [n for n in nomes if n]
                 autores = "; ".join(nomes[:3]) + (" et al." if len(nomes) > 3 else "")
 
-                ano = work.get("publication_year")
-                citacoes = work.get("cited_by_count")
-                extras = []
-                if ano:
-                    extras.append(str(ano))
-                if citacoes:
-                    extras.append(f"{citacoes} citações")
-                sufixo = f" ({', '.join(extras)})" if extras else ""
+                candidatos.append({
+                    "id": work.get("id", ""),
+                    "titulo": titulo,
+                    "autores": autores,
+                    "link": link,
+                    "ano": work.get("publication_year"),
+                    "citacoes": work.get("cited_by_count"),
+                    "resumo": _reconstruir_resumo_openalex(
+                        work.get("abstract_inverted_index")
+                    ),
+                })
 
-                artigos.append((f"{titulo}{sufixo}", autores, link))
-                adicionados_tema += 1
+            if candidatos:
+                return candidatos
 
         except Exception:
             continue
 
-    if not artigos:
-        return ""
+    return []
+
+
+def _normalizar_temas(temas_pesquisa: list) -> list:
+    temas = []
+    for item in (temas_pesquisa or [])[:2]:
+        if isinstance(item, dict):
+            especifico = str(item.get("especifico", "")).strip()
+            amplo = str(item.get("amplo", "")).strip()
+        else:
+            especifico = str(item).strip()
+            amplo = ""
+        if especifico or amplo:
+            temas.append((especifico, amplo))
+    return temas
+
+
+def _buscar_candidatos_tema(especifico: str, amplo: str) -> list:
+    consultas = [c for c in dict.fromkeys([especifico, amplo]) if c]
+    candidatos = []
+    chaves = set()
+    for consulta in consultas:
+        achados = _buscar_candidatos_openalex(consulta)
+        if not achados:
+            achados = _buscar_candidatos_scielo(consulta)
+        for c in achados:
+            chave = c.get("id") or c["link"]
+            if chave in chaves:
+                continue
+            chaves.add(chave)
+            candidatos.append(c)
+    return candidatos[:MAX_CANDIDATOS_POR_TEMA + 1]
+
+
+def _rerankear_artigos(candidatos: list, contexto_clinico: str) -> list:
+    sem_justificativa = [
+        {**c, "justificativa": ""} for c in candidatos[:MAX_ARTIGOS_TOTAL]
+    ]
+    if not contexto_clinico.strip() or len(candidatos) <= 1:
+        return sem_justificativa
 
     linhas = []
-    for i, (titulo, autores, link) in enumerate(artigos, 1):
-        linha = f"{i}. {titulo}"
-        if autores:
-            linha += f" — {autores}"
-        linhas.append(linha)
-        linhas.append(f"   Acesse: {link}")
+    for i, c in enumerate(candidatos, 1):
+        cabecalho = f"{i}. {c['titulo']}"
+        if c.get("ano"):
+            cabecalho += f" ({c['ano']})"
+        if c.get("autores"):
+            cabecalho += f" — {c['autores']}"
+        linhas.append(cabecalho)
+        if c.get("resumo"):
+            linhas.append(f"   Resumo: {c['resumo'][:350]}")
 
+    prompt = f"""Você é um assistente de pesquisa clínica em psicologia.
+
+CONTEXTO CLÍNICO DA SESSÃO:
+{contexto_clinico[:1500]}
+
+ARTIGOS CANDIDATOS:
+{chr(10).join(linhas)}
+
+Selecione até {MAX_ARTIGOS_TOTAL} artigos MAIS RELEVANTES para o contexto clínico acima.
+Critérios: relação direta com o problema clínico central da sessão, com as intervenções realizadas ou com a evolução do caso; utilidade prática para o profissional.
+Descarte artigos genéricos ou apenas tangenciais — é melhor indicar menos artigos do que artigos fora do tema.
+
+Responda apenas com JSON puro (sem markdown):
+{{"selecionados": [{{"indice": 1, "justificativa": "1 frase curta explicando a relevância clínica para esta sessão"}}]}}
+Se nenhum candidato for relevante, retorne {{"selecionados": []}}."""
+
+    resultado = _chamar_llm_json(prompt)
+    if not isinstance(resultado, dict) or "selecionados" not in resultado:
+        return sem_justificativa
+
+    selecionados = []
+    for sel in resultado.get("selecionados", [])[:MAX_ARTIGOS_TOTAL]:
+        if not isinstance(sel, dict):
+            continue
+        try:
+            idx = int(sel.get("indice", 0))
+        except (TypeError, ValueError):
+            continue
+        if 1 <= idx <= len(candidatos):
+            selecionados.append({
+                **candidatos[idx - 1],
+                "justificativa": str(sel.get("justificativa", "")).strip(),
+            })
+    return selecionados
+
+
+def _formatar_artigos(artigos: list) -> str:
+    linhas = []
+    for i, art in enumerate(artigos[:MAX_ARTIGOS_TOTAL], 1):
+        extras = []
+        if art.get("ano"):
+            extras.append(str(art["ano"]))
+        if art.get("citacoes"):
+            extras.append(f"{art['citacoes']} citações")
+        sufixo = f" ({', '.join(extras)})" if extras else ""
+
+        linha = f"{i}. {art['titulo']}{sufixo}"
+        if art.get("autores"):
+            linha += f" — {art['autores']}"
+        linhas.append(linha)
+        if art.get("justificativa"):
+            linhas.append(f"   Relevância: {art['justificativa']}")
+        linhas.append(f"   Acesse: {art['link']}")
     return "\n".join(linhas)
 
 
-def _montar_artigos(temas_pesquisa: list) -> str:
-    artigos_scielo = _buscar_artigos_scielo(temas_pesquisa)
-    if artigos_scielo:
-        return artigos_scielo
+def _montar_artigos(temas_pesquisa: list, contexto_clinico: str = "") -> str:
+    temas = _normalizar_temas(temas_pesquisa)
+    if not temas:
+        return ""
 
-    artigos_openalex = _buscar_artigos_openalex(temas_pesquisa)
-    if artigos_openalex:
-        return artigos_openalex
+    candidatos = []
+    chaves_vistas = set()
+    for especifico, amplo in temas:
+        for c in _buscar_candidatos_tema(especifico, amplo):
+            chave = c.get("id") or c["link"]
+            if chave in chaves_vistas:
+                continue
+            chaves_vistas.add(chave)
+            candidatos.append(c)
 
-    return _montar_artigos_sugeridos(temas_pesquisa)
+    temas_fallback = [especifico or amplo for especifico, amplo in temas]
+    if not candidatos:
+        return _montar_artigos_sugeridos(temas_fallback)
+
+    selecionados = _rerankear_artigos(candidatos, contexto_clinico)
+    if not selecionados:
+        return _montar_artigos_sugeridos(temas_fallback)
+
+    return _formatar_artigos(selecionados)
 
 
 def _montar_artigos_sugeridos(temas_pesquisa: list) -> str:
@@ -247,6 +343,69 @@ def _openai_client():
     )
 
 
+def _chamar_llm_json(prompt: str) -> dict | None:
+    system = "Você é um assistente de pesquisa clínica em psicologia. Gere JSON válido sem markdown."
+    provider = _get_provider()
+    try:
+        if provider == "deepseek":
+            api_key = os.getenv("DEEPSEEK_API_KEY")
+            if not api_key:
+                return None
+            resp = requests.post(
+                "https://api.deepseek.com/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": _get_model_name(),
+                    "messages": [
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": prompt},
+                    ],
+                    "response_format": {"type": "json_object"},
+                    "temperature": 0.1,
+                },
+                timeout=60,
+            )
+            if resp.status_code != 200:
+                return None
+            return json.loads(resp.json()["choices"][0]["message"]["content"])
+
+        if provider == "openai":
+            client = _openai_client()
+            if not client:
+                return None
+            response = client.chat.completions.create(
+                model=_get_model_name(),
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": prompt},
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.1,
+            )
+            return json.loads(response.choices[0].message.content or "")
+
+        if provider == "gemini":
+            client = _gemini_client()
+            if not client:
+                return None
+            response = client.models.generate_content(
+                model=_get_model_name(),
+                contents=f"{system}\n\n{prompt}",
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                ),
+            )
+            return json.loads(response.text or "")
+
+    except Exception:
+        return None
+
+    return None
+
+
 def _montar_prompt_sintese(
     numero_sessao: int,
     nome_pessoa_atendida: str,
@@ -288,17 +447,22 @@ Com base no material acima, gere um JSON válido com a seguinte estrutura (sem m
     "tecnicas": "Técnicas ou recursos clínicos utilizados, compatíveis com a abordagem {abordagem_clinica}.",
     "tarefa_casa": "Tarefa, reflexão, exercício ou observação combinada com o {termo} para o período entre sessões. Se não houver, deixe vazio.",
     "plano_proxima_sessao": "Foco, temas pendentes ou objetivos para a próxima sessão.",
-    "temas_pesquisa": ["tema de busca 1", "tema de busca 2"]
+    "temas_pesquisa": [
+        {{"especifico": "expressão de busca específica", "amplo": "expressão de busca ampla"}},
+        {{"especifico": "expressão de busca específica", "amplo": "expressão de busca ampla"}}
+    ]
 }} 
 
 TEMAS DE PESQUISA CIENTÍFICA:
-No campo "temas_pesquisa", extraia exatamente 2 temas de busca científica a partir do conteúdo clínico da sessão. Critérios:
-1. Cada tema deve ser uma expressão de busca CURTA e ABRANGENTE (2 a 4 palavras), em português, como seria digitada em uma base de dados científica. Ex: "ansiedade trabalho", "terapia cognitiva insônia".
-2. Evite expressões longas ou muito específicas — elas retornam zero resultados nas bases.
-3. O primeiro tema deve focar no tema clínico central da sessão; o segundo pode combinar um tema da sessão com a abordagem {abordagem_clinica} de forma resumida.
-4. NÃO inclua o nome do {termo} nem qualquer dado que identifique a pessoa atendida.
-5. NÃO invente títulos de artigos nem links — apenas os temas de busca.
-6. Se o material clínico for insuficiente, retorne lista vazia.
+No campo "temas_pesquisa", extraia exatamente 2 temas de busca científica a partir do conteúdo clínico da sessão. Para cada tema, forneça duas versões:
+- "especifico": expressão de busca específica (4 a 6 palavras) combinando o problema clínico central com contexto, população ou intervenção. Ex: "terapia cognitiva ansiedade social adultos".
+- "amplo": versão reduzida da mesma busca (2 a 3 palavras), para uso como alternativa caso a específica não retorne resultados. Ex: "ansiedade social".
+Critérios:
+1. O primeiro tema deve focar no problema clínico central da sessão; o segundo pode combinar outro tema relevante da sessão com a abordagem {abordagem_clinica}.
+2. Use termos consagrados na literatura científica em português, como seriam digitados em uma base de dados científica.
+3. NÃO inclua o nome do {termo} nem qualquer dado que identifique a pessoa atendida.
+4. NÃO invente títulos de artigos nem links — apenas expressões de busca.
+5. Se o material clínico for insuficiente, retorne lista vazia.
 
 IMPORTANTE:
 - Use o termo "{termo}" para se referir à pessoa atendida
@@ -309,6 +473,14 @@ IMPORTANTE:
 
 
 def _parse_resultado_sucesso(resultado_raw: dict) -> dict:
+    contexto_clinico = " ".join(
+        texto
+        for texto in [
+            resultado_raw.get("relato_clinico_organizado", ""),
+            resultado_raw.get("eventos_importantes", ""),
+        ]
+        if texto
+    )
     return {
         "sucesso": True,
         "relato_clinico_organizado": resultado_raw.get("relato_clinico_organizado", ""),
@@ -324,7 +496,8 @@ def _parse_resultado_sucesso(resultado_raw: dict) -> dict:
         "tarefa_casa": resultado_raw.get("tarefa_casa", ""),
         "plano_proxima_sessao": resultado_raw.get("plano_proxima_sessao", ""),
         "artigos_sugeridos": _montar_artigos(
-            resultado_raw.get("temas_pesquisa", [])
+            resultado_raw.get("temas_pesquisa", []),
+            contexto_clinico,
         ),
         "erro": "",
     }

@@ -106,7 +106,7 @@ backend/
 ├── models/
 │   └── schemas.py                    # Pydantic models + LoginRequest/LoginResponse
 ├── services/
-│   ├── ia_clinica.py                 # Síntese clínica (OpenAI/DeepSeek/Gemini) + busca de artigos (SciELO RSS > OpenAlex > links)
+│   ├── ia_clinica.py                 # Síntese clínica (OpenAI/DeepSeek/Gemini) + busca de artigos (OpenAlex > SciELO RSS > rerank IA > links)
 │   └── transcricao.py               # Transcrição (gpt-4o-mini-transcribe + project ID)
 └── prompts/
     └── abordagens.py                 # 14 abordagens (inclui Análise do Comportamento)
@@ -175,7 +175,7 @@ Chamadas à API (`TranscricaoRelatoService`, `IaClinicaService`) devem chamar `A
 3. **Chave OpenAI**: Formato `sk-proj-...` (project key) requer `OPENAI_PROJECT_ID` no ambiente
 4. **Render cold start**: Primeira requisição após inatividade leva 30-60s. Timeout do app ajustado para 120s
 5. **APK release vs debug**: `flutter build apk` gera release (menor). Debug: `flutter build apk --debug`
-6. **SciELO bloqueia datacenter**: `search.scielo.org` usa anti-bot "bunny-shield" que retorna 403 para IPs de datacenter (Render). Localmente o RSS funciona; em produção a cascata cai para OpenAlex automaticamente.
+6. **SciELO bloqueia datacenter**: `search.scielo.org` usa anti-bot "bunny-shield" que retorna 403 para IPs de datacenter (Render). OpenAlex é a fonte primária; SciELO é fallback (funciona só localmente).
 
 ### Resolvidos
 - ~~Segurança: zero autenticação~~ ✅ JWT backend + criptografia AES local
@@ -240,11 +240,11 @@ Chamadas à API (`TranscricaoRelatoService`, `IaClinicaService`) devem chamar `A
 
 ### Indicação de Artigos Científicos
 - Campo `artigosSugeridos` (@HiveField(30)) no modelo `Sessao`
-- Fluxo anti-alucinação (15/07/2026): a IA extrai apenas 2 `temas_pesquisa` curtos (sem nomes/links); o backend busca artigos reais em cascata:
-  1. **SciELO RSS** (`search.scielo.org/?output=rss&sort=RELEVANCE`) — título, autores e link reais (funciona local; 403 no Render)
-  2. **OpenAlex API** (`api.openalex.org/works`, filtro `language:pt,type:article`) — título, autores, ano, citações e DOI reais (ativo em produção)
-  3. **Links de busca determinísticos** (SciELO, Periódicos CAPES, Oasisbr) montados por código em `BASES_PESQUISA`
-- Máx. 3 artigos no total (2 por tema), dedupe por PID/ID — funções em `backend/services/ia_clinica.py`: `_buscar_artigos_scielo`, `_buscar_artigos_openalex`, `_montar_artigos_sugeridos`, `_montar_artigos`
+- Fluxo anti-alucinação com rerank (15/07/2026): a IA extrai 2 `temas_pesquisa` (objetos `{especifico, amplo}` — específico 4-6 palavras, amplo 2-3 como fallback); o backend busca candidatos reais e a IA seleciona os mais relevantes:
+  1. **OpenAlex API** (fonte primária) — `filter=title_and_abstract.search:<tema>,language:pt,type:article,from_publication_date:2010-01-01` + filtro Psicologia (`primary_topic.field.id:fields/32`, removido se zero resultados); extrai título, autores, ano, citações, DOI e abstract (reconstruído do `abstract_inverted_index`)
+  2. **SciELO RSS** (fallback) — título, autores, link e resumo reais (funciona local; 403 no Render)
+  3. **Rerank pela IA** — 2ª chamada ao provedor (`_chamar_llm_json`, temperature 0.1) escolhe até 3 candidatos mais relevantes ao contexto clínico da sessão, com justificativa de 1 linha (`Relevância: ...`); se descartar todos ou falhar a busca, cai para links de busca determinísticos (`BASES_PESQUISA`)
+- Pool: até 6 candidatos por tema (união específico+amplo, dedupe por ID/link) — funções em `backend/services/ia_clinica.py`: `_buscar_candidatos_openalex`, `_buscar_candidatos_scielo`, `_buscar_candidatos_tema`, `_rerankear_artigos`, `_formatar_artigos`, `_montar_artigos`
 - Exibição na tela de sessão após "Apontamentos" em card azul claro; URLs viram link "Acesse Aqui!" (`_buildArtigosComLinks`)
 
 ### Outras Melhorias
@@ -258,7 +258,7 @@ Chamadas à API (`TranscricaoRelatoService`, `IaClinicaService`) devem chamar `A
 ## Novas Funcionalidades (15/07/2026)
 
 ### Artigos Científicos Reais (SciELO/OpenAlex)
-- Ver seção "Indicação de Artigos Científicos" — cascata SciELO RSS > OpenAlex > links de busca
+- Ver seção "Indicação de Artigos Científicos" — OpenAlex (primária) > SciELO RSS (fallback) > rerank pela IA > links de busca
 - Provider de síntese em produção: DeepSeek (`deepseek-chat`)
 
 ### Foto do Perfil Profissional
