@@ -113,6 +113,9 @@ def health():
     project_id = os.getenv("OPENAI_PROJECT_ID")
     gemini_key = os.getenv("GEMINI_API_KEY")
     deepseek_key = os.getenv("DEEPSEEK_API_KEY")
+    provider = os.getenv("IA_MODEL_PROVIDER", "openai").strip().lower()
+    modelos_padrao = {"openai": "gpt-4.1", "deepseek": "deepseek-chat", "gemini": "gemini-2.0-flash"}
+    modelo_efetivo = os.getenv("IA_MODEL") or modelos_padrao.get(provider, "gpt-4.1")
     return HealthResponse(
         status="ok",
         versao="1.0.0",
@@ -123,8 +126,8 @@ def health():
             "openai_project_id": project_id or "N/A",
             "gemini_key_configured": bool(gemini_key),
             "deepseek_key_configured": bool(deepseek_key),
-            "ia_model_provider": os.getenv("IA_MODEL_PROVIDER", "openai"),
-            "ia_model": os.getenv("IA_MODEL", "gpt-4.1"),
+            "ia_model_provider": provider,
+            "ia_model": modelo_efetivo,
         },
     )
 
