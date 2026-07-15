@@ -1852,131 +1852,136 @@ if (!mounted || confirmar != true) return;
     required Color cor,
     VoidCallback? onPressed,
     bool preenchido = false,
+    bool destaque = false,
     Widget? iconeCustomizado,
   }) {
     final habilitado = onPressed != null;
     final corEfetiva = habilitado ? cor : const Color(0xFFCBD5E1);
     final corFundo = preenchido && habilitado
         ? corEfetiva
-        : corEfetiva.withValues(alpha: 0.12);
+        : Colors.white;
     final corIcone = preenchido && habilitado ? Colors.white : corEfetiva;
+    final tamanho = destaque ? 60.0 : 48.0;
 
-    return SizedBox(
-      width: 72,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Tooltip(
-            message: rotulo,
-            child: Material(
-              color: corFundo,
-              shape: const CircleBorder(),
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: onPressed,
-                child: SizedBox(
-                  width: 52,
-                  height: 52,
-                  child: Center(
-                    child: iconeCustomizado ??
-                        Icon(icone, color: corIcone, size: 24),
-                  ),
-                ),
-              ),
+    return Tooltip(
+      message: rotulo,
+      child: Material(
+        color: corFundo,
+        elevation: habilitado ? (preenchido ? 3 : 1) : 0,
+        shadowColor: corEfetiva.withValues(alpha: 0.35),
+        shape: CircleBorder(
+          side: preenchido
+              ? BorderSide.none
+              : BorderSide(color: corEfetiva.withValues(alpha: 0.35)),
+        ),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onPressed,
+          child: SizedBox(
+            width: tamanho,
+            height: tamanho,
+            child: Center(
+              child: iconeCustomizado ??
+                  Icon(icone, color: corIcone, size: destaque ? 28 : 22),
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            rotulo,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: habilitado
-                  ? const Color(0xFF475569)
-                  : const Color(0xFFCBD5E1),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _botoesAudioWidget(Color corPrincipal) {
-    return Wrap(
-      spacing: 6,
-      runSpacing: 14,
-      children: [
-        if (!_gravandoAudio)
-          _botaoAudioCircular(
-            icone: Icons.mic_rounded,
-            rotulo: _possuiAudioRelato ? 'Regravar' : 'Gravar',
-            cor: corPrincipal,
-            preenchido: !_possuiAudioRelato,
-            onPressed: _existeAcaoEmAndamento ? null : _iniciarGravacaoRelato,
-          ),
-        if (_gravandoAudio && !_audioPausado)
-          _botaoAudioCircular(
-            icone: Icons.pause_rounded,
-            rotulo: 'Pausar',
-            cor: const Color(0xFFE65100),
-            onPressed: _pausarGravacaoRelato,
-          ),
-        if (_gravandoAudio && _audioPausado)
-          _botaoAudioCircular(
-            icone: Icons.play_arrow_rounded,
-            rotulo: 'Retomar',
-            cor: corPrincipal,
-            onPressed: _retomarGravacaoRelato,
-          ),
-        if (_gravandoAudio)
-          _botaoAudioCircular(
-            icone: Icons.stop_rounded,
-            rotulo: 'Finalizar',
-            cor: const Color(0xFFD32F2F),
-            preenchido: true,
-            onPressed: _pararGravacaoRelato,
-          ),
-        if (_gravandoAudio)
-          _botaoAudioCircular(
-            icone: Icons.close_rounded,
-            rotulo: 'Cancelar',
-            cor: const Color(0xFF64748B),
-            onPressed: _cancelarGravacaoRelato,
-          ),
-        if (_possuiAudioRelato && !_gravandoAudio)
-          _botaoAudioCircular(
-            icone: _reproduzindoAudio
-                ? Icons.stop_rounded
-                : Icons.play_arrow_rounded,
-            rotulo: _reproduzindoAudio ? 'Parar' : 'Ouvir',
-            cor: _reproduzindoAudio ? const Color(0xFFD32F2F) : corPrincipal,
-            onPressed:
-                _existeAcaoEmAndamento ? null : _ouvirOuPararAudioRelato,
-          ),
-        if (_possuiAudioRelato && !_gravandoAudio)
-          _botaoAudioCircular(
-            icone: Icons.delete_outline_rounded,
-            rotulo: 'Remover',
-            cor: const Color(0xFFD32F2F),
-            onPressed: _existeAcaoEmAndamento ? null : _removerAudioRelato,
-          ),
-        _botaoAudioCircular(
-          icone: Icons.text_snippet_outlined,
-          rotulo: _transcrevendoRelato ? 'Aguarde...' : 'Transcrever',
-          cor: corPrincipal,
-          onPressed: _existeAcaoEmAndamento ? null : _transcreverRelato,
-          iconeCustomizado: _transcrevendoRelato
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : null,
-        ),
-      ],
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Wrap(
+        spacing: 14,
+        runSpacing: 12,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          if (!_gravandoAudio)
+            _botaoAudioCircular(
+              icone: Icons.mic_rounded,
+              rotulo: _possuiAudioRelato ? 'Regravar áudio' : 'Gravar áudio',
+              cor: corPrincipal,
+              preenchido: true,
+              destaque: true,
+              onPressed:
+                  _existeAcaoEmAndamento ? null : _iniciarGravacaoRelato,
+            ),
+          if (_gravandoAudio && !_audioPausado)
+            _botaoAudioCircular(
+              icone: Icons.pause_rounded,
+              rotulo: 'Pausar gravação',
+              cor: const Color(0xFFE65100),
+              onPressed: _pausarGravacaoRelato,
+            ),
+          if (_gravandoAudio && _audioPausado)
+            _botaoAudioCircular(
+              icone: Icons.play_arrow_rounded,
+              rotulo: 'Retomar gravação',
+              cor: corPrincipal,
+              onPressed: _retomarGravacaoRelato,
+            ),
+          if (_gravandoAudio)
+            _botaoAudioCircular(
+              icone: Icons.stop_rounded,
+              rotulo: 'Finalizar gravação',
+              cor: const Color(0xFFD32F2F),
+              preenchido: true,
+              destaque: true,
+              onPressed: _pararGravacaoRelato,
+            ),
+          if (_gravandoAudio)
+            _botaoAudioCircular(
+              icone: Icons.close_rounded,
+              rotulo: 'Cancelar gravação',
+              cor: const Color(0xFF64748B),
+              onPressed: _cancelarGravacaoRelato,
+            ),
+          if (_possuiAudioRelato && !_gravandoAudio)
+            _botaoAudioCircular(
+              icone: _reproduzindoAudio
+                  ? Icons.stop_rounded
+                  : Icons.play_arrow_rounded,
+              rotulo: _reproduzindoAudio ? 'Parar áudio' : 'Ouvir áudio',
+              cor: _reproduzindoAudio
+                  ? const Color(0xFFD32F2F)
+                  : corPrincipal,
+              onPressed:
+                  _existeAcaoEmAndamento ? null : _ouvirOuPararAudioRelato,
+            ),
+          if (_possuiAudioRelato && !_gravandoAudio)
+            _botaoAudioCircular(
+              icone: Icons.delete_outline_rounded,
+              rotulo: 'Remover áudio',
+              cor: const Color(0xFFD32F2F),
+              onPressed:
+                  _existeAcaoEmAndamento ? null : _removerAudioRelato,
+            ),
+          if (!_gravandoAudio)
+            _botaoAudioCircular(
+              icone: Icons.subtitles_rounded,
+              rotulo: _transcrevendoRelato
+                  ? 'Transcrevendo...'
+                  : 'Transcrever áudio',
+              cor: corPrincipal,
+              onPressed: _existeAcaoEmAndamento ? null : _transcreverRelato,
+              iconeCustomizado: _transcrevendoRelato
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : null,
+            ),
+        ],
+      ),
     );
   }
 
