@@ -80,7 +80,7 @@ Com base no material acima, gere um JSON válido com a seguinte estrutura (sem m
     "tecnicas": "Técnicas ou recursos clínicos utilizados, compatíveis com a abordagem {abordagem_clinica}.",
     "tarefa_casa": "Tarefa, reflexão, exercício ou observação combinada com o {termo} para o período entre sessões. Se não houver, deixe vazio.",
     "plano_proxima_sessao": "Foco, temas pendentes ou objetivos para a próxima sessão.",
-    "artigos_sugeridos": "Indicação de exatamente 2 artigos científicos em português, baseados no conteúdo da sessão. Use o formato: '1. Título: ... Link: ...\\n2. Título: ... Link: ...'. Caso não encontre artigos reais nas plataformas SciELO, Oasisbr, BDTD ou CAPES, deixe vazio. NÃO invente referências."
+     "artigos_sugeridos": "Indicação de exatamente 2 artigos científicos em português, baseados no conteúdo da sessão. Use o formato: '1. Título: ... Link: ...\\n2. Título: ... Link: ...'. Priorize artigos reais das plataformas SciELO, Oasisbr, BDTD ou CAPES. Se não tiver certeza dos links exatos, indique o título e um link de busca no Google Scholar (ex: https://scholar.google.com/scholar?q=titulo+do+artigo). Não invente títulos — apenas sugira artigos cujo tema você reconhece da literatura."
 }} 
 
 ARTIGOS CIENTÍFICOS SUGERIDOS:
@@ -89,9 +89,10 @@ Com base em toda a sessão clínica analisada (relato, síntese clínica, temas 
 2. Diretamente relacionados ao conteúdo clínico da sessão.
 3. Compatíveis com a síntese clínica, evitando sugestões genéricas.
 4. Priorizar artigos reconhecidos, relevantes e entre os mais citados do tema.
-5. Buscar exclusivamente em: SciELO, Oasisbr, BDTD, Portal de Periódicos CAPES.
+5. Preferir artigos de: SciELO, Oasisbr, BDTD, Portal de Periódicos CAPES.
 6. NÃO indicar livros, capítulos, dissertações, teses, blogs, sites, materiais didáticos, vídeos ou textos opinativos.
-7. Se não houver segurança de que o artigo existe e atende aos critérios, NÃO invente — deixe o campo vazio.
+7. Se não souber o link exato, use um link de busca do Google Scholar como fallback.
+8. Apenas deixe o campo vazio se não houver nenhum artigo relevante na literatura relacionado ao tema da sessão.
 
 IMPORTANTE:
 - Use o termo "{termo}" para se referir à pessoa atendida
@@ -307,7 +308,7 @@ IMPORTANTE:
         )
 
         response = client.models.generate_content(
-            model=_get_model_name(),
+            model="gemini-2.0-flash",
             contents=prompt,
             config=config,
         )
