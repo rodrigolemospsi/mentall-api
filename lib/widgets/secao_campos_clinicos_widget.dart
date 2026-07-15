@@ -42,6 +42,7 @@ class SecaoCamposClinicosWidget extends StatelessWidget {
           controller: sinteseController,
           label: 'Síntese clínica',
           maxLines: 6,
+          maxHeight: 160,
         ),
       ],
     );
@@ -54,6 +55,7 @@ class SecaoCamposClinicosWidget extends StatelessWidget {
           controller: formulacaoController,
           label: configuracao.tituloFormulaClinica,
           maxLines: 6,
+          maxHeight: 160,
         ),
       ],
     );
@@ -66,6 +68,7 @@ class SecaoCamposClinicosWidget extends StatelessWidget {
           controller: intervencoesController,
           label: configuracao.tituloIntervencoes,
           maxLines: 4,
+          maxHeight: 120,
         ),
       ],
     );
@@ -78,6 +81,7 @@ class SecaoCamposClinicosWidget extends StatelessWidget {
           controller: apontamentosController,
           label: 'Apontamentos',
           maxLines: 6,
+          maxHeight: 160,
         ),
       ],
     );

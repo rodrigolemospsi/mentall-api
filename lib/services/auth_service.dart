@@ -94,4 +94,9 @@ class AuthService {
   Future<void> bloquear() async {
     _desbloqueado = false;
   }
+
+  Future<void> removerPin() async {
+    await _encryptionService.limpar();
+    _desbloqueado = false;
+  }
 }

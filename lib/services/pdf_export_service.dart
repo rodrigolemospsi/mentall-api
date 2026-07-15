@@ -178,14 +178,14 @@ class PdfExportService {
         header: (context) => _cabecalhoPagina(perfil),
         footer: (context) => _rodapePagina(context),
         build: (context) => [
-          _tituloSecao('Histórico Clínico'),
-          pw.SizedBox(height: 0),
-          pw.Text(
-            paciente.nomeExibicao,
-            style: pw.TextStyle(
-              fontSize: 16,
-              fontWeight: pw.FontWeight.bold,
-              color: _primaria,
+          pw.Center(
+            child: pw.Text(
+              'HISTÓRICO CLÍNICO',
+              style: pw.TextStyle(
+                fontSize: 14,
+                fontWeight: pw.FontWeight.bold,
+                color: _primaria,
+              ),
             ),
           ),
           pw.SizedBox(height: 16),
@@ -218,9 +218,39 @@ class PdfExportService {
   }
 
   pw.Widget _cabecalhoPagina(PerfilProfissional perfil) {
+    final infoProfissional = <pw.Widget>[
+      pw.Text(
+        'Psicólogo',
+        style: pw.TextStyle(
+          fontSize: 8,
+          fontWeight: pw.FontWeight.bold,
+          color: _secundaria,
+        ),
+      ),
+      pw.Text(
+        perfil.nomeExibicao,
+        style: pw.TextStyle(
+          fontSize: 8,
+          color: _secundaria,
+        ),
+      ),
+    ];
+    if (perfil.possuiRegistroProfissional) {
+      infoProfissional.add(
+        pw.Text(
+          'CRP ${perfil.registroProfissional}',
+          style: pw.TextStyle(
+            fontSize: 7,
+            color: _secundaria,
+          ),
+        ),
+      );
+    }
+
     return pw.Container(
-      padding: const pw.EdgeInsets.only(bottom: 6),
+      padding: const pw.EdgeInsets.symmetric(vertical: 12),
       decoration: pw.BoxDecoration(
+        color: PdfColors.white,
         border: pw.Border(
           bottom: pw.BorderSide(color: _linha, width: 0.5),
         ),
@@ -230,7 +260,7 @@ class PdfExportService {
         crossAxisAlignment: pw.CrossAxisAlignment.end,
         children: [
           if (_logoImage != null)
-            pw.Image(_logoImage!, height: 22)
+            pw.Image(_logoImage!, height: 44)
           else
             pw.Text(
               'MentAll',
@@ -241,12 +271,9 @@ class PdfExportService {
                 letterSpacing: 1.2,
               ),
             ),
-          pw.Text(
-            perfil.nomeExibicao,
-            style: pw.TextStyle(
-              fontSize: 8,
-              color: _secundaria,
-            ),
+          pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.end,
+            children: infoProfissional,
           ),
         ],
       ),
@@ -286,7 +313,7 @@ class PdfExportService {
         _tituloSecao('Registro de Sessão'),
         pw.SizedBox(height: 2),
         pw.Text(
-          'Sessão ${sessao.numeroSessao} — ${paciente.nomeExibicao}',
+          paciente.nomeExibicao,
           style: pw.TextStyle(
             fontSize: 16,
             fontWeight: pw.FontWeight.bold,
@@ -299,8 +326,6 @@ class PdfExportService {
         _linhaSeparadora(),
         pw.SizedBox(height: 12),
         _secaoClinica(sessao, config),
-        pw.SizedBox(height: 16),
-        _secaoRevisao(sessao),
         pw.SizedBox(height: 16),
         _secaoExportacao(),
         _secaoDisclaimerIa(),
@@ -387,6 +412,7 @@ class PdfExportService {
               ),
               child: pw.Text(
                 texto,
+                textAlign: pw.TextAlign.justify,
                 style: const pw.TextStyle(
                   fontSize: 10,
                   height: 1.5,
@@ -403,7 +429,6 @@ class PdfExportService {
     final intervencoes = _concatenarIntervencoes(sessao);
 
     addCampo('Relato pós-sessão', sessao.relatoPosSessao);
-    addCampo('Transcrição', sessao.transcricaoRelato);
     addCampo('Síntese clínica', sintese);
     addCampo(config.tituloFormulaClinica, formulacao);
     addCampo(config.tituloIntervencoes, intervencoes);
@@ -604,7 +629,14 @@ class PdfExportService {
             ),
             pw.SizedBox(height: 6),
             if (sessao.relatoPosSessao.trim().isNotEmpty)
-              _campoInfo('Relato', sessao.relatoPosSessao),
+              pw.Text(
+                sessao.relatoPosSessao,
+                textAlign: pw.TextAlign.justify,
+                style: const pw.TextStyle(
+                  fontSize: 10,
+                  height: 1.5,
+                ),
+              ),
           ],
         ),
       ),
@@ -657,32 +689,17 @@ class PdfExportService {
         footer: (context) => _rodapePagina(context),
         build: (context) => [
           _tituloSecao('Relatorio Clinico'),
-          pw.SizedBox(height: 4),
-          pw.Text(
-            paciente.nomeExibicao,
-            style: pw.TextStyle(
-              fontSize: 16,
-              fontWeight: pw.FontWeight.bold,
-              color: _primaria,
-            ),
-          ),
-          pw.SizedBox(height: 16),
+          pw.SizedBox(height: 12),
           _dadosPaciente(paciente),
           pw.SizedBox(height: 8),
           _dadosProfissionalResumido(perfil, config),
           pw.SizedBox(height: 8),
           _linhaSeparadora(),
           pw.SizedBox(height: 16),
-          _tituloSecao('Resumo das Sessoes'),
-          pw.SizedBox(height: 8),
-          _tabelaResumoSessoes(sessoesAtivas),
-          pw.SizedBox(height: 16),
           _tituloSecao('Evolucao Clinica'),
           pw.SizedBox(height: 8),
           ..._evolucaoClinicaSessoes(sessoesAtivas),
           pw.SizedBox(height: 16),
-          _secaoDisclaimerIa(),
-          pw.SizedBox(height: 8),
           _secaoExportacao(),
         ],
       ),
@@ -870,73 +887,6 @@ class PdfExportService {
     );
   }
 
-  pw.Widget _tabelaResumoSessoes(List<Sessao> sessoes) {
-    if (sessoes.isEmpty) {
-      return pw.Text(
-        'Nenhuma sessao registrada.',
-        style: pw.TextStyle(
-          color: _secundaria,
-          fontSize: 10,
-          fontStyle: pw.FontStyle.italic,
-        ),
-      );
-    }
-
-    return pw.Table(
-      border: pw.TableBorder.all(color: _linha, width: 0.5),
-      columnWidths: {
-        0: const pw.FlexColumnWidth(0.5),
-        1: const pw.FlexColumnWidth(2),
-        2: const pw.FlexColumnWidth(1),
-      },
-      children: [
-        pw.TableRow(
-          decoration: pw.BoxDecoration(color: _primaria),
-          children: [
-            _celulaTabela('#', bold: true, corFonte: PdfColors.white),
-            _celulaTabela('Data', bold: true, corFonte: PdfColors.white),
-            _celulaTabela('Status', bold: true, corFonte: PdfColors.white),
-          ],
-        ),
-        ...sessoes.map(
-          (s) => pw.TableRow(
-            decoration: pw.BoxDecoration(
-              color: sessoes.indexOf(s).isEven ? PdfColors.white : _fundo,
-            ),
-            children: [
-              _celulaTabela('${s.numeroSessao}'),
-              _celulaTabela(_formatarData(s.data)),
-              _celulaTabela(
-                s.revisadoPeloProfissional ? 'Revisado' : 'Pendente',
-                corFonte: s.revisadoPeloProfissional
-                    ? PdfColors.green700
-                    : PdfColors.orange700,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  pw.Widget _celulaTabela(
-    String texto, {
-    bool bold = false,
-    PdfColor? corFonte,
-  }) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.all(5),
-      child: pw.Text(
-        texto,
-        style: pw.TextStyle(
-          fontSize: 9,
-          fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
-          color: corFonte,
-        ),
-      ),
-    );
-  }
-
   List<pw.Widget> _evolucaoClinicaSessoes(List<Sessao> sessoes) {
     final widgets = <pw.Widget>[];
 
@@ -959,7 +909,7 @@ class PdfExportService {
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Text(
-                'Sessao ${s.numeroSessao} — ${_formatarData(s.data)}',
+                'Sessão — ${_formatarData(s.data)}',
                 style: pw.TextStyle(
                   fontSize: 10,
                   fontWeight: pw.FontWeight.bold,
@@ -969,6 +919,7 @@ class PdfExportService {
               pw.SizedBox(height: 4),
               pw.Text(
                 sintese,
+                textAlign: pw.TextAlign.justify,
                 style: const pw.TextStyle(fontSize: 9, height: 1.5),
               ),
             ],
@@ -1061,6 +1012,7 @@ class PdfExportService {
       ),
       child: pw.Text(
         texto,
+        textAlign: pw.TextAlign.justify,
         style: const pw.TextStyle(fontSize: 10, height: 1.5),
       ),
     );

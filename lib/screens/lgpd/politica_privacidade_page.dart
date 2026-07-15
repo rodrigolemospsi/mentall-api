@@ -8,7 +8,7 @@ class PoliticaPrivacidadePage extends StatelessWidget {
     const Color corPrincipal = Color(0xFF2563EB);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FA),
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Politica de Privacidade'),
         backgroundColor: corPrincipal,

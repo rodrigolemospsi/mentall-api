@@ -48,13 +48,13 @@ class ApiClient {
       return true;
     }
 
+    return forceReauthenticate();
+  }
+
+  static Future<bool> forceReauthenticate() async {
+    _authToken = null;
     try {
-      final authMeta = Hive.box<String>('auth_meta');
-      final cached = authMeta.get('jwt_token');
-      if (cached != null && cached.isNotEmpty) {
-        _authToken = cached;
-        return true;
-      }
+      await Hive.box<String>('auth_meta').delete('jwt_token');
     } catch (_) {}
 
     try {
@@ -75,7 +75,7 @@ class ApiClient {
         return true;
       }
     } catch (e) {
-      Log.erro(e, contexto: 'ApiClient.ensureAuthenticated');
+      Log.erro(e, contexto: 'ApiClient.forceReauthenticate');
     }
 
     return false;

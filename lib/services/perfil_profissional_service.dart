@@ -40,6 +40,7 @@ class PerfilProfissionalService {
     perfilExistente.termoPessoaAtendida = perfil.termoPessoaAtendida;
     perfilExistente.modalidadesAtendimentoJson = perfil.modalidadesAtendimentoJson;
     perfilExistente.enderecosConsultoriosJson = perfil.enderecosConsultoriosJson;
+    perfilExistente.fotoBase64 = perfil.fotoBase64;
     perfilExistente.dataAtualizacao = DateTime.now();
 
     _encryptPerfil(perfilExistente);

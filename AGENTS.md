@@ -10,7 +10,7 @@ App Flutter para prontuário clínico adaptado à abordagem terapêutica do prof
 - **Banco local:** Hive CE (hive_ce + hive_ce_flutter + hive_ce_generator)
 - **Áudio:** record + audioplayers + path_provider
 - **Geração de código:** build_runner + hive_ce_generator
-- **Backend:** Python FastAPI, OpenAI GPT-4.1 (síntese) + gpt-4o-transcribe (transcrição)
+- **Backend:** Python FastAPI, OpenAI GPT-4.1 / DeepSeek / Gemini (síntese) + gpt-4o-transcribe (transcrição)
 - **Deploy backend:** Render.com (plano gratuito, cold start ~30-60s)
 - **Segurança:** Criptografia AES-256-CBC (encrypt + pointycastle) + autenticação JWT no backend (python-jose + passlib)
 
@@ -25,6 +25,10 @@ App Flutter para prontuário clínico adaptado à abordagem terapêutica do prof
 - **Variáveis de ambiente no Render:**
   - `OPENAI_API_KEY` — chave API da OpenAI (projeto, formato `sk-proj-...`)
   - `OPENAI_PROJECT_ID` — ID do projeto OpenAI (formato `proj_...`)
+  - `GEMINI_API_KEY` — chave API do Google Gemini (para busca de artigos com Grounding)
+  - `DEEPSEEK_API_KEY` — chave API do DeepSeek (formato `sk-...`)
+  - `IA_MODEL_PROVIDER` — provedor de síntese: `openai` (padrão), `deepseek` ou `gemini`
+  - `IA_MODEL` — modelo específico: `gpt-4.1`, `deepseek-chat`, `gemini-2.0-flash`
   - `JWT_SECRET` — chave secreta para tokens JWT
   - `APP_PASSWORD_HASH` — hash bcrypt da senha (vazio = senha padrão `admin`)
 
@@ -171,6 +175,7 @@ Chamadas à API (`TranscricaoRelatoService`, `IaClinicaService`) devem chamar `A
 3. **Chave OpenAI**: Formato `sk-proj-...` (project key) requer `OPENAI_PROJECT_ID` no ambiente
 4. **Render cold start**: Primeira requisição após inatividade leva 30-60s. Timeout do app ajustado para 120s
 5. **APK release vs debug**: `flutter build apk` gera release (menor). Debug: `flutter build apk --debug`
+6. **GEMINI_API_KEY ausente**: Artigos sugeridos alucinam links (LLM não verifica URLs). Solução: criar chave gratuita em https://aistudio.google.com/apikey e adicionar como variável `GEMINI_API_KEY` no Render. Com Gemini grounding, os artigos vêm de busca real.
 
 ### Resolvidos
 - ~~Segurança: zero autenticação~~ ✅ JWT backend + criptografia AES local

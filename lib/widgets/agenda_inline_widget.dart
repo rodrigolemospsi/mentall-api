@@ -40,10 +40,10 @@ class AgendaInlineWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dataSelecionada = ref.watch(agendaDataProvider);
-    final compService = ref.watch(compromissoServiceProvider);
+    final compromissosAsync = ref.watch(compromissosPorDataProvider(dataSelecionada));
     final pacService = ref.watch(pacienteServiceProvider);
 
-    final compromissos = compService.listarPorData(dataSelecionada);
+    final compromissos = compromissosAsync.value ?? [];
     final hoje = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
     final isHoje = dataSelecionada == hoje;
 

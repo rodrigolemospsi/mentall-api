@@ -569,7 +569,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F9FA),
+        backgroundColor: Colors.white,
         appBar: AppBar(
           title: Text(_nomePacienteExibicao),
           backgroundColor: corPrincipal,

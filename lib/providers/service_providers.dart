@@ -90,3 +90,11 @@ final compromissosHojeProvider = StreamProvider<List<Compromisso>>((ref) async* 
     yield service.listarHoje();
   }
 });
+
+final compromissosPorDataProvider = StreamProvider.family<List<Compromisso>, DateTime>((ref, date) async* {
+  final service = ref.watch(compromissoServiceProvider);
+  yield service.listarPorData(date);
+  await for (final _ in service.observar()) {
+    yield service.listarPorData(date);
+  }
+});

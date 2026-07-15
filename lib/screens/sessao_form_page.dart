@@ -2,8 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:url_launcher/url_launcher.dart';
 
 import '../config/configuracao_abordagem_clinica.dart';
 import '../models/paciente.dart';
@@ -1388,7 +1391,7 @@ if (!mounted || confirmar != true) return;
   Widget build(BuildContext context) {
     if (_erroInicializacao != null) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF7F9FA),
+        backgroundColor: Colors.white,
         appBar: AppBar(
           title: const Text('Erro'),
           backgroundColor: const Color(0xFFD32F2F),
@@ -1447,7 +1450,7 @@ if (!mounted || confirmar != true) return;
     final configuracao = _configuracaoAbordagem;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FA),
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text(_editando ? 'Editar sessão' : 'Nova sessão'),
         backgroundColor: corPrincipal,
@@ -1628,6 +1631,7 @@ if (!mounted || confirmar != true) return;
           controller: _transcricaoRelatoController,
           label: 'Transcrição',
           maxLines: 5,
+          maxHeight: 150,
         ),
         const SizedBox(height: 12),
         SizedBox(
@@ -1660,11 +1664,11 @@ if (!mounted || confirmar != true) return;
             controller: _relatoPosSessaoController,
             label: 'Relato clínico organizado',
             maxLines: 8,
+            maxHeight: 200,
           ),
         ],
         if (_estaAguardandoRevisao ||
-            (!_revisadoPeloProfissional &&
-                (_geradoComIa || _possuiTranscricaoRelato))) ...[
+            (!_revisadoPeloProfissional && _geradoComIa)) ...[
           const SizedBox(height: 4),
           SizedBox(
             width: double.infinity,
@@ -2005,8 +2009,8 @@ if (!mounted || confirmar != true) return;
             ],
           ),
           const SizedBox(height: 10),
-          Text(
-            _artigosSugeridos,
+          Text.rich(
+            _buildArtigosComLinks(_artigosSugeridos),
             style: const TextStyle(
               fontSize: 12,
               height: 1.5,
@@ -2016,6 +2020,50 @@ if (!mounted || confirmar != true) return;
         ],
       ),
     );
+  }
+
+  static final _urlRegExp = RegExp(
+    r'https?://[^\s\n]+',
+    caseSensitive: false,
+  );
+
+  InlineSpan _buildArtigosComLinks(String texto) {
+    final spans = <InlineSpan>[];
+    int lastEnd = 0;
+
+    for (final match in _urlRegExp.allMatches(texto)) {
+      if (match.start > lastEnd) {
+        spans.add(TextSpan(text: texto.substring(lastEnd, match.start)));
+      }
+      final url = match.group(0)!;
+      spans.add(
+        TextSpan(
+          text: 'Acesse Aqui!',
+          style: const TextStyle(
+            fontSize: 12,
+            height: 1.5,
+            color: Color(0xFF2563EB),
+            fontWeight: FontWeight.w600,
+            decoration: TextDecoration.underline,
+            decorationColor: Color(0xFF2563EB),
+          ),
+          recognizer: TapGestureRecognizer()
+            ..onTap = () async {
+              final uri = Uri.tryParse(url);
+              if (uri != null) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+            },
+        ),
+      );
+      lastEnd = match.end;
+    }
+
+    if (lastEnd < texto.length) {
+      spans.add(TextSpan(text: texto.substring(lastEnd)));
+    }
+
+    return TextSpan(children: spans);
   }
 
   Widget _botaoSalvar(Color corPrincipal) {

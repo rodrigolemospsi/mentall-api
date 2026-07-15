@@ -71,7 +71,7 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
     final importando = ref.watch(_importandoProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FA),
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Backup e restauração'),
         backgroundColor: corPrincipal,

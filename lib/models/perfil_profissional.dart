@@ -36,6 +36,9 @@ class PerfilProfissional extends HiveObject {
   @HiveField(8)
   String enderecosConsultoriosJson;
 
+  @HiveField(9)
+  String fotoBase64;
+
   PerfilProfissional({
     required this.id,
     required this.nome,
@@ -46,6 +49,7 @@ class PerfilProfissional extends HiveObject {
     this.dataAtualizacao,
     this.modalidadesAtendimentoJson = '[]',
     this.enderecosConsultoriosJson = '[]',
+    this.fotoBase64 = '',
   }) : dataCriacao = dataCriacao ?? DateTime.now();
 
   static const String abordagemClinicaPadrao = 'Integrativa';
@@ -70,6 +74,10 @@ class PerfilProfissional extends HiveObject {
 
   bool get possuiRegistroProfissional {
     return registroProfissional.trim().isNotEmpty;
+  }
+
+  bool get possuiFoto {
+    return fotoBase64.trim().isNotEmpty;
   }
 
   String get nomeExibicao {
@@ -256,6 +264,7 @@ class PerfilProfissional extends HiveObject {
     DateTime? dataAtualizacao,
     String? modalidadesAtendimentoJson,
     String? enderecosConsultoriosJson,
+    String? fotoBase64,
   }) {
     return PerfilProfissional(
       id: id ?? this.id,
@@ -269,6 +278,7 @@ class PerfilProfissional extends HiveObject {
           modalidadesAtendimentoJson ?? this.modalidadesAtendimentoJson,
       enderecosConsultoriosJson:
           enderecosConsultoriosJson ?? this.enderecosConsultoriosJson,
+      fotoBase64: fotoBase64 ?? this.fotoBase64,
     );
   }
 

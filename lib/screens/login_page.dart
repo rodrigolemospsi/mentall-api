@@ -103,7 +103,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final configurandoPin = !authService.requerPin;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FA),
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -126,7 +126,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 const SizedBox(height: 24),
                 Image.asset(
                   'assets/images/logo_mentall.png',
-                  height: 72,
+                  height: 144,
                 ),
                 const SizedBox(height: 8),
                 Text(

@@ -80,9 +80,9 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: false
-  image_path: "assets/images/logo_mentall.png"
-  adaptive_icon_background: "#2563EB"
-  adaptive_icon_foreground: "assets/images/logo_mentall.png"
+  image_path: "assets/images/logo_mentall_2.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/logo_mentall_2.png"
 
   # To add assets to your application, add an assets section, like this:
   # assets:

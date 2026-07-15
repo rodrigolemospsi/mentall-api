@@ -168,10 +168,10 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
   @override
   Widget build(BuildContext context) {
     final dataSelecionada = ref.watch(_dataSelecionadaProvider);
-    final compromissoService = ref.watch(compromissoServiceProvider);
+    final compromissosAsync = ref.watch(compromissosPorDataProvider(dataSelecionada));
     final pacienteService = ref.watch(pacienteServiceProvider);
 
-    final compromissosDoDia = compromissoService.listarPorData(dataSelecionada);
+    final compromissosDoDia = compromissosAsync.value ?? [];
 
     final hoje = DateTime.now();
     final hojeInicio = DateTime(hoje.year, hoje.month, hoje.day);
@@ -198,7 +198,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
     final passaFuturo = dataSelecionada.isAfter(hojeInicio.add(const Duration(days: 365)));
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FA),
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Agenda'),
         actions: [
@@ -500,7 +500,7 @@ class _CompromissoCard extends StatelessWidget {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF7F9FA),
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -519,11 +519,11 @@ class _CompromissoCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   Text(
                     compromisso.duracaoFormatada,
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 11,
                       color: Color(0xFF64748B),
                     ),
                   ),
@@ -531,13 +531,10 @@ class _CompromissoCard extends StatelessWidget {
                   if (compromisso.lembreteAtivado && compromisso.isAgendado)
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
-                      child: Tooltip(
-                        message: 'Lembrete: ${compromisso.antecedenciaFormatada} antes',
-                        child: Icon(
-                          Icons.notifications_active_rounded,
-                          size: 18,
-                          color: corStatus.withValues(alpha: 0.7),
-                        ),
+                      child: Icon(
+                        Icons.notifications_active_rounded,
+                        size: 18,
+                        color: corStatus.withValues(alpha: 0.7),
                       ),
                     ),
                   _ChipStatus(
@@ -604,7 +601,7 @@ class _CompromissoCard extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF7F9FA),
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -614,8 +611,10 @@ class _CompromissoCard extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 4,
+                runSpacing: 4,
                 children: [
                   if (compromisso.isAgendado) ...[
                     _AcaoPequena(
@@ -624,14 +623,12 @@ class _CompromissoCard extends StatelessWidget {
                       cor: const Color(0xFF2E7D32),
                       onPressed: onMarcarRealizado,
                     ),
-                    const SizedBox(width: 4),
                     _AcaoPequena(
                       icone: Icons.person_off_outlined,
                       label: 'Faltou',
                       cor: const Color(0xFFC62828),
                       onPressed: onMarcarFaltou,
                     ),
-                    const SizedBox(width: 4),
                     _AcaoPequena(
                       icone: Icons.cancel_outlined,
                       label: 'Cancelar',
@@ -646,7 +643,6 @@ class _CompromissoCard extends StatelessWidget {
                       onPressed: onMarcarAgendado,
                     ),
                   ],
-                  const SizedBox(width: 4),
                   _AcaoPequena(
                     icone: Icons.delete_outline,
                     label: 'Remover',

@@ -120,7 +120,7 @@ class StatusClinicoSessaoService {
       return const StatusClinicoSessaoInfo(
         status: StatusClinicoSessao.revisaoPendente,
         codigo: 'revisao_pendente',
-        titulo: 'Revisão profissional pendente',
+        titulo: 'Revisão pendente',
         descricao:
             'Há conteúdo gerado ou auxiliado por IA que precisa ser revisado pelo profissional.',
         exigeAcaoProfissional: true,

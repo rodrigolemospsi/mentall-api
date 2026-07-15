@@ -16,9 +16,9 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
     final authService = ref.read(authServiceProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FA),
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Privacidade e Seguranca'),
+        title: const Text('Privacidade e Segurança'),
         backgroundColor: corPrincipal,
         foregroundColor: Colors.white,
         actions: [
@@ -43,14 +43,14 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         children: [
           _secao(
-            titulo: 'Seguranca',
+            titulo: 'Segurança',
             children: [
               SwitchListTile(
-                title: const Text('Bloqueio por PIN'),
+                    title: const Text('Bloqueio por PIN'),
                 subtitle: Text(
                   authService.requerPin
                       ? 'PIN configurado. O app solicita PIN ao abrir.'
-                      : 'Configure um PIN para proteger seus dados clinicos.',
+                      : 'Configure um PIN para proteger seus dados clínicos.',
                 ),
                 value: authService.requerPin,
                 activeThumbColor: corPrincipal,
@@ -82,17 +82,17 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           _secao(
-            titulo: 'Audio do Relato',
+            titulo: 'Áudio do Relato',
             children: const [
               ListTile(
                 leading: Icon(Icons.mic_outlined, color: Color(0xFF2563EB)),
-                title: Text('Finalidade do audio'),
+                title: Text('Finalidade do áudio'),
                 subtitle: Text(
-                  'O audio no MentAll foi projetado para registrar um relato '
-                  'clinico breve feito pelo profissional apos o atendimento. '
-                  'O limite maximo e de 5 minutos por registro. Esse audio '
-                  'pode apoiar a transcricao e a documentacao clinica, '
-                  'sempre com revisao do profissional.',
+                  'O áudio no MentAll foi projetado para registrar um relato '
+                  'clínico breve feito pelo profissional após o atendimento. '
+                  'O limite máximo é de 5 minutos por registro. Esse áudio '
+                  'pode apoiar a transcrição e a documentação clínica, '
+                  'sempre com revisão do profissional.',
                 ),
               ),
             ],
@@ -106,34 +106,34 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
                 title: Text('Apoio documental'),
                 subtitle: Text(
                   'A IA do MentAll atua apenas como apoio documental. '
-                  'Todo conteudo gerado deve ser revisado e validado '
-                  'pelo profissional antes de integrar o prontuario. '
-                  'A IA nao fornece diagnostico nem substitui o julgamento clinico.',
+                  'Todo conteúdo gerado deve ser revisado e validado '
+                  'pelo profissional antes de integrar o prontuário. '
+                  'A IA não fornece diagnóstico nem substitui o julgamento clínico.',
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
           _secao(
-            titulo: 'Dados e Retencao',
+            titulo: 'Dados e Retenção',
             children: [
               ListTile(
                 leading: const Icon(Icons.archive_outlined, color: Color(0xFF2563EB)),
-                title: const Text('Arquivamento em vez de exclusao'),
+                title: const Text('Arquivamento em vez de exclusão'),
                 subtitle: const Text(
-                  'O MentAll mantem a regra de arquivar em vez de excluir. '
-                  'Pessoas atendidas e sessoes arquivadas continuam preservadas '
-                  'no prontuario, podendo ser restauradas a qualquer momento.',
+                  'O MentAll mantém a regra de arquivar em vez de excluir. '
+                  'Pessoas atendidas e sessões arquivadas continuam preservadas '
+                  'no prontuário, podendo ser restauradas a qualquer momento.',
                 ),
               ),
               const Divider(indent: 16),
               ListTile(
                 leading: const Icon(Icons.folder_outlined, color: Color(0xFF2563EB)),
-                title: const Text('Exportacao de dados'),
+                title: const Text('Exportação de dados'),
                 subtitle: const Text(
-                  'Voce pode exportar sessoes, historicos e o prontuario completo '
-                  'em PDF. Os arquivos exportados contem dados clinicos sensiveis '
-                  'e devem ser armazenados com seguranca pelo profissional.',
+                  'Você pode exportar sessões, históricos e o prontuário completo '
+                  'em PDF. Os arquivos exportados contêm dados clínicos sensíveis '
+                  'e devem ser armazenados com segurança pelo profissional.',
                 ),
               ),
             ],
@@ -147,8 +147,8 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
                 title: const Text('Registro de eventos'),
                 subtitle: const Text(
                   'O MentAll registra eventos relevantes para fins de auditoria, '
-                  'como criacao de registros, alteracoes clinicas, uso de IA, '
-                  'e exportacoes. Esses registros nao contem dados clinicos.',
+                  'como criação de registros, alterações clínicas, uso de IA, '
+                  'e exportações. Esses registros não contêm dados clínicos.',
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
@@ -174,7 +174,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
               const Divider(indent: 16),
               ListTile(
                 leading: const Icon(Icons.privacy_tip_outlined, color: Color(0xFF2563EB)),
-                title: const Text('Politica de Privacidade'),
+                title: const Text('Política de Privacidade'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
                   Navigator.push(
@@ -230,13 +230,16 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
           obscureText: true,
           maxLength: 16,
           decoration: const InputDecoration(
-            labelText: 'Novo PIN (minimo 4 caracteres)',
+            labelText: 'Novo PIN (mínimo 4 caracteres)',
             border: OutlineInputBorder(),
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () {
+              pinController.dispose();
+              Navigator.pop(ctx);
+            },
             child: const Text('Cancelar'),
           ),
           FilledButton(
@@ -245,10 +248,8 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
               if (pin.length < 4) return;
               final container = ProviderScope.containerOf(context);
               final authService = container.read(authServiceProvider);
-              if (authService.requerPin) {
-                await authService.encryption.desbloquear('');
-              }
               await authService.configurarPin(pin);
+              pinController.dispose();
               if (ctx.mounted) Navigator.pop(ctx);
             },
             child: const Text('Salvar'),
@@ -256,7 +257,6 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
         ],
       ),
     );
-    pinController.dispose();
   }
 
   void _mostrarDialogRemoverPin(BuildContext context, dynamic authService) {
@@ -265,7 +265,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('Remover PIN'),
         content: const Text(
-          'Ao remover o PIN, seus dados clinicos ficarao armazenados sem '
+          'Ao remover o PIN, seus dados clínicos ficarão armazenados sem '
           'criptografia local. Deseja continuar?',
         ),
         actions: [
@@ -275,7 +275,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
           ),
           FilledButton(
             onPressed: () async {
-              await authService.bloquear();
+              await authService.removerPin();
               if (ctx.mounted) Navigator.pop(ctx);
             },
             child: const Text('Remover PIN'),

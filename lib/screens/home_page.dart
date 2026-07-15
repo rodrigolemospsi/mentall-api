@@ -346,15 +346,16 @@ class _HomePageState extends ConsumerState<HomePage> {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F9FA),
+        backgroundColor: Colors.white,
         appBar: AppBar(
+          toolbarHeight: 112,
           title: Image.asset(
             'assets/images/logo_mentall.png',
-            height: 44,
+            height: 88,
           ),
           centerTitle: false,
-          backgroundColor: _azul,
-          foregroundColor: Colors.white,
+          backgroundColor: Colors.white,
+          foregroundColor: _azul,
           elevation: 0,
           actions: [
             IconButton(

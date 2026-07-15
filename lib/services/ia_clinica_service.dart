@@ -131,86 +131,82 @@ class IaClinicaService {
     }
 
     try {
-      final autenticado = await ApiClient.ensureAuthenticated();
-      if (!autenticado) {
-        return ResultadoIaClinica.falha(
-          erro: 'Não foi possível autenticar com o servidor. Verifique sua conexão.',
-        );
-      }
+      final resultado = await _fazerRequisicaoComRetry(
+        endpoint: '/gerar-sintese',
+        body: {
+          'sessao_id': sessaoId,
+          'numero_sessao': numeroSessao,
+          'nome_pessoa_atendida': nomeLimpo.isNotEmpty ? nomeLimpo : nomePessoaAtendida,
+          'termo_pessoa_atendida': termoLimpo.isNotEmpty ? termoLimpo : termoPessoaAtendida,
+          'abordagem_clinica': abordagemLimpa.isNotEmpty ? abordagemLimpa : 'Integrativa',
+          'transcricao_relato': transcricaoLimpa,
+          'relato_manual': relatoManualLimpo,
+          'tema_principal': temaLimpo,
+        },
+      );
 
-      final response = await http
-          .post(
-            Uri.parse('${ApiClient.baseUrl}/gerar-sintese'),
-            headers: ApiClient.defaultHeaders(),
-            body: jsonEncode({
-              'sessao_id': sessaoId,
-              'numero_sessao': numeroSessao,
-              'nome_pessoa_atendida': nomeLimpo.isNotEmpty ? nomeLimpo : nomePessoaAtendida,
-              'termo_pessoa_atendida': termoLimpo.isNotEmpty ? termoLimpo : termoPessoaAtendida,
-              'abordagem_clinica': abordagemLimpa.isNotEmpty ? abordagemLimpa : 'Integrativa',
-            'transcricao_relato': transcricaoLimpa,
-            'relato_manual': relatoManualLimpo,
-            'tema_principal': temaLimpo,
-          }),
-          )
-          .timeout(ApiClient.timeout);
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (resultado['status'] == 200) {
+        final data = resultado['data'] as Map<String, dynamic>;
         final sucesso = data['sucesso'] as bool;
-
         if (sucesso) {
           return ResultadoIaClinica.sucesso(
-            relatoClinicoOrganizado:
-                data['relato_clinico_organizado'] as String? ?? '',
-            apontamentosCopiloto:
-                data['apontamentos_copiloto'] as String? ?? '',
-            eventosImportantes:
-                data['eventos_importantes'] as String? ?? '',
-            evolucaoClinica:
-                data['evolucao_clinica'] as String? ?? '',
+            relatoClinicoOrganizado: data['relato_clinico_organizado'] as String? ?? '',
+            apontamentosCopiloto: data['apontamentos_copiloto'] as String? ?? '',
+            eventosImportantes: data['eventos_importantes'] as String? ?? '',
+            evolucaoClinica: data['evolucao_clinica'] as String? ?? '',
             observacoes: data['observacoes'] as String? ?? '',
-            pensamentosAutomaticos:
-                data['pensamentos_automaticos'] as String? ?? '',
+            pensamentosAutomaticos: data['pensamentos_automaticos'] as String? ?? '',
             emocoes: data['emocoes'] as String? ?? '',
             comportamentos: data['comportamentos'] as String? ?? '',
             intervencoes: data['intervencoes'] as String? ?? '',
             tecnicas: data['tecnicas'] as String? ?? '',
             tarefaCasa: data['tarefa_casa'] as String? ?? '',
-            planoProximaSessao:
-                data['plano_proxima_sessao'] as String? ?? '',
-            artigosSugeridos:
-                data['artigos_sugeridos'] as String? ?? '',
-          );
-        } else {
-          return ResultadoIaClinica.falha(
-            erro: data['erro'] as String? ?? 'Erro do servidor.',
+            planoProximaSessao: data['plano_proxima_sessao'] as String? ?? '',
+            artigosSugeridos: data['artigos_sugeridos'] as String? ?? '',
           );
         }
-      }
-
-      try {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final erroDetalhado = data['detail'] as String? ??
-            data['erro'] as String? ??
-            '';
-
-        if (erroDetalhado.isNotEmpty) {
-          return ResultadoIaClinica.falha(
-            erro: 'Servidor retornou código ${response.statusCode}: $erroDetalhado',
-          );
-        }
-      } catch (erro) {
-        Log.erro(erro, contexto: 'ia_clinica_service:parseErrorResponse');
+        return ResultadoIaClinica.falha(erro: data['erro'] as String? ?? 'Erro do servidor.');
       }
 
       return ResultadoIaClinica.falha(
-        erro: 'Servidor retornou código ${response.statusCode}.',
+        erro: 'Servidor retornou código ${resultado['status']}.',
       );
     } catch (erro) {
       return ResultadoIaClinica.falha(
         erro: 'Não foi possível gerar a síntese clínica. Detalhes: $erro',
       );
     }
+  }
+
+  Future<Map<String, dynamic>> _fazerRequisicaoComRetry({
+    required String endpoint,
+    required Map<String, dynamic> body,
+    int tentativa = 0,
+  }) async {
+    final autenticado = tentativa == 0
+        ? await ApiClient.ensureAuthenticated()
+        : await ApiClient.forceReauthenticate();
+    if (!autenticado) {
+      return {'status': 0, 'data': null};
+    }
+
+    final response = await http
+        .post(
+          Uri.parse('${ApiClient.baseUrl}$endpoint'),
+          headers: ApiClient.defaultHeaders(),
+          body: jsonEncode(body),
+        )
+        .timeout(ApiClient.timeout);
+
+    if (response.statusCode == 401 && tentativa < 1) {
+      return _fazerRequisicaoComRetry(endpoint: endpoint, body: body, tentativa: tentativa + 1);
+    }
+
+    Map<String, dynamic>? data;
+    try {
+      data = jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (_) {}
+
+    return {'status': response.statusCode, 'data': data};
   }
 }

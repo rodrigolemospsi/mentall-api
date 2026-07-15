@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../models/perfil_profissional.dart';
 import '../providers/service_providers.dart';
@@ -12,6 +15,7 @@ final _abordagemProvider = StateProvider<String>((ref) => 'Integrativa');
 final _termoProvider = StateProvider<String>((ref) => 'paciente');
 final _salvandoProvider = StateProvider<bool>((ref) => false);
 final _aceitouTermosProvider = StateProvider<bool>((ref) => false);
+final _fotoProvider = StateProvider<String>((ref) => '');
 
 class PerfilProfissionalFormPage extends ConsumerStatefulWidget {
   const PerfilProfissionalFormPage({super.key});
@@ -27,10 +31,40 @@ class _PerfilProfissionalFormPageState
   final TextEditingController _registroController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    try {
+      final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
+      if (perfil != null) {
+        _nomeController.text = perfil.nome;
+        _registroController.text = perfil.registroProfissional;
+        ref.read(_abordagemProvider.notifier).state = perfil.abordagemClinica;
+        ref.read(_termoProvider.notifier).state = perfil.termoPessoaAtendida;
+        ref.read(_fotoProvider.notifier).state = perfil.fotoBase64;
+      }
+    } catch (erro) {
+      Log.erro(erro, contexto: 'perfil_profissional_form_page:initState');
+    }
+  }
+
+  @override
   void dispose() {
     _nomeController.dispose();
     _registroController.dispose();
     super.dispose();
+  }
+
+  Future<void> _selecionarFoto() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    ref.read(_fotoProvider.notifier).state = base64Encode(bytes);
   }
 
   Future<void> _salvarPerfil() async {
@@ -67,6 +101,7 @@ class _PerfilProfissionalFormPageState
         registroProfissional: registro,
         abordagemClinica: ref.read(_abordagemProvider),
         termoPessoaAtendida: ref.read(_termoProvider),
+        fotoBase64: ref.read(_fotoProvider),
       );
 
       await ref.read(perfilProfissionalServiceProvider).salvarPerfil(perfil);
@@ -101,9 +136,14 @@ class _PerfilProfissionalFormPageState
     final abordagemSelecionada = ref.watch(_abordagemProvider);
     final termoSelecionado = ref.watch(_termoProvider);
     final salvando = ref.watch(_salvandoProvider);
+    final fotoBase64 = ref.watch(_fotoProvider);
+
+    final abordagensOrdenadas = PerfilProfissional.abordagensDisponiveis
+        .toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FA),
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Configuração inicial'),
         backgroundColor: corPrincipal,
@@ -146,6 +186,34 @@ class _PerfilProfissionalFormPageState
                       ),
                     ),
                     const SizedBox(height: 22),
+                    Center(
+                      child: GestureDetector(
+                        onTap: salvando ? null : _selecionarFoto,
+                        child: CircleAvatar(
+                          radius: 44,
+                          backgroundColor: corPrincipal.withValues(alpha: 0.1),
+                          backgroundImage: fotoBase64.isNotEmpty
+                              ? MemoryImage(base64Decode(fotoBase64))
+                              : null,
+                          child: fotoBase64.isEmpty
+                              ? const Icon(Icons.camera_alt_outlined,
+                                  size: 32, color: corPrincipal)
+                              : null,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: salvando ? null : _selecionarFoto,
+                        icon: const Icon(Icons.add_a_photo, size: 16),
+                        label: Text(
+                          fotoBase64.isNotEmpty ? 'Alterar foto' : 'Adicionar foto',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
                     TextField(
                       controller: _nomeController,
                       textCapitalization: TextCapitalization.words,
@@ -175,7 +243,7 @@ class _PerfilProfissionalFormPageState
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.account_tree_outlined),
                       ),
-                      items: PerfilProfissional.abordagensDisponiveis
+                      items: abordagensOrdenadas
                           .map(
                             (a) => DropdownMenuItem<String>(
                               value: a.value,

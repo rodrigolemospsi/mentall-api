@@ -45,7 +45,7 @@ void main() async {
   ErrorWidget.builder = (FlutterErrorDetails details) {
     return Material(
       child: Container(
-        color: const Color(0xFFF7F9FA),
+        color: Colors.white,
         padding: const EdgeInsets.all(24),
         child: ListView(
           children: [
@@ -104,7 +104,7 @@ class MentAllApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: corPrincipal),
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF7F9FA),
+        scaffoldBackgroundColor: Colors.white,
         appBarTheme: const AppBarTheme(
           backgroundColor: corPrincipal,
           foregroundColor: Colors.white,

@@ -8,7 +8,7 @@ class TermosUsoPage extends StatelessWidget {
     const Color corPrincipal = Color(0xFF2563EB);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F9FA),
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Termos de Uso'),
         backgroundColor: corPrincipal,
