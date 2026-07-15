@@ -1,5 +1,6 @@
 import json
 import os
+from urllib.parse import quote_plus
 
 import requests
 from google import genai
@@ -7,6 +8,30 @@ from google.genai import types
 from openai import OpenAI
 
 from prompts.abordagens import PROMPT_UNIVERSAL, obter_prompt_abordagem
+
+BASES_PESQUISA = [
+    ("SciELO", "https://search.scielo.org/?q={consulta}&lang=pt"),
+    ("Periódicos CAPES", "https://www.periodicos.capes.gov.br/index.php/acervo/buscador.html?q={consulta}"),
+    ("Oasisbr", "https://oasisbr.ibict.br/vufind/Search/Results?lookfor={consulta}&type=AllFields"),
+]
+
+
+def _montar_artigos_sugeridos(temas_pesquisa: list) -> str:
+    temas_validos = [
+        str(t).strip() for t in (temas_pesquisa or []) if str(t).strip()
+    ][:2]
+    if not temas_validos:
+        return ""
+
+    blocos = []
+    for i, tema in enumerate(temas_validos, 1):
+        consulta = quote_plus(tema)
+        linhas = [f"{i}. {tema.capitalize()}"]
+        for nome_base, url_template in BASES_PESQUISA:
+            linhas.append(f"   {nome_base}: {url_template.format(consulta=consulta)}")
+        blocos.append("\n".join(linhas))
+
+    return "\n".join(blocos)
 
 
 def _get_provider() -> str:
@@ -80,17 +105,17 @@ Com base no material acima, gere um JSON válido com a seguinte estrutura (sem m
     "tecnicas": "Técnicas ou recursos clínicos utilizados, compatíveis com a abordagem {abordagem_clinica}.",
     "tarefa_casa": "Tarefa, reflexão, exercício ou observação combinada com o {termo} para o período entre sessões. Se não houver, deixe vazio.",
     "plano_proxima_sessao": "Foco, temas pendentes ou objetivos para a próxima sessão.",
-     "artigos_sugeridos": "Indicação de exatamente 2 artigos científicos em português, baseados no conteúdo da sessão. Use o formato: '1. Título: ... Link: ...\\n2. Título: ... Link: ...'. Para cada artigo, forneça o link direto: DOI (https://doi.org/...), SciELO (https://www.scielo.br/...) ou portal de periódicos. Se não souber o link exato de um artigo real, NÃO invente — deixe apenas esse artigo de fora, mas forneça ao menos 1 artigo com link direto se possível."
+    "temas_pesquisa": ["tema de busca 1", "tema de busca 2"]
 }} 
 
-ARTIGOS CIENTÍFICOS SUGERIDOS:
-Com base em toda a sessão clínica analisada, indique exatamente 2 artigos científicos em português. Critérios:
-1. Apenas artigos científicos em português, diretamente relacionados ao conteúdo da sessão.
-2. Priorizar artigos reconhecidos e entre os mais citados do tema.
-3. Para cada artigo, forneça o LINK DIRETO (DOI, SciELO ou portal CAPES) — NÃO use links de busca.
-4. Se souber apenas 1 artigo com link direto, forneça só ele. Se não souber nenhum com link direto, deixe vazio.
-5. NÃO indicar livros, capítulos, dissertações, teses, blogs ou textos opinativos.
-6. NÃO invente títulos ou links — apenas artigos que você reconhece da literatura científica.
+TEMAS DE PESQUISA CIENTÍFICA:
+No campo "temas_pesquisa", extraia exatamente 2 temas de busca científica a partir do conteúdo clínico da sessão. Critérios:
+1. Cada tema deve ser uma expressão de busca CURTA e ABRANGENTE (2 a 4 palavras), em português, como seria digitada em uma base de dados científica. Ex: "ansiedade trabalho", "terapia cognitiva insônia".
+2. Evite expressões longas ou muito específicas — elas retornam zero resultados nas bases.
+3. O primeiro tema deve focar no tema clínico central da sessão; o segundo pode combinar um tema da sessão com a abordagem {abordagem_clinica} de forma resumida.
+4. NÃO inclua o nome do {termo} nem qualquer dado que identifique a pessoa atendida.
+5. NÃO invente títulos de artigos nem links — apenas os temas de busca.
+6. Se o material clínico for insuficiente, retorne lista vazia.
 
 IMPORTANTE:
 - Use o termo "{termo}" para se referir à pessoa atendida
@@ -115,7 +140,9 @@ def _parse_resultado_sucesso(resultado_raw: dict) -> dict:
         "tecnicas": resultado_raw.get("tecnicas", ""),
         "tarefa_casa": resultado_raw.get("tarefa_casa", ""),
         "plano_proxima_sessao": resultado_raw.get("plano_proxima_sessao", ""),
-        "artigos_sugeridos": resultado_raw.get("artigos_sugeridos", ""),
+        "artigos_sugeridos": _montar_artigos_sugeridos(
+            resultado_raw.get("temas_pesquisa", [])
+        ),
         "erro": "",
     }
 
@@ -128,7 +155,6 @@ def _gerar_sintese_gemini(prompt: str) -> dict:
     try:
         config = types.GenerateContentConfig(
             response_mime_type="application/json",
-            tools=[types.Tool(google_search=types.GoogleSearch())],
         )
 
         response = client.models.generate_content(
@@ -142,43 +168,12 @@ def _gerar_sintese_gemini(prompt: str) -> dict:
             return {"sucesso": False, "erro": "Resposta vazia da IA."}
 
         resultado = json.loads(conteudo)
-        parsed = _parse_resultado_sucesso(resultado)
-
-        parsed["artigos_sugeridos"] = _extrair_artigos_grounding(response, resultado)
-
-        return parsed
+        return _parse_resultado_sucesso(resultado)
 
     except json.JSONDecodeError:
         return {"sucesso": False, "erro": "Resposta da IA não pôde ser interpretada. Tente novamente."}
     except Exception as e:
         return {"sucesso": False, "erro": f"Erro ao gerar síntese clínica: {str(e)}"}
-
-
-def _extrair_artigos_grounding(response, resultado: dict) -> str:
-    fontes = []
-    try:
-        if response.candidates:
-            candidate = response.candidates[0]
-            gmeta = getattr(candidate, "grounding_metadata", None)
-            if gmeta:
-                chunks = getattr(gmeta, "grounding_chunks", None) or []
-                for chunk in chunks:
-                    web = getattr(chunk, "web", None)
-                    if web:
-                        uri = getattr(web, "uri", None)
-                        title = getattr(web, "title", None)
-                        if uri:
-                            fontes.append((title or "Artigo", uri))
-    except Exception:
-        pass
-
-    if fontes:
-        linhas = []
-        for i, (titulo, link) in enumerate(fontes[:2], 1):
-            linhas.append(f"{i}. {titulo}: {link}")
-        return "\n".join(linhas)
-
-    return resultado.get("artigos_sugeridos", "")
 
 
 def _gerar_sintese_openai(prompt: str) -> dict:
@@ -266,57 +261,6 @@ def _gerar_sintese_openai_compat(client, prompt: str) -> dict:
         return {"sucesso": False, "erro": f"Erro ao gerar síntese clínica: {str(e)}"}
 
 
-def _buscar_artigos_grounding(
-    numero_sessao: int,
-    nome_pessoa_atendida: str,
-    termo_pessoa_atendida: str,
-    abordagem_clinica: str,
-    sintese_clinica: str,
-) -> str:
-    client = _gemini_client()
-    if not client:
-        return ""
-
-    termo = termo_pessoa_atendida or "paciente"
-    nome = nome_pessoa_atendida or "não informado"
-
-    prompt = f"""
-Busque exatamente 2 artigos científicos em português relacionados ao seguinte caso clínico.
-
-Abordagem: {abordagem_clinica}
-Sessão número: {numero_sessao}
-{termo.capitalize()}: {nome}
-
-Síntese clínica da sessão:
-{sintese_clinica}
-
-Responda APENAS com um JSON no formato:
-{{"artigos": [{{"titulo": "...", "link": "..."}}, {{"titulo": "...", "link": "..."}}]}}
-
-IMPORTANTE:
-- Busque apenas em SciELO, BDTD, Oasisbr e Portal de Periódicos CAPES.
-- Priorize artigos diretamente relacionados ao conteúdo da sessão e à abordagem {abordagem_clinica}.
-- Se não encontrar artigos reais, retorne lista vazia.
-"""
-
-    try:
-        config = types.GenerateContentConfig(
-            response_mime_type="application/json",
-            tools=[types.Tool(google_search=types.GoogleSearch())],
-        )
-
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt,
-            config=config,
-        )
-
-        return _extrair_artigos_grounding(response, {})
-
-    except Exception:
-        return ""
-
-
 def gerar_sintese(
     sessao_id: str,
     numero_sessao: int,
@@ -358,17 +302,6 @@ def gerar_sintese(
             resultado = _gerar_sintese_gemini(prompt)
         else:
             return {"sucesso": False, "erro": f"Provedor desconhecido: {provider}. Use 'openai', 'deepseek' ou 'gemini'."}
-
-        if resultado.get("sucesso") and provider != "gemini":
-            artigos_grounded = _buscar_artigos_grounding(
-                numero_sessao=numero_sessao,
-                nome_pessoa_atendida=nome_pessoa_atendida,
-                termo_pessoa_atendida=termo_pessoa_atendida,
-                abordagem_clinica=abordagem_clinica,
-                sintese_clinica=resultado.get("relato_clinico_organizado", ""),
-            )
-            if artigos_grounded:
-                resultado["artigos_sugeridos"] = artigos_grounded
 
         return resultado
 
