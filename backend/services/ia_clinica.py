@@ -80,19 +80,17 @@ Com base no material acima, gere um JSON válido com a seguinte estrutura (sem m
     "tecnicas": "Técnicas ou recursos clínicos utilizados, compatíveis com a abordagem {abordagem_clinica}.",
     "tarefa_casa": "Tarefa, reflexão, exercício ou observação combinada com o {termo} para o período entre sessões. Se não houver, deixe vazio.",
     "plano_proxima_sessao": "Foco, temas pendentes ou objetivos para a próxima sessão.",
-     "artigos_sugeridos": "Indicação de exatamente 2 artigos científicos em português, baseados no conteúdo da sessão. Use o formato: '1. Título: ... Link: ...\\n2. Título: ... Link: ...'. Priorize artigos reais das plataformas SciELO, Oasisbr, BDTD ou CAPES. Se não tiver certeza dos links exatos, indique o título e um link de busca no Google Scholar (ex: https://scholar.google.com/scholar?q=titulo+do+artigo). Não invente títulos — apenas sugira artigos cujo tema você reconhece da literatura."
+     "artigos_sugeridos": "Indicação de exatamente 2 artigos científicos em português, baseados no conteúdo da sessão. Use o formato: '1. Título: ... Link: ...\\n2. Título: ... Link: ...'. Para cada artigo, forneça o link direto: DOI (https://doi.org/...), SciELO (https://www.scielo.br/...) ou portal de periódicos. Se não souber o link exato de um artigo real, NÃO invente — deixe apenas esse artigo de fora, mas forneça ao menos 1 artigo com link direto se possível."
 }} 
 
 ARTIGOS CIENTÍFICOS SUGERIDOS:
-Com base em toda a sessão clínica analisada (relato, síntese clínica, temas emergentes, hipóteses compreensivas, demandas, intervenções e focos terapêuticos), indique exatamente 2 artigos científicos em português como sugestão de leitura complementar para o profissional. Critérios:
-1. Apenas artigos científicos em português.
-2. Diretamente relacionados ao conteúdo clínico da sessão.
-3. Compatíveis com a síntese clínica, evitando sugestões genéricas.
-4. Priorizar artigos reconhecidos, relevantes e entre os mais citados do tema.
-5. Preferir artigos de: SciELO, Oasisbr, BDTD, Portal de Periódicos CAPES.
-6. NÃO indicar livros, capítulos, dissertações, teses, blogs, sites, materiais didáticos, vídeos ou textos opinativos.
-7. Se não souber o link exato, use um link de busca do Google Scholar como fallback.
-8. Apenas deixe o campo vazio se não houver nenhum artigo relevante na literatura relacionado ao tema da sessão.
+Com base em toda a sessão clínica analisada, indique exatamente 2 artigos científicos em português. Critérios:
+1. Apenas artigos científicos em português, diretamente relacionados ao conteúdo da sessão.
+2. Priorizar artigos reconhecidos e entre os mais citados do tema.
+3. Para cada artigo, forneça o LINK DIRETO (DOI, SciELO ou portal CAPES) — NÃO use links de busca.
+4. Se souber apenas 1 artigo com link direto, forneça só ele. Se não souber nenhum com link direto, deixe vazio.
+5. NÃO indicar livros, capítulos, dissertações, teses, blogs ou textos opinativos.
+6. NÃO invente títulos ou links — apenas artigos que você reconhece da literatura científica.
 
 IMPORTANTE:
 - Use o termo "{termo}" para se referir à pessoa atendida
