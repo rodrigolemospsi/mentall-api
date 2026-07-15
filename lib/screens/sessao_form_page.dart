@@ -1452,7 +1452,7 @@ if (!mounted || confirmar != true) return;
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text(_editando ? 'Editar sessão' : 'Nova sessão'),
+        title: Text(_editando ? 'Prontuário Clínico' : 'Nova sessão'),
         backgroundColor: corPrincipal,
         foregroundColor: Colors.white,
         actions: _editando
@@ -1846,110 +1846,135 @@ if (!mounted || confirmar != true) return;
     ]);
   }
 
-  Widget _botoesAudioWidget(Color corPrincipal) {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: [
-        if (!_gravandoAudio)
-          OutlinedButton.icon(
-            onPressed: _existeAcaoEmAndamento ? null : _iniciarGravacaoRelato,
-            icon: const Icon(Icons.mic_outlined),
-            label: Text(
-              _possuiAudioRelato ? 'Gravar novamente' : 'Iniciar gravação',
-            ),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: corPrincipal,
-              side: BorderSide(color: corPrincipal),
-            ),
-          ),
-        if (_gravandoAudio && !_audioPausado)
-          OutlinedButton.icon(
-            onPressed: _pausarGravacaoRelato,
-            icon: const Icon(Icons.pause_outlined),
-            label: const Text('Pausar'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.orange,
-              side: const BorderSide(color: Colors.orange),
-            ),
-          ),
-        if (_gravandoAudio && _audioPausado)
-          OutlinedButton.icon(
-            onPressed: _retomarGravacaoRelato,
-            icon: const Icon(Icons.play_arrow_outlined),
-            label: const Text('Retomar'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: corPrincipal,
-              side: BorderSide(color: corPrincipal),
-            ),
-          ),
-        if (_gravandoAudio)
-          OutlinedButton.icon(
-            onPressed: _pararGravacaoRelato,
-            icon: const Icon(Icons.stop_outlined),
-            label: const Text('Finalizar'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.red,
-              side: const BorderSide(color: Colors.red),
-            ),
-          ),
-        if (_gravandoAudio)
-          OutlinedButton.icon(
-            onPressed: _cancelarGravacaoRelato,
-            icon: const Icon(Icons.delete_outline),
-            label: const Text('Cancelar'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Color(0xFF475569),
-            ),
-          ),
-        if (_possuiAudioRelato && !_gravandoAudio)
-          OutlinedButton.icon(
-            onPressed: _existeAcaoEmAndamento
-                ? null
-                : _ouvirOuPararAudioRelato,
-            icon: Icon(
-              _reproduzindoAudio
-                  ? Icons.stop_circle_outlined
-                  : Icons.play_circle_outline,
-            ),
-            label: Text(
-              _reproduzindoAudio ? 'Parar áudio' : 'Ouvir áudio',
-            ),
-            style: OutlinedButton.styleFrom(
-              foregroundColor:
-                  _reproduzindoAudio ? Colors.red : corPrincipal,
-              side: BorderSide(
-                color: _reproduzindoAudio ? Colors.red : corPrincipal,
+  Widget _botaoAudioCircular({
+    required IconData icone,
+    required String rotulo,
+    required Color cor,
+    VoidCallback? onPressed,
+    bool preenchido = false,
+    Widget? iconeCustomizado,
+  }) {
+    final habilitado = onPressed != null;
+    final corEfetiva = habilitado ? cor : const Color(0xFFCBD5E1);
+    final corFundo = preenchido && habilitado
+        ? corEfetiva
+        : corEfetiva.withValues(alpha: 0.12);
+    final corIcone = preenchido && habilitado ? Colors.white : corEfetiva;
+
+    return SizedBox(
+      width: 72,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Tooltip(
+            message: rotulo,
+            child: Material(
+              color: corFundo,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: onPressed,
+                child: SizedBox(
+                  width: 52,
+                  height: 52,
+                  child: Center(
+                    child: iconeCustomizado ??
+                        Icon(icone, color: corIcone, size: 24),
+                  ),
+                ),
               ),
             ),
           ),
-        if (_possuiAudioRelato && !_gravandoAudio)
-          OutlinedButton.icon(
-            onPressed:
-                _existeAcaoEmAndamento ? null : _removerAudioRelato,
-            icon: const Icon(Icons.delete_outline),
-            label: const Text('Remover áudio'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.red,
-              side: const BorderSide(color: Colors.red),
+          const SizedBox(height: 6),
+          Text(
+            rotulo,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: habilitado
+                  ? const Color(0xFF475569)
+                  : const Color(0xFFCBD5E1),
             ),
           ),
-        OutlinedButton.icon(
+        ],
+      ),
+    );
+  }
+
+  Widget _botoesAudioWidget(Color corPrincipal) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 14,
+      children: [
+        if (!_gravandoAudio)
+          _botaoAudioCircular(
+            icone: Icons.mic_rounded,
+            rotulo: _possuiAudioRelato ? 'Regravar' : 'Gravar',
+            cor: corPrincipal,
+            preenchido: !_possuiAudioRelato,
+            onPressed: _existeAcaoEmAndamento ? null : _iniciarGravacaoRelato,
+          ),
+        if (_gravandoAudio && !_audioPausado)
+          _botaoAudioCircular(
+            icone: Icons.pause_rounded,
+            rotulo: 'Pausar',
+            cor: const Color(0xFFE65100),
+            onPressed: _pausarGravacaoRelato,
+          ),
+        if (_gravandoAudio && _audioPausado)
+          _botaoAudioCircular(
+            icone: Icons.play_arrow_rounded,
+            rotulo: 'Retomar',
+            cor: corPrincipal,
+            onPressed: _retomarGravacaoRelato,
+          ),
+        if (_gravandoAudio)
+          _botaoAudioCircular(
+            icone: Icons.stop_rounded,
+            rotulo: 'Finalizar',
+            cor: const Color(0xFFD32F2F),
+            preenchido: true,
+            onPressed: _pararGravacaoRelato,
+          ),
+        if (_gravandoAudio)
+          _botaoAudioCircular(
+            icone: Icons.close_rounded,
+            rotulo: 'Cancelar',
+            cor: const Color(0xFF64748B),
+            onPressed: _cancelarGravacaoRelato,
+          ),
+        if (_possuiAudioRelato && !_gravandoAudio)
+          _botaoAudioCircular(
+            icone: _reproduzindoAudio
+                ? Icons.stop_rounded
+                : Icons.play_arrow_rounded,
+            rotulo: _reproduzindoAudio ? 'Parar' : 'Ouvir',
+            cor: _reproduzindoAudio ? const Color(0xFFD32F2F) : corPrincipal,
+            onPressed:
+                _existeAcaoEmAndamento ? null : _ouvirOuPararAudioRelato,
+          ),
+        if (_possuiAudioRelato && !_gravandoAudio)
+          _botaoAudioCircular(
+            icone: Icons.delete_outline_rounded,
+            rotulo: 'Remover',
+            cor: const Color(0xFFD32F2F),
+            onPressed: _existeAcaoEmAndamento ? null : _removerAudioRelato,
+          ),
+        _botaoAudioCircular(
+          icone: Icons.text_snippet_outlined,
+          rotulo: _transcrevendoRelato ? 'Aguarde...' : 'Transcrever',
+          cor: corPrincipal,
           onPressed: _existeAcaoEmAndamento ? null : _transcreverRelato,
-          icon: _transcrevendoRelato
+          iconeCustomizado: _transcrevendoRelato
               ? const SizedBox(
-                  width: 18,
-                  height: 18,
+                  width: 20,
+                  height: 20,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Icon(Icons.transcribe_outlined),
-          label: Text(
-            _transcrevendoRelato ? 'Transcrevendo...' : 'Transcrever áudio',
-          ),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: corPrincipal,
-            side: BorderSide(color: corPrincipal),
-          ),
+              : null,
         ),
       ],
     );

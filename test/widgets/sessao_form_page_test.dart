@@ -115,10 +115,10 @@ void main() {
       expect(find.text('Editar'), findsOneWidget);
     });
 
-    testWidgets('AppBar mostra Editar sessao', (tester) async {
+    testWidgets('AppBar mostra Prontuario Clinico', (tester) async {
       await _pump(tester, sessao: sessao);
       final titleText = ((tester.widget<AppBar>(find.byType(AppBar)).title as Text).data)!;
-      expect(titleText.contains('Editar'), isTrue);
+      expect(titleText.contains('Prontuário Clínico'), isTrue);
     });
 
     testWidgets('campos preenchidos carregam corretamente', (tester) async {
