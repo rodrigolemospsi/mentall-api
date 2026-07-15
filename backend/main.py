@@ -111,6 +111,8 @@ app.add_middleware(
 def health():
     openai_key = os.getenv("OPENAI_API_KEY")
     project_id = os.getenv("OPENAI_PROJECT_ID")
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    deepseek_key = os.getenv("DEEPSEEK_API_KEY")
     return HealthResponse(
         status="ok",
         versao="1.0.0",
@@ -119,6 +121,10 @@ def health():
             "openai_key_prefix": (openai_key[:20] + "...") if openai_key else "N/A",
             "openai_project_id_configured": bool(project_id),
             "openai_project_id": project_id or "N/A",
+            "gemini_key_configured": bool(gemini_key),
+            "deepseek_key_configured": bool(deepseek_key),
+            "ia_model_provider": os.getenv("IA_MODEL_PROVIDER", "openai"),
+            "ia_model": os.getenv("IA_MODEL", "gpt-4.1"),
         },
     )
 
