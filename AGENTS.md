@@ -25,10 +25,10 @@ App Flutter para prontuário clínico adaptado à abordagem terapêutica do prof
 - **Variáveis de ambiente no Render:**
   - `OPENAI_API_KEY` — chave API da OpenAI (projeto, formato `sk-proj-...`)
   - `OPENAI_PROJECT_ID` — ID do projeto OpenAI (formato `proj_...`)
-  - `GEMINI_API_KEY` — chave API do Google Gemini (para busca de artigos com Grounding)
+  - `GEMINI_API_KEY` — chave API do Google Gemini (opcional; usada apenas se `IA_MODEL_PROVIDER=gemini`)
   - `DEEPSEEK_API_KEY` — chave API do DeepSeek (formato `sk-...`)
-  - `IA_MODEL_PROVIDER` — provedor de síntese: `openai` (padrão), `deepseek` ou `gemini`
-  - `IA_MODEL` — modelo específico: `gpt-4.1`, `deepseek-chat`, `gemini-2.0-flash`
+  - `IA_MODEL_PROVIDER` — provedor de síntese: `openai`, `deepseek` (ativo em produção) ou `gemini`
+  - `IA_MODEL` — modelo específico (opcional; padrão por provedor: `gpt-4.1`, `deepseek-chat`, `gemini-2.0-flash`)
   - `JWT_SECRET` — chave secreta para tokens JWT
   - `APP_PASSWORD_HASH` — hash bcrypt da senha (vazio = senha padrão `admin`)
 
@@ -55,7 +55,7 @@ lib/
 ├── models/
 │   ├── enums.dart                          # AbordagemClinica (14), TermoPessoaAtendida, StatusProcessamento, OrigemRelato (6)
 │   ├── paciente.dart / .g.dart             # Hive typeId: 1 (10 campos: +email, +dataAtualizacao)
-│   ├── perfil_profissional.dart / .g.dart  # Hive typeId: 3 (7 campos: +dataAtualizacao)
+│   ├── perfil_profissional.dart / .g.dart  # Hive typeId: 3 (8 campos: +fotoBase64)
 │   ├── sessao.dart / .g.dart               # Hive typeId: 2 (30 campos: +transcricaoRevisada)
 │   └── lgpd/
 │       └── registro_auditoria.dart / .g.dart  # Hive typeId: 10
@@ -99,14 +99,14 @@ lib/
 ### Backend Python (`backend/`)
 ```
 backend/
-├── main.py                           # FastAPI app, CORS, JWT auth, rotas protegidas
+├── main.py                           # FastAPI app, CORS, JWT auth, rotas protegidas, /health com debug de provedores
 ├── .env                              # Chaves de API + JWT_SECRET (NÃO commitar)
 ├── .env.example                      # Template com variáveis documentadas
 ├── requirements.txt                  # openai>=1.0.0 + httpx + python-jose + passlib
 ├── models/
 │   └── schemas.py                    # Pydantic models + LoginRequest/LoginResponse
 ├── services/
-│   ├── ia_clinica.py                 # Síntese clínica (OpenAI GPT-4.1 + project ID ou Gemini)
+│   ├── ia_clinica.py                 # Síntese clínica (OpenAI/DeepSeek/Gemini) + busca de artigos (SciELO RSS > OpenAlex > links)
 │   └── transcricao.py               # Transcrição (gpt-4o-mini-transcribe + project ID)
 └── prompts/
     └── abordagens.py                 # 14 abordagens (inclui Análise do Comportamento)
@@ -175,7 +175,7 @@ Chamadas à API (`TranscricaoRelatoService`, `IaClinicaService`) devem chamar `A
 3. **Chave OpenAI**: Formato `sk-proj-...` (project key) requer `OPENAI_PROJECT_ID` no ambiente
 4. **Render cold start**: Primeira requisição após inatividade leva 30-60s. Timeout do app ajustado para 120s
 5. **APK release vs debug**: `flutter build apk` gera release (menor). Debug: `flutter build apk --debug`
-6. **GEMINI_API_KEY ausente**: Artigos sugeridos alucinam links (LLM não verifica URLs). Solução: criar chave gratuita em https://aistudio.google.com/apikey e adicionar como variável `GEMINI_API_KEY` no Render. Com Gemini grounding, os artigos vêm de busca real.
+6. **SciELO bloqueia datacenter**: `search.scielo.org` usa anti-bot "bunny-shield" que retorna 403 para IPs de datacenter (Render). Localmente o RSS funciona; em produção a cascata cai para OpenAlex automaticamente.
 
 ### Resolvidos
 - ~~Segurança: zero autenticação~~ ✅ JWT backend + criptografia AES local
@@ -198,6 +198,9 @@ Chamadas à API (`TranscricaoRelatoService`, `IaClinicaService`) devem chamar `A
   - ~~Cor antiga verde-azulado (#1F6F78)~~ ✅ Substituída por azul #2563EB em todo o app (09/07/2026)
   - ~~Humor no card de sessão~~ ✅ Removido do widget e do prompt da IA (09/07/2026)
   - ~~9 testes quebrados~~ ✅ Corrigidos: home_page, app_start, paciente_detail (09/07/2026)
+  - ~~Artigos sugeridos alucinavam links (DOIs inventados pelo LLM)~~ ✅ IA extrai só `temas_pesquisa`; backend busca artigos reais (15/07/2026)
+  - ~~Teste perfil_form quebrava sem box Hive~~ ✅ try-catch no initState (15/07/2026)
+  - ~~/health mostrava modelo errado~~ ✅ exibe provider + modelo efetivo por provedor (15/07/2026)
 
 ## Novas Funcionalidades (09/07/2026)
 
@@ -237,9 +240,12 @@ Chamadas à API (`TranscricaoRelatoService`, `IaClinicaService`) devem chamar `A
 
 ### Indicação de Artigos Científicos
 - Campo `artigosSugeridos` (@HiveField(30)) no modelo `Sessao`
-- Backend gera via GPT-4.1 sugestões de artigos em português (SciELO, Oasisbr, BDTD, CAPES)
-- Exibição na tela de sessão após "Apontamentos" em card azul claro
-- Não inventa referências — campo vazio se não encontrar
+- Fluxo anti-alucinação (15/07/2026): a IA extrai apenas 2 `temas_pesquisa` curtos (sem nomes/links); o backend busca artigos reais em cascata:
+  1. **SciELO RSS** (`search.scielo.org/?output=rss&sort=RELEVANCE`) — título, autores e link reais (funciona local; 403 no Render)
+  2. **OpenAlex API** (`api.openalex.org/works`, filtro `language:pt,type:article`) — título, autores, ano, citações e DOI reais (ativo em produção)
+  3. **Links de busca determinísticos** (SciELO, Periódicos CAPES, Oasisbr) montados por código em `BASES_PESQUISA`
+- Máx. 3 artigos no total (2 por tema), dedupe por PID/ID — funções em `backend/services/ia_clinica.py`: `_buscar_artigos_scielo`, `_buscar_artigos_openalex`, `_montar_artigos_sugeridos`, `_montar_artigos`
+- Exibição na tela de sessão após "Apontamentos" em card azul claro; URLs viram link "Acesse Aqui!" (`_buildArtigosComLinks`)
 
 ### Outras Melhorias
 - Home com `CustomScrollView` (resolve overflow em telas pequenas)
@@ -248,6 +254,25 @@ Chamadas à API (`TranscricaoRelatoService`, `IaClinicaService`) devem chamar `A
 - Botão "Marcar como revisado" (texto simplificado)
 - IA não envia mais parâmetro `humor` (removido do prompt, schema e endpoint)
 - Testes atualizados: 67/67 passando
+
+## Novas Funcionalidades (15/07/2026)
+
+### Artigos Científicos Reais (SciELO/OpenAlex)
+- Ver seção "Indicação de Artigos Científicos" — cascata SciELO RSS > OpenAlex > links de busca
+- Provider de síntese em produção: DeepSeek (`deepseek-chat`)
+
+### Foto do Perfil Profissional
+- Campo `fotoBase64` (@HiveField(9)) no modelo `PerfilProfissional` + getter `possuiFoto`
+- Seleção via `image_picker` no formulário de configuração inicial (CircleAvatar tocável)
+
+### Autenticação e PIN
+- `ApiClient.forceReauthenticate()` — limpa token cacheado e refaz login JWT
+- `AuthService.removerPin()` — remove PIN e limpa chave de criptografia
+
+### Layout da Sessão v2
+- AppBar mostra "Prontuário Clínico" no modo edição (antes "Editar sessão")
+- Botões de áudio circulares estilo gravador profissional: ícone em círculo tonal + rótulo curto abaixo (`_botaoAudioCircular`)
+- Rótulos: Gravar/Regravar, Pausar, Retomar, Finalizar, Cancelar, Ouvir/Parar, Remover, Transcrever
 
 ## Cores do App
 ```
@@ -290,7 +315,7 @@ A tela de sessão foi simplificada:
 
 ### App Flutter
 - `flutter analyze` — análise estática (0 errors, ~17 warnings/infos cosméticos)
-- `flutter test` — 68 testes
+- `flutter test` — 74 testes
 - `dart run build_runner build` — gerar adapters Hive
 - `flutter build web` — build de produção
 - `flutter build apk` — build APK Android release (saída: `build/app/outputs/flutter-apk/app-release.apk`)
