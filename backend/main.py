@@ -132,28 +132,6 @@ def health():
     )
 
 
-@app.get("/debug/scielo", tags=["Health"], dependencies=[Depends(_verificar_token)])
-def debug_scielo(q: str = "ansiedade trabalho"):
-    import requests as req
-
-    from services.ia_clinica import SCIELO_HEADERS, SCIELO_RSS_URL
-
-    try:
-        resp = req.get(
-            SCIELO_RSS_URL,
-            params={"q": q, "lang": "pt", "output": "rss", "count": 3, "sort": "RELEVANCE"},
-            headers=SCIELO_HEADERS,
-            timeout=15,
-        )
-        return {
-            "status_code": resp.status_code,
-            "content_type": resp.headers.get("Content-Type", ""),
-            "body_preview": resp.text[:300],
-        }
-    except Exception as e:
-        return {"erro": f"{type(e).__name__}: {str(e)}"}
-
-
 @app.post("/auth/login", response_model=LoginResponse, tags=["Autenticacao"])
 def login(request: LoginRequest):
     if not _verificar_senha(request.password):

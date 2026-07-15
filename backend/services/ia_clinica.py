@@ -110,10 +110,92 @@ def _buscar_artigos_scielo(temas_pesquisa: list) -> str:
     return "\n".join(linhas)
 
 
+def _buscar_artigos_openalex(temas_pesquisa: list) -> str:
+    temas_validos = [
+        str(t).strip() for t in (temas_pesquisa or []) if str(t).strip()
+    ][:2]
+    if not temas_validos:
+        return ""
+
+    artigos = []
+    ids_vistos = set()
+
+    for tema in temas_validos:
+        if len(artigos) >= MAX_ARTIGOS_TOTAL:
+            break
+        try:
+            resp = requests.get(
+                "https://api.openalex.org/works",
+                params={
+                    "search": tema,
+                    "filter": "language:pt,type:article",
+                    "sort": "relevance_score:desc",
+                    "per-page": 5,
+                },
+                timeout=10,
+            )
+            if resp.status_code != 200:
+                continue
+
+            adicionados_tema = 0
+            for work in resp.json().get("results", []):
+                if adicionados_tema >= MAX_ARTIGOS_POR_TEMA:
+                    break
+                if len(artigos) >= MAX_ARTIGOS_TOTAL:
+                    break
+
+                titulo = (work.get("title") or "").strip()
+                link = (work.get("doi") or work.get("id") or "").strip()
+                work_id = work.get("id", "")
+                if not titulo or not link or work_id in ids_vistos:
+                    continue
+                ids_vistos.add(work_id)
+
+                nomes = [
+                    a.get("author", {}).get("display_name", "").strip()
+                    for a in work.get("authorships", [])
+                ]
+                nomes = [n for n in nomes if n]
+                autores = "; ".join(nomes[:3]) + (" et al." if len(nomes) > 3 else "")
+
+                ano = work.get("publication_year")
+                citacoes = work.get("cited_by_count")
+                extras = []
+                if ano:
+                    extras.append(str(ano))
+                if citacoes:
+                    extras.append(f"{citacoes} citações")
+                sufixo = f" ({', '.join(extras)})" if extras else ""
+
+                artigos.append((f"{titulo}{sufixo}", autores, link))
+                adicionados_tema += 1
+
+        except Exception:
+            continue
+
+    if not artigos:
+        return ""
+
+    linhas = []
+    for i, (titulo, autores, link) in enumerate(artigos, 1):
+        linha = f"{i}. {titulo}"
+        if autores:
+            linha += f" — {autores}"
+        linhas.append(linha)
+        linhas.append(f"   Acesse: {link}")
+
+    return "\n".join(linhas)
+
+
 def _montar_artigos(temas_pesquisa: list) -> str:
-    artigos_reais = _buscar_artigos_scielo(temas_pesquisa)
-    if artigos_reais:
-        return artigos_reais
+    artigos_scielo = _buscar_artigos_scielo(temas_pesquisa)
+    if artigos_scielo:
+        return artigos_scielo
+
+    artigos_openalex = _buscar_artigos_openalex(temas_pesquisa)
+    if artigos_openalex:
+        return artigos_openalex
+
     return _montar_artigos_sugeridos(temas_pesquisa)
 
 
