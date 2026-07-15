@@ -30,6 +30,9 @@ OPENALEX_FILTRO_PSICOLOGIA = "primary_topic.field.id:fields/32"
 
 
 def _openalex_params(params: dict) -> dict:
+    api_key = os.getenv("OPENALEX_API_KEY", "").strip()
+    if api_key:
+        params["api_key"] = api_key
     mailto = os.getenv("OPENALEX_MAILTO", "").strip()
     if mailto:
         params["mailto"] = mailto
