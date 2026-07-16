@@ -275,7 +275,7 @@ def _formatar_artigos(artigos: list) -> str:
         linhas.append(linha)
         if art.get("justificativa"):
             linhas.append(f"   Relevância: {art['justificativa']}")
-        linhas.append(f"   Acesse: {art['link']}")
+        linhas.append(f"   {art['link']}")
     return "\n".join(linhas)
 
 

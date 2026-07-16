@@ -145,6 +145,7 @@ class SessaoService {
         .where((s) => !s.arquivada && s.revisaoPendente)
         .toList();
     pendentes.sort((a, b) => b.data.compareTo(a.data));
+    _decryptSessoes(pendentes);
     return pendentes;
   }
 

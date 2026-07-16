@@ -127,4 +127,50 @@ void main() {
       expect(find.text('Transcricao teste'), findsOneWidget);
     });
   });
+
+  group('Persistencia de artigos sugeridos', () {
+    late Sessao sessao;
+
+    setUp(() async {
+      sessao = Sessao(
+        id: 's2', pacienteId: 'p1', numeroSessao: 4,
+        data: DateTime(2026, 7, 14, 10, 0),
+        relatoPosSessao: 'Relato teste',
+        transcricaoRelato: 'Transcricao teste',
+        geradoComIa: true,
+        statusProcessamento: 'ia_processada',
+        artigosSugeridos:
+            '1. Artigo Teste (2020) — Autor A\n   https://doi.org/10.1234/teste',
+      );
+      await Hive.box<Sessao>('sessoes').put('s2', sessao);
+    });
+
+    testWidgets('referencias aparecem ao abrir sessao salva', (tester) async {
+      await _pump(tester, sessao: sessao);
+      expect(find.textContaining('Artigo Teste'), findsOneWidget);
+    });
+
+    testWidgets('referencias permanecem apos editar e salvar', (tester) async {
+      await _pump(tester, sessao: sessao);
+
+      await tester.tap(find.text('Editar'));
+      await tester.pump();
+      await tester.pump();
+
+      await tester.scrollUntilVisible(
+        find.text('Salvar sessão'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Salvar sessão'));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 500));
+
+      final salva = Hive.box<Sessao>('sessoes').get('s2')!;
+      expect(salva.artigosSugeridos, contains('Artigo Teste'));
+
+      await _pump(tester, sessao: salva);
+      expect(find.textContaining('Artigo Teste'), findsOneWidget);
+    });
+  });
 }

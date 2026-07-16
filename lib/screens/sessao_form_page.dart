@@ -288,6 +288,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
           _artigosSugeridos = sessao.artigosSugeridos;
           _origemRelato = sessao.origemRelato;
           _modoEdicao = false;
+          _triggerRebuild();
         });
       } else {
         _resetarEstadoSessao();
@@ -297,6 +298,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
           if (!mounted) return;
           ref.read(_dataSessaoProvider.notifier).state = DateTime.now();
           _modoEdicao = true;
+          _triggerRebuild();
         });
       }
 

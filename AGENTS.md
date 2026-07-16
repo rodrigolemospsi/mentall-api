@@ -263,6 +263,32 @@ Chamadas à API (`TranscricaoRelatoService`, `IaClinicaService`) devem chamar `A
 - Ver seção "Indicação de Artigos Científicos" — OpenAlex (primária) > SciELO RSS (fallback) > rerank pela IA > links de busca
 - Provider de síntese em produção: DeepSeek (`deepseek-chat`)
 
+## Trabalho em Andamento (16/07/2026) — NÃO COMMITADO
+
+### Contexto
+Bug relatado pelo usuário: "quando eu saio da sessão, as referências (artigos sugeridos) apagam, mas deveriam permanecer". Fluxo: gerou síntese com IA → salvou → saiu → ao reabrir, referências sumiram (demais campos permanecem).
+
+### Causa raiz provável (encontrada, correção aplicada, falta validar)
+`SessaoService.listarSessoesPendentesRevisao()` **não descriptografava** as sessões retornadas. A Home (`_indicadorPendencias` em `home_page.dart:~97`) passa `sessaoParaAbrir: pendentes.first` → `PacienteDetailPage` → `SessaoFormPage` com campos ainda criptografados; ao salvar, os valores eram re-criptografados (dupla criptografia), corrompendo os campos — e `_buildArtigosComLinks` não encontra URLs em texto cifrado.
+
+### Alterações locais pendentes (working tree sujo)
+1. `backend/services/ia_clinica.py` — removido prefixo "Acesse: " da linha do link em `_formatar_artigos` (pedido do usuário: app já renderiza URL como "Acesse Aqui!", ficava duplicado)
+2. `lib/services/sessao_service.dart` — `listarSessoesPendentesRevisao()` agora chama `_decryptSessoes(pendentes)` (correção principal)
+3. `lib/screens/sessao_form_page.dart` — `_triggerRebuild()` adicionado nos 2 `addPostFrameCallback` do `initState` (garante rebuild após carregar estado da sessão, incl. `_artigosSugeridos`)
+4. `test/widgets/sessao_form_page_test.dart` — novo grupo "Persistencia de artigos sugeridos" (2 testes, ambos passando): referências aparecem ao abrir sessão salva; permanecem após Editar→Salvar (usa `scrollUntilVisible` + `pump` com Duration; `pumpAndSettle` trava)
+5. `test/services/sessao_service_encryption_test.dart` — NOVO arquivo com 5 testes de criptografia (add/listar, atualizar, dupla listagem, reabrir box, pendentes descriptografadas) — **execução foi abortada, nunca rodou até o fim**
+
+### Próximos passos
+1. Rodar `flutter test test/services/sessao_service_encryption_test.dart` — validar correção e detectar possível dupla criptografia em `atualizarSessao`
+2. Rodar `flutter test` completo + `flutter analyze`
+3. Commitar (backend + flutter juntos ou separados) e push (deploy automático Render)
+4. Usuário deve testar no app: gerar síntese → salvar → sair → reabrir → referências devem permanecer
+5. Atenção: sessões já corrompidas pela dupla criptografia no dispositivo do usuário NÃO serão recuperadas pela correção (descriptografia detecta texto puro e retorna como está — texto duplamente cifrado fica ilegível)
+
+### Estado do deploy (Render) — já em produção
+- OpenAlex funcionando com `OPENALEX_API_KEY` (confirmado 200 via debug endpoint, já removido)
+- Usuário validou: "Resultado perfeito!" nas indicações com rerank + justificativa "Relevância:"
+
 ### Foto do Perfil Profissional
 - Campo `fotoBase64` (@HiveField(9)) no modelo `PerfilProfissional` + getter `possuiFoto`
 - Seleção via `image_picker` no formulário de configuração inicial (CircleAvatar tocável)
