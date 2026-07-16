@@ -2,7 +2,7 @@ import 'dart:async';
 // ignore: deprecated_member_use, avoid_web_libraries_in_flutter
 import 'dart:html' as html;
 
-Future<String?> selecionarArquivoJsonWeb() async {
+Future<String?> selecionarArquivoJson() async {
   final completer = Completer<String?>();
   final input = html.FileUploadInputElement()
     ..accept = '.json,application/json';
@@ -25,7 +25,7 @@ Future<String?> selecionarArquivoJsonWeb() async {
   return completer.future;
 }
 
-void baixarJsonWeb(String conteudo, String nomeArquivo) {
+Future<void> exportarJson(String conteudo, String nomeArquivo) async {
   final blob = html.Blob([conteudo], 'application/json');
   final url = html.Url.createObjectUrl(blob);
   final anchor = html.AnchorElement(href: url)

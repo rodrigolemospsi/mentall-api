@@ -84,6 +84,7 @@ class _PerfilProfissionalFormPageState
   final TextEditingController _registroController = TextEditingController();
   final List<_EnderecoFormData> _enderecoControllers = [];
   bool _carregandoCep = false;
+  bool _perfilExistente = false;
 
   @override
   void initState() {
@@ -91,6 +92,7 @@ class _PerfilProfissionalFormPageState
     try {
       final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
       if (perfil != null) {
+        _perfilExistente = true;
         _nomeController.text = perfil.nome;
         _registroController.text = perfil.registroProfissional;
         ref.read(_abordagemProvider.notifier).state = perfil.abordagemClinica;
@@ -268,9 +270,10 @@ class _PerfilProfissionalFormPageState
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
+        title: Text(_perfilExistente ? 'Perfil profissional' : 'Configuração inicial'),
         backgroundColor: corPrincipal,
         foregroundColor: Colors.white,
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: _perfilExistente,
       ),
       body: SafeArea(
         child: ListView(
@@ -332,21 +335,32 @@ class _PerfilProfissionalFormPageState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Image.asset(
-                'assets/images/logo_mentall.png',
-                height: 80,
+            if (_perfilExistente) ...[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Image.asset(
+                  'assets/images/logo_mentall.png',
+                  height: 56,
+                ),
               ),
-            ),
-            const SizedBox(height: 10),
-            const Text('Bem-vindo ao MentAll',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            const Text(
-              'Antes de cadastrar pessoas atendidas, configure seu perfil profissional e suas preferências clínicas.',
-              style: TextStyle(color: Color(0xFF475569), height: 1.4),
-            ),
-            const SizedBox(height: 22),
+              const SizedBox(height: 16),
+            ] else ...[
+              Center(
+                child: Image.asset(
+                  'assets/images/logo_mentall.png',
+                  height: 160,
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Text('Bem-vindo ao MentAll',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              const Text(
+                'Antes de cadastrar pessoas atendidas, configure seu perfil profissional e suas preferências clínicas.',
+                style: TextStyle(color: Color(0xFF475569), height: 1.4),
+              ),
+              const SizedBox(height: 22),
+            ],
             Center(
               child: GestureDetector(
                 onTap: salvando ? null : _selecionarFoto,
@@ -354,22 +368,22 @@ class _PerfilProfissionalFormPageState
                   clipBehavior: Clip.none,
                   children: [
                     CircleAvatar(
-                      radius: 44,
+                      radius: 88,
                       backgroundColor: corPrincipal.withValues(alpha: 0.1),
                       backgroundImage: fotoBase64.isNotEmpty
                           ? MemoryImage(base64Decode(fotoBase64))
                           : null,
                       child: fotoBase64.isEmpty
                           ? Icon(Icons.camera_alt_outlined,
-                              size: 32, color: corPrincipal)
+                              size: 64, color: corPrincipal)
                           : null,
                     ),
                     Positioned(
-                      bottom: -2,
-                      right: -2,
+                      bottom: 2,
+                      right: 2,
                       child: Container(
-                        width: 28,
-                        height: 28,
+                        width: 36,
+                        height: 36,
                         decoration: BoxDecoration(
                           color: corPrincipal,
                           shape: BoxShape.circle,
@@ -377,7 +391,7 @@ class _PerfilProfissionalFormPageState
                         ),
                         child: const Icon(
                           Icons.edit,
-                          size: 14,
+                          size: 18,
                           color: Colors.white,
                         ),
                       ),

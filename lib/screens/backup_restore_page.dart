@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/service_providers.dart';
-import 'backup_restore_page_stub.dart'
+import 'backup_restore_page_io.dart'
     if (dart.library.html) 'backup_restore_page_web.dart';
 
 final _exportandoProvider = StateProvider<bool>((ref) => false);
@@ -26,7 +26,7 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
       final nomeArquivo =
           'mentall_backup_${DateTime.now().millisecondsSinceEpoch}.json';
 
-      baixarJsonWeb(json, nomeArquivo);
+      await exportarJson(json, nomeArquivo);
 
       if (!mounted) return;
       _mostrarSnackBar('Backup exportado com sucesso!', Colors.green);
@@ -40,7 +40,7 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
 
   Future<void> _importar() async {
     try {
-      final jsonString = await selecionarArquivoJsonWeb();
+      final jsonString = await selecionarArquivoJson();
       if (jsonString == null) return;
 
       ref.read(_importandoProvider.notifier).state = true;

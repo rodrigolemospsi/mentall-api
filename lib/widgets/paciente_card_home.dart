@@ -252,13 +252,13 @@ class _WhatsAppLogoButton extends StatelessWidget {
     return GestureDetector(
       onTap: _abrirWhatsApp,
       child: const SizedBox(
-        width: 48,
-        height: 48,
+        width: 64,
+        height: 64,
         child: Center(
           child: Image(
             image: AssetImage('assets/images/logo_whats.png'),
-            width: 28,
-            height: 28,
+            width: 56,
+            height: 56,
           ),
         ),
       ),

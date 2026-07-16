@@ -47,3 +47,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Kotlin build cache
+android/.kotlin/
+
+# Artefatos de testes (Hive)
+test/temp_hive/

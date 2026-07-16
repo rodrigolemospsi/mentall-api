@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/service_providers.dart';
 import '../models/paciente.dart';
-import '../services/api_client.dart';
 import '../services/logger.dart';
 import '../widgets/agenda_inline_widget.dart';
 import '../widgets/estado_vazio_pacientes.dart';
@@ -169,62 +168,9 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  Future<void> _abrirConfigServidor() async {
-    final controller = TextEditingController(text: ApiClient.baseUrlExibicao);
-    final formKey = GlobalKey<FormState>();
-
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Servidor backend'),
-          content: Form(
-            key: formKey,
-            child: TextFormField(
-              controller: controller,
-              decoration: const InputDecoration(
-                labelText: 'URL do servidor',
-                hintText: 'http://192.168.1.24:8000',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.dns_outlined),
-              ),
-              keyboardType: TextInputType.url,
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'Informe a URL';
-                final uri = Uri.tryParse(v.trim());
-                if (uri == null || !uri.hasScheme) return 'URL invalida';
-                return null;
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                if (!(formKey.currentState?.validate() ?? false)) return;
-                await ApiClient.setBaseUrl(controller.text.trim());
-                if (!ctx.mounted) return;
-                Navigator.pop(ctx);
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('URL do servidor atualizada.')),
-                );
-              },
-              child: const Text('Salvar'),
-            ),
-          ],
-        );
-      },
-    );
-
-    controller.dispose();
-  }
-
   Future<void> _abrirDialogNovoPaciente() async {
     final pacienteService = ref.read(pacienteServiceProvider);
+    final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
     await mostrarDialogNovoPaciente(
       context: context,
       pacienteService: pacienteService,
@@ -233,6 +179,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       novoOuNova: _novoOuNova,
       cadastradoOuCadastrada: _cadastradoOuCadastrada,
       doOuDa: _doOuDa,
+      opcoesModoAtendimento: perfil?.opcoesModoAtendimento ?? const [],
     );
   }
 
@@ -416,9 +363,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                       ),
                     );
                     break;
-                  case 'servidor':
-                    _abrirConfigServidor();
-                    break;
                 }
               },
               itemBuilder: (context) => const [
@@ -449,16 +393,6 @@ class _HomePageState extends ConsumerState<HomePage> {
                       Icon(Icons.shield_outlined, size: 20),
                       SizedBox(width: 10),
                       Text('Privacidade e Segurança'),
-                    ],
-                  ),
-                ),
-                PopupMenuItem(
-                  value: 'servidor',
-                  child: Row(
-                    children: [
-                      Icon(Icons.dns_outlined, size: 20),
-                      SizedBox(width: 10),
-                      Text('Configurar servidor'),
                     ],
                   ),
                 ),

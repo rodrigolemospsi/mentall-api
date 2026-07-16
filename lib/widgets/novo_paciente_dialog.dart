@@ -15,6 +15,7 @@ Future<void> mostrarDialogNovoPaciente({
   required String novoOuNova,
   required String cadastradoOuCadastrada,
   required String doOuDa,
+  List<String> opcoesModoAtendimento = const [],
 }) async {
   final nomeController = TextEditingController();
   final contatoController = TextEditingController();
@@ -24,6 +25,7 @@ Future<void> mostrarDialogNovoPaciente({
   String? fotoBase64;
 
   String tipoAtendimento = 'Particular';
+  String? modoAtendimento;
   bool salvando = false;
 
   try {
@@ -164,6 +166,42 @@ Future<void> mostrarDialogNovoPaciente({
                               });
                             },
                     ),
+                    if (opcoesModoAtendimento.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: modoAtendimento,
+                        decoration: const InputDecoration(
+                          labelText: 'Modalidade de atendimento',
+                          border: OutlineInputBorder(),
+                        ),
+                        hint: const Text('Selecione a modalidade'),
+                        items: opcoesModoAtendimento.map((modo) {
+                          return DropdownMenuItem(
+                            value: modo,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  modo == 'Online'
+                                      ? Icons.videocam_outlined
+                                      : Icons.location_on_outlined,
+                                  size: 16,
+                                  color: const Color(0xFF64748B),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(modo),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: salvando
+                            ? null
+                            : (value) {
+                                setDialogState(() {
+                                  modoAtendimento = value;
+                                });
+                              },
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     TextField(
                       controller: observacoesController,
@@ -216,6 +254,7 @@ Future<void> mostrarDialogNovoPaciente({
                               email: emailController.text.trim(),
                               dataNascimento: dataNascimento,
                               tipoAtendimento: tipoAtendimento,
+                              modoAtendimento: modoAtendimento ?? '',
                               observacoes: observacoesController.text.trim(),
                               fotoBase64: fotoBase64 ?? '',
                             );
