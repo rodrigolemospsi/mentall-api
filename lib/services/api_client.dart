@@ -45,10 +45,36 @@ class ApiClient {
 
   static Future<bool> ensureAuthenticated() async {
     if (_authToken != null && _authToken!.isNotEmpty) {
+      if (_tokenExpirado(_authToken!)) {
+        return forceReauthenticate();
+      }
       return true;
     }
 
     return forceReauthenticate();
+  }
+
+  static bool _tokenExpirado(String token) {
+    try {
+      final partes = token.split('.');
+      if (partes.length != 3) return true;
+
+      String payloadBase64 = partes[1];
+      final resto = payloadBase64.length % 4;
+      if (resto != 0) {
+        payloadBase64 += '=' * (4 - resto);
+      }
+
+      final payloadBytes = base64Decode(payloadBase64);
+      final payload = jsonDecode(utf8.decode(payloadBytes)) as Map<String, dynamic>;
+      final exp = payload['exp'] as int?;
+      if (exp == null) return false;
+
+      final agora = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      return agora >= exp;
+    } catch (_) {
+      return true;
+    }
   }
 
   static Future<bool> forceReauthenticate() async {

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../models/paciente.dart';
@@ -63,14 +65,19 @@ class PacienteResumoCard extends StatelessWidget {
                 CircleAvatar(
                   radius: 28,
                   backgroundColor: corPrincipal.withValues(alpha: 0.12),
-                  child: Text(
-                    paciente.inicial,
-                    style: const TextStyle(
-                      color: corPrincipal,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  backgroundImage: paciente.possuiFoto
+                      ? MemoryImage(base64Decode(paciente.fotoBase64))
+                      : null,
+                  child: paciente.possuiFoto
+                      ? null
+                      : Text(
+                          paciente.inicial,
+                          style: const TextStyle(
+                            color: corPrincipal,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -106,6 +113,14 @@ class PacienteResumoCard extends StatelessWidget {
               titulo: 'Contato',
               valor: _contatoExibicao,
             ),
+            if (paciente.modoAtendimento.trim().isNotEmpty) ...[
+              const SizedBox(height: 10),
+              InfoLinha(
+                icone: Icons.location_on_outlined,
+                titulo: 'Modalidade',
+                valor: paciente.modoAtendimento.trim(),
+              ),
+            ],
             if (paciente.possuiEmail) ...[
               const SizedBox(height: 10),
               InfoLinha(

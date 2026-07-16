@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -14,6 +16,15 @@ import 'lgpd/privacidade_seguranca_page.dart';
 import 'agenda_page.dart';
 import 'paciente_detail_page.dart';
 import 'perfil_profissional_form_page.dart';
+
+final _saudacaoProvider = StateProvider<String>((ref) => _calcularSaudacao());
+
+String _calcularSaudacao() {
+  final hora = DateTime.now().hour;
+  if (hora < 12) return 'Bom dia';
+  if (hora < 18) return 'Boa tarde';
+  return 'Boa noite';
+}
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -72,12 +83,23 @@ class _HomePageState extends ConsumerState<HomePage> {
     return _termoFeminino ? 'da' : 'do';
   }
 
-  String get _saudacao {
-    final agora = DateTime.now();
-    final hora = agora.hour;
-    if (hora < 12) return 'Bom dia';
-    if (hora < 18) return 'Boa tarde';
-    return 'Boa noite';
+  Timer? _saudacaoTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _saudacaoTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      final nova = _calcularSaudacao();
+      if (ref.read(_saudacaoProvider) != nova) {
+        ref.read(_saudacaoProvider.notifier).state = nova;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _saudacaoTimer?.cancel();
+    super.dispose();
   }
 
   String _nomeProfissional() {
@@ -452,7 +474,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 child: _saudacaoCabecalho(nomeProf),
               ),
             ),
-            const SliverToBoxAdapter(child: SizedBox(height: 10)),
+            const SliverToBoxAdapter(child: SizedBox(height: 20)),
             const SliverToBoxAdapter(child: AgendaInlineWidget()),
             SliverToBoxAdapter(child: _indicadorPendencias()),
             SliverToBoxAdapter(child: const SizedBox(height: 8)),
@@ -539,15 +561,17 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 
   Widget _saudacaoCabecalho(String nomeProf) {
-    final saudacao = _saudacao;
+    final saudacao = ref.watch(_saudacaoProvider);
     final texto = nomeProf.isNotEmpty ? '$saudacao, $nomeProf!' : saudacao;
-    return Text(
-      texto,
-      style: const TextStyle(
-        fontSize: 22,
-        fontWeight: FontWeight.w500,
-        color: Color(0xFF1E293B),
-        height: 1.3,
+    return Center(
+      child: Text(
+        texto,
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w500,
+          color: Color(0xFF1E293B),
+          height: 1.3,
+        ),
       ),
     );
   }

@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../models/paciente.dart';
 import '../models/perfil_profissional.dart';
@@ -90,6 +93,8 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
 
   Future<void> _abrirDialogEditarPaciente() async {
     final pacienteService = ref.read(pacienteServiceProvider);
+    final perfil =
+        ref.read(perfilProfissionalServiceProvider).obterPerfil();
 
     final nomeController = TextEditingController(text: widget.paciente.nome);
     final contatoController =
@@ -98,14 +103,24 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
         TextEditingController(text: widget.paciente.email);
     final observacoesController =
         TextEditingController(text: widget.paciente.observacoes);
-    final modoAtendimentoController =
-        TextEditingController(text: widget.paciente.modoAtendimento);
 
     String tipoAtendimento = widget.paciente.tipoAtendimento.trim().isEmpty
         ? 'Particular'
         : widget.paciente.tipoAtendimento;
 
     bool ativo = widget.paciente.ativo;
+    String fotoBase64 = widget.paciente.fotoBase64;
+
+    final opcoesModo = perfil?.opcoesModoAtendimento ?? <String>[];
+    String? modoAtendimentoSelecionado = widget.paciente.modoAtendimento.trim().isEmpty
+        ? null
+        : widget.paciente.modoAtendimento.trim();
+
+    final opcoesDropdown = <String>[...opcoesModo];
+    if (modoAtendimentoSelecionado != null &&
+        !opcoesDropdown.contains(modoAtendimentoSelecionado)) {
+      opcoesDropdown.add(modoAtendimentoSelecionado);
+    }
 
     final tiposAtendimentoDisponiveis = <String>{
       'Particular',
@@ -126,13 +141,17 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                 contatoController: contatoController,
                 emailController: emailController,
                 observacoesController: observacoesController,
-                modoAtendimentoController: modoAtendimentoController,
                 tiposAtendimentoDisponiveis: tiposAtendimentoDisponiveis,
                 tipoAtendimento: tipoAtendimento,
                 ativo: ativo,
+                fotoBase64: fotoBase64,
+                opcoesModo: opcoesDropdown,
+                modoAtendimentoSelecionado: modoAtendimentoSelecionado,
                 setDialogState: setDialogState,
                 onTipoAlterado: (v) => tipoAtendimento = v,
                 onAtivoAlterado: (v) => ativo = v,
+                onModoAlterado: (v) => modoAtendimentoSelecionado = v,
+                onFotoAlterada: (v) => fotoBase64 = v,
               ),
               actions: [
                 TextButton(
@@ -159,8 +178,9 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                     widget.paciente.observacoes =
                         observacoesController.text.trim();
                     widget.paciente.modoAtendimento =
-                        modoAtendimentoController.text.trim();
+                        modoAtendimentoSelecionado ?? '';
                     widget.paciente.ativo = ativo;
+                    widget.paciente.fotoBase64 = fotoBase64;
                     await pacienteService.atualizarPaciente(widget.paciente);
                     if (!dialogContext.mounted) return;
                     Navigator.pop(dialogContext);
@@ -187,7 +207,6 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
     contatoController.dispose();
     emailController.dispose();
     observacoesController.dispose();
-    modoAtendimentoController.dispose();
   }
 
   Widget _dialogEditarPacienteBody({
@@ -195,18 +214,77 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
     required TextEditingController contatoController,
     required TextEditingController emailController,
     required TextEditingController observacoesController,
-    required TextEditingController modoAtendimentoController,
     required List<String> tiposAtendimentoDisponiveis,
     required String tipoAtendimento,
     required bool ativo,
+    required String fotoBase64,
+    required List<String> opcoesModo,
+    required String? modoAtendimentoSelecionado,
     required void Function(void Function()) setDialogState,
     required void Function(String) onTipoAlterado,
     required void Function(bool) onAtivoAlterado,
+    required void Function(String?) onModoAlterado,
+    required void Function(String) onFotoAlterada,
   }) {
+    const Color corPrincipal = Color(0xFF2563EB);
+
+    Future<void> selecionarFoto() async {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 85,
+      );
+      if (picked == null) return;
+      final bytes = await picked.readAsBytes();
+      setDialogState(() => onFotoAlterada(base64Encode(bytes)));
+    }
+
     return SingleChildScrollView(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          Center(
+            child: GestureDetector(
+              onTap: selecionarFoto,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  CircleAvatar(
+                    radius: 42,
+                    backgroundColor: corPrincipal.withValues(alpha: 0.1),
+                    backgroundImage: fotoBase64.isNotEmpty
+                        ? MemoryImage(base64Decode(fotoBase64))
+                        : null,
+                    child: fotoBase64.isEmpty
+                        ? const Icon(Icons.camera_alt_outlined,
+                            size: 28, color: corPrincipal)
+                        : null,
+                  ),
+                  Positioned(
+                    bottom: -2,
+                    right: -2,
+                    child: Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: corPrincipal,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                      child: const Icon(
+                        Icons.edit,
+                        size: 13,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
           TextField(
             controller: nomeController,
             textCapitalization: TextCapitalization.words,
@@ -252,14 +330,34 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
             },
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: modoAtendimentoController,
-            textCapitalization: TextCapitalization.sentences,
+          DropdownButtonFormField<String>(
+            initialValue: modoAtendimentoSelecionado,
             decoration: const InputDecoration(
               labelText: 'Modalidade de atendimento',
-              hintText: 'Ex: Online, Presencial, Híbrido',
               border: OutlineInputBorder(),
             ),
+            hint: const Text('Selecione a modalidade'),
+            items: opcoesModo.map((modo) {
+              return DropdownMenuItem(
+                value: modo,
+                child: Row(
+                  children: [
+                    Icon(
+                      modo == 'Online'
+                          ? Icons.videocam_outlined
+                          : Icons.location_on_outlined,
+                      size: 16,
+                      color: const Color(0xFF64748B),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(modo),
+                  ],
+                ),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setDialogState(() => onModoAlterado(value));
+            },
           ),
           const SizedBox(height: 12),
           SwitchListTile(
@@ -473,7 +571,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                   );
                 },
                 icon: const Icon(Icons.history_outlined),
-                label: const Text('Historico completo'),
+                label: const Text('Histórico completo'),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
@@ -492,7 +590,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                   );
                 },
                 icon: const Icon(Icons.assignment_outlined),
-                label: const Text('Relatorio clinico'),
+                label: const Text('Relatório clínico'),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
@@ -511,7 +609,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                   );
                 },
                 icon: const Icon(Icons.rate_review_outlined),
-                label: const Text('Sintese revisada (ultima sessao)'),
+                label: const Text('Síntese revisada (última sessão)'),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
@@ -530,7 +628,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                   );
                 },
                 icon: const Icon(Icons.description_outlined),
-                label: const Text('Ultima sessao'),
+                label: const Text('Última sessão'),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
@@ -549,7 +647,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                   );
                 },
                 icon: const Icon(Icons.folder_zip_outlined),
-                label: const Text('Prontuario completo'),
+                label: const Text('Prontuário completo'),
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),

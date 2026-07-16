@@ -7,6 +7,7 @@ class EnderecoConsultorio {
   String cidade;
   String estado;
   String cep;
+  String pais;
 
   EnderecoConsultorio({
     required this.apelido,
@@ -17,6 +18,7 @@ class EnderecoConsultorio {
     this.cidade = '',
     this.estado = '',
     this.cep = '',
+    this.pais = 'Brasil',
   });
 
   String get enderecoResumido {
@@ -36,6 +38,9 @@ class EnderecoConsultorio {
     if (estado.trim().isNotEmpty) {
       partes.add(estado.trim());
     }
+    if (pais.trim().isNotEmpty && pais.trim() != 'Brasil') {
+      partes.add(pais.trim());
+    }
     return partes.join(', ');
   }
 
@@ -49,6 +54,7 @@ class EnderecoConsultorio {
       'cidade': cidade,
       'estado': estado,
       'cep': cep,
+      'pais': pais,
     };
   }
 
@@ -62,6 +68,7 @@ class EnderecoConsultorio {
       cidade: json['cidade'] as String? ?? '',
       estado: json['estado'] as String? ?? '',
       cep: json['cep'] as String? ?? '',
+      pais: json['pais'] as String? ?? 'Brasil',
     );
   }
 
@@ -74,6 +81,7 @@ class EnderecoConsultorio {
     String? cidade,
     String? estado,
     String? cep,
+    String? pais,
   }) {
     return EnderecoConsultorio(
       apelido: apelido ?? this.apelido,
@@ -84,6 +92,7 @@ class EnderecoConsultorio {
       cidade: cidade ?? this.cidade,
       estado: estado ?? this.estado,
       cep: cep ?? this.cep,
+      pais: pais ?? this.pais,
     );
   }
 }

@@ -1049,7 +1049,7 @@ if (!mounted || confirmar != true) return;
         _avisoInvalidacaoTranscricaoExibido = false;
         _triggerRebuild();
 
-        _registrarAuditoria('Transcricao concluida', 'Transcricao do audio realizada - sessao $_numeroSessao');
+        _registrarAuditoria('Transcrição concluída', 'Transcrição do áudio realizada - sessão $_numeroSessao');
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1628,6 +1628,22 @@ if (!mounted || confirmar != true) return;
         _erroAudioWidget(),
         _botoesAudioWidget(corPrincipal),
         _audioInfoWidget(corPrincipal),
+        if (_possuiAudioRelato && !_transcrevendoRelato) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _existeAcaoEmAndamento ? null : _transcreverRelato,
+              icon: const Icon(Icons.subtitles_rounded),
+              label: const Text('Transcrever com IA'),
+              style: FilledButton.styleFrom(
+                backgroundColor: corPrincipal,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 12),
         CampoTextoWidget(
           controller: _transcricaoRelatoController,
@@ -1635,31 +1651,33 @@ if (!mounted || confirmar != true) return;
           maxLines: 5,
           maxHeight: 150,
         ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton.icon(
-            onPressed: _existeAcaoEmAndamento ? null : _gerarSinteseComIa,
-            icon: _gerandoSinteseIa
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.auto_awesome_outlined),
-            label: Text(
-              _gerandoSinteseIa ? 'Gerando...' : 'Gerar síntese com IA',
-            ),
-            style: FilledButton.styleFrom(
-              backgroundColor: corPrincipal,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
+        if (_possuiTranscricaoRelato) ...[
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _existeAcaoEmAndamento ? null : _gerarSinteseComIa,
+              icon: _gerandoSinteseIa
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.auto_awesome_outlined),
+              label: Text(
+                _gerandoSinteseIa ? 'Gerando...' : 'Gerar síntese com IA',
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: corPrincipal,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
             ),
           ),
-        ),
+        ],
         if (_geradoComIa) ...[
           const SizedBox(height: 12),
           CampoTextoWidget(
@@ -1855,6 +1873,7 @@ if (!mounted || confirmar != true) return;
     VoidCallback? onPressed,
     bool preenchido = false,
     bool destaque = false,
+    double? tamanhoCustomizado,
     Widget? iconeCustomizado,
   }) {
     final habilitado = onPressed != null;
@@ -1863,7 +1882,7 @@ if (!mounted || confirmar != true) return;
         ? corEfetiva
         : Colors.white;
     final corIcone = preenchido && habilitado ? Colors.white : corEfetiva;
-    final tamanho = destaque ? 60.0 : 48.0;
+    final tamanho = tamanhoCustomizado ?? (destaque ? 60.0 : 48.0);
 
     return Tooltip(
       message: rotulo,
@@ -1904,6 +1923,7 @@ if (!mounted || confirmar != true) return;
       child: Wrap(
         spacing: 14,
         runSpacing: 12,
+        alignment: WrapAlignment.center,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           if (!_gravandoAudio)
@@ -1913,6 +1933,7 @@ if (!mounted || confirmar != true) return;
               cor: corPrincipal,
               preenchido: true,
               destaque: true,
+              tamanhoCustomizado: 90,
               onPressed:
                   _existeAcaoEmAndamento ? null : _iniciarGravacaoRelato,
             ),
@@ -1965,22 +1986,6 @@ if (!mounted || confirmar != true) return;
               cor: const Color(0xFFD32F2F),
               onPressed:
                   _existeAcaoEmAndamento ? null : _removerAudioRelato,
-            ),
-          if (!_gravandoAudio)
-            _botaoAudioCircular(
-              icone: Icons.subtitles_rounded,
-              rotulo: _transcrevendoRelato
-                  ? 'Transcrevendo...'
-                  : 'Transcrever áudio',
-              cor: corPrincipal,
-              onPressed: _existeAcaoEmAndamento ? null : _transcreverRelato,
-              iconeCustomizado: _transcrevendoRelato
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : null,
             ),
         ],
       ),

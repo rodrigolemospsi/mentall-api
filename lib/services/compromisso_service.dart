@@ -35,6 +35,16 @@ class CompromissoService {
     return compromissos;
   }
 
+  List<Compromisso> listarPorMes(DateTime data) {
+    final inicioMes = DateTime(data.year, data.month, 1);
+    final fimMes = DateTime(data.year, data.month + 1, 0, 23, 59, 59);
+    return _box.values
+        .where((c) =>
+            c.dataHoraInicio.isAfter(inicioMes.subtract(const Duration(seconds: 1))) &&
+            c.dataHoraInicio.isBefore(fimMes.add(const Duration(seconds: 1))))
+        .toList();
+  }
+
   List<Compromisso> listarHoje() {
     return listarPorData(DateTime.now());
   }

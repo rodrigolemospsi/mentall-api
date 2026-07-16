@@ -105,6 +105,8 @@ void main() {
   });
 
   testWidgets('deve mostrar indicador de sessoes pendentes', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 1.0;
     await tester.runAsync(() async {
       await Hive.box<PerfilProfissional>('perfil_profissional')
           .put('1', PerfilProfissional(id: '1', nome: 'Dr. Teste'));
@@ -128,5 +130,9 @@ void main() {
     await tester.pump();
 
     expect(find.textContaining('pendente'), findsOneWidget);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
   });
 }
