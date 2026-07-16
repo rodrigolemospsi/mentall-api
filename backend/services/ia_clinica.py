@@ -118,69 +118,6 @@ def _buscar_candidatos_scielo(consulta: str) -> list:
         return []
 
 
-def diagnosticar_busca_artigos(especifico: str, amplo: str) -> dict:
-    diagnostico = {"consultas": []}
-    for consulta in [c for c in dict.fromkeys([especifico, amplo]) if c.strip()]:
-        info = {"consulta": consulta, "openalex": [], "scielo": {}}
-        consulta_limpa = consulta.replace(",", " ").replace(":", " ").strip()
-        filtros = (
-            f"title_and_abstract.search:{consulta_limpa},{OPENALEX_FILTROS_BASE},{OPENALEX_FILTRO_PSICOLOGIA}",
-            f"title_and_abstract.search:{consulta_limpa},{OPENALEX_FILTROS_BASE}",
-        )
-        for filtro in filtros:
-            tentativa = {"filtro": filtro}
-            try:
-                resp = requests.get(
-                    "https://api.openalex.org/works",
-                    params=_openalex_params({
-                        "filter": filtro,
-                        "sort": "relevance_score:desc",
-                        "per-page": MAX_CANDIDATOS_POR_TEMA,
-                    }),
-                    timeout=10,
-                )
-                tentativa["status"] = resp.status_code
-                if resp.status_code == 200:
-                    data = resp.json()
-                    tentativa["total"] = data.get("meta", {}).get("count")
-                    tentativa["titulos"] = [
-                        (w.get("title") or "")[:100] for w in data.get("results", [])
-                    ]
-                else:
-                    tentativa["body"] = resp.text[:300]
-            except Exception as e:
-                tentativa["erro"] = f"{type(e).__name__}: {str(e)[:200]}"
-            info["openalex"].append(tentativa)
-
-        try:
-            resp = requests.get(
-                SCIELO_RSS_URL,
-                params={
-                    "q": consulta,
-                    "lang": "pt",
-                    "output": "rss",
-                    "count": 10,
-                    "sort": "RELEVANCE",
-                    "filter[la][]": "pt",
-                },
-                headers=SCIELO_HEADERS,
-                timeout=10,
-            )
-            info["scielo"]["status"] = resp.status_code
-            if resp.status_code == 200:
-                root = ET.fromstring(resp.content)
-                info["scielo"]["titulos"] = [
-                    (item.findtext("title") or "")[:100] for item in root.iter("item")
-                ][:5]
-            else:
-                info["scielo"]["body"] = resp.text[:200]
-        except Exception as e:
-            info["scielo"]["erro"] = f"{type(e).__name__}: {str(e)[:200]}"
-
-        diagnostico["consultas"].append(info)
-    return diagnostico
-
-
 def _buscar_candidatos_openalex(consulta: str) -> list:
     consulta_limpa = consulta.replace(",", " ").replace(":", " ").strip()
     filtros = (
