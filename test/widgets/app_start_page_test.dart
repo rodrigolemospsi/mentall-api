@@ -47,7 +47,6 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Configuração inicial'), findsOneWidget);
     expect(find.text('Bem-vindo ao MentAll'), findsOneWidget);
   });
 
@@ -72,7 +71,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Configuração inicial'), findsNothing);
+    expect(find.text('Bem-vindo ao MentAll'), findsNothing);
     expect(find.textContaining('Dr. Teste'), findsOneWidget);
   });
 }

@@ -19,6 +19,21 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
+subprojects {
+    val overrideCompileSdk: (Project) -> Unit = { p ->
+        p.extensions.findByType(com.android.build.gradle.LibraryExtension::class.java)?.apply {
+            if (compileSdk != null && compileSdk!! < 36) {
+                compileSdk = 36
+            }
+        }
+    }
+    if (state.executed) {
+        overrideCompileSdk(this)
+    } else {
+        afterEvaluate { overrideCompileSdk(this) }
+    }
+}
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }

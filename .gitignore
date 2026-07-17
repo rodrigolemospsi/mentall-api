@@ -53,3 +53,6 @@ android/.kotlin/
 
 # Artefatos de testes (Hive)
 test/temp_hive/
+
+# Gradle build dir (AGP 9)
+android/build/

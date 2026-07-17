@@ -24,7 +24,6 @@ void main() {
 
     await tester.pump();
 
-    expect(find.text('Configuração inicial'), findsOneWidget);
     expect(find.text('Bem-vindo ao MentAll'), findsOneWidget);
     expect(find.text('Salvar e começar'), findsOneWidget);
     expect(find.byType(FilledButton), findsOneWidget);

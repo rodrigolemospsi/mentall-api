@@ -269,12 +269,13 @@ class _PerfilProfissionalFormPageState
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: Text(_perfilExistente ? 'Perfil profissional' : 'Configuração inicial'),
-        backgroundColor: corPrincipal,
-        foregroundColor: Colors.white,
-        automaticallyImplyLeading: _perfilExistente,
-      ),
+      appBar: _perfilExistente
+          ? AppBar(
+              title: const Text('Perfil profissional'),
+              backgroundColor: corPrincipal,
+              foregroundColor: Colors.white,
+            )
+          : null,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
