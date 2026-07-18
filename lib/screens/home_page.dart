@@ -424,9 +424,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                   ),
-                  tabs: const [
-                    Tab(text: 'Ativos'),
-                    Tab(text: 'Arquivados'),
+                  tabs: [
+                    Tab(text: 'Ativos (${pacientesAtivos.length})'),
+                    Tab(text: 'Arquivados (${pacientesArquivados.length})'),
                   ],
                 ),
               ),

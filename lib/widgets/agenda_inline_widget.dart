@@ -18,7 +18,7 @@ class AgendaInlineWidget extends ConsumerWidget {
   static const _diasSemana = [
     'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo',
   ];
-  static const _diasSemanaAbrev = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+  static const _diasSemanaAbrev = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
   static const _meses = [
     'jan', 'fev', 'mar', 'abr', 'mai', 'jun',
     'jul', 'ago', 'set', 'out', 'nov', 'dez',
@@ -358,14 +358,22 @@ class AgendaInlineWidget extends ConsumerWidget {
       }
     }
 
+    final linhas = <Widget>[];
+    for (int i = 0; i < celulas.length; i += 7) {
+      linhas.add(Row(
+        children: celulas
+            .sublist(i, i + 7)
+            .map((c) => Expanded(child: Center(child: c)))
+            .toList(),
+      ));
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Column(
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: _diasSemanaAbrev.map((d) => SizedBox(
-              width: 36,
+            children: _diasSemanaAbrev.map((d) => Expanded(
               child: Center(
                 child: Text(d, style: const TextStyle(
                   fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF64748B),
@@ -374,11 +382,7 @@ class AgendaInlineWidget extends ConsumerWidget {
             )).toList(),
           ),
           const SizedBox(height: 4),
-          Wrap(
-            spacing: 0,
-            runSpacing: 0,
-            children: celulas,
-          ),
+          ...linhas,
         ],
       ),
     );

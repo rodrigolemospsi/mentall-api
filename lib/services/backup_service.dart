@@ -5,8 +5,23 @@ import 'package:hive_ce/hive.dart';
 import '../models/paciente.dart';
 import '../models/perfil_profissional.dart';
 import '../models/sessao.dart';
+import 'encryption_service.dart';
 
 class BackupService {
+  final EncryptionService? _encryption;
+
+  BackupService({EncryptionService? encryption}) : _encryption = encryption;
+
+  String _encrypt(String value) {
+    if (_encryption == null || value.isEmpty) return value;
+    return _encryption.criptografar(value);
+  }
+
+  String _decrypt(String value) {
+    if (_encryption == null || value.isEmpty) return value;
+    return _encryption.descriptografar(value);
+  }
+
   String exportarParaJson() {
     final pacientes = Hive.box<Paciente>('pacientes');
     final sessoes = Hive.box<Sessao>('sessoes');
@@ -18,8 +33,8 @@ class BackupService {
       'perfil_profissional': perfil.values.map((p) {
         return {
           'id': p.id,
-          'nome': p.nome,
-          'registro_profissional': p.registroProfissional,
+          'nome': _decrypt(p.nome),
+          'registro_profissional': _decrypt(p.registroProfissional),
           'abordagem_clinica': p.abordagemClinica,
           'termo_pessoa_atendida': p.termoPessoaAtendida,
           'data_criacao': p.dataCriacao.toIso8601String(),
@@ -27,17 +42,18 @@ class BackupService {
             'data_atualizacao': p.dataAtualizacao!.toIso8601String(),
           'modalidades_atendimento_json': p.modalidadesAtendimentoJson,
           'enderecos_consultorios_json': p.enderecosConsultoriosJson,
+          'foto_base64': p.fotoBase64,
         };
       }).toList(),
       'pacientes': pacientes.values.map((p) {
         return {
           'id': p.id,
-          'nome': p.nome,
+          'nome': _decrypt(p.nome),
           'data_nascimento': p.dataNascimento?.toIso8601String(),
-          'contato': p.contato,
-          'email': p.email,
+          'contato': _decrypt(p.contato),
+          'email': _decrypt(p.email),
           'tipo_atendimento': p.tipoAtendimento,
-          'observacoes': p.observacoes,
+          'observacoes': _decrypt(p.observacoes),
           'ativo': p.ativo,
           'data_cadastro': p.dataCadastro.toIso8601String(),
           if (p.dataAtualizacao != null)
@@ -53,38 +69,58 @@ class BackupService {
           'numero_sessao': s.numeroSessao,
           'data': s.data.toIso8601String(),
           'humor': s.humor,
-          'tema_principal': s.temaPrincipal,
-          'eventos_importantes': s.eventosImportantes,
-          'pensamentos_automaticos': s.pensamentosAutomaticos,
-          'emocoes': s.emocoes,
-          'comportamentos': s.comportamentos,
-          'intervencoes': s.intervencoes,
-          'tecnicas_tcc': s.tecnicasTcc,
-          'tarefa_casa': s.tarefaCasa,
-          'evolucao_clinica': s.evolucaoClinica,
-          'plano_proxima_sessao': s.planoProximaSessao,
-          'observacoes': s.observacoes,
-          'relato_pos_sessao': s.relatoPosSessao,
-          'apontamentos_copiloto': s.apontamentosCopiloto,
+          'tema_principal': _decrypt(s.temaPrincipal),
+          'eventos_importantes': _decrypt(s.eventosImportantes),
+          'pensamentos_automaticos': _decrypt(s.pensamentosAutomaticos),
+          'emocoes': _decrypt(s.emocoes),
+          'comportamentos': _decrypt(s.comportamentos),
+          'intervencoes': _decrypt(s.intervencoes),
+          'tecnicas_tcc': _decrypt(s.tecnicasTcc),
+          'tarefa_casa': _decrypt(s.tarefaCasa),
+          'evolucao_clinica': _decrypt(s.evolucaoClinica),
+          'plano_proxima_sessao': _decrypt(s.planoProximaSessao),
+          'observacoes': _decrypt(s.observacoes),
+          'relato_pos_sessao': _decrypt(s.relatoPosSessao),
+          'apontamentos_copiloto': _decrypt(s.apontamentosCopiloto),
           'arquivada': s.arquivada,
-          'audio_relato_path': s.audioRelatoPath,
-          'transcricao_relato': s.transcricaoRelato,
-          'transcricao_revisada': s.transcricaoRevisada,
+          'audio_relato_path': _decrypt(s.audioRelatoPath),
+          'transcricao_relato': _decrypt(s.transcricaoRelato),
+          'transcricao_revisada': _decrypt(s.transcricaoRevisada),
           'data_processamento_ia': s.dataProcessamentoIa?.toIso8601String(),
           'gerado_com_ia': s.geradoComIa,
           'status_processamento': s.statusProcessamento,
           'audio_mantido': s.audioMantido,
           'revisado_pelo_profissional': s.revisadoPeloProfissional,
-          'erro_processamento_ia': s.erroProcessamentoIa,
+          'erro_processamento_ia': _decrypt(s.erroProcessamentoIa),
           'origem_relato': s.origemRelato,
-          'audio_relato_base64': s.audioRelatoBase64,
-          'artigos_sugeridos': s.artigosSugeridos,
+          'audio_relato_base64': _decrypt(s.audioRelatoBase64),
+          'artigos_sugeridos': _decrypt(s.artigosSugeridos),
         };
       }).toList(),
     };
 
     const encoder = JsonEncoder.withIndent('  ');
     return encoder.convert(dados);
+  }
+
+  Future<void> _salvarSobrescrevendo<T>(
+    Box<T> box,
+    T novo,
+    bool Function(T existente) mesmoId,
+  ) async {
+    dynamic chaveExistente;
+    for (final entry in box.toMap().entries) {
+      if (mesmoId(entry.value)) {
+        chaveExistente = entry.key;
+        break;
+      }
+    }
+
+    if (chaveExistente != null) {
+      await box.put(chaveExistente, novo);
+    } else {
+      await box.add(novo);
+    }
   }
 
   Future<String> importarDeJson(String jsonString) async {
@@ -107,14 +143,14 @@ class BackupService {
         final map = item as Map<String, dynamic>;
         final paciente = Paciente(
           id: map['id'] as String,
-          nome: map['nome'] as String? ?? '',
+          nome: _encrypt(map['nome'] as String? ?? ''),
           dataNascimento: map['data_nascimento'] != null
               ? DateTime.parse(map['data_nascimento'] as String)
               : null,
-          contato: map['contato'] as String? ?? '',
-          email: map['email'] as String? ?? '',
+          contato: _encrypt(map['contato'] as String? ?? ''),
+          email: _encrypt(map['email'] as String? ?? ''),
           tipoAtendimento: map['tipo_atendimento'] as String? ?? 'Particular',
-          observacoes: map['observacoes'] as String? ?? '',
+          observacoes: _encrypt(map['observacoes'] as String? ?? ''),
           ativo: map['ativo'] as bool? ?? true,
           dataCadastro: map['data_cadastro'] != null
               ? DateTime.parse(map['data_cadastro'] as String)
@@ -126,10 +162,12 @@ class BackupService {
           fotoBase64: map['foto_base64'] as String? ?? '',
         );
 
-        if (pacientesBox.values.any((p) => p.id == paciente.id) == false) {
-          await pacientesBox.add(paciente);
-          pacientesImportados++;
-        }
+        await _salvarSobrescrevendo<Paciente>(
+          pacientesBox,
+          paciente,
+          (existente) => existente.id == paciente.id,
+        );
+        pacientesImportados++;
       }
 
       for (final item in dados['sessoes'] as List<dynamic>? ?? []) {
@@ -142,24 +180,29 @@ class BackupService {
               ? DateTime.parse(map['data'] as String)
               : DateTime.now(),
           humor: map['humor'] as int? ?? 5,
-          temaPrincipal: map['tema_principal'] as String? ?? '',
-          eventosImportantes: map['eventos_importantes'] as String? ?? '',
+          temaPrincipal: _encrypt(map['tema_principal'] as String? ?? ''),
+          eventosImportantes:
+              _encrypt(map['eventos_importantes'] as String? ?? ''),
           pensamentosAutomaticos:
-              map['pensamentos_automaticos'] as String? ?? '',
-          emocoes: map['emocoes'] as String? ?? '',
-          comportamentos: map['comportamentos'] as String? ?? '',
-          intervencoes: map['intervencoes'] as String? ?? '',
-          tecnicasTcc: map['tecnicas_tcc'] as String? ?? '',
-          tarefaCasa: map['tarefa_casa'] as String? ?? '',
-          evolucaoClinica: map['evolucao_clinica'] as String? ?? '',
-          planoProximaSessao: map['plano_proxima_sessao'] as String? ?? '',
-          observacoes: map['observacoes'] as String? ?? '',
-          relatoPosSessao: map['relato_pos_sessao'] as String? ?? '',
-          apontamentosCopiloto: map['apontamentos_copiloto'] as String? ?? '',
+              _encrypt(map['pensamentos_automaticos'] as String? ?? ''),
+          emocoes: _encrypt(map['emocoes'] as String? ?? ''),
+          comportamentos: _encrypt(map['comportamentos'] as String? ?? ''),
+          intervencoes: _encrypt(map['intervencoes'] as String? ?? ''),
+          tecnicasTcc: _encrypt(map['tecnicas_tcc'] as String? ?? ''),
+          tarefaCasa: _encrypt(map['tarefa_casa'] as String? ?? ''),
+          evolucaoClinica: _encrypt(map['evolucao_clinica'] as String? ?? ''),
+          planoProximaSessao:
+              _encrypt(map['plano_proxima_sessao'] as String? ?? ''),
+          observacoes: _encrypt(map['observacoes'] as String? ?? ''),
+          relatoPosSessao: _encrypt(map['relato_pos_sessao'] as String? ?? ''),
+          apontamentosCopiloto:
+              _encrypt(map['apontamentos_copiloto'] as String? ?? ''),
           arquivada: map['arquivada'] as bool? ?? false,
-          audioRelatoPath: map['audio_relato_path'] as String? ?? '',
-          transcricaoRelato: map['transcricao_relato'] as String? ?? '',
-          transcricaoRevisada: map['transcricao_revisada'] as String? ?? '',
+          audioRelatoPath: _encrypt(map['audio_relato_path'] as String? ?? ''),
+          transcricaoRelato:
+              _encrypt(map['transcricao_relato'] as String? ?? ''),
+          transcricaoRevisada:
+              _encrypt(map['transcricao_revisada'] as String? ?? ''),
           dataProcessamentoIa: map['data_processamento_ia'] != null
               ? DateTime.parse(map['data_processamento_ia'] as String)
               : null,
@@ -170,16 +213,20 @@ class BackupService {
           revisadoPeloProfissional:
               map['revisado_pelo_profissional'] as bool? ?? false,
           erroProcessamentoIa:
-              map['erro_processamento_ia'] as String? ?? '',
+              _encrypt(map['erro_processamento_ia'] as String? ?? ''),
           origemRelato: map['origem_relato'] as String? ?? 'manual',
-          audioRelatoBase64: map['audio_relato_base64'] as String? ?? '',
-          artigosSugeridos: map['artigos_sugeridos'] as String? ?? '',
+          audioRelatoBase64:
+              _encrypt(map['audio_relato_base64'] as String? ?? ''),
+          artigosSugeridos:
+              _encrypt(map['artigos_sugeridos'] as String? ?? ''),
         );
 
-        if (sessoesBox.values.any((s) => s.id == sessao.id) == false) {
-          await sessoesBox.add(sessao);
-          sessoesImportadas++;
-        }
+        await _salvarSobrescrevendo<Sessao>(
+          sessoesBox,
+          sessao,
+          (existente) => existente.id == sessao.id,
+        );
+        sessoesImportadas++;
       }
 
       for (final item
@@ -187,9 +234,9 @@ class BackupService {
         final map = item as Map<String, dynamic>;
         final perfil = PerfilProfissional(
           id: map['id'] as String,
-          nome: map['nome'] as String? ?? '',
+          nome: _encrypt(map['nome'] as String? ?? ''),
           registroProfissional:
-              map['registro_profissional'] as String? ?? '',
+              _encrypt(map['registro_profissional'] as String? ?? ''),
           abordagemClinica: map['abordagem_clinica'] as String? ?? 'Integrativa',
           termoPessoaAtendida:
               map['termo_pessoa_atendida'] as String? ?? 'paciente',
@@ -203,12 +250,15 @@ class BackupService {
               map['modalidades_atendimento_json'] as String? ?? '[]',
           enderecosConsultoriosJson:
               map['enderecos_consultorios_json'] as String? ?? '[]',
+          fotoBase64: map['foto_base64'] as String? ?? '',
         );
 
-        if (perfilBox.values.any((p) => p.id == perfil.id) == false) {
-          await perfilBox.add(perfil);
-          perfisImportados++;
-        }
+        await _salvarSobrescrevendo<PerfilProfissional>(
+          perfilBox,
+          perfil,
+          (existente) => existente.id == perfil.id,
+        );
+        perfisImportados++;
       }
 
       return 'Importação concluída: $perfisImportados perfil(is), '

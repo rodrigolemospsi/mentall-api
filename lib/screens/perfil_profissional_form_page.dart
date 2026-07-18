@@ -232,12 +232,16 @@ class _PerfilProfissionalFormPageState
 
       if (!mounted) return;
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const HomePage(),
-        ),
-      );
+      if (_perfilExistente && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const HomePage(),
+          ),
+        );
+      }
     } catch (erro) {
       Log.erro(erro, contexto: 'perfil_profissional_form_page:salvar');
       if (!mounted) return;
@@ -448,7 +452,7 @@ class _PerfilProfissionalFormPageState
             DropdownButtonFormField<String>(
               initialValue: termoSelecionado,
               decoration: const InputDecoration(
-                labelText: 'Como prefere se referir à pessoa atendida?',
+                labelText: 'Como se referir à pessoa atendida?',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.record_voice_over_outlined),
               ),
@@ -512,11 +516,11 @@ class _PerfilProfissionalFormPageState
             Row(
               children: [
                 const Icon(Icons.location_on_outlined,
-                    size: 20, color: Color(0xFF2563EB)),
+                    size: 40, color: Color(0xFF2563EB)),
                 const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
-                    'Endereço(s) de atendimento',
+                    'Endereços',
                     style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,

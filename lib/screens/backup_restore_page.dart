@@ -145,7 +145,7 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Restaura dados de um arquivo JSON. Itens com ID já existente são ignorados (sem sobrescrita).',
+                    'Restaura dados de um arquivo JSON. Itens com ID já existente são sobrescritos com o conteúdo do backup.',
                     style: const TextStyle(color: Color(0xFF475569), height: 1.4),
                   ),
                   const SizedBox(height: 16),

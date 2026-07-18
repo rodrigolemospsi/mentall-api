@@ -68,7 +68,8 @@ final iaClinicaServiceProvider = Provider<IaClinicaService>((ref) {
 });
 
 final backupServiceProvider = Provider<BackupService>((ref) {
-  return BackupService();
+  final encryption = ref.watch(encryptionServiceProvider);
+  return BackupService(encryption: encryption);
 });
 
 final auditoriaServiceProvider = Provider<AuditoriaService>((ref) {
