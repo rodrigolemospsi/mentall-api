@@ -610,17 +610,28 @@ class _AddAgendaButton extends ConsumerWidget {
           );
           return;
         }
+        final config = ref.read(configuracoesServiceProvider);
         final compromisso = await mostrarCompromissoFormDialog(
           context: context,
           pacientes: pacientes,
           termoPessoa:
               ref.read(perfilProfissionalServiceProvider).obterPerfil()?.termoSingularCapitalizado ?? 'Pessoa atendida',
           dataSugerida: dataSelecionada,
+          duracaoPadraoMinutos: config.duracaoPadraoSessaoMinutos,
+          lembretePadraoAtivado: config.lembretePadraoAtivado,
+          antecedenciaPadraoMinutos: config.antecedenciaPadraoMinutos,
         );
         if (compromisso == null) return;
         await service.adicionar(compromisso);
+        final pacService = ref.read(pacienteServiceProvider);
+        final pacienteAgendado =
+            pacService.buscarPacientePorId(compromisso.pacienteId);
+        await ref.read(auditoriaServiceProvider).registrar(
+              tipoEvento: 'Sessão agendada',
+              descricao: pacienteAgendado?.nome ?? 'Compromisso criado',
+              pacienteId: compromisso.pacienteId,
+            );
         if (compromisso.lembreteAtivado && compromisso.isAgendado) {
-          final pacService = ref.read(pacienteServiceProvider);
           final perfilService = ref.read(perfilProfissionalServiceProvider);
           final paciente =
               pacService.buscarPacientePorId(compromisso.pacienteId);

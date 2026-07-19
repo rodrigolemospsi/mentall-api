@@ -50,4 +50,8 @@ class AuditoriaService {
   Future<int> contar() async {
     return _box.length;
   }
+
+  Stream<BoxEvent> observar() {
+    return _box.watch();
+  }
 }

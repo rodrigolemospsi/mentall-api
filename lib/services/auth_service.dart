@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:hive_ce/hive.dart';
@@ -11,7 +12,7 @@ class AuthService {
   static const String _authBoxName = 'auth_meta';
   static const String _tokenKey = 'jwt_token';
 
-  late final Box<String> _box;
+  late final Box<String> _box = Hive.box<String>(_authBoxName);
 
   final EncryptionService _encryptionService;
   bool _desbloqueado = false;
@@ -23,7 +24,6 @@ class AuthService {
   EncryptionService get encryption => _encryptionService;
 
   Future<void> inicializar() async {
-    _box = Hive.box<String>(_authBoxName);
     final token = _box.get(_tokenKey);
     if (token != null && token.isNotEmpty) {
       ApiClient.authToken = token;
@@ -40,14 +40,16 @@ class AuthService {
 
   Future<bool> autenticarBackend() async {
     try {
-      final response = await http.post(
-        Uri.parse('${ApiClient.baseUrl}/auth/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'username': 'admin',
-          'password': 'admin',
-        }),
-      );
+      final response = await http
+          .post(
+            Uri.parse('${ApiClient.baseUrl}/auth/login'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'username': 'admin',
+              'password': 'admin',
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -73,14 +75,14 @@ class AuthService {
     final sucesso = await _encryptionService.desbloquear(pin);
     if (sucesso) {
       _desbloqueado = true;
-      await _tentarAutenticarBackend();
+      unawaited(_tentarAutenticarBackend());
     }
   }
 
   Future<void> configurarPin(String pin) async {
     await _encryptionService.configurarPin(pin);
     _desbloqueado = true;
-    await _tentarAutenticarBackend();
+    unawaited(_tentarAutenticarBackend());
   }
 
   Future<void> _tentarAutenticarBackend() async {
@@ -93,6 +95,14 @@ class AuthService {
 
   Future<void> bloquear() async {
     _desbloqueado = false;
+  }
+
+  Future<bool> trocarPin(String pinAtual, String novoPin) async {
+    final sucesso = await _encryptionService.trocarPin(pinAtual, novoPin);
+    if (sucesso) {
+      _desbloqueado = true;
+    }
+    return sucesso;
   }
 
   Future<void> removerPin() async {

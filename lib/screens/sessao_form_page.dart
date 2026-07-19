@@ -1175,7 +1175,9 @@ if (!mounted || confirmar != true) return;
           texto: resultado.apontamentosCopiloto,
         );
 
-        _artigosSugeridos = resultado.artigosSugeridos;
+        _artigosSugeridos = ref.read(configuracoesServiceProvider).sugerirArtigos
+            ? resultado.artigosSugeridos
+            : '';
 
         _gerandoSinteseIa = false;
         _geradoComIa = true;
@@ -1352,6 +1354,10 @@ if (!mounted || confirmar != true) return;
         );
 
         await _sessaoService.adicionarSessao(novaSessao);
+        _registrarAuditoria(
+          'Sessão registrada',
+          '${widget.paciente.nome} - sessão $_numeroSessao',
+        );
         _modoEdicao = false;
       }
 

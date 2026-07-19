@@ -11,7 +11,9 @@ import '../services/sessao_service.dart';
 import '../services/backup_service.dart';
 import '../services/lgpd/auditoria_service.dart';
 import '../models/compromisso.dart';
+import '../models/lgpd/registro_auditoria.dart';
 import '../services/compromisso_service.dart';
+import '../services/configuracoes_service.dart';
 import '../services/lembrete_service.dart';
 import '../services/transcricao_relato_service.dart';
 
@@ -84,6 +86,19 @@ final lembreteServiceProvider = Provider<LembreteService>((ref) {
   return LembreteService();
 });
 
+final configuracoesServiceProvider = Provider<ConfiguracoesService>((ref) {
+  return ConfiguracoesService();
+});
+
+final configuracoesRevisaoProvider = StreamProvider<int>((ref) async* {
+  final service = ref.watch(configuracoesServiceProvider);
+  var revisao = 0;
+  yield revisao;
+  await for (final _ in service.observar()) {
+    yield ++revisao;
+  }
+});
+
 final compromissosHojeProvider = StreamProvider<List<Compromisso>>((ref) async* {
   final service = ref.watch(compromissoServiceProvider);
   yield service.listarHoje();
@@ -97,5 +112,45 @@ final compromissosPorDataProvider = StreamProvider.family<List<Compromisso>, Dat
   yield service.listarPorData(date);
   await for (final _ in service.observar()) {
     yield service.listarPorData(date);
+  }
+});
+
+final atividadeRecenteProvider = StreamProvider<List<RegistroAuditoria>>((ref) async* {
+  final service = ref.watch(auditoriaServiceProvider);
+  yield service.listar(limite: 5);
+  await for (final _ in service.observar()) {
+    yield service.listar(limite: 5);
+  }
+});
+
+class DashboardKpisSessoes {
+  final int sessoesUltimos30Dias;
+  final int pendentesRevisao;
+
+  const DashboardKpisSessoes({
+    required this.sessoesUltimos30Dias,
+    required this.pendentesRevisao,
+  });
+}
+
+final dashboardKpisSessoesProvider =
+    StreamProvider<DashboardKpisSessoes>((ref) async* {
+  final service = ref.watch(sessaoServiceProvider);
+
+  DashboardKpisSessoes calcular() {
+    final limite = DateTime.now().subtract(const Duration(days: 30));
+    final sessoes30 = service
+        .listarTodasSessoesAtivas()
+        .where((s) => s.data.isAfter(limite))
+        .length;
+    return DashboardKpisSessoes(
+      sessoesUltimos30Dias: sessoes30,
+      pendentesRevisao: service.contarSessoesPendentesRevisao(),
+    );
+  }
+
+  yield calcular();
+  await for (final _ in service.observarSessoes()) {
+    yield calcular();
   }
 });

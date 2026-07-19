@@ -13,7 +13,7 @@ class EncryptionService {
   static const String _ivKey = 'iv_base64';
   static const String _verificationKey = 'verification';
 
-  late final Box<String> _box;
+  late final Box<String> _box = Hive.box<String>(_boxName);
   encrypt.Key? _key;
   encrypt.IV? _iv;
 
@@ -26,7 +26,6 @@ class EncryptionService {
   Future<void> inicializar() async {
     if (_inicializado) return;
 
-    _box = Hive.box<String>(_boxName);
     _inicializado = true;
 
     final ivBase64 = _box.get(_ivKey);
@@ -150,6 +149,30 @@ class EncryptionService {
 
     final hash = _derivarChave(pin, parts[0]);
     return hash.base64 == parts[1];
+  }
+
+  Future<bool> trocarPin(String pinAtual, String novoPin) async {
+    if (!_verificarPin(pinAtual)) return false;
+
+    if (_key == null) {
+      final desbloqueou = await desbloquear(pinAtual);
+      if (!desbloqueou) return false;
+    }
+
+    final salt = _gerarSalt();
+    final derivedKey = _derivarChave(novoPin, salt);
+    final iv = _iv ?? encrypt.IV.fromSecureRandom(16);
+
+    final encrypter = encrypt.Encrypter(encrypt.AES(derivedKey));
+    final encryptedKeyBytes = encrypter.encryptBytes(_key!.bytes, iv: iv);
+    final verificationHash = _criarVerificationHash(novoPin);
+
+    await _box.put(_encryptedKeyKey, '$salt:${encryptedKeyBytes.base64}');
+    await _box.put(_ivKey, iv.base64);
+    await _box.put(_verificationKey, verificationHash);
+
+    _iv = iv;
+    return true;
   }
 
   Future<void> limpar() async {

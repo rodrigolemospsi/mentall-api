@@ -10,6 +10,8 @@ class ApiClient {
   static const String _baseUrlKey = 'backend_url';
   static const String _defaultBaseUrl = 'https://mentall-api.onrender.com';
 
+  static String get defaultBaseUrl => _defaultBaseUrl;
+
   static String get baseUrl {
     final box = Hive.box<String>('app_config');
     return box.get(_baseUrlKey, defaultValue: _defaultBaseUrl) as String;

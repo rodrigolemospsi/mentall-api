@@ -9,6 +9,9 @@ Future<Compromisso?> mostrarCompromissoFormDialog({
   String termoPessoa = 'Pessoa atendida',
   DateTime? dataSugerida,
   Compromisso? compromissoExistente,
+  int duracaoPadraoMinutos = 60,
+  bool lembretePadraoAtivado = false,
+  int antecedenciaPadraoMinutos = 1440,
 }) async {
   return showDialog<Compromisso>(
     context: context,
@@ -17,6 +20,9 @@ Future<Compromisso?> mostrarCompromissoFormDialog({
       termoPessoa: termoPessoa,
       dataSugerida: dataSugerida ?? DateTime.now(),
       compromissoExistente: compromissoExistente,
+      duracaoPadraoMinutos: duracaoPadraoMinutos,
+      lembretePadraoAtivado: lembretePadraoAtivado,
+      antecedenciaPadraoMinutos: antecedenciaPadraoMinutos,
     ),
   );
 }
@@ -26,12 +32,18 @@ class _CompromissoFormDialog extends StatefulWidget {
   final String termoPessoa;
   final DateTime dataSugerida;
   final Compromisso? compromissoExistente;
+  final int duracaoPadraoMinutos;
+  final bool lembretePadraoAtivado;
+  final int antecedenciaPadraoMinutos;
 
   const _CompromissoFormDialog({
     required this.pacientes,
     required this.termoPessoa,
     required this.dataSugerida,
     this.compromissoExistente,
+    this.duracaoPadraoMinutos = 60,
+    this.lembretePadraoAtivado = false,
+    this.antecedenciaPadraoMinutos = 1440,
   });
 
   @override
@@ -85,14 +97,23 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
       );
       final agora = TimeOfDay.now();
       _horaInicio = TimeOfDay(hour: agora.hour, minute: 0);
-      _horaFim = TimeOfDay(hour: agora.hour + 1, minute: 0);
+      _horaFim = _calcularHoraFim(_horaInicio);
       _tituloController = TextEditingController();
       _observacoesController = TextEditingController();
       _mensagemLembreteController = TextEditingController();
-      _lembreteAtivado = false;
-      _minutosAntecedencia = 1440;
+      _lembreteAtivado = widget.lembretePadraoAtivado;
+      _minutosAntecedencia = widget.antecedenciaPadraoMinutos;
       _pacienteSelecionado = widget.pacientes.first;
     }
+  }
+
+  TimeOfDay _calcularHoraFim(TimeOfDay inicio) {
+    final totalMinutos =
+        inicio.hour * 60 + inicio.minute + widget.duracaoPadraoMinutos;
+    return TimeOfDay(
+      hour: (totalMinutos ~/ 60) % 24,
+      minute: totalMinutos % 60,
+    );
   }
 
   @override
@@ -123,11 +144,18 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
     if (escolhida != null) {
       setState(() {
         _horaInicio = escolhida;
-        _horaFim = TimeOfDay(
-          hour: escolhida.hour,
-          minute: escolhida.minute,
-        ).replacing(hour: escolhida.hour + 1);
+        _horaFim = _calcularHoraFim(escolhida);
       });
+    }
+  }
+
+  Future<void> _selecionarHoraFim() async {
+    final escolhida = await showTimePicker(
+      context: context,
+      initialTime: _horaFim,
+    );
+    if (escolhida != null) {
+      setState(() => _horaFim = escolhida);
     }
   }
 
@@ -252,13 +280,17 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Término',
-                        prefixIcon: Icon(Icons.access_time),
-                        border: OutlineInputBorder(),
+                    child: InkWell(
+                      onTap: _selecionarHoraFim,
+                      borderRadius: BorderRadius.circular(12),
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Término',
+                          prefixIcon: Icon(Icons.access_time),
+                          border: OutlineInputBorder(),
+                        ),
+                        child: Text(_horaFim.format(context)),
                       ),
-                      child: Text(_horaFim.format(context)),
                     ),
                   ),
                 ],

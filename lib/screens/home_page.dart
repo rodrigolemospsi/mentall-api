@@ -6,11 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/service_providers.dart';
 import '../models/paciente.dart';
 import '../services/logger.dart';
-import '../widgets/agenda_inline_widget.dart';
+import '../widgets/compromisso_form_dialog.dart';
 import '../widgets/estado_vazio_pacientes.dart';
+import '../widgets/home_dashboard.dart';
 import '../widgets/novo_paciente_dialog.dart';
 import '../widgets/paciente_card_home.dart';
 import 'backup_restore_page.dart';
+import 'configuracoes_page.dart';
 import 'lgpd/privacidade_seguranca_page.dart';
 import 'agenda_page.dart';
 import 'paciente_detail_page.dart';
@@ -180,7 +182,56 @@ class _HomePageState extends ConsumerState<HomePage> {
       cadastradoOuCadastrada: _cadastradoOuCadastrada,
       doOuDa: _doOuDa,
       opcoesModoAtendimento: perfil?.opcoesModoAtendimento ?? const [],
+      auditoriaService: ref.read(auditoriaServiceProvider),
     );
+  }
+
+  Future<void> _novoCompromissoRapido() async {
+    final pacientes =
+        ref.read(pacienteServiceProvider).listarPacientesAtivos();
+    if (pacientes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content:
+              Text('Cadastre $_termoPlural primeiro para agendar sessões.'),
+        ),
+      );
+      return;
+    }
+
+    final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
+    final config = ref.read(configuracoesServiceProvider);
+    final compromisso = await mostrarCompromissoFormDialog(
+      context: context,
+      pacientes: pacientes,
+      termoPessoa: perfil?.termoSingularCapitalizado ?? 'Pessoa atendida',
+      duracaoPadraoMinutos: config.duracaoPadraoSessaoMinutos,
+      lembretePadraoAtivado: config.lembretePadraoAtivado,
+      antecedenciaPadraoMinutos: config.antecedenciaPadraoMinutos,
+    );
+
+    if (compromisso == null) return;
+    await ref.read(compromissoServiceProvider).adicionar(compromisso);
+
+    final paciente = ref
+        .read(pacienteServiceProvider)
+        .buscarPacientePorId(compromisso.pacienteId);
+    await ref.read(auditoriaServiceProvider).registrar(
+          tipoEvento: 'Sessão agendada',
+          descricao: paciente?.nome ?? 'Compromisso criado',
+          pacienteId: compromisso.pacienteId,
+        );
+
+    if (compromisso.lembreteAtivado &&
+        compromisso.isAgendado &&
+        paciente != null) {
+      await ref.read(lembreteServiceProvider).agendarLembrete(
+            compromisso: compromisso,
+            nomePaciente: paciente.nome,
+            nomeProfissional: perfil?.nome ?? 'Profissional',
+            telefonePaciente: paciente.contato,
+          );
+    }
   }
 
   Future<void> _confirmarArquivamentoPaciente(Paciente paciente) async {
@@ -347,6 +398,14 @@ class _HomePageState extends ConsumerState<HomePage> {
                   case 'perfil':
                     _abrirPerfil();
                     break;
+                  case 'configuracoes':
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ConfiguracoesPage(),
+                      ),
+                    );
+                    break;
                   case 'backup':
                     Navigator.push(
                       context,
@@ -373,6 +432,16 @@ class _HomePageState extends ConsumerState<HomePage> {
                       Icon(Icons.person_outline, size: 20),
                       SizedBox(width: 10),
                       Text('Perfil profissional'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'configuracoes',
+                  child: Row(
+                    children: [
+                      Icon(Icons.settings_outlined, size: 20),
+                      SizedBox(width: 10),
+                      Text('Configurações'),
                     ],
                   ),
                 ),
@@ -405,12 +474,52 @@ class _HomePageState extends ConsumerState<HomePage> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                child: _saudacaoCabecalho(nomeProf),
+                child: SaudacaoResumoHome(
+                  saudacao: ref.watch(_saudacaoProvider),
+                  nomeProfissional: nomeProf,
+                ),
               ),
             ),
-            const SliverToBoxAdapter(child: SizedBox(height: 20)),
-            const SliverToBoxAdapter(child: AgendaInlineWidget()),
+            const SliverToBoxAdapter(child: SizedBox(height: 14)),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: AcoesRapidasHome(
+                  termoSingular: _termoSingular,
+                  termoFeminino: _termoFeminino,
+                  onAgendar: _novoCompromissoRapido,
+                  onNovoPaciente: _abrirDialogNovoPaciente,
+                  onAbrirAgenda: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AgendaPage()),
+                    );
+                  },
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 14)),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: KpiCardsHome(termoPlural: _termoPlural),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 14)),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: SessoesHojeCard(onAgendar: _novoCompromissoRapido),
+              ),
+            ),
             SliverToBoxAdapter(child: _indicadorPendencias()),
+            const SliverToBoxAdapter(child: SizedBox(height: 14)),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: const AtividadeRecenteCard(),
+              ),
+            ),
             SliverToBoxAdapter(child: const SizedBox(height: 8)),
             SliverToBoxAdapter(
               child: Padding(
@@ -489,22 +598,6 @@ class _HomePageState extends ConsumerState<HomePage> {
           foregroundColor: Colors.white,
           icon: const Icon(Icons.add),
           label: Text('$_novoOuNova $_termoSingular'),
-        ),
-      ),
-    );
-  }
-
-  Widget _saudacaoCabecalho(String nomeProf) {
-    final saudacao = ref.watch(_saudacaoProvider);
-    final texto = nomeProf.isNotEmpty ? '$saudacao, $nomeProf!' : saudacao;
-    return Center(
-      child: Text(
-        texto,
-        style: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w500,
-          color: Color(0xFF1E293B),
-          height: 1.3,
         ),
       ),
     );

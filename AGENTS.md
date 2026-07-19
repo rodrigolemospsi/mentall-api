@@ -333,6 +333,51 @@ Chamadas à API (`TranscricaoRelatoService`, `IaClinicaService`) devem chamar `A
 - 86 testes passando; `tearDownAll` do `sessao_form_page_test` às vezes trava no `deleteBoxFromDisk` (flake de file-lock no Windows, não é falha de teste)
 - APK release 65,6MB testado no aparelho: agenda 3 modos, contadores, backup export/import, referências persistindo — tudo OK
 
+## Correções e Funcionalidades (18/07/2026) — SESSÃO 2
+
+### Fix crítico: PIN não salvava (late final box não inicializada)
+- Causa raiz: `EncryptionService._box` e `AuthService._box` eram `late final` inicializadas apenas em `inicializar()`, método removido do `main()` na otimização de 09/07. Toda operação de PIN (configurar, trocar, remover, desbloquear) lançava `LateInitializationError` silencioso.
+- Correção: boxes acessadas via `Hive.box<T>('nome')` diretamente (já abertas no `main()`), sem precisar de `inicializar()`.
+- `autenticarBackend()` ganhou timeout de 15s no `http.post` — antes sem timeout, travava minutos no cold start do Render, bloqueando o salvamento do PIN.
+- `configurarPin`/`desbloquearComPin` disparam `_tentarAutenticarBackend()` em background (`unawaited`) — PIN salva/desbloqueia instantaneamente, sem esperar o backend.
+- `EncryptionService.trocarPin(pinAtual, novoPin)`: re-protege a chave AES mestra existente com o novo PIN (não gera chave nova, preserva dados já criptografados).
+- `AuthService.trocarPin(pinAtual, novoPin)`: delegate para o EncryptionService + flag `_desbloqueado`.
+- Feedback visível: snackbar de confirmação/erro nos diálogos de configurar e trocar PIN em ambas as telas (Configurações e Privacidade).
+- Switch de PIN atualiza na hora (StateProvider `_pinRevisaoProvider`).
+
+### Nova tela: Configurações (menu "Mais" da Home)
+- **Segurança**: ativar/remover PIN, trocar PIN, bloquear agora (mesmas funcionalidades da Privacidade, com UI de confirmação melhorada)
+- **Agenda e lembretes**: duração padrão da sessão (30–120 min), lembrete SMS ligado por padrão, antecedência padrão (30 min – 48h)
+- **IA**: toggle "Sugerir artigos científicos" — ao desligar, `sessao_form_page.dart` zera `artigosSugeridos` após a síntese
+- **Avançado**: URL do servidor com "Restaurar padrão" (UI que havia sido removida da Home voltou centralizada)
+- `ConfiguracoesService` (Hive `app_config`) + `configuracoesServiceProvider` + `configuracoesRevisaoProvider`
+- `CompromissoFormDialog` ganhou parâmetros opcionais (`duracaoPadraoMinutos`, `lembretePadraoAtivado`, `antecedenciaPadraoMinutos`); horário de **término** agora é editável (antes fixo início+1h)
+- Callers (AgendaPage, agenda inline) passam os padrões do `ConfiguracoesService`
+
+### Redesign da Home (inspiração PsiLuz)
+- Novo widget `lib/widgets/home_dashboard.dart` com 5 seções:
+  1. **SaudaçãoResumoHome**: "Boa tarde, Dr. Fulano!" + "Você tem N sessões hoje"
+  2. **AcoesRapidasHome**: 3 botões tons-de-azul (Agendar, Novo paciente, Agenda)
+  3. **KpiCardsHome**: 2×2 cards (Sessões hoje, Pacientes ativos, Sessões 30d, Revisões pendentes)
+  4. **SessoesHojeCard**: lista de compromissos do dia com avatar, nome, horário e chip de status; link "Ver todas" → AgendaPage; toque edita
+  5. **AtividadeRecenteCard**: últimos 5 registros de auditoria com ícone por tipo, descrição e tempo relativo ("agora", "5min atrás", "ontem")
+- `AgendaInlineWidget` removido do body da Home (agenda completa na tela dedicada)
+- FAB mantido (botão "+ Novo paciente" não conflita com ações rápidas)
+
+### Auditoria alimentando o feed de atividade
+- `AuditoriaService.observar()` (stream de `BoxEvent`)
+- Novos providers: `atividadeRecenteProvider`, `dashboardKpisSessoesProvider`
+- Novos registros de auditoria:
+  - Paciente cadastrado (`novo_paciente_dialog.dart` — parâmetro opcional `auditoriaService`)
+  - Compromisso agendado (`agenda_page.dart`, `agenda_inline_widget.dart`, `home_page.dart._novoCompromissoRapido`)
+  - Sessão registrada (`sessao_form_page.dart._salvarSessao`)
+
+### Notas
+- 86 testes passando + 7 novos (ConfiguracoesService, trocarPin) = 93 total
+- `sessao_form_page_test.dart` tearDownAll: flake de file-lock no Windows (conhecido, não é falha)
+- `home_page_test.dart` atualizado para o novo layout (KPI, scroll, boxes de auditoria)
+- APK release 65,7MB
+
 ## Cores do App
 ```
 Primary:         #2563EB   Azul principal (AppBar, FAB, títulos, ações)
@@ -411,7 +456,7 @@ curl -X POST https://mentall-api.onrender.com/auth/login \
 ```
 
 ## Observações
-- Projeto acadêmico (TCC), não pronto para venda
+- **Produto comercial**: app destinado a publicação nas lojas (Google Play / App Store) — NÃO é projeto acadêmico; o nome da pasta `prontuario_tcc` é legado (TCC = Terapia Cognitivo-Comportamental, abordagem inicial do app)
 - Diferencial: `ConfiguracaoAbordagemClinica` adapta o prontuário à abordagem do profissional
 - Síntese clínica: OpenAI GPT-4.1 com response_format json_object + temperature 0.3
 - Transcrição: OpenAI gpt-4o-mini-transcribe

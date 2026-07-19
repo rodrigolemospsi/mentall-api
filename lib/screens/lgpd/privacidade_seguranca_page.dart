@@ -7,12 +7,15 @@ import '../login_page.dart';
 import 'politica_privacidade_page.dart';
 import 'termos_uso_page.dart';
 
+final _pinRevisaoProvider = StateProvider<int>((ref) => 0);
+
 class PrivacidadeSegurancaPage extends ConsumerWidget {
   const PrivacidadeSegurancaPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     const Color corPrincipal = Color(0xFF2563EB);
+    ref.watch(_pinRevisaoProvider);
     final authService = ref.read(authServiceProvider);
 
     return Scaffold(
@@ -56,9 +59,9 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
                 activeThumbColor: corPrincipal,
                 onChanged: (value) {
                   if (value) {
-                    _mostrarDialogConfigurarPin(context);
+                    _mostrarDialogConfigurarPin(context, ref);
                   } else {
-                    _mostrarDialogRemoverPin(context, authService);
+                    _mostrarDialogRemoverPin(context, ref, authService);
                   }
                 },
               ),
@@ -219,7 +222,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
     );
   }
 
-  void _mostrarDialogConfigurarPin(BuildContext context) {
+  void _mostrarDialogConfigurarPin(BuildContext context, WidgetRef ref) {
     final pinController = TextEditingController();
     showDialog(
       context: context,
@@ -229,6 +232,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
           controller: pinController,
           obscureText: true,
           maxLength: 16,
+          keyboardType: TextInputType.number,
           decoration: const InputDecoration(
             labelText: 'Novo PIN (mínimo 4 caracteres)',
             border: OutlineInputBorder(),
@@ -236,30 +240,51 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () {
-              pinController.dispose();
-              Navigator.pop(ctx);
-            },
+            onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancelar'),
           ),
           FilledButton(
             onPressed: () async {
               final pin = pinController.text.trim();
-              if (pin.length < 4) return;
-              final container = ProviderScope.containerOf(context);
-              final authService = container.read(authServiceProvider);
-              await authService.configurarPin(pin);
-              pinController.dispose();
-              if (ctx.mounted) Navigator.pop(ctx);
+              if (pin.length < 4) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('O PIN deve ter no mínimo 4 caracteres.'),
+                  ),
+                );
+                return;
+              }
+              try {
+                await ref.read(authServiceProvider).configurarPin(pin);
+                ref.read(_pinRevisaoProvider.notifier).update((v) => v + 1);
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('PIN configurado com sucesso.'),
+                  ),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Não foi possível configurar o PIN: $e'),
+                  ),
+                );
+              }
             },
             child: const Text('Salvar'),
           ),
         ],
       ),
-    );
+    ).then((_) => pinController.dispose());
   }
 
-  void _mostrarDialogRemoverPin(BuildContext context, dynamic authService) {
+  void _mostrarDialogRemoverPin(
+    BuildContext context,
+    WidgetRef ref,
+    dynamic authService,
+  ) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -276,6 +301,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
           FilledButton(
             onPressed: () async {
               await authService.removerPin();
+              ref.read(_pinRevisaoProvider.notifier).update((v) => v + 1);
               if (ctx.mounted) Navigator.pop(ctx);
             },
             child: const Text('Remover PIN'),

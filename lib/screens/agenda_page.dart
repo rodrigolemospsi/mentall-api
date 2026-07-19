@@ -119,15 +119,29 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
 
     final data = dataSugerida ?? ref.read(_dataSelecionadaProvider);
     final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
+    final config = ref.read(configuracoesServiceProvider);
     final compromisso = await mostrarCompromissoFormDialog(
       context: context,
       pacientes: pacientes,
       termoPessoa: perfil?.termoSingularCapitalizado ?? 'Pessoa atendida',
       dataSugerida: data,
+      duracaoPadraoMinutos: config.duracaoPadraoSessaoMinutos,
+      lembretePadraoAtivado: config.lembretePadraoAtivado,
+      antecedenciaPadraoMinutos: config.antecedenciaPadraoMinutos,
     );
 
     if (compromisso == null) return;
     await service.adicionar(compromisso);
+    final pacienteAgendado = pacientes
+        .where((p) => p.id == compromisso.pacienteId)
+        .toList();
+    await ref.read(auditoriaServiceProvider).registrar(
+          tipoEvento: 'Sessão agendada',
+          descricao: pacienteAgendado.isNotEmpty
+              ? pacienteAgendado.first.nome
+              : 'Compromisso criado',
+          pacienteId: compromisso.pacienteId,
+        );
     await _agendarLembrete(ref, compromisso);
   }
 

@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../models/paciente.dart';
 import '../services/logger.dart';
 import '../services/paciente_service.dart';
+import '../services/lgpd/auditoria_service.dart';
 
 Future<void> mostrarDialogNovoPaciente({
   required BuildContext context,
@@ -16,6 +17,7 @@ Future<void> mostrarDialogNovoPaciente({
   required String cadastradoOuCadastrada,
   required String doOuDa,
   List<String> opcoesModoAtendimento = const [],
+  AuditoriaService? auditoriaService,
 }) async {
   final nomeController = TextEditingController();
   final contatoController = TextEditingController();
@@ -259,6 +261,12 @@ Future<void> mostrarDialogNovoPaciente({
                               fotoBase64: fotoBase64 ?? '',
                             );
                             await pacienteService.adicionarPaciente(paciente);
+                            await auditoriaService?.registrar(
+                              tipoEvento:
+                                  '$termoSingularCapitalizado $cadastradoOuCadastrada',
+                              descricao: nome,
+                              pacienteId: paciente.id,
+                            );
                             if (!context.mounted) return;
                             if (dialogContext.mounted) {
                               Navigator.of(dialogContext).pop();

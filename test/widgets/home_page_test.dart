@@ -5,6 +5,7 @@ import 'package:hive_ce/hive.dart';
 
 import 'package:prontuario_tcc/hive_registrar.g.dart';
 import 'package:prontuario_tcc/models/compromisso.dart';
+import 'package:prontuario_tcc/models/lgpd/registro_auditoria.dart';
 import 'package:prontuario_tcc/models/paciente.dart';
 import 'package:prontuario_tcc/models/perfil_profissional.dart';
 import 'package:prontuario_tcc/models/sessao.dart';
@@ -19,6 +20,10 @@ void main() {
     await Hive.openBox<Sessao>('sessoes');
     await Hive.openBox<PerfilProfissional>('perfil_profissional');
     await Hive.openBox<Compromisso>('compromissos');
+    await Hive.openBox<String>('auth_meta');
+    await Hive.openBox<String>('app_config');
+    await Hive.openBox<String>('encryption_meta');
+    await Hive.openBox<RegistroAuditoria>('auditoria');
   });
 
   tearDownAll(() async {
@@ -26,10 +31,15 @@ void main() {
     await Hive.box<Sessao>('sessoes').close();
     await Hive.box<PerfilProfissional>('perfil_profissional').close();
     await Hive.box<Compromisso>('compromissos').close();
+    await Hive.box<RegistroAuditoria>('auditoria').close();
     await Hive.deleteBoxFromDisk('pacientes');
     await Hive.deleteBoxFromDisk('sessoes');
     await Hive.deleteBoxFromDisk('perfil_profissional');
     await Hive.deleteBoxFromDisk('compromissos');
+    await Hive.deleteBoxFromDisk('encryption_meta');
+    await Hive.deleteBoxFromDisk('auth_meta');
+    await Hive.deleteBoxFromDisk('app_config');
+    await Hive.deleteBoxFromDisk('auditoria');
   });
 
   setUp(() async {
@@ -82,8 +92,9 @@ void main() {
 
     await tester.pumpWidget(criarApp([]));
     await tester.pump();
+    await tester.pump();
 
-    expect(find.byIcon(Icons.psychology_alt_outlined), findsOneWidget);
+    expect(find.text('Hoje'), findsOneWidget);
   });
 
   testWidgets('deve listar pacientes quando existem', (tester) async {
@@ -98,6 +109,14 @@ void main() {
     ];
 
     await tester.pumpWidget(criarApp(pacientes));
+    await tester.pump();
+    await tester.pump();
+
+    await tester.drag(
+      find.byType(CustomScrollView),
+      const Offset(0, -800),
+    );
+    await tester.pump();
     await tester.pump();
 
     expect(find.text('Maria Silva'), findsOneWidget);
@@ -128,8 +147,16 @@ void main() {
 
     await tester.pumpWidget(criarApp(pacientes));
     await tester.pump();
+    await tester.pump();
 
-    expect(find.textContaining('pendente'), findsOneWidget);
+    await tester.drag(
+      find.byType(CustomScrollView),
+      const Offset(0, -800),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.textContaining('pendente'), findsWidgets);
     addTearDown(() {
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();
