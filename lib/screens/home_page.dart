@@ -450,6 +450,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         ],
       ),
       body: CustomScrollView(
+        physics: const ClampingScrollPhysics(),
         slivers: [
           SliverToBoxAdapter(
             child: Padding(
@@ -541,13 +542,6 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _abrirDialogNovoPaciente,
-        backgroundColor: _azul,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: Text('$_novoOuNova $_termoSingular'),
       ),
     );
   }
