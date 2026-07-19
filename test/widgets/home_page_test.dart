@@ -97,32 +97,6 @@ void main() {
     expect(find.text('Hoje'), findsOneWidget);
   });
 
-  testWidgets('deve listar pacientes quando existem', (tester) async {
-    await tester.runAsync(() async {
-      await Hive.box<PerfilProfissional>('perfil_profissional')
-          .put('1', PerfilProfissional(id: '1', nome: 'Dr. Teste'));
-    });
-
-    final pacientes = [
-      Paciente(id: '1', nome: 'Maria Silva'),
-      Paciente(id: '2', nome: 'João Santos'),
-    ];
-
-    await tester.pumpWidget(criarApp(pacientes));
-    await tester.pump();
-    await tester.pump();
-
-    await tester.drag(
-      find.byType(CustomScrollView),
-      const Offset(0, -800),
-    );
-    await tester.pump();
-    await tester.pump();
-
-    expect(find.text('Maria Silva'), findsOneWidget);
-    expect(find.text('João Santos'), findsOneWidget);
-  });
-
   testWidgets('deve mostrar indicador de sessoes pendentes', (tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 1.0;

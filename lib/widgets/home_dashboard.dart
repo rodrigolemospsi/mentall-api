@@ -8,6 +8,7 @@ import '../models/enums.dart';
 import '../models/lgpd/registro_auditoria.dart';
 import '../providers/service_providers.dart';
 import '../screens/agenda_page.dart';
+import '../screens/paciente_detail_page.dart';
 import 'compromisso_form_dialog.dart';
 
 const Color _azul = Color(0xFF2563EB);
@@ -103,8 +104,8 @@ class AcoesRapidasHome extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: _AcaoRapida(
-            icone: Icons.calendar_month_outlined,
-            label: 'Agenda',
+            icone: Icons.note_add_outlined,
+            label: 'Nova sessão',
             onTap: onAbrirAgenda,
           ),
         ),
@@ -163,8 +164,19 @@ class _AcaoRapida extends StatelessWidget {
 
 class KpiCardsHome extends ConsumerWidget {
   final String termoPlural;
+  final VoidCallback onHojeTap;
+  final VoidCallback onPacientesTap;
+  final VoidCallback onSessoesTap;
+  final VoidCallback onRevisoesTap;
 
-  const KpiCardsHome({super.key, required this.termoPlural});
+  const KpiCardsHome({
+    super.key,
+    required this.termoPlural,
+    required this.onHojeTap,
+    required this.onPacientesTap,
+    required this.onSessoesTap,
+    required this.onRevisoesTap,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -191,6 +203,7 @@ class KpiCardsHome extends ConsumerWidget {
                 subtitulo: hoje == 1 ? 'sessão agendada' : 'sessões agendadas',
                 icone: Icons.today_outlined,
                 cor: _azul,
+                onTap: onHojeTap,
               ),
             ),
             const SizedBox(width: 10),
@@ -201,6 +214,7 @@ class KpiCardsHome extends ConsumerWidget {
                 subtitulo: 'em acompanhamento',
                 icone: Icons.people_outline,
                 cor: const Color(0xFF2E7D32),
+                onTap: onPacientesTap,
               ),
             ),
           ],
@@ -208,13 +222,14 @@ class KpiCardsHome extends ConsumerWidget {
         const SizedBox(height: 10),
         Row(
           children: [
-            Expanded(
+              Expanded(
               child: _KpiCard(
                 valor: '${kpis?.sessoesUltimos30Dias ?? 0}',
                 titulo: 'Sessões',
                 subtitulo: 'últimos 30 dias',
                 icone: Icons.description_outlined,
                 cor: const Color(0xFF7C3AED),
+                onTap: onSessoesTap,
               ),
             ),
             const SizedBox(width: 10),
@@ -225,6 +240,7 @@ class KpiCardsHome extends ConsumerWidget {
                 subtitulo: 'pendentes',
                 icone: Icons.rate_review_outlined,
                 cor: const Color(0xFFE65100),
+                onTap: onRevisoesTap,
               ),
             ),
           ],
@@ -240,6 +256,7 @@ class _KpiCard extends StatelessWidget {
   final String subtitulo;
   final IconData icone;
   final Color cor;
+  final VoidCallback onTap;
 
   const _KpiCard({
     required this.valor,
@@ -247,55 +264,63 @@ class _KpiCard extends StatelessWidget {
     required this.subtitulo,
     required this.icone,
     required this.cor,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _divider),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _divider),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  titulo,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: _muted,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      titulo,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _muted,
+                      ),
+                    ),
                   ),
+                  Icon(icone, size: 18, color: cor),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                valor,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: cor,
+                  height: 1,
                 ),
               ),
-              Icon(icone, size: 18, color: cor),
+              const SizedBox(height: 4),
+              Text(
+                subtitulo,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 11, color: _muted),
+              ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            valor,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              color: cor,
-              height: 1,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitulo,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 11, color: _muted),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -542,6 +567,7 @@ class AtividadeRecenteCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final registros = ref.watch(atividadeRecenteProvider).valueOrNull ?? [];
+    final pacService = ref.watch(pacienteServiceProvider);
 
     if (registros.isEmpty) return const SizedBox.shrink();
 
@@ -565,7 +591,25 @@ class AtividadeRecenteCard extends ConsumerWidget {
               ),
             ),
           ),
-          ...registros.map((r) => _AtividadeItem(registro: r)),
+          ...registros.map((r) {
+            final paciente =
+                pacService.buscarPacientePorId(r.pacienteId);
+            return _AtividadeItem(
+              registro: r,
+              nomePaciente: paciente?.nomeExibicao,
+              onTap: paciente != null
+                  ? () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              PacienteDetailPage(paciente: paciente),
+                        ),
+                      );
+                    }
+                  : null,
+            );
+          }),
           const SizedBox(height: 8),
         ],
       ),
@@ -575,8 +619,14 @@ class AtividadeRecenteCard extends ConsumerWidget {
 
 class _AtividadeItem extends StatelessWidget {
   final RegistroAuditoria registro;
+  final String? nomePaciente;
+  final VoidCallback? onTap;
 
-  const _AtividadeItem({required this.registro});
+  const _AtividadeItem({
+    required this.registro,
+    this.nomePaciente,
+    this.onTap,
+  });
 
   IconData get _icone {
     final tipo = registro.tipoEvento.toLowerCase();
@@ -609,7 +659,11 @@ class _AtividadeItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final titulo = nomePaciente != null && nomePaciente!.isNotEmpty
+        ? '$nomePaciente - ${registro.tipoEvento}'
+        : registro.tipoEvento;
+
+    final item = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Row(
         children: [
@@ -628,7 +682,7 @@ class _AtividadeItem extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  registro.tipoEvento,
+                  titulo,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -654,5 +708,17 @@ class _AtividadeItem extends StatelessWidget {
         ],
       ),
     );
+
+    if (onTap != null) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: item,
+        ),
+      );
+    }
+
+    return item;
   }
 }

@@ -378,6 +378,41 @@ Chamadas à API (`TranscricaoRelatoService`, `IaClinicaService`) devem chamar `A
 - `home_page_test.dart` atualizado para o novo layout (KPI, scroll, boxes de auditoria)
 - APK release 65,7MB
 
+## Correções e Funcionalidades (18/07/2026) — SESSÃO 2
+
+### Redesign da Home (inspiração PsiLuz)
+- Novo widget `lib/widgets/home_dashboard.dart` com 5 seções:
+  1. **SaudaçãoResumoHome**: "Boa tarde, Dr. Fulano!" + "Você tem N sessões hoje"
+  2. **AcoesRapidasHome**: 3 botões tons-de-azul (Agendar, Novo paciente, Nova sessão)
+  3. **KpiCardsHome**: 2×2 cards linkáveis (Hoje → Agenda, Pacientes → PacientesPage, Sessões → Agenda, Revisões → 1º paciente pendente)
+  4. **SessoesHojeCard**: lista de compromissos do dia com avatar, nome, horário e chip de status; link "Ver todas" → AgendaPage; toque edita
+  5. **AtividadeRecenteCard**: últimos 5 registros de auditoria com nome do paciente + link para ficha; "Rodrigo - Síntese gerada por IA"
+- `AgendaInlineWidget` removido do body da Home
+- Botão "Nova sessão": abre picker de paciente (se 1 paciente, vai direto) → `SessaoFormPage`
+
+### Pacientes em página dedicada
+- Nova `lib/screens/pacientes_page.dart` com abas Ativos/Arquivados (com contadores) e ações de arquivar/restaurar
+- KPI "Pacientes (N)" na Home → navega para `PacientesPage`
+- Home simplificada: removido `DefaultTabController` + `TabBar` + `TabBarView` + `_ListaPacientes`; só dashboard + FAB
+- `NestedScrollView` + `ClampingScrollPhysics` (resolvido overscroll cinza + scroll "preso" nos pacientes)
+
+### Fix: botões de ação da Agenda
+- `_CompromissoCard`: `InkWell` de edição movido para área superior; botões de ação (`TextButton` Realizado, Faltou, Cancelar, Remover, Reagendar) fora do `InkWell` — não são mais interceptados
+- `CompromissoService.marcarComoRealizado/Cancelado/Faltou/remover`: try-catch no `cancelarLembrete` para não bloquear a operação se notificação falhar
+
+### UI
+- Login: apenas `logo_mentall.png` (removido ícone circular duplicado); campo PIN com `keyboardType: TextInputType.number`
+- FAB removido da Home (ações rápidas no topo substituem)
+
+### Testes
+- `home_page_test.dart`: removido teste "deve listar pacientes quando existem" (lista migrou para PacientesPage)
+- 4/4 testes da Home passando
+
+### Notas
+- 93 testes passando; 4 warnings cosméticos de métodos não usados na Home (arquivar/restaurar herdados da versão antiga)
+- `sessao_form_page_test.dart` tearDownAll: flake conhecido
+- APK release 65,7MB
+
 ## Cores do App
 ```
 Primary:         #2563EB   Azul principal (AppBar, FAB, títulos, ações)

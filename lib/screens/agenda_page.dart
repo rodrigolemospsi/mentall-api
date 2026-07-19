@@ -809,175 +809,183 @@ class _CompromissoCard extends StatelessWidget {
           width: compromisso.isAgendado ? 1.5 : 0,
         ),
       ),
-      child: InkWell(
-        onTap: onEditar,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            InkWell(
+              onTap: onEditar,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        const Icon(Icons.access_time, size: 16, color: Color(0xFF475569)),
-                        const SizedBox(width: 6),
-                        Text(
-                          '${compromisso.horarioInicioFormatado} - ${compromisso.horarioFimFormatado}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF1E293B),
-                            fontSize: 14,
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
                           ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.access_time, size: 16, color: Color(0xFF475569)),
+                              const SizedBox(width: 6),
+                              Text(
+                                '${compromisso.horarioInicioFormatado} - ${compromisso.horarioFimFormatado}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF1E293B),
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          compromisso.duracaoFormatada,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                        const Spacer(),
+                        if (compromisso.lembreteAtivado && compromisso.isAgendado)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Icon(
+                              Icons.notifications_active_rounded,
+                              size: 18,
+                              color: corStatus.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        _ChipStatus(
+                          label: _labelStatus(status),
+                          cor: corStatus,
+                          icone: _iconeStatus(status),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    compromisso.duracaoFormatada,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF64748B),
-                    ),
-                  ),
-                  const Spacer(),
-                  if (compromisso.lembreteAtivado && compromisso.isAgendado)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: Icon(
-                        Icons.notifications_active_rounded,
-                        size: 18,
-                        color: corStatus.withValues(alpha: 0.7),
-                      ),
-                    ),
-                  _ChipStatus(
-                    label: _labelStatus(status),
-                    cor: corStatus,
-                    icone: _iconeStatus(status),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: corStatus.withValues(alpha: 0.15),
-                    child: Text(
-                      nomePaciente.isNotEmpty
-                          ? nomePaciente[0].toUpperCase()
-                          : '?',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: corStatus,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(height: 12),
+                    Row(
                       children: [
-                        Text(
-                          nomePaciente,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
+                        CircleAvatar(
+                          radius: 18,
+                          backgroundColor: corStatus.withValues(alpha: 0.15),
+                          child: Text(
+                            nomePaciente.isNotEmpty
+                                ? nomePaciente[0].toUpperCase()
+                                : '?',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: corStatus,
+                            ),
                           ),
                         ),
-                        if (titulo != null)
-                          Text(
-                            titulo,
-                            style: TextStyle(
-                              fontSize: 13,
-                color: const Color(0xFF64748B),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                nomePaciente,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              if (titulo != null)
+                                Text(
+                                  titulo,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        if (onAbrirPaciente != null)
+                          IconButton(
+                            onPressed: onAbrirPaciente,
+                            icon: const Icon(Icons.person_outline, size: 20),
+                            tooltip: 'Ver ${paciente?.nome ?? 'pessoa'}',
+                            style: IconButton.styleFrom(
+                              foregroundColor: const Color(0xFF2563EB),
                             ),
                           ),
                       ],
                     ),
-                  ),
-                  if (onAbrirPaciente != null)
-                    IconButton(
-                      onPressed: onAbrirPaciente,
-                      icon: const Icon(Icons.person_outline, size: 20),
-                      tooltip: 'Ver ${paciente?.nome ?? 'pessoa'}',
-                      style: IconButton.styleFrom(
-                        foregroundColor: const Color(0xFF2563EB),
+                    if (compromisso.observacoes.trim().isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          compromisso.observacoes.trim(),
+                          style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
+                        ),
                       ),
-                    ),
-                ],
+                    ],
+                  ],
+                ),
               ),
-              if (compromisso.observacoes.trim().isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 4,
+              runSpacing: 4,
+              children: [
+                if (compromisso.isAgendado) ...[
+                  _AcaoPequena(
+                    icone: Icons.check,
+                    label: 'Realizado',
+                    cor: const Color(0xFF2E7D32),
+                    onPressed: onMarcarRealizado,
                   ),
-                  child: Text(
-                    compromisso.observacoes.trim(),
-                    style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
+                  _AcaoPequena(
+                    icone: Icons.person_off_outlined,
+                    label: 'Faltou',
+                    cor: const Color(0xFFC62828),
+                    onPressed: onMarcarFaltou,
                   ),
+                  _AcaoPequena(
+                    icone: Icons.cancel_outlined,
+                    label: 'Cancelar',
+                    cor: const Color(0xFF757575),
+                    onPressed: onMarcarCancelado,
+                  ),
+                ] else ...[
+                  _AcaoPequena(
+                    icone: Icons.restore_outlined,
+                    label: 'Reagendar',
+                    cor: const Color(0xFF1976D2),
+                    onPressed: onMarcarAgendado,
+                  ),
+                ],
+                _AcaoPequena(
+                  icone: Icons.delete_outline,
+                  label: 'Remover',
+                  cor: const Color(0xFFD32F2F),
+                  onPressed: onRemover,
                 ),
               ],
-              const SizedBox(height: 10),
-              Wrap(
-                alignment: WrapAlignment.end,
-                spacing: 4,
-                runSpacing: 4,
-                children: [
-                  if (compromisso.isAgendado) ...[
-                    _AcaoPequena(
-                      icone: Icons.check,
-                      label: 'Realizado',
-                      cor: const Color(0xFF2E7D32),
-                      onPressed: onMarcarRealizado,
-                    ),
-                    _AcaoPequena(
-                      icone: Icons.person_off_outlined,
-                      label: 'Faltou',
-                      cor: const Color(0xFFC62828),
-                      onPressed: onMarcarFaltou,
-                    ),
-                    _AcaoPequena(
-                      icone: Icons.cancel_outlined,
-                      label: 'Cancelar',
-                      cor: const Color(0xFF757575),
-                      onPressed: onMarcarCancelado,
-                    ),
-                  ] else ...[
-                    _AcaoPequena(
-                      icone: Icons.restore_outlined,
-                      label: 'Reagendar',
-                      cor: const Color(0xFF1976D2),
-                      onPressed: onMarcarAgendado,
-                    ),
-                  ],
-                  _AcaoPequena(
-                    icone: Icons.delete_outline,
-                    label: 'Remover',
-                    cor: const Color(0xFFD32F2F),
-                    onPressed: onRemover,
-                  ),
-                ],
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

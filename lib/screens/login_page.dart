@@ -111,23 +111,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: corPrincipal.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.health_and_safety_outlined,
-                    size: 64,
-                    color: corPrincipal,
-                  ),
-                ),
-                const SizedBox(height: 24),
                 Image.asset(
                   'assets/images/logo_mentall.png',
                   height: 144,
                 ),
+                const SizedBox(height: 24),
                 const SizedBox(height: 8),
                 Text(
                   configurandoPin

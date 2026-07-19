@@ -86,26 +86,34 @@ class CompromissoService {
   }
 
   Future<void> remover(Compromisso compromisso) async {
-    await _lembreteService.cancelarLembrete(compromisso.id);
+    try {
+      await _lembreteService.cancelarLembrete(compromisso.id);
+    } catch (_) {}
     await compromisso.delete();
   }
 
   Future<void> marcarComoRealizado(Compromisso compromisso) async {
-    await _lembreteService.cancelarLembrete(compromisso.id);
+    try {
+      await _lembreteService.cancelarLembrete(compromisso.id);
+    } catch (_) {}
     compromisso.statusEnum = StatusCompromisso.realizado;
     compromisso.dataAtualizacao = DateTime.now();
     await compromisso.save();
   }
 
   Future<void> marcarComoCancelado(Compromisso compromisso) async {
-    await _lembreteService.cancelarLembrete(compromisso.id);
+    try {
+      await _lembreteService.cancelarLembrete(compromisso.id);
+    } catch (_) {}
     compromisso.statusEnum = StatusCompromisso.cancelado;
     compromisso.dataAtualizacao = DateTime.now();
     await compromisso.save();
   }
 
   Future<void> marcarComoFaltou(Compromisso compromisso) async {
-    await _lembreteService.cancelarLembrete(compromisso.id);
+    try {
+      await _lembreteService.cancelarLembrete(compromisso.id);
+    } catch (_) {}
     compromisso.statusEnum = StatusCompromisso.faltou;
     compromisso.dataAtualizacao = DateTime.now();
     await compromisso.save();
