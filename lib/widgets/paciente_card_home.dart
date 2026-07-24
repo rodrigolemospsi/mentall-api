@@ -154,7 +154,7 @@ class _StatusPacienteChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color cor = ativo ? const Color(0xFF2E7D32) : context.corTextoMuted;
+    final Color cor = ativo ? context.corSuccess : context.corTextoMuted;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -184,19 +184,19 @@ class _PendenciasBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: const Color(0xFFE65100).withValues(alpha: 0.1),
+        color: context.corWarning.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.rate_review_outlined,
-              size: 11, color: Color(0xFFE65100)),
+          Icon(Icons.rate_review_outlined,
+              size: 11, color: context.corWarning),
           const SizedBox(width: 3),
           Text(
             '$pendentes',
-            style: const TextStyle(
-              color: Color(0xFFE65100),
+            style: TextStyle(
+              color: context.corWarning,
               fontSize: 11,
               fontWeight: FontWeight.w700,
             ),

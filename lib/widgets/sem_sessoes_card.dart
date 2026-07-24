@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../utils/mentall_colors.dart';
+
 class SemSessoesCard extends StatelessWidget {
   final String titulo;
   final String mensagem;
@@ -14,22 +16,20 @@ class SemSessoesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color corPrincipal = Color(0xFF2563EB);
-
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(22),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icone, size: 64, color: corPrincipal.withValues(alpha: 0.7)),
+            Icon(icone, size: 64, color: context.corPrimaria.withValues(alpha: 0.7)),
             const SizedBox(height: 12),
             Text(
               titulo,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF1E293B),
+                color: context.corTextoHeading,
               ),
               textAlign: TextAlign.center,
             ),
@@ -37,8 +37,8 @@ class SemSessoesCard extends StatelessWidget {
             Text(
               mensagem,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFF64748B),
+              style: TextStyle(
+                color: context.corTextoMuted,
                 height: 1.4,
               ),
             ),

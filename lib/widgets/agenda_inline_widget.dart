@@ -524,12 +524,12 @@ class _CompromissoMiniCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final status = compromisso.statusEnum;
     final cor = status == StatusCompromisso.agendado
-        ? context.corPrimaria
+        ? context.corScheduled
         : status == StatusCompromisso.realizado
-            ? const Color(0xFF2E7D32)
+            ? context.corSuccess
             : status == StatusCompromisso.cancelado
-                ? const Color(0xFF757575)
-                : const Color(0xFFC62828);
+                ? context.corCancelled
+                : context.corDanger;
 
     return GestureDetector(
       onTap: onTap,

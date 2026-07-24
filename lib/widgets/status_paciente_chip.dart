@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../utils/mentall_colors.dart';
+
 class StatusPacienteChip extends StatelessWidget {
   final bool ativo;
   final bool usaPessoaAtendida;
@@ -12,7 +14,7 @@ class StatusPacienteChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color cor = ativo ? const Color(0xFF2E7D32) : Colors.grey;
+    final Color cor = ativo ? context.corSuccess : context.corCancelled;
 
     final textoAtivo = usaPessoaAtendida ? 'Ativa' : 'Ativo';
     final textoInativo = usaPessoaAtendida ? 'Inativa' : 'Inativo';

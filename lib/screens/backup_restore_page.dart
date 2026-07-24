@@ -33,7 +33,7 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
       _mostrarSnackBar('Backup exportado com sucesso!', context.corSuccess);
     } catch (e) {
       if (!mounted) return;
-      _mostrarSnackBar('Erro ao exportar: $e', context.corError);
+      _mostrarSnackBar('Não foi possível exportar o backup. Tente novamente.', context.corError);
     } finally {
       if (mounted) ref.read(_exportandoProvider.notifier).state = false;
     }
@@ -53,7 +53,7 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
       _mostrarSnackBar(resultado, context.corSuccess);
     } catch (e) {
       if (!mounted) return;
-      _mostrarSnackBar('Erro ao importar: $e', context.corError);
+      _mostrarSnackBar('Não foi possível importar o backup. Verifique o arquivo.', context.corError);
     } finally {
       if (mounted) ref.read(_importandoProvider.notifier).state = false;
     }

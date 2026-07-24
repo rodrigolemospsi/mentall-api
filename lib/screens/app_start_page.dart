@@ -29,13 +29,13 @@ class _AppStartPageState extends ConsumerState<AppStartPage>
 
     _fadeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 500),
     );
     _fadeAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
       CurvedAnimation(parent: _fadeController, curve: Curves.easeIn),
     );
 
-    Timer(const Duration(seconds: 2), () {
+    Timer(const Duration(seconds: 3), () {
       _fadeController.forward().then((_) {
         if (mounted) {
           setState(() => _mostrarSplash = false);

@@ -872,16 +872,16 @@ class _CompromissoCard extends StatelessWidget {
     required this.onAbrirPaciente,
   });
 
-  Color _corStatus(StatusCompromisso status) {
+  Color _corStatus(StatusCompromisso status, BuildContext context) {
     switch (status) {
       case StatusCompromisso.agendado:
-        return const Color(0xFF1976D2);
+        return context.corScheduled;
       case StatusCompromisso.realizado:
-        return const Color(0xFF2E7D32);
+        return context.corSuccess;
       case StatusCompromisso.cancelado:
-        return const Color(0xFF757575);
+        return context.corCancelled;
       case StatusCompromisso.faltou:
-        return const Color(0xFFC62828);
+        return context.corDanger;
     }
   }
 
@@ -914,7 +914,7 @@ class _CompromissoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = compromisso.statusEnum;
-    final corStatus = _corStatus(status);
+    final corStatus = _corStatus(status, context);
     final nomePaciente = paciente?.nome ?? 'Pessoa não encontrada';
     final titulo = compromisso.titulo.trim().isNotEmpty
         ? compromisso.titulo.trim()
@@ -1086,28 +1086,28 @@ class _CompromissoCard extends StatelessWidget {
                 if (compromisso.isAgendado) ...[
                   _IconAcao(
                     icone: Icons.check_circle_outline,
-                    cor: const Color(0xFF2E7D32),
+                    cor: context.corSuccess,
                     tooltip: 'Realizado',
                     onPressed: onMarcarRealizado,
                   ),
                   const SizedBox(width: 4),
                   _IconAcao(
                     icone: Icons.person_off_outlined,
-                    cor: const Color(0xFFC62828),
+                    cor: context.corDanger,
                     tooltip: 'Faltou',
                     onPressed: onMarcarFaltou,
                   ),
                   const SizedBox(width: 4),
                   _IconAcao(
                     icone: Icons.cancel_outlined,
-                    cor: const Color(0xFF757575),
+                    cor: context.corCancelled,
                     tooltip: 'Cancelar',
                     onPressed: onMarcarCancelado,
                   ),
                 ] else ...[
                   _IconAcao(
                     icone: Icons.restore_outlined,
-                    cor: const Color(0xFF1976D2),
+                    cor: context.corScheduled,
                     tooltip: 'Reagendar',
                     onPressed: onMarcarAgendado,
                   ),

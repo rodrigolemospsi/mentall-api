@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../utils/mentall_colors.dart';
+
 class SessaoInfoChip extends StatelessWidget {
   final String texto;
   final String codigo;
@@ -14,36 +16,36 @@ class SessaoInfoChip extends StatelessWidget {
     this.discreto = false,
   });
 
-  Color _obterCor() {
+  Color _obterCor(BuildContext context) {
     if (discreto) {
-      return Colors.grey;
+      return context.corCancelled;
     }
 
     switch (codigo) {
       case 'vazia':
-        return Colors.grey;
+        return context.corCancelled;
       case 'relato_disponivel':
-        return Colors.blue;
+        return context.corScheduled;
       case 'transcricao_pendente':
-        return Colors.deepPurple;
+        return context.corPrimaria;
       case 'ia_pendente':
-        return Colors.orange;
+        return context.corWarning;
       case 'revisao_pendente':
-        return Colors.amber.shade800;
+        return context.corWarning;
       case 'concluida':
-        return Colors.green;
+        return context.corSuccess;
       case 'erro':
-        return Colors.red;
+        return context.corError;
       case 'acao_necessaria':
-        return Colors.deepOrange;
+        return context.corDanger;
       default:
-        return const Color(0xFF2563EB);
+        return context.corPrimaria;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final Color cor = _obterCor();
+    final Color cor = _obterCor(context);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),

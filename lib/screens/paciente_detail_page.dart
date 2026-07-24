@@ -748,9 +748,9 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
+      SnackBar(
         content: Row(children: [
-          SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+          SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Theme.of(context).colorScheme.onInverseSurface)),
           SizedBox(width: 12),
           Text('Criando contrato...'),
         ]),

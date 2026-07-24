@@ -147,9 +147,9 @@ class PacienteResumoCard extends StatelessWidget {
                         ? 'Aguardando aceite'
                         : 'Pendente',
                 corValor: contrato!.isAceito
-                    ? const Color(0xFF2E7D32)
+                    ? context.corSuccess
                     : contrato!.isEnviado
-                        ? const Color(0xFFE65100)
+                        ? context.corWarning
                         : null,
               ),
             ],

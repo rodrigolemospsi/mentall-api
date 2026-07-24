@@ -208,7 +208,7 @@ class KpiCardsHome extends ConsumerWidget {
                 titulo: termoCapitalizado,
                 subtitulo: 'em acompanhamento',
                 icone: Icons.people_outline,
-                cor: const Color(0xFF2E7D32),
+                cor: context.corSuccess,
                 onTap: onPacientesTap,
               ),
             ),
@@ -234,7 +234,7 @@ class KpiCardsHome extends ConsumerWidget {
                 titulo: 'Revisões',
                 subtitulo: 'pendentes',
                 icone: Icons.rate_review_outlined,
-                cor: const Color(0xFFE65100),
+                cor: context.corWarning,
                 onTap: onRevisoesTap,
               ),
             ),
@@ -461,16 +461,16 @@ class _SessaoHojeItem extends StatelessWidget {
     required this.onTap,
   });
 
-  Color get _corStatus {
+  Color _obterCorStatus(BuildContext context) {
     switch (compromisso.statusEnum) {
       case StatusCompromisso.agendado:
-        return const Color(0xFF1976D2);
+        return context.corScheduled;
       case StatusCompromisso.realizado:
-        return const Color(0xFF2E7D32);
+        return context.corSuccess;
       case StatusCompromisso.cancelado:
-        return const Color(0xFF757575);
+        return context.corCancelled;
       case StatusCompromisso.faltou:
-        return const Color(0xFFC62828);
+        return context.corDanger;
     }
   }
 
@@ -540,7 +540,7 @@ class _SessaoHojeItem extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: _corStatus.withValues(alpha: 0.12),
+                color: _obterCorStatus(context).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
@@ -548,7 +548,7 @@ class _SessaoHojeItem extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: _corStatus,
+                  color: _obterCorStatus(context),
                 ),
               ),
             ),
