@@ -272,12 +272,12 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                       decoration: BoxDecoration(
                         color: context.corPrimaria,
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+                        border: Border.all(color: context.corOnPrimaria, width: 2),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.edit,
                         size: 13,
-                        color: Colors.white,
+                        color: context.corOnPrimaria,
                       ),
                     ),
                   ),
@@ -696,17 +696,16 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
 
   Widget _botaoContrato() {
     final contrato = ref.watch(contratoPorPacienteProvider(widget.paciente.id)).valueOrNull;
-    final cs = Theme.of(context).colorScheme;
 
     if (contrato != null && contrato.isAceito) {
       return OutlinedButton.icon(
         onPressed: () => _verContrato(contrato),
-        icon: const Icon(Icons.check_circle_outline, color: Color(0xFF2E7D32), size: 20),
+        icon: Icon(Icons.check_circle_outline, color: context.corSuccess, size: 20),
         label: Text('Aceito em ${contrato.dataAceiteFormatada}',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF2E7D32))),
+            style: TextStyle(fontSize: 12, color: context.corSuccess)),
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-          side: const BorderSide(color: Color(0xFF2E7D32)),
+          side: BorderSide(color: context.corSuccess),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
@@ -715,12 +714,12 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
     if (contrato != null && contrato.isEnviado) {
       return OutlinedButton.icon(
         onPressed: () => _enviarContratoWhatsApp(contrato),
-        icon: const Icon(Icons.hourglass_empty, color: Color(0xFFE65100), size: 20),
-        label: const Text('Reenviar contrato',
-            style: TextStyle(fontSize: 12, color: Color(0xFFE65100))),
+        icon: Icon(Icons.hourglass_empty, color: context.corWarning, size: 20),
+        label: Text('Reenviar contrato',
+            style: TextStyle(fontSize: 12, color: context.corWarning)),
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-          side: const BorderSide(color: Color(0xFFE65100)),
+          side: BorderSide(color: context.corWarning),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
@@ -732,7 +731,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
       label: const Text('Contrato', style: TextStyle(fontSize: 12)),
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-        side: BorderSide(color: cs.primary),
+        side: BorderSide(color: context.corPrimaria),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
@@ -768,12 +767,12 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
     if (contrato == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Erro ao criar contrato. Verifique a conexão com o servidor.'),
-          backgroundColor: Color(0xFFD32F2F),
-        ),
-      );
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Erro ao criar contrato. Verifique a conexão com o servidor.'),
+            backgroundColor: context.corError,
+          ),
+        );
       return;
     }
 
@@ -816,12 +815,12 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
 
       ref.invalidate(contratoPorPacienteProvider(widget.paciente.id));
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Não foi possível abrir o WhatsApp.'),
-          backgroundColor: Color(0xFFD32F2F),
-        ),
-      );
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Não foi possível abrir o WhatsApp.'),
+            backgroundColor: context.corError,
+          ),
+        );
     }
   }
 

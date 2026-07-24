@@ -5,6 +5,7 @@ import '../models/paciente.dart';
 import '../providers/service_providers.dart';
 import '../services/logger.dart';
 import '../widgets/estado_vazio_pacientes.dart';
+import '../widgets/novo_paciente_dialog.dart';
 import '../widgets/paciente_card_home.dart';
 import 'paciente_detail_page.dart';
 
@@ -45,6 +46,7 @@ class _PacientesPageState extends ConsumerState<PacientesPage>
   String get _restauradoOuRestaurada =>
       _termoFeminino ? 'restaurada' : 'restaurado';
   String get _doOuDa => _termoFeminino ? 'da' : 'do';
+  String get _novoOuNova => _termoFeminino ? 'Nova' : 'Novo';
 
   @override
   void initState() {
@@ -56,6 +58,22 @@ class _PacientesPageState extends ConsumerState<PacientesPage>
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _abrirDialogNovoPaciente() async {
+    final pacienteService = ref.read(pacienteServiceProvider);
+    final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
+    await mostrarDialogNovoPaciente(
+      context: context,
+      pacienteService: pacienteService,
+      termoSingular: _termoSingular,
+      termoSingularCapitalizado: _termoSingularCapitalizado,
+      novoOuNova: _novoOuNova,
+      cadastradoOuCadastrada: _cadastradoOuCadastrada,
+      doOuDa: _doOuDa,
+      opcoesModoAtendimento: perfil?.opcoesModoAtendimento ?? const [],
+      auditoriaService: ref.read(auditoriaServiceProvider),
+    );
   }
 
   Future<void> _confirmarArquivamentoPaciente(Paciente paciente) async {
@@ -188,6 +206,13 @@ class _PacientesPageState extends ConsumerState<PacientesPage>
         backgroundColor: colors.surface,
         foregroundColor: colors.primary,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: '$_novoOuNova $_termoSingular',
+            onPressed: _abrirDialogNovoPaciente,
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(44),
           child: Padding(

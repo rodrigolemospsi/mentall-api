@@ -359,7 +359,7 @@ def _openai_client():
 
 
 def _chamar_llm_json(prompt: str) -> dict | None:
-    system = "Você é um assistente de pesquisa clínica em psicologia. Gere JSON válido sem markdown."
+    system = "Você é um assistente de pesquisa clínica em psicologia. IMPORTANTE: Responda APENAS com JSON puro e válido, sem markdown, sem texto antes ou depois das chaves. Nenhum outro formato é aceito."
     provider = _get_provider()
     try:
         if provider == "deepseek":
@@ -378,13 +378,12 @@ def _chamar_llm_json(prompt: str) -> dict | None:
                         {"role": "system", "content": system},
                         {"role": "user", "content": prompt},
                     ],
-                    "response_format": {"type": "json_object"},
                     "temperature": 0.1,
                 },
                 timeout=60,
             )
             if resp.status_code != 200:
-                log.warning("DeepSeek _chamar_llm_json retornou %d", resp.status_code)
+                log.warning("DeepSeek _chamar_llm_json retornou %d: %s", resp.status_code, resp.text[:300])
                 return None
             log.info("DeepSeek _chamar_llm_json concluido com sucesso")
             return json.loads(resp.json()["choices"][0]["message"]["content"])
@@ -583,6 +582,9 @@ def _gerar_sintese_deepseek(prompt: str) -> dict:
 
     model = _get_model_name()
 
+    if len(prompt) > 200000:
+        return {"sucesso": False, "erro": "Material clínico muito extenso para o provedor DeepSeek (limite ~64K tokens). Tente com OpenAI ou reduza o relato."}
+
     try:
         resp = requests.post(
             "https://api.deepseek.com/v1/chat/completions",
@@ -595,21 +597,20 @@ def _gerar_sintese_deepseek(prompt: str) -> dict:
                 "messages": [
                     {
                         "role": "system",
-                        "content": "Você é um assistente clínico especializado em psicologia. Gere JSON válido sem markdown.",
+                        "content": "Você é um assistente clínico especializado em psicologia. IMPORTANTE: Responda APENAS com JSON puro e válido, sem markdown, sem texto antes ou depois das chaves. Nenhum outro formato é aceito.",
                     },
                     {"role": "user", "content": prompt},
                 ],
-                "response_format": {"type": "json_object"},
                 "temperature": 0.3,
             },
             timeout=120,
         )
 
         if resp.status_code != 200:
-            log.error("DeepSeek sintese retornou %d: %s", resp.status_code, resp.text[:200])
+            log.error("DeepSeek sintese retornou %d: %s", resp.status_code, resp.text[:500])
             return {
                 "sucesso": False,
-                "erro": f"DeepSeek retornou {resp.status_code}: {resp.text[:200]}",
+                "erro": f"DeepSeek retornou {resp.status_code}: {resp.text[:500]}",
             }
 
         data = resp.json()
