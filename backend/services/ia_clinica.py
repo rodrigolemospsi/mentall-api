@@ -337,7 +337,7 @@ def _get_model_name() -> str:
     if provider == "openai":
         return os.getenv("IA_MODEL", "gpt-4.1")
     if provider == "deepseek":
-        return os.getenv("IA_MODEL", "deepseek-v4-flash")
+        return "deepseek-v4-flash"
     return os.getenv("IA_MODEL", "gemini-2.0-flash")
 
 
