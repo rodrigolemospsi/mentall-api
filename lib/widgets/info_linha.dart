@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../utils/mentall_colors.dart';
+
 class InfoLinha extends StatelessWidget {
   final IconData icone;
   final String titulo;
@@ -16,12 +18,10 @@ class InfoLinha extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color corPrincipal = Color(0xFF2563EB);
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icone, size: 20, color: corPrincipal),
+        Icon(icone, size: 20, color: context.corPrimaria),
         const SizedBox(width: 10),
         Text(
           '$titulo: ',
@@ -30,7 +30,7 @@ class InfoLinha extends StatelessWidget {
         Expanded(
           child: Text(
             valor,
-            style: TextStyle(color: corValor ?? Colors.black87),
+            style: TextStyle(color: corValor ?? context.corTextoBody),
           ),
         ),
       ],

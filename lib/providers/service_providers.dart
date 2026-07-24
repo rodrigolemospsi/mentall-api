@@ -117,7 +117,7 @@ final compromissosHojeProvider = StreamProvider<List<Compromisso>>((ref) async* 
   }
 });
 
-final compromissosPorDataProvider = StreamProvider.family<List<Compromisso>, DateTime>((ref, date) async* {
+final compromissosPorDataProvider = StreamProvider.autoDispose.family<List<Compromisso>, DateTime>((ref, date) async* {
   final service = ref.watch(compromissoServiceProvider);
   yield service.listarPorData(date);
   await for (final _ in service.observar()) {
@@ -170,7 +170,7 @@ final contratoServiceProvider = Provider<ContratoService>((ref) {
 });
 
 final contratoPorPacienteProvider =
-    StreamProvider.family<ContratoTerapeutico?, String>((ref, pacienteId) async* {
+    StreamProvider.autoDispose.family<ContratoTerapeutico?, String>((ref, pacienteId) async* {
   final service = ref.watch(contratoServiceProvider);
   yield service.obterPorPaciente(pacienteId);
   await for (final _ in service.observar()) {
