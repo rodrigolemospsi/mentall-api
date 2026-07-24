@@ -484,6 +484,7 @@ class AgendaInlineWidget extends ConsumerWidget {
       termoPessoa:
           ref.read(perfilProfissionalServiceProvider).obterPerfil()?.termoSingularCapitalizado ?? 'Pessoa atendida',
       compromissoExistente: compromisso,
+      compromissoService: service,
     );
 
     if (editado == null) return;
@@ -626,6 +627,7 @@ class _AddAgendaButton extends ConsumerWidget {
           duracaoPadraoMinutos: config.duracaoPadraoSessaoMinutos,
           lembretePadraoAtivado: config.lembretePadraoAtivado,
           antecedenciaPadraoMinutos: config.antecedenciaPadraoMinutos,
+          compromissoService: service,
         );
         if (compromisso == null) return;
         final gerados = await service.adicionarComRecorrencia(compromisso);

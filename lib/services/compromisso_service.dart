@@ -91,6 +91,19 @@ class CompromissoService {
     return match.isEmpty ? null : match.first;
   }
 
+  List<Compromisso> verificarConflitos(
+    DateTime inicio,
+    DateTime fim, {
+    String? ignorarId,
+  }) {
+    return _box.values.where((c) {
+      if (c.status == 'cancelado') return false;
+      if (ignorarId != null && c.id == ignorarId) return false;
+      return c.dataHoraInicio.isBefore(fim) &&
+          c.dataHoraFim.isAfter(inicio);
+    }).toList();
+  }
+
   Future<void> adicionar(Compromisso compromisso) async {
     await _box.add(compromisso);
   }

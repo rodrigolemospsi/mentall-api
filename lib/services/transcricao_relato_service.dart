@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -78,47 +79,100 @@ class TranscricaoRelatoService {
     }
 
     try {
+      final resultado = await _fazerRequisicaoComRetry(base64Limpo, formato);
+      return resultado;
+    } catch (erro) {
+      return ResultadoTranscricaoRelato.falha(
+        erro: 'Não foi possível transcrever o relato. Verifique sua conexão.',
+      );
+    }
+  }
+
+  Future<ResultadoTranscricaoRelato> _fazerRequisicaoComRetry(
+    String base64Limpo,
+    String formato,
+  ) async {
+    const maxTentativas = 3;
+    var tentativa = 0;
+
+    while (tentativa < maxTentativas) {
+      tentativa++;
       final autenticado = await ApiClient.ensureAuthenticated();
       if (!autenticado) {
+        if (tentativa < maxTentativas) {
+          await Future.delayed(Duration(seconds: tentativa * 2));
+          continue;
+        }
         return ResultadoTranscricaoRelato.falha(
-          erro: 'Não foi possível autenticar com o servidor. Verifique sua conexão.',
+          erro: 'Não foi possível autenticar com o servidor.',
         );
       }
 
-      final response = await http
-          .post(
-            Uri.parse('${ApiClient.baseUrl}/transcrever'),
-            headers: ApiClient.defaultHeaders(),
-            body: jsonEncode({
-              'audio_base64': base64Limpo,
-              'formato': formato,
-            }),
-          )
-          .timeout(ApiClient.timeout);
+      try {
+        final response = await http
+            .post(
+              Uri.parse('${ApiClient.baseUrl}/transcrever'),
+              headers: ApiClient.defaultHeaders(),
+              body: jsonEncode({
+                'audio_base64': base64Limpo,
+                'formato': formato,
+              }),
+            )
+            .timeout(ApiClient.timeout);
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final sucesso = data['sucesso'] as bool;
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          final sucesso = data['sucesso'] as bool;
 
-        if (sucesso) {
-          return ResultadoTranscricaoRelato.sucesso(
-            transcricao: data['transcricao'] as String,
-          );
-        } else {
-          return ResultadoTranscricaoRelato.falha(
-            erro: data['erro'] as String? ?? 'Erro do servidor.',
-          );
+          if (sucesso) {
+            return ResultadoTranscricaoRelato.sucesso(
+              transcricao: data['transcricao'] as String,
+            );
+          } else {
+            return ResultadoTranscricaoRelato.falha(
+              erro: data['erro'] as String? ?? 'Erro do servidor.',
+            );
+          }
         }
-      } else {
+
+        if (response.statusCode == 401) {
+          ApiClient.forceReauthenticate();
+          if (tentativa < maxTentativas) {
+            await Future.delayed(Duration(seconds: tentativa * 2));
+            continue;
+          }
+        }
+
+        if (response.statusCode >= 500 && tentativa < maxTentativas) {
+          await Future.delayed(Duration(seconds: tentativa * 3));
+          continue;
+        }
+
         return ResultadoTranscricaoRelato.falha(
           erro: 'Servidor retornou código ${response.statusCode}.',
         );
+      } on TimeoutException {
+        if (tentativa < maxTentativas) {
+          await Future.delayed(Duration(seconds: tentativa * 5));
+          continue;
+        }
+        return ResultadoTranscricaoRelato.falha(
+          erro: 'O servidor demorou muito para responder. Tente novamente.',
+        );
+      } on http.ClientException {
+        if (tentativa < maxTentativas) {
+          await Future.delayed(Duration(seconds: tentativa * 2));
+          continue;
+        }
+        return ResultadoTranscricaoRelato.falha(
+          erro: 'Erro de conexão. Verifique sua internet.',
+        );
       }
-    } catch (erro) {
-      return ResultadoTranscricaoRelato.falha(
-        erro: 'Não foi possível transcrever o relato. Detalhes: $erro',
-      );
     }
+
+    return ResultadoTranscricaoRelato.falha(
+      erro: 'Não foi possível transcrever o relato após várias tentativas.',
+    );
   }
 
   String _normalizarAudioBase64(String valor) {

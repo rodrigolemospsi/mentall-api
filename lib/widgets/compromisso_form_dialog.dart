@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/compromisso.dart';
 import '../models/enums.dart';
 import '../models/paciente.dart';
+import '../services/compromisso_service.dart';
 
 Future<Compromisso?> mostrarCompromissoFormDialog({
   required BuildContext context,
@@ -13,6 +14,7 @@ Future<Compromisso?> mostrarCompromissoFormDialog({
   int duracaoPadraoMinutos = 60,
   bool lembretePadraoAtivado = false,
   int antecedenciaPadraoMinutos = 1440,
+  required CompromissoService compromissoService,
 }) async {
   return showDialog<Compromisso>(
     context: context,
@@ -24,6 +26,7 @@ Future<Compromisso?> mostrarCompromissoFormDialog({
       duracaoPadraoMinutos: duracaoPadraoMinutos,
       lembretePadraoAtivado: lembretePadraoAtivado,
       antecedenciaPadraoMinutos: antecedenciaPadraoMinutos,
+      compromissoService: compromissoService,
     ),
   );
 }
@@ -36,6 +39,7 @@ class _CompromissoFormDialog extends StatefulWidget {
   final int duracaoPadraoMinutos;
   final bool lembretePadraoAtivado;
   final int antecedenciaPadraoMinutos;
+  final CompromissoService compromissoService;
 
   const _CompromissoFormDialog({
     required this.pacientes,
@@ -45,6 +49,7 @@ class _CompromissoFormDialog extends StatefulWidget {
     this.duracaoPadraoMinutos = 60,
     this.lembretePadraoAtivado = false,
     this.antecedenciaPadraoMinutos = 1440,
+    required this.compromissoService,
   });
 
   @override
@@ -199,6 +204,41 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
       return;
     }
 
+    final conflitos = widget.compromissoService.verificarConflitos(
+      dataHoraInicio,
+      dataHoraFim,
+      ignorarId: widget.compromissoExistente?.id,
+    );
+
+    if (conflitos.isNotEmpty) {
+      final nomes = conflitos.map((c) => c.titulo.isEmpty ? 'Compromisso' : c.titulo).join(', ');
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Conflito de horário'),
+          content: Text('Já existe(m) compromisso(s) neste horário: $nomes.\n\nDeseja agendar mesmo assim?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _confirmarSalvar(dataHoraInicio, dataHoraFim);
+              },
+              child: const Text('Agendar assim mesmo'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    _confirmarSalvar(dataHoraInicio, dataHoraFim);
+  }
+
+  void _confirmarSalvar(DateTime dataHoraInicio, DateTime dataHoraFim) {
     final existente = widget.compromissoExistente;
     final compromisso = Compromisso(
       id: existente?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),

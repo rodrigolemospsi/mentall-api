@@ -428,6 +428,7 @@ class SessoesHojeCard extends ConsumerWidget {
               ?.termoSingularCapitalizado ??
           'Pessoa atendida',
       compromissoExistente: compromisso,
+      compromissoService: service,
     );
 
     if (editado == null) return;

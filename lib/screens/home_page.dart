@@ -209,6 +209,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       duracaoPadraoMinutos: config.duracaoPadraoSessaoMinutos,
       lembretePadraoAtivado: config.lembretePadraoAtivado,
       antecedenciaPadraoMinutos: config.antecedenciaPadraoMinutos,
+      compromissoService: ref.read(compromissoServiceProvider),
     );
 
     if (compromisso == null) return;

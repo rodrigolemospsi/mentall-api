@@ -148,6 +148,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
       duracaoPadraoMinutos: config.duracaoPadraoSessaoMinutos,
       lembretePadraoAtivado: config.lembretePadraoAtivado,
       antecedenciaPadraoMinutos: config.antecedenciaPadraoMinutos,
+      compromissoService: service,
     );
 
     if (compromisso == null) return;
@@ -178,6 +179,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
       pacientes: pacientes,
       termoPessoa: ref.read(perfilProfissionalServiceProvider).obterPerfil()?.termoSingularCapitalizado ?? 'Pessoa atendida',
       compromissoExistente: compromisso,
+      compromissoService: service,
     );
 
     if (editado == null) return;
