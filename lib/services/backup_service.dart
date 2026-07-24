@@ -5,6 +5,7 @@ import 'package:hive_ce/hive.dart';
 import '../models/paciente.dart';
 import '../models/perfil_profissional.dart';
 import '../models/sessao.dart';
+import '../models/contrato_terapeutico.dart';
 import 'encryption_service.dart';
 
 class BackupService {
@@ -99,6 +100,21 @@ class BackupService {
           'artigos_sugeridos': _decrypt(s.artigosSugeridos),
         };
       }).toList(),
+        'contratos': Hive.box<ContratoTerapeutico>('contratos').values.map((c) {
+          return {
+            'id': c.id,
+            'paciente_id': c.pacienteId,
+            'token': c.token,
+            'data_criacao': c.dataCriacao.toIso8601String(),
+            if (c.dataEnvio != null)
+              'data_envio': c.dataEnvio!.toIso8601String(),
+            if (c.dataAceite != null)
+              'data_aceite': c.dataAceite!.toIso8601String(),
+            'status': c.status,
+            'nome_aceite': c.nomeAceite,
+            'url': c.url,
+          };
+        }).toList(),
     };
 
     const encoder = JsonEncoder.withIndent('  ');
@@ -132,6 +148,7 @@ class BackupService {
       final pacientesBox = Hive.box<Paciente>('pacientes');
       final sessoesBox = Hive.box<Sessao>('sessoes');
       final perfilBox = Hive.box<PerfilProfissional>('perfil_profissional');
+      final contratosBox = Hive.box<ContratoTerapeutico>('contratos');
 
       final pacienteIdToKey = <String, dynamic>{};
       for (final entry in pacientesBox.toMap().entries) {
@@ -145,10 +162,15 @@ class BackupService {
       for (final entry in perfilBox.toMap().entries) {
         perfilIdToKey[entry.value.id] = entry.key;
       }
+      final contratoIdToKey = <String, dynamic>{};
+      for (final entry in contratosBox.toMap().entries) {
+        contratoIdToKey[entry.value.id] = entry.key;
+      }
 
       int pacientesImportados = 0;
       int sessoesImportadas = 0;
       int perfisImportados = 0;
+      int contratosImportados = 0;
 
       for (final item in dados['pacientes'] as List<dynamic>? ?? []) {
         final map = item as Map<String, dynamic>;
@@ -275,8 +297,38 @@ class BackupService {
         perfisImportados++;
       }
 
+      for (final item in dados['contratos'] as List<dynamic>? ?? []) {
+        final map = item as Map<String, dynamic>;
+        final contrato = ContratoTerapeutico(
+          id: map['id'] as String,
+          pacienteId: map['paciente_id'] as String,
+          token: map['token'] as String,
+          dataCriacao: map['data_criacao'] != null
+              ? DateTime.parse(map['data_criacao'] as String)
+              : DateTime.now(),
+          dataEnvio: map['data_envio'] != null
+              ? DateTime.parse(map['data_envio'] as String)
+              : null,
+          dataAceite: map['data_aceite'] != null
+              ? DateTime.parse(map['data_aceite'] as String)
+              : null,
+          status: map['status'] as String? ?? 'pendente',
+          nomeAceite: map['nome_aceite'] as String? ?? '',
+          url: map['url'] as String? ?? '',
+        );
+
+        await _salvarSobrescrevendo<ContratoTerapeutico>(
+          contratosBox,
+          contrato,
+          (existente) => existente.id == contrato.id,
+          contratoIdToKey,
+        );
+        contratosImportados++;
+      }
+
       return 'Importação concluída: $perfisImportados perfil(is), '
-          '$pacientesImportados paciente(s), $sessoesImportadas sessão(ões).';
+          '$pacientesImportados paciente(s), $sessoesImportadas sessão(ões), '
+          '$contratosImportados contrato(s).';
     } catch (e) {
       return 'Erro ao importar: $e';
     }

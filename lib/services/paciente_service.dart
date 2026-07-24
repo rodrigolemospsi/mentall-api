@@ -3,6 +3,7 @@ import 'package:hive_ce/hive.dart';
 import '../models/paciente.dart';
 import '../models/sessao.dart';
 import '../models/compromisso.dart';
+import '../models/contrato_terapeutico.dart';
 import 'encryption_service.dart';
 
 class PacienteService {
@@ -118,6 +119,14 @@ class PacienteService {
         .where((c) => c.pacienteId == paciente.id)
         .toList();
     for (final c in compromissosParaExcluir) {
+      await c.delete();
+    }
+
+    final contratosBox = Hive.box<ContratoTerapeutico>('contratos');
+    final contratosParaExcluir = contratosBox.values
+        .where((c) => c.pacienteId == paciente.id)
+        .toList();
+    for (final c in contratosParaExcluir) {
       await c.delete();
     }
 
