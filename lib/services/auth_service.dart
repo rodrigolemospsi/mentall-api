@@ -6,22 +6,49 @@ import 'package:hive_ce/hive.dart';
 import 'logger.dart';
 import 'api_client.dart';
 import 'encryption_service.dart';
+import 'paciente_service.dart';
+import 'sessao_service.dart';
+import 'perfil_profissional_service.dart';
 import 'package:http/http.dart' as http;
 
 class AuthService {
   static const String _authBoxName = 'auth_meta';
   static const String _tokenKey = 'jwt_token';
+  static const String _usernameKey = 'auth_username';
+  static const String _passwordKey = 'auth_password';
+  static const String _defaultUsername = 'admin';
+  static const String _defaultPassword = 'admin';
 
   late final Box<String> _box = Hive.box<String>(_authBoxName);
 
   final EncryptionService _encryptionService;
+  final PacienteService? _pacienteService;
+  final SessaoService? _sessaoService;
+  final PerfilProfissionalService? _perfilProfissionalService;
   bool _desbloqueado = false;
 
-  AuthService(this._encryptionService);
+  AuthService(
+    this._encryptionService, {
+    PacienteService? pacienteService,
+    SessaoService? sessaoService,
+    PerfilProfissionalService? perfilProfissionalService,
+  })  : _pacienteService = pacienteService,
+        _sessaoService = sessaoService,
+        _perfilProfissionalService = perfilProfissionalService;
 
   bool get desbloqueado => _desbloqueado;
 
   EncryptionService get encryption => _encryptionService;
+
+  String get _username {
+    final box = Hive.box<String>('app_config');
+    return box.get(_usernameKey, defaultValue: _defaultUsername) as String;
+  }
+
+  String get _password {
+    final box = Hive.box<String>('app_config');
+    return box.get(_passwordKey, defaultValue: _defaultPassword) as String;
+  }
 
   Future<void> inicializar() async {
     final token = _box.get(_tokenKey);
@@ -45,15 +72,16 @@ class AuthService {
             Uri.parse('${ApiClient.baseUrl}/auth/login'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
-              'username': 'admin',
-              'password': 'admin',
+              'username': _username,
+              'password': _password,
             }),
           )
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final token = data['access_token'] as String;
+        final token = data['access_token'] as String?;
+        if (token == null || token.isEmpty) return false;
         await _box.put(_tokenKey, token);
         ApiClient.authToken = token;
         return true;
@@ -88,7 +116,9 @@ class AuthService {
   Future<void> _tentarAutenticarBackend() async {
     try {
       await autenticarBackend();
-    } catch (_) {}
+    } catch (e) {
+      Log.erro(e, contexto: 'AuthService._tentarAutenticarBackend');
+    }
   }
 
   bool get requerPin => _encryptionService.possuiPinConfigurado;
@@ -106,6 +136,9 @@ class AuthService {
   }
 
   Future<void> removerPin() async {
+    await _pacienteService?.removerCriptografiaExistente();
+    await _sessaoService?.removerCriptografiaExistente();
+    await _perfilProfissionalService?.removerCriptografiaExistente();
     await _encryptionService.limpar();
     _desbloqueado = false;
   }

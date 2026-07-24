@@ -8,6 +8,8 @@ class ConfiguracoesService {
   static const String _kAntecedenciaPadraoMin =
       'lembrete_antecedencia_padrao_min';
   static const String _kSugerirArtigos = 'ia_sugerir_artigos';
+  static const String _kTemaEscuro = 'tema_escuro';
+  static const String _kCanalLembretePadrao = 'canal_lembrete_padrao';
 
   static const int duracaoPadraoFallback = 60;
   static const int antecedenciaPadraoFallback = 1440;
@@ -48,6 +50,19 @@ class ConfiguracoesService {
 
   Future<void> setSugerirArtigos(bool ativado) async {
     await _box.put(_kSugerirArtigos, '$ativado');
+  }
+
+  bool get temaEscuro => _box.get(_kTemaEscuro) == 'true';
+
+  Future<void> setTemaEscuro(bool ativado) async {
+    await _box.put(_kTemaEscuro, '$ativado');
+  }
+
+  String get canalLembretePadrao =>
+      _box.get(_kCanalLembretePadrao) ?? 'whatsapp';
+
+  Future<void> setCanalLembretePadrao(String canal) async {
+    await _box.put(_kCanalLembretePadrao, canal);
   }
 
   Stream<BoxEvent> observar() {

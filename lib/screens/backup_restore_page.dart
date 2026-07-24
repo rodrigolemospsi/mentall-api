@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/service_providers.dart';
+import '../utils/mentall_colors.dart';
 import 'backup_restore_page_io.dart'
     if (dart.library.html) 'backup_restore_page_web.dart';
 
@@ -29,10 +30,10 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
       await exportarJson(json, nomeArquivo);
 
       if (!mounted) return;
-      _mostrarSnackBar('Backup exportado com sucesso!', Colors.green);
+      _mostrarSnackBar('Backup exportado com sucesso!', context.corSuccess);
     } catch (e) {
       if (!mounted) return;
-      _mostrarSnackBar('Erro ao exportar: $e', Colors.red);
+      _mostrarSnackBar('Erro ao exportar: $e', context.corError);
     } finally {
       if (mounted) ref.read(_exportandoProvider.notifier).state = false;
     }
@@ -49,10 +50,10 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
           await ref.read(backupServiceProvider).importarDeJson(jsonString);
 
       if (!mounted) return;
-      _mostrarSnackBar(resultado, Colors.green);
+      _mostrarSnackBar(resultado, context.corSuccess);
     } catch (e) {
       if (!mounted) return;
-      _mostrarSnackBar('Erro ao importar: $e', Colors.red);
+      _mostrarSnackBar('Erro ao importar: $e', context.corError);
     } finally {
       if (mounted) ref.read(_importandoProvider.notifier).state = false;
     }
@@ -66,16 +67,15 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
 
   @override
   Widget build(BuildContext context) {
-    const Color corPrincipal = Color(0xFF2563EB);
     final exportando = ref.watch(_exportandoProvider);
     final importando = ref.watch(_importandoProvider);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: context.corFundo,
       appBar: AppBar(
         title: const Text('Backup e restauração'),
-        backgroundColor: corPrincipal,
-        foregroundColor: Colors.white,
+        backgroundColor: context.corPrimaria,
+        foregroundColor: context.corOnPrimaria,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -90,35 +90,35 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.download_outlined,
-                      size: 40, color: corPrincipal),
+                  Icon(Icons.download_outlined,
+                      size: 40, color: context.corPrimaria),
                   const SizedBox(height: 12),
                   const Text(
                     'Exportar dados',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     'Gera um arquivo JSON com todos os pacientes, sessões e configurações do perfil.',
-                    style: const TextStyle(color: Color(0xFF475569), height: 1.4),
+                    style: TextStyle(color: context.corTextoSecondary, height: 1.4),
                   ),
                   const SizedBox(height: 16),
                   FilledButton.icon(
                     onPressed: exportando ? null : _exportar,
                     icon: exportando
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Colors.white,
+                              color: context.corOnPrimaria,
                             ),
                           )
                         : const Icon(Icons.download),
                     label: Text(exportando ? 'Exportando...' : 'Exportar backup'),
                     style: FilledButton.styleFrom(
-                      backgroundColor: corPrincipal,
-                      foregroundColor: Colors.white,
+                      backgroundColor: context.corPrimaria,
+                      foregroundColor: context.corOnPrimaria,
                     ),
                   ),
                 ],
@@ -136,35 +136,35 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.upload_outlined,
-                      size: 40, color: corPrincipal),
+                  Icon(Icons.upload_outlined,
+                      size: 40, color: context.corPrimaria),
                   const SizedBox(height: 12),
                   const Text(
                     'Importar dados',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     'Restaura dados de um arquivo JSON. Itens com ID já existente são sobrescritos com o conteúdo do backup.',
-                    style: const TextStyle(color: Color(0xFF475569), height: 1.4),
+                    style: TextStyle(color: context.corTextoSecondary, height: 1.4),
                   ),
                   const SizedBox(height: 16),
                   FilledButton.icon(
                     onPressed: importando ? null : _importar,
                     icon: importando
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Colors.white,
+                              color: context.corOnPrimaria,
                             ),
                           )
                         : const Icon(Icons.upload),
                     label: Text(importando ? 'Importando...' : 'Importar backup'),
                     style: FilledButton.styleFrom(
-                      backgroundColor: corPrincipal,
-                      foregroundColor: Colors.white,
+                      backgroundColor: context.corPrimaria,
+                      foregroundColor: context.corOnPrimaria,
                     ),
                   ),
                 ],
@@ -174,23 +174,23 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
           const SizedBox(height: 24),
           Card(
             elevation: 0,
-            color: Colors.blue.shade50,
+            color: context.corContainerPrimario,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(18),
-              side: BorderSide(color: Colors.blue.shade200),
+              side: BorderSide(color: context.corPrimaria.withValues(alpha: 0.3)),
             ),
-            child: const Padding(
-              padding: EdgeInsets.all(16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.info_outline, color: Colors.blue),
-                  SizedBox(width: 12),
+                  Icon(Icons.info_outline, color: context.corPrimaria),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'O backup não inclui arquivos de áudio, apenas metadados e dados textuais. '
                       'Mantenha o arquivo .json em local seguro.',
-                      style: TextStyle(color: Colors.black87, height: 1.4),
+                      style: TextStyle(color: context.corTextoBody, height: 1.4),
                     ),
                   ),
                 ],

@@ -137,6 +137,25 @@ enum StatusCompromisso {
   }
 }
 
+enum FrequenciaRecorrencia {
+  nenhuma(''),
+  semanal('Toda semana'),
+  quinzenal('A cada 2 semanas'),
+  mensal('Todo mes');
+
+  final String value;
+  const FrequenciaRecorrencia(this.value);
+
+  static FrequenciaRecorrencia fromString(String s) {
+    return FrequenciaRecorrencia.values.firstWhere(
+      (f) => f.value == s || (f.value.isEmpty && s.isEmpty),
+      orElse: () => FrequenciaRecorrencia.nenhuma,
+    );
+  }
+
+  bool get temRecorrencia => this != FrequenciaRecorrencia.nenhuma;
+}
+
 enum OrigemRelato {
   manual('manual'),
   audio('audio'),

@@ -4,12 +4,14 @@ class InfoLinha extends StatelessWidget {
   final IconData icone;
   final String titulo;
   final String valor;
+  final Color? corValor;
 
   const InfoLinha({
     super.key,
     required this.icone,
     required this.titulo,
     required this.valor,
+    this.corValor,
   });
 
   @override
@@ -28,7 +30,7 @@ class InfoLinha extends StatelessWidget {
         Expanded(
           child: Text(
             valor,
-            style: const TextStyle(color: Colors.black87),
+            style: TextStyle(color: corValor ?? Colors.black87),
           ),
         ),
       ],

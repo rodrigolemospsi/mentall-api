@@ -1,5 +1,4 @@
 from pydantic import BaseModel
-from typing import Optional
 
 
 class TranscricaoRequest(BaseModel):
@@ -22,7 +21,6 @@ class SinteseRequest(BaseModel):
     transcricao_relato: str
     relato_manual: str
     tema_principal: str
-    humor: int = 0
 
 
 class SinteseResponse(BaseModel):
@@ -67,4 +65,55 @@ class SmsRequest(BaseModel):
 class SmsResponse(BaseModel):
     sucesso: bool
     mensagem: str = ""
+    erro: str = ""
+
+
+class ContratoRequest(BaseModel):
+    nome_paciente: str
+    nome_profissional: str
+    registro_profissional: str
+    termo_pessoa: str
+
+
+class ContratoResponse(BaseModel):
+    sucesso: bool
+    token: str = ""
+    url: str = ""
+    erro: str = ""
+
+
+class ContratoAceiteRequest(BaseModel):
+    nome: str
+
+
+class ContratoStatusResponse(BaseModel):
+    sucesso: bool
+    status: str = "pendente"
+    aceito_em: str | None = None
+    nome_aceite: str | None = None
+    erro: str = ""
+
+
+class WhatsAppRequest(BaseModel):
+    telefone: str
+    mensagem: str
+
+
+class WhatsAppResponse(BaseModel):
+    sucesso: bool
+    mensagem: str = ""
+    erro: str = ""
+
+
+class LembreteRequest(BaseModel):
+    compromisso_id: str
+    telefone: str
+    mensagem: str
+    horario_envio: str
+    canal: str = "whatsapp"
+
+
+class LembreteResponse(BaseModel):
+    sucesso: bool
+    id: str = ""
     erro: str = ""

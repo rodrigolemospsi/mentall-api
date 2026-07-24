@@ -45,6 +45,8 @@ void main() {
         child: MaterialApp(home: AppStartPage()),
       ),
     );
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(milliseconds: 600));
     await tester.pump();
 
     expect(find.text('Bem-vindo ao MentAll'), findsOneWidget);
@@ -69,6 +71,8 @@ void main() {
         child: const MaterialApp(home: AppStartPage()),
       ),
     );
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(milliseconds: 600));
     await tester.pump();
 
     expect(find.text('Bem-vindo ao MentAll'), findsNothing);

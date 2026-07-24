@@ -2,7 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../models/contrato_terapeutico.dart';
 import '../models/paciente.dart';
+import '../utils/mentall_colors.dart';
 import 'info_linha.dart';
 import 'status_paciente_chip.dart';
 
@@ -12,6 +14,7 @@ class PacienteResumoCard extends StatelessWidget {
   final bool usaPessoaAtendida;
   final int quantidadeSessoes;
   final int quantidadeSessoesArquivadas;
+  final ContratoTerapeutico? contrato;
 
   const PacienteResumoCard({
     super.key,
@@ -20,6 +23,7 @@ class PacienteResumoCard extends StatelessWidget {
     required this.usaPessoaAtendida,
     required this.quantidadeSessoes,
     required this.quantidadeSessoesArquivadas,
+    this.contrato,
   });
 
   String get _nomeExibicao {
@@ -48,7 +52,6 @@ class PacienteResumoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color corPrincipal = Color(0xFF2563EB);
 
     return Card(
       elevation: 1,
@@ -64,7 +67,7 @@ class PacienteResumoCard extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 28,
-                  backgroundColor: corPrincipal.withValues(alpha: 0.12),
+                  backgroundColor: context.corPrimaria.withValues(alpha: 0.12),
                   backgroundImage: paciente.possuiFoto
                       ? MemoryImage(base64Decode(paciente.fotoBase64))
                       : null,
@@ -72,8 +75,8 @@ class PacienteResumoCard extends StatelessWidget {
                       ? null
                       : Text(
                           paciente.inicial,
-                          style: const TextStyle(
-                            color: corPrincipal,
+                          style: TextStyle(
+                            color: context.corPrimaria,
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
                           ),
@@ -94,7 +97,7 @@ class PacienteResumoCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         _tipoAtendimentoExibicao,
-                        style: const TextStyle(color: Color(0xFF475569)),
+                        style: TextStyle(color: context.corTextoSecondary),
                       ),
                     ],
                   ),
@@ -129,6 +132,27 @@ class PacienteResumoCard extends StatelessWidget {
                 valor: paciente.email.trim(),
               ),
             ],
+            if (contrato != null) ...[
+              const SizedBox(height: 10),
+              InfoLinha(
+                icone: contrato!.isAceito
+                    ? Icons.check_circle_outline
+                    : contrato!.isEnviado
+                        ? Icons.hourglass_empty
+                        : Icons.description_outlined,
+                titulo: 'Contrato',
+                valor: contrato!.isAceito
+                    ? 'Aceito em ${contrato!.dataAceiteFormatada}'
+                    : contrato!.isEnviado
+                        ? 'Aguardando aceite'
+                        : 'Pendente',
+                corValor: contrato!.isAceito
+                    ? const Color(0xFF2E7D32)
+                    : contrato!.isEnviado
+                        ? const Color(0xFFE65100)
+                        : null,
+              ),
+            ],
             const SizedBox(height: 10),
             InfoLinha(
               icone: Icons.event_note_outlined,
@@ -152,8 +176,8 @@ class PacienteResumoCard extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 paciente.observacoes.trim(),
-                style: const TextStyle(
-                  color: Colors.black87,
+                style: TextStyle(
+                  color: context.corTextoBody,
                   height: 1.4,
                 ),
               ),

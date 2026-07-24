@@ -3,13 +3,16 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../models/contrato_terapeutico.dart';
 import '../models/paciente.dart';
 import '../models/perfil_profissional.dart';
 import '../models/sessao.dart';
 import '../providers/service_providers.dart';
 import '../services/logger.dart';
 import '../services/pdf_export_service.dart';
+import '../utils/mentall_colors.dart';
 import '../widgets/lista_sessoes.dart';
 import '../widgets/paciente_resumo_card.dart';
 import 'sessao_form_page.dart';
@@ -226,8 +229,6 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
     required void Function(String?) onModoAlterado,
     required void Function(String) onFotoAlterada,
   }) {
-    const Color corPrincipal = Color(0xFF2563EB);
-
     Future<void> selecionarFoto() async {
       final picker = ImagePicker();
       final picked = await picker.pickImage(
@@ -249,27 +250,27 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
             child: GestureDetector(
               onTap: selecionarFoto,
               child: Stack(
-                clipBehavior: Clip.none,
+                clipBehavior: Clip.hardEdge,
                 children: [
                   CircleAvatar(
                     radius: 42,
-                    backgroundColor: corPrincipal.withValues(alpha: 0.1),
+                    backgroundColor: context.corPrimaria.withValues(alpha: 0.1),
                     backgroundImage: fotoBase64.isNotEmpty
                         ? MemoryImage(base64Decode(fotoBase64))
                         : null,
                     child: fotoBase64.isEmpty
-                        ? const Icon(Icons.camera_alt_outlined,
-                            size: 28, color: corPrincipal)
+                        ? Icon(Icons.camera_alt_outlined,
+                            size: 28, color: context.corPrimaria)
                         : null,
                   ),
                   Positioned(
-                    bottom: -2,
-                    right: -2,
+                    bottom: 0,
+                    right: 0,
                     child: Container(
                       width: 26,
                       height: 26,
                       decoration: BoxDecoration(
-                        color: corPrincipal,
+                        color: context.corPrimaria,
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 2),
                       ),
@@ -347,7 +348,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                           ? Icons.videocam_outlined
                           : Icons.location_on_outlined,
                       size: 16,
-                      color: const Color(0xFF64748B),
+                      color: context.corTextoMuted,
                     ),
                     const SizedBox(width: 8),
                     Text(modo),
@@ -555,7 +556,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
               'Escolha o tipo de documento para exportar.',
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey[600],
+                color: context.corTextoMuted,
               ),
             ),
             const SizedBox(height: 20),
@@ -661,25 +662,24 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    const Color corPrincipal = Color(0xFF2563EB);
     ref.watch(_refreshProvider);
 
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: context.corFundo,
         appBar: AppBar(
           title: Text(_nomePacienteExibicao),
-          backgroundColor: corPrincipal,
-          foregroundColor: Colors.white,
-          actions: _appBarAcoes(corPrincipal),
+          backgroundColor: context.corPrimaria,
+          foregroundColor: context.corOnPrimaria,
+          actions: _appBarAcoes(),
         ),
-        body: _corpoSessoes(corPrincipal),
+        body: _corpoSessoes(),
       ),
     );
   }
 
-  List<Widget> _appBarAcoes(Color corPrincipal) {
+  List<Widget> _appBarAcoes() {
     return [
       IconButton(
         tooltip: 'Exportar',
@@ -694,7 +694,147 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
     ];
   }
 
-  Widget _corpoSessoes(Color corPrincipal) {
+  Widget _botaoContrato() {
+    final contrato = ref.watch(contratoPorPacienteProvider(widget.paciente.id)).valueOrNull;
+    final cs = Theme.of(context).colorScheme;
+
+    if (contrato != null && contrato.isAceito) {
+      return OutlinedButton.icon(
+        onPressed: () => _verContrato(contrato),
+        icon: const Icon(Icons.check_circle_outline, color: Color(0xFF2E7D32), size: 20),
+        label: Text('Aceito em ${contrato.dataAceiteFormatada}',
+            style: const TextStyle(fontSize: 12, color: Color(0xFF2E7D32))),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+          side: const BorderSide(color: Color(0xFF2E7D32)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
+
+    if (contrato != null && contrato.isEnviado) {
+      return OutlinedButton.icon(
+        onPressed: () => _enviarContratoWhatsApp(contrato),
+        icon: const Icon(Icons.hourglass_empty, color: Color(0xFFE65100), size: 20),
+        label: const Text('Reenviar contrato',
+            style: TextStyle(fontSize: 12, color: Color(0xFFE65100))),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+          side: const BorderSide(color: Color(0xFFE65100)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
+
+    return OutlinedButton.icon(
+      onPressed: _criarEnviarContrato,
+      icon: const Icon(Icons.description_outlined, size: 20),
+      label: const Text('Contrato', style: TextStyle(fontSize: 12)),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        side: BorderSide(color: cs.primary),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  Future<void> _criarEnviarContrato() async {
+    final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
+    if (perfil == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Configure o perfil profissional primeiro.')),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(children: [
+          SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+          SizedBox(width: 12),
+          Text('Criando contrato...'),
+        ]),
+        duration: Duration(seconds: 120),
+      ),
+    );
+
+    final contratoService = ref.read(contratoServiceProvider);
+    final contrato = await contratoService.criarContrato(
+      paciente: widget.paciente,
+      perfil: perfil,
+    );
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+    if (contrato == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Erro ao criar contrato. Verifique a conexão com o servidor.'),
+          backgroundColor: Color(0xFFD32F2F),
+        ),
+      );
+      return;
+    }
+
+    await _enviarContratoWhatsApp(contrato);
+  }
+
+  Future<void> _enviarContratoWhatsApp(ContratoTerapeutico contrato) async {
+    final contato = widget.paciente.contato.trim();
+    if (!widget.paciente.possuiContato) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$_termoSingularCapitalizado não possui telefone cadastrado.'),
+        ),
+      );
+      return;
+    }
+
+    final mensagem = Uri.encodeComponent(
+      'Olá ${widget.paciente.nome.trim()}! Segue o Acordo Terapêutico para sua leitura. '
+      'Por favor, acesse o link, leia com atenção e, se estiver de acordo, '
+      'digite seu nome ao final para confirmar:\n\n'
+      '${contrato.url}',
+    );
+
+    final numero = contato.replaceAll(RegExp(r'[^\d]'), '');
+    final uri = Uri.parse('https://wa.me/$numero?text=$mensagem');
+
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+      final contratoService = ref.read(contratoServiceProvider);
+      await contratoService.marcarComoEnviado(contrato);
+
+      final auditoria = ref.read(auditoriaServiceProvider);
+      auditoria.registrar(
+        tipoEvento: 'contrato_enviado',
+        descricao: 'Acordo Terapêutico enviado para ${widget.paciente.nome} via WhatsApp',
+        pacienteId: widget.paciente.id,
+      );
+
+      ref.invalidate(contratoPorPacienteProvider(widget.paciente.id));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não foi possível abrir o WhatsApp.'),
+          backgroundColor: Color(0xFFD32F2F),
+        ),
+      );
+    }
+  }
+
+  Future<void> _verContrato(ContratoTerapeutico contrato) async {
+    if (contrato.url.isNotEmpty) {
+      final uri = Uri.parse(contrato.url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    }
+  }
+
+  Widget _corpoSessoes() {
     final sessaoService = ref.read(sessaoServiceProvider);
 
     return StreamBuilder(
@@ -721,30 +861,38 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                     quantidadeSessoes: sessoesAtivas.length,
                     quantidadeSessoesArquivadas:
                         sessoesArquivadas.length,
+                    contrato: ref.watch(contratoPorPacienteProvider(widget.paciente.id)).valueOrNull,
                   ),
                   const SizedBox(height: 16),
-                  FilledButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => SessaoFormPage(
-                            paciente: widget.paciente,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => SessaoFormPage(
+                                  paciente: widget.paciente,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.add),
+                          label: const Text('Nova sessão'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Theme.of(context).colorScheme.primary,
+                            foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                         ),
-                      );
-                    },
-                    icon: const Icon(Icons.add),
-                    label: const Text('Nova sessão'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: corPrincipal,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
+                      ),
+                      const SizedBox(width: 10),
+                      _botaoContrato(),
+                    ],
                   ),
                   const SizedBox(height: 20),
                   _tabBarComListas(
-                    corPrincipal: corPrincipal,
                     sessoesAtivas: sessoesAtivas,
                     sessoesArquivadas: sessoesArquivadas,
                   ),
@@ -759,7 +907,6 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
 
 
   Widget _tabBarComListas({
-    required Color corPrincipal,
     required List<Sessao> sessoesAtivas,
     required List<Sessao> sessoesArquivadas,
   }) {
@@ -790,9 +937,9 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
       child: Column(
         children: [
           TabBar(
-            labelColor: corPrincipal,
-            unselectedLabelColor: const Color(0xFF94A3B8),
-            indicatorColor: corPrincipal,
+            labelColor: context.corPrimaria,
+            unselectedLabelColor: context.corTextoPlaceholder,
+            indicatorColor: context.corPrimaria,
             tabs: [
               Tab(
                 icon: const Icon(Icons.history_outlined),

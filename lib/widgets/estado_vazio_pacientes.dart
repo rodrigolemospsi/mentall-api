@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/mentall_colors.dart';
 
 class EstadoVazioPacientes extends StatelessWidget {
   final String termoSingular;
@@ -20,7 +21,6 @@ class EstadoVazioPacientes extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color corPrincipal = Color(0xFF2563EB);
 
     final titulo = listaArquivada
         ? 'Nenhum cadastro arquivado'
@@ -41,24 +41,24 @@ class EstadoVazioPacientes extends StatelessWidget {
                   ? Icons.archive_outlined
                   : Icons.psychology_alt_outlined,
               size: 64,
-              color: corPrincipal.withValues(alpha: 0.7),
+              color: context.corPrimaria.withValues(alpha: 0.7),
             ),
             const SizedBox(height: 16),
             Text(
               titulo,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF1E293B),
+                color: context.corTextoHeading,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
               mensagem,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
-                color: Color(0xFF64748B),
+                color: context.corTextoMuted,
                 height: 1.4,
               ),
               textAlign: TextAlign.center,

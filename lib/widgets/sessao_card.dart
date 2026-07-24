@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/paciente.dart';
 import '../models/sessao.dart';
 import '../screens/sessao_form_page.dart';
+import '../utils/mentall_colors.dart';
 import 'sessao_info_chip.dart';
 
 class SessaoCard extends StatelessWidget {
@@ -57,7 +58,6 @@ class SessaoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color corPrincipal = Color(0xFF2563EB);
 
     final dataFormatada = _formatarData(sessao.data);
     final horarioFormatado = _formatarHorario(sessao.data);
@@ -91,12 +91,14 @@ class SessaoCard extends StatelessWidget {
             children: [
               CircleAvatar(
                 backgroundColor: arquivada
-                    ? Colors.grey.withValues(alpha: 0.14)
-                    : corPrincipal.withValues(alpha: 0.12),
+                    ? context.corSuperficie
+                    : context.corPrimaria.withValues(alpha: 0.12),
                 child: Text(
                   sessao.numeroSessao.toString(),
                   style: TextStyle(
-                    color: arquivada ? Colors.grey.shade700 : corPrincipal,
+                    color: arquivada
+                        ? context.corTextoSecondary
+                        : context.corPrimaria,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -110,16 +112,16 @@ class SessaoCard extends StatelessWidget {
                     children: [
                       Text(
                         'Sessão ${sessao.numeroSessao} - $dataFormatada',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF1E293B),
+                          color: context.corTextoHeading,
                         ),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         '$horarioFormatado',
-                        style: const TextStyle(color: Color(0xFF475569)),
+                        style: TextStyle(color: context.corTextoSecondary),
                       ),
                       const SizedBox(height: 6),
                       Wrap(
@@ -152,7 +154,7 @@ class SessaoCard extends StatelessWidget {
               ),
               PopupMenuButton<String>(
                 tooltip: 'Opções da sessão',
-                icon: const Icon(Icons.more_vert, color: Color(0xFF64748B)),
+                icon: Icon(Icons.more_vert, color: context.corTextoMuted),
                 onSelected: (value) {
                   if (value == 'arquivar' && onArquivar != null) {
                     onArquivar!();

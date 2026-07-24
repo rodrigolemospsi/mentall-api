@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import '../services/logger.dart';
 import '../widgets/compromisso_form_dialog.dart';
 import '../widgets/home_dashboard.dart';
 import '../widgets/novo_paciente_dialog.dart';
+import '../utils/mentall_colors.dart';
 import 'backup_restore_page.dart';
 import 'configuracoes_page.dart';
 import 'lgpd/privacidade_seguranca_page.dart';
@@ -16,6 +18,7 @@ import 'agenda_page.dart';
 import 'paciente_detail_page.dart';
 import 'pacientes_page.dart';
 import 'perfil_profissional_form_page.dart';
+import 'sessao_form_page.dart';
 
 final _saudacaoProvider = StateProvider<String>((ref) => _calcularSaudacao());
 
@@ -34,7 +37,6 @@ class HomePage extends ConsumerStatefulWidget {
 }
 
 class _HomePageState extends ConsumerState<HomePage> {
-  static const Color _azul = Color(0xFF2563EB);
 
   String get _termoSingular {
     final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
@@ -133,26 +135,26 @@ class _HomePageState extends ConsumerState<HomePage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF3E0),
+          color: context.corWarning.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           children: [
-            const Icon(Icons.rate_review_outlined,
-                color: Color(0xFFE65100), size: 20),
+            Icon(Icons.rate_review_outlined,
+                color: context.corWarning, size: 20),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 '${pendentes.length} sess${pendentes.length == 1 ? 'ão' : 'ões'} pendente${pendentes.length == 1 ? '' : 's'} de revisão',
-                style: const TextStyle(
-                  color: Color(0xFFE65100),
+                style: TextStyle(
+                  color: context.corWarning,
                   fontWeight: FontWeight.w500,
                   fontSize: 13,
                 ),
               ),
             ),
-            const Icon(Icons.chevron_right,
-                color: Color(0xFFE65100), size: 20),
+            Icon(Icons.chevron_right,
+                color: context.corWarning, size: 20),
           ],
         ),
       ),
@@ -210,26 +212,26 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
 
     if (compromisso == null) return;
-    await ref.read(compromissoServiceProvider).adicionar(compromisso);
+    final gerados = await ref.read(compromissoServiceProvider).adicionarComRecorrencia(compromisso);
 
     final paciente = ref
       .read(pacienteServiceProvider)
       .buscarPacientePorId(compromisso.pacienteId);
     await ref.read(auditoriaServiceProvider).registrar(
         tipoEvento: 'Sessão agendada',
-        descricao: paciente?.nome ?? 'Compromisso criado',
+        descricao: paciente?.nome ?? 'Compromisso criado${gerados.length > 1 ? ' (${gerados.length}x)' : ''}',
         pacienteId: compromisso.pacienteId,
       );
 
-    if (compromisso.lembreteAtivado &&
-      compromisso.isAgendado &&
-      paciente != null) {
-      await ref.read(lembreteServiceProvider).agendarLembrete(
-          compromisso: compromisso,
-          nomePaciente: paciente.nome,
-          nomeProfissional: perfil?.nome ?? 'Profissional',
-          telefonePaciente: paciente.contato,
-        );
+    for (final c in gerados) {
+      if (c.lembreteAtivado && c.isAgendado && paciente != null) {
+        await ref.read(lembreteServiceProvider).agendarLembrete(
+            compromisso: c,
+            nomePaciente: paciente.nome,
+            nomeProfissional: perfil?.nome ?? 'Profissional',
+            telefonePaciente: paciente.contato,
+          );
+      }
     }
   }
 
@@ -341,21 +343,116 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
   }
 
+  Future<void> _abrirNovaSessao() async {
+    final pacientes = ref.read(pacienteServiceProvider).listarPacientesAtivos();
+    if (pacientes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Cadastre $_termoPlural primeiro para registrar uma sessão.'),
+        ),
+      );
+      return;
+    }
+
+    Paciente? escolhido;
+    if (pacientes.length == 1) {
+      escolhido = pacientes.first;
+    } else {
+      escolhido = await showDialog<Paciente>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('Selecionar $_termoSingular'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: pacientes.length,
+              itemBuilder: (_, i) {
+                final p = pacientes[i];
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: context.corPrimaria.withValues(alpha: 0.12),
+                    backgroundImage: p.possuiFoto
+                        ? MemoryImage(base64Decode(p.fotoBase64))
+                        : null,
+                    child: p.possuiFoto
+                        ? null
+                        : Text(
+                            p.nome.isNotEmpty ? p.nome[0].toUpperCase() : '?',
+                            style: TextStyle(
+                              color: context.corPrimaria,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                  ),
+                  title: Text(p.nome),
+                  onTap: () => Navigator.pop(ctx, p),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (escolhido == null || !mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SessaoFormPage(paciente: escolhido!),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final nomeProf = _nomeProfissional();
+    final colorScheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final sair = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Sair do MentAll?'),
+            content: const Text('Deseja realmente sair do aplicativo?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Permanecer'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Sair'),
+              ),
+            ],
+          ),
+        );
+        if (sair == true && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        toolbarHeight: 112,
+        toolbarHeight: 80,
         title: Image.asset(
-          'assets/images/logo_mentall.png',
-          height: 88,
+          Theme.of(context).brightness == Brightness.dark
+              ? 'assets/images/logo_mentall_escuro.png'
+              : 'assets/images/logo_mentall_home.png',
+          height: 98,
         ),
         centerTitle: false,
-        backgroundColor: Colors.white,
-        foregroundColor: _azul,
+        backgroundColor: colorScheme.surface,
+        foregroundColor: colorScheme.primary,
         elevation: 0,
         actions: [
           IconButton(
@@ -454,7 +551,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         slivers: [
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               child: SaudacaoResumoHome(
                 saudacao: ref.watch(_saudacaoProvider),
                 nomeProfissional: nomeProf,
@@ -470,12 +567,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                 termoFeminino: _termoFeminino,
                 onAgendar: _novoCompromissoRapido,
                 onNovoPaciente: _abrirDialogNovoPaciente,
-                onAbrirAgenda: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const AgendaPage()),
-                  );
-                },
+                onAbrirAgenda: _abrirNovaSessao,
               ),
             ),
           ),
@@ -543,6 +635,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
         ],
       ),
+    ),
     );
   }
 }

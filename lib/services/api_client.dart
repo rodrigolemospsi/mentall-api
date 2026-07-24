@@ -9,6 +9,10 @@ import 'logger.dart';
 class ApiClient {
   static const String _baseUrlKey = 'backend_url';
   static const String _defaultBaseUrl = 'https://mentall-api.onrender.com';
+  static const String _usernameKey = 'auth_username';
+  static const String _passwordKey = 'auth_password';
+  static const String _defaultUsername = 'admin';
+  static const String _defaultPassword = 'admin';
 
   static String get defaultBaseUrl => _defaultBaseUrl;
 
@@ -31,6 +35,16 @@ class ApiClient {
   static String? get authToken => _authToken;
 
   static set authToken(String? token) => _authToken = token;
+
+  static String get _username {
+    final box = Hive.box<String>('app_config');
+    return box.get(_usernameKey, defaultValue: _defaultUsername) as String;
+  }
+
+  static String get _password {
+    final box = Hive.box<String>('app_config');
+    return box.get(_passwordKey, defaultValue: _defaultPassword) as String;
+  }
 
   static Map<String, String> get authHeaders {
     final token = _authToken;
@@ -90,13 +104,18 @@ class ApiClient {
           .post(
             Uri.parse('$baseUrl/auth/login'),
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'username': 'admin', 'password': 'admin'}),
+            body: jsonEncode({
+              'username': _username,
+              'password': _password,
+            }),
           )
           .timeout(timeout);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        _authToken = data['access_token'] as String;
+        final token = data['access_token'] as String?;
+        if (token == null || token.isEmpty) return false;
+        _authToken = token;
         try {
           await Hive.box<String>('auth_meta').put('jwt_token', _authToken!);
         } catch (_) {}

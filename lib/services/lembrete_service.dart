@@ -87,11 +87,14 @@ class LembreteService {
       'telefone': telefonePaciente,
       'mensagem': mensagem,
       'nomePaciente': nomePaciente,
+      'canal': compromisso.canalLembrete,
     });
+
+    final canal = compromisso.canalLembrete == 'whatsapp' ? 'WhatsApp' : 'SMS';
 
     await _notifications.zonedSchedule(
       compromisso.id.hashCode,
-      'Lembrete: $nomePaciente',
+      'Lembrete $canal: $nomePaciente',
       'Sessao ${compromisso.horarioInicioFormatado}'
           ' (em ${compromisso.antecedenciaFormatada})',
       tz.TZDateTime.from(horario, tz.local),
@@ -117,11 +120,57 @@ class LembreteService {
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );
+
+    _enviarParaBackend(
+      compromissoId: compromisso.id,
+      telefone: telefonePaciente,
+      mensagem: mensagem,
+      horario: horario,
+      canal: compromisso.canalLembrete,
+    );
+  }
+
+  static Future<void> _enviarParaBackend({
+    required String compromissoId,
+    required String telefone,
+    required String mensagem,
+    required DateTime horario,
+    String canal = 'whatsapp',
+  }) async {
+    try {
+      await ApiClient.ensureAuthenticated();
+      await http
+          .post(
+            Uri.parse('${ApiClient.baseUrl}/lembretes'),
+            headers: ApiClient.defaultHeaders(),
+            body: jsonEncode({
+              'compromisso_id': compromissoId,
+              'telefone': telefone,
+              'mensagem': mensagem,
+              'horario_envio': horario.toUtc().toIso8601String(),
+              'canal': canal,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+    } catch (_) {}
   }
 
   Future<void> cancelarLembrete(String compromissoId) async {
     if (!_inicializado) await inicializar();
     await _cancelarExistente(compromissoId);
+    _cancelarNoBackend(compromissoId);
+  }
+
+  static Future<void> _cancelarNoBackend(String compromissoId) async {
+    try {
+      await ApiClient.ensureAuthenticated();
+      await http
+          .delete(
+            Uri.parse('${ApiClient.baseUrl}/lembretes/$compromissoId'),
+            headers: ApiClient.defaultHeaders(),
+          )
+          .timeout(const Duration(seconds: 10));
+    } catch (_) {}
   }
 
   Future<void> _cancelarExistente(String compromissoId) async {
@@ -162,18 +211,27 @@ class LembreteService {
       final data = jsonDecode(response.payload!) as Map<String, dynamic>;
       final telefone = data['telefone'] as String? ?? '';
       final mensagem = data['mensagem'] as String? ?? '';
+      final canal = data['canal'] as String? ?? 'whatsapp';
       if (telefone.isNotEmpty && mensagem.isNotEmpty) {
-        _enviarSms(telefone, mensagem);
+        _enviarMensagem(telefone, mensagem, canal: canal);
       }
     } catch (_) {}
   }
 
-  static Future<bool> _enviarSms(String telefone, String mensagem) async {
+  static Future<bool> _enviarMensagem(
+    String telefone,
+    String mensagem, {
+    String canal = 'whatsapp',
+  }) async {
     try {
       await ApiClient.ensureAuthenticated();
+
+      final endpoint = canal == 'whatsapp' ? '/enviar-whatsapp' : '/enviar-sms';
+      final canalNome = canal == 'whatsapp' ? 'WhatsApp' : 'SMS';
+
       final response = await http
           .post(
-            Uri.parse('${ApiClient.baseUrl}/enviar-sms'),
+            Uri.parse('${ApiClient.baseUrl}$endpoint'),
             headers: ApiClient.defaultHeaders(),
             body: jsonEncode({
               'telefone': telefone,
@@ -186,12 +244,12 @@ class LembreteService {
         return true;
       }
       Log.erro(
-        'Falha ao enviar SMS: ${response.statusCode} ${response.body}',
-        contexto: 'LembreteService._enviarSms',
+        'Falha ao enviar $canalNome: ${response.statusCode} ${response.body}',
+        contexto: 'LembreteService._enviarMensagem',
       );
       return false;
     } catch (e) {
-      Log.erro(e, contexto: 'LembreteService._enviarSms');
+      Log.erro(e, contexto: 'LembreteService._enviarMensagem');
       return false;
     }
   }

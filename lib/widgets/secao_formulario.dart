@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/mentall_colors.dart';
 
 class SecaoFormulario extends StatelessWidget {
   final String? titulo;
@@ -39,8 +40,8 @@ class SecaoFormulario extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 subtitulo!,
-                style: const TextStyle(
-                  color: const Color(0xFF64748B),
+                style: TextStyle(
+                  color: context.corTextoMuted,
                   height: 1.4,
                 ),
               ),

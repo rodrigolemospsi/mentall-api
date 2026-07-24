@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/service_providers.dart';
 import '../../services/lgpd/pdf_arquitetura_lgpd_service.dart';
+import '../../utils/mentall_colors.dart';
 import '../login_page.dart';
 import 'politica_privacidade_page.dart';
 import 'termos_uso_page.dart';
@@ -14,16 +15,15 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    const Color corPrincipal = Color(0xFF2563EB);
     ref.watch(_pinRevisaoProvider);
     final authService = ref.read(authServiceProvider);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: context.corFundo,
       appBar: AppBar(
         title: const Text('Privacidade e Segurança'),
-        backgroundColor: corPrincipal,
-        foregroundColor: Colors.white,
+        backgroundColor: context.corPrimaria,
+        foregroundColor: context.corOnPrimaria,
         actions: [
           IconButton(
             tooltip: 'Exportar PDF da Arquitetura LGPD',
@@ -46,6 +46,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         children: [
           _secao(
+            context,
             titulo: 'Segurança',
             children: [
               SwitchListTile(
@@ -56,7 +57,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
                       : 'Configure um PIN para proteger seus dados clínicos.',
                 ),
                 value: authService.requerPin,
-                activeThumbColor: corPrincipal,
+                activeThumbColor: context.corPrimaria,
                 onChanged: (value) {
                   if (value) {
                     _mostrarDialogConfigurarPin(context, ref);
@@ -85,11 +86,12 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           _secao(
+            context,
             titulo: 'Áudio do Relato',
-            children: const [
+            children: [
               ListTile(
-                leading: Icon(Icons.mic_outlined, color: Color(0xFF2563EB)),
-                title: Text('Finalidade do áudio'),
+                leading: Icon(Icons.mic_outlined, color: context.corPrimaria),
+                title: const Text('Finalidade do áudio'),
                 subtitle: Text(
                   'O áudio no MentAll foi projetado para registrar um relato '
                   'clínico breve feito pelo profissional após o atendimento. '
@@ -102,11 +104,12 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           _secao(
+            context,
             titulo: 'IA e Privacidade',
-            children: const [
+            children: [
               ListTile(
-                leading: Icon(Icons.auto_awesome_outlined, color: Color(0xFF2563EB)),
-                title: Text('Apoio documental'),
+                leading: Icon(Icons.auto_awesome_outlined, color: context.corPrimaria),
+                title: const Text('Apoio documental'),
                 subtitle: Text(
                   'A IA do MentAll atua apenas como apoio documental. '
                   'Todo conteúdo gerado deve ser revisado e validado '
@@ -118,10 +121,11 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           _secao(
+            context,
             titulo: 'Dados e Retenção',
             children: [
               ListTile(
-                leading: const Icon(Icons.archive_outlined, color: Color(0xFF2563EB)),
+                leading: Icon(Icons.archive_outlined, color: context.corPrimaria),
                 title: const Text('Arquivamento em vez de exclusão'),
                 subtitle: const Text(
                   'O MentAll mantém a regra de arquivar em vez de excluir. '
@@ -131,7 +135,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
               ),
               const Divider(indent: 16),
               ListTile(
-                leading: const Icon(Icons.folder_outlined, color: Color(0xFF2563EB)),
+                leading: Icon(Icons.folder_outlined, color: context.corPrimaria),
                 title: const Text('Exportação de dados'),
                 subtitle: const Text(
                   'Você pode exportar sessões, históricos e o prontuário completo '
@@ -143,10 +147,11 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           _secao(
+            context,
             titulo: 'Auditoria',
             children: [
               ListTile(
-                leading: const Icon(Icons.history_outlined, color: Color(0xFF2563EB)),
+                leading: Icon(Icons.history_outlined, color: context.corPrimaria),
                 title: const Text('Registro de eventos'),
                 subtitle: const Text(
                   'O MentAll registra eventos relevantes para fins de auditoria, '
@@ -161,10 +166,11 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
             ],
           ),
           _secao(
+            context,
             titulo: 'Documentos Legais',
             children: [
               ListTile(
-                leading: const Icon(Icons.description_outlined, color: Color(0xFF2563EB)),
+                leading: Icon(Icons.description_outlined, color: context.corPrimaria),
                 title: const Text('Termos de Uso'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
@@ -176,7 +182,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
               ),
               const Divider(indent: 16),
               ListTile(
-                leading: const Icon(Icons.privacy_tip_outlined, color: Color(0xFF2563EB)),
+                leading: Icon(Icons.privacy_tip_outlined, color: context.corPrimaria),
                 title: const Text('Política de Privacidade'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
@@ -195,7 +201,8 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
     );
   }
 
-  Widget _secao({required String titulo, required List<Widget> children}) {
+  Widget _secao(BuildContext context,
+      {required String titulo, required List<Widget> children}) {
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -208,10 +215,10 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
                 titulo,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF2563EB),
+                  color: context.corPrimaria,
                 ),
               ),
             ),

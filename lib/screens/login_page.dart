@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/service_providers.dart';
-import 'app_start_page.dart';
+import '../utils/mentall_colors.dart';
+import 'home_page.dart';
+import 'perfil_profissional_form_page.dart';
 
-final _pinControllerProvider = StateProvider<TextEditingController>(
-  (ref) => TextEditingController(),
-);
+final _pinControllerProvider = Provider.autoDispose<TextEditingController>((ref) {
+  return TextEditingController();
+});
 final _erroProvider = StateProvider<String>((ref) => '');
 final _processandoProvider = StateProvider<bool>((ref) => false);
 
@@ -20,7 +22,6 @@ class LoginPage extends ConsumerStatefulWidget {
 class _LoginPageState extends ConsumerState<LoginPage> {
   @override
   void dispose() {
-    ref.read(_pinControllerProvider).dispose();
     super.dispose();
   }
 
@@ -44,10 +45,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
       if (authService.desbloqueado) {
         pinController.clear();
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const AppStartPage()),
-        );
+        _navegarParaHome();
       } else {
         ref.read(_erroProvider.notifier).state = 'PIN incorreto.';
       }
@@ -69,7 +67,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     if (pin.length < 4) {
       ref.read(_erroProvider.notifier).state =
-          'O PIN deve ter no minimo 4 caracteres.';
+          'O PIN deve ter no mínimo 4 caracteres.';
       return;
     }
 
@@ -83,10 +81,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       if (!mounted) return;
 
       pinController.clear();
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const AppStartPage()),
-      );
+      _navegarParaHome();
     } finally {
       if (mounted) {
         ref.read(_processandoProvider.notifier).state = false;
@@ -94,16 +89,31 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
   }
 
+  void _navegarParaHome() {
+    final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
+    if (perfil == null) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const PerfilProfissionalFormPage()),
+      );
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const HomePage()),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    const Color corPrincipal = Color(0xFF2563EB);
     final erro = ref.watch(_erroProvider);
     final processando = ref.watch(_processandoProvider);
     final authService = ref.read(authServiceProvider);
     final configurandoPin = !authService.requerPin;
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: context.corFundo,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -112,43 +122,48 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Image.asset(
-                  'assets/images/logo_mentall.png',
+                  Theme.of(context).brightness == Brightness.dark
+                      ? 'assets/images/logo_mentall_escuro.png'
+                      : 'assets/images/logo_mentall_claro.png',
                   height: 144,
+                  semanticLabel: 'Logo MentAll',
                 ),
                 const SizedBox(height: 24),
-                const SizedBox(height: 8),
                 Text(
                   configurandoPin
-                      ? 'Configure um PIN para proteger seus dados clinicos.'
-                      : 'Informe seu PIN para acessar o prontuario.',
+                      ? 'Configure um PIN para proteger seus dados clínicos.'
+                      : 'Informe seu PIN para acessar o prontuário.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.grey[600],
+                    color: context.corTextoMuted,
                     fontSize: 14,
                   ),
                 ),
                 const SizedBox(height: 32),
-                TextField(
-                  controller: ref.read(_pinControllerProvider),
-                  obscureText: true,
-                  textAlign: TextAlign.center,
-                  maxLength: 16,
-                  keyboardType: TextInputType.visiblePassword,
-                  onSubmitted: (_) =>
-                      configurandoPin ? _configurarPin() : _desbloquear(),
-                  decoration: InputDecoration(
-                    labelText: 'PIN de acesso',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                Semantics(
+                  label: 'Campo de PIN de acesso',
+                  child: TextField(
+                    controller: ref.read(_pinControllerProvider),
+                    obscureText: true,
+                    textAlign: TextAlign.center,
+                    maxLength: 16,
+                    keyboardType: TextInputType.number,
+                    onSubmitted: (_) =>
+                        configurandoPin ? _configurarPin() : _desbloquear(),
+                    decoration: InputDecoration(
+                      labelText: 'PIN de acesso',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      prefixIcon: const Icon(Icons.lock_outlined),
                     ),
-                    prefixIcon: const Icon(Icons.lock_outlined),
                   ),
                 ),
                 const SizedBox(height: 8),
                 if (erro.isNotEmpty)
                   Text(
                     erro,
-                    style: const TextStyle(color: Colors.red, fontSize: 13),
+                    style: TextStyle(color: context.corError, fontSize: 13),
                   ),
                 const SizedBox(height: 20),
                 SizedBox(
@@ -157,12 +172,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     onPressed:
                         processando ? null : (configurandoPin ? _configurarPin : _desbloquear),
                     icon: processando
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Colors.white,
+                              color: cs.onPrimary,
                             ),
                           )
                         : Icon(configurandoPin
@@ -174,8 +189,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           : (configurandoPin ? 'Configurar PIN' : 'Desbloquear'),
                     ),
                     style: FilledButton.styleFrom(
-                      backgroundColor: corPrincipal,
-                      foregroundColor: Colors.white,
+                      backgroundColor: context.corPrimaria,
+                      foregroundColor: context.corOnPrimaria,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                   ),

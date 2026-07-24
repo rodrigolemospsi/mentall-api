@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/paciente.dart';
+import '../models/contrato_terapeutico.dart';
 import '../services/audio_relato_service.dart';
 import '../services/auth_service.dart';
+import '../services/contrato_service.dart';
 import '../services/encryption_service.dart';
 import '../services/ia_clinica_service.dart';
 import '../services/paciente_service.dart';
@@ -23,7 +25,15 @@ final encryptionServiceProvider = Provider<EncryptionService>((ref) {
 
 final authServiceProvider = Provider<AuthService>((ref) {
   final encryption = ref.watch(encryptionServiceProvider);
-  return AuthService(encryption);
+  final pacienteService = ref.watch(pacienteServiceProvider);
+  final sessaoService = ref.watch(sessaoServiceProvider);
+  final perfilProfissionalService = ref.watch(perfilProfissionalServiceProvider);
+  return AuthService(
+    encryption,
+    pacienteService: pacienteService,
+    sessaoService: sessaoService,
+    perfilProfissionalService: perfilProfissionalService,
+  );
 });
 
 final pacienteServiceProvider = Provider<PacienteService>((ref) {
@@ -152,5 +162,18 @@ final dashboardKpisSessoesProvider =
   yield calcular();
   await for (final _ in service.observarSessoes()) {
     yield calcular();
+  }
+});
+
+final contratoServiceProvider = Provider<ContratoService>((ref) {
+  return ContratoService();
+});
+
+final contratoPorPacienteProvider =
+    StreamProvider.family<ContratoTerapeutico?, String>((ref, pacienteId) async* {
+  final service = ref.watch(contratoServiceProvider);
+  yield service.obterPorPaciente(pacienteId);
+  await for (final _ in service.observar()) {
+    yield service.obterPorPaciente(pacienteId);
   }
 });

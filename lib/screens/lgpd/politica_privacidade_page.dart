@@ -5,122 +5,122 @@ class PoliticaPrivacidadePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color corPrincipal = Color(0xFF2563EB);
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: cs.surface,
       appBar: AppBar(
-        title: const Text('Politica de Privacidade'),
-        backgroundColor: corPrincipal,
-        foregroundColor: Colors.white,
+        title: const Text('Política de Privacidade'),
+        backgroundColor: cs.primary,
+        foregroundColor: cs.onPrimary,
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
-        children: const [
+        children: [
           _Secao(
-            titulo: '1. Introducao',
+            titulo: '1. Introdução',
             texto:
-                'O MentAll e um aplicativo de prontuario psicologico inteligente, '
-                'desenvolvido para apoiar psicologos clinicos na documentacao de '
-                'atendimentos. Esta Politica de Privacidade descreve como tratamos '
-                'os dados pessoais e clinicos no uso do aplicativo.',
+                'O MentAll é um aplicativo de prontuário psicológico inteligente, '
+                'desenvolvido para apoiar psicólogos clínicos na documentação de '
+                'atendimentos. Esta Política de Privacidade descreve como tratamos '
+                'os dados pessoais e clínicos no uso do aplicativo.',
           ),
           _Secao(
             titulo: '2. Dados Coletados',
             texto:
-                'O MentAll coleta apenas os dados necessarios para o funcionamento '
-                'do prontuario clinico:\n\n'
+                'O MentAll coleta apenas os dados necessários para o funcionamento '
+                'do prontuário clínico:\n\n'
                 '• Dados do profissional: nome, registro profissional, abordagem '
-                'clinica, preferencias de termo.\n'
+                'clínica, preferências de termo.\n'
                 '• Dados da pessoa atendida: nome, data de nascimento, contato, '
-                'e-mail, observacoes.\n'
-                '• Dados clinicos: relatos de sessao, audio do relato pos-sessao, '
-                'transcricoes, sinteses geradas por IA, apontamentos clinicos.\n'
-                '• Dados tecnicos: status de processamento, erros tecnicos, datas '
-                'de criacao e atualizacao.',
+                'e-mail, observações.\n'
+                '• Dados clínicos: relatos de sessão, áudio do relato pós-sessão, '
+                'transcrições, sínteses geradas por IA, apontamentos clínicos.\n'
+                '• Dados técnicos: status de processamento, erros técnicos, datas '
+                'de criação e atualização.',
           ),
           _Secao(
             titulo: '3. Finalidade do Tratamento',
             texto:
-                'Todos os dados coletados tem finalidade exclusiva de:\n\n'
-                '• Organizacao do prontuario clinico.\n'
-                '• Registro de sessoes e historico de atendimentos.\n'
-                '• Transcricao de audio para apoio documental.\n'
-                '• Geracao de sintese clinica com IA como ferramenta auxiliar.\n'
-                '• Revisao profissional obrigatoria do conteudo.\n'
-                '• Exportacao de documentos para uso do profissional.',
+                'Todos os dados coletados têm finalidade exclusiva de:\n\n'
+                '• Organização do prontuário clínico.\n'
+                '• Registro de sessões e histórico de atendimentos.\n'
+                '• Transcrição de áudio para apoio documental.\n'
+                '• Geração de síntese clínica com IA como ferramenta auxiliar.\n'
+                '• Revisão profissional obrigatória do conteúdo.\n'
+                '• Exportação de documentos para uso do profissional.',
           ),
           _Secao(
-            titulo: '4. Armazenamento e Seguranca',
+            titulo: '4. Armazenamento e Segurança',
             texto:
-                'Os dados sao armazenados localmente no dispositivo do profissional. '
+                'Os dados são armazenados localmente no dispositivo do profissional. '
                 'O MentAll utiliza:\n\n'
-                '• Criptografia AES-256 para protecao dos dados em repouso.\n'
+                '• Criptografia AES-256 para proteção dos dados em repouso.\n'
                 '• Bloqueio por PIN para controle de acesso ao aplicativo.\n'
-                '• Autenticacao JWT para comunicacao com servicos de IA.\n'
+                '• Autenticação JWT para comunicação com serviços de IA.\n'
                 '• Auditoria de eventos relevantes para fins de conformidade.\n\n'
-                'Nenhum dado clinico e armazenado em servidores externos sem '
-                'consentimento explicito do profissional. O envio de audio para '
-                'transcricao e de texto para sintese ocorre apenas mediante acao '
-                'explicita do profissional e utiliza conexao segura (HTTPS).',
+                'Nenhum dado clínico é armazenado em servidores externos sem '
+                'consentimento explícito do profissional. O envio de áudio para '
+                'transcrição e de texto para síntese ocorre apenas mediante ação '
+                'explícita do profissional e utiliza conexão segura (HTTPS).',
           ),
           _Secao(
             titulo: '5. Compartilhamento de Dados',
             texto:
-                'O MentAll nao compartilha dados com terceiros, exceto:\n\n'
-                '• Servicos de IA (OpenAI ou Google Gemini) exclusivamente para '
-                'processamento de transcricao e sintese, mediante acao do profissional.\n'
-                '• Futuros servicos de nuvem e sincronizacao, apenas com consentimento '
-                'explicito do profissional e mediante contrato de tratamento de dados.\n\n'
-                'O profissional e o controlador dos dados clinicos. O MentAll atua '
-                'como operador tecnologico.',
+                'O MentAll não compartilha dados com terceiros, exceto:\n\n'
+                '• Serviços de IA (OpenAI ou Google Gemini) exclusivamente para '
+                'processamento de transcrição e síntese, mediante ação do profissional.\n'
+                '• Futuros serviços de nuvem e sincronização, apenas com consentimento '
+                'explícito do profissional e mediante contrato de tratamento de dados.\n\n'
+                'O profissional é o controlador dos dados clínicos. O MentAll atua '
+                'como operador tecnológico.',
           ),
           _Secao(
-            titulo: '6. Retencao e Exclusao',
+            titulo: '6. Retenção e Exclusão',
             texto:
-                'O MentAll adota a regra de arquivamento em vez de exclusao. '
-                'Pessoas atendidas e sessoes arquivadas permanecem preservadas no '
-                'prontuario, podendo ser restauradas. A exclusao definitiva, quando '
-                'disponivel, sera protegida por confirmacao multipla e registrada '
+                'O MentAll adota a regra de arquivamento em vez de exclusão. '
+                'Pessoas atendidas e sessões arquivadas permanecem preservadas no '
+                'prontuário, podendo ser restauradas. A exclusão definitiva, quando '
+                'disponível, será protegida por confirmação múltipla e registrada '
                 'em auditoria.',
           ),
           _Secao(
             titulo: '7. Direitos do Titular',
             texto:
-                'O profissional, como responsavel pelo tratamento, deve atender '
-                'as solicitacoes dos titulares dos dados (pessoas atendidas) '
+                'O profissional, como responsável pelo tratamento, deve atender '
+                'às solicitações dos titulares dos dados (pessoas atendidas) '
                 'conforme a LGPD, incluindo:\n\n'
                 '• Acesso aos dados.\n'
-                '• Correcao de dados incompletos ou incorretos.\n'
-                '• Exportacao dos dados.\n'
-                '• Informacao sobre o tratamento realizado.',
+                '• Correção de dados incompletos ou incorretos.\n'
+                '• Exportação dos dados.\n'
+                '• Informação sobre o tratamento realizado.',
           ),
           _Secao(
-            titulo: '8. Uso de Inteligencia Artificial',
+            titulo: '8. Uso de Inteligência Artificial',
             texto:
                 'A IA do MentAll atua exclusivamente como apoio documental. '
-                'Todo conteudo gerado deve ser revisado e validado pelo profissional. '
-                'A IA nao toma decisoes clinicas, nao emite diagnosticos e nao '
+                'Todo conteúdo gerado deve ser revisado e validado pelo profissional. '
+                'A IA não toma decisões clínicas, não emite diagnósticos e não '
                 'substitui o julgamento profissional. Os dados enviados para '
-                'processamento por IA sao utilizados apenas para a geracao da '
-                'resposta e nao sao armazenados pelos provedores de IA para '
-                'treinamento de modelos (conforme politicas da OpenAI e Google).',
+                'processamento por IA são utilizados apenas para a geração da '
+                'resposta e não são armazenados pelos provedores de IA para '
+                'treinamento de modelos (conforme políticas da OpenAI e Google).',
           ),
           _Secao(
-            titulo: '9. Alteracoes nesta Politica',
+            titulo: '9. Alterações nesta Política',
             texto:
-                'Esta politica podera ser atualizada para refletir melhorias no '
-                'aplicativo ou mudancas legais. O profissional sera notificado '
-                'sobre alteracoes significativas.',
+                'Esta política poderá ser atualizada para refletir melhorias no '
+                'aplicativo ou mudanças legais. O profissional será notificado '
+                'sobre alterações significativas.',
           ),
           _Secao(
             titulo: '10. Contato',
             texto:
-                'Para duvidas sobre privacidade ou tratamento de dados, entre em '
+                'Para dúvidas sobre privacidade ou tratamento de dados, entre em '
                 'contato com o desenvolvedor do MentAll.\n\n'
-                'Ultima atualizacao: Julho de 2026.',
+                'Última atualização: Julho de 2026.',
           ),
-          SizedBox(height: 40),
+          const SizedBox(height: 40),
         ],
       ),
     );
@@ -135,6 +135,8 @@ class _Secao extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 24),
       child: Column(
@@ -142,19 +144,19 @@ class _Secao extends StatelessWidget {
         children: [
           Text(
             titulo,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF2563EB),
+              color: cs.primary,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             texto,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               height: 1.6,
-              color: Colors.black87,
+              color: cs.onSurface,
             ),
           ),
         ],

@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 import xml.etree.ElementTree as ET
@@ -10,6 +11,8 @@ from google.genai import types
 from openai import OpenAI
 
 from prompts.abordagens import PROMPT_UNIVERSAL, obter_prompt_abordagem
+
+log = logging.getLogger("mentall.ia_clinica")
 
 BASES_PESQUISA = [
     ("SciELO", "https://search.scielo.org/?q={consulta}&lang=pt"),
@@ -114,7 +117,8 @@ def _buscar_candidatos_scielo(consulta: str) -> list:
             })
         return candidatos
 
-    except Exception:
+    except Exception as e:
+        log.warning("SciELO RSS indisponivel para '%s': %s", consulta[:80], e)
         return []
 
 
@@ -168,7 +172,8 @@ def _buscar_candidatos_openalex(consulta: str) -> list:
             if candidatos:
                 return candidatos
 
-        except Exception:
+        except Exception as e:
+            log.warning("OpenAlex falhou para filtro: %s", e)
             continue
 
     return []
@@ -379,7 +384,9 @@ def _chamar_llm_json(prompt: str) -> dict | None:
                 timeout=60,
             )
             if resp.status_code != 200:
+                log.warning("DeepSeek _chamar_llm_json retornou %d", resp.status_code)
                 return None
+            log.info("DeepSeek _chamar_llm_json concluido com sucesso")
             return json.loads(resp.json()["choices"][0]["message"]["content"])
 
         if provider == "openai":
@@ -394,7 +401,9 @@ def _chamar_llm_json(prompt: str) -> dict | None:
                 ],
                 response_format={"type": "json_object"},
                 temperature=0.1,
+                timeout=120,
             )
+            log.info("OpenAI _chamar_llm_json concluido com sucesso")
             return json.loads(response.choices[0].message.content or "")
 
         if provider == "gemini":
@@ -408,12 +417,12 @@ def _chamar_llm_json(prompt: str) -> dict | None:
                     response_mime_type="application/json",
                 ),
             )
+            log.info("Gemini _chamar_llm_json concluido com sucesso")
             return json.loads(response.text or "")
 
-    except Exception:
+    except Exception as e:
+        log.error("Erro em _chamar_llm_json (provider=%s): %s", provider, e)
         return None
-
-    return None
 
 
 def _montar_prompt_sintese(
@@ -513,9 +522,22 @@ def _parse_resultado_sucesso(resultado_raw: dict) -> dict:
     }
 
 
+def _chamar_provider_sintese(provider_name: str, prompt: str) -> dict:
+    log.info("Sintese via provider: %s", provider_name)
+    if provider_name == "openai":
+        return _gerar_sintese_openai(prompt)
+    elif provider_name == "deepseek":
+        return _gerar_sintese_deepseek(prompt)
+    elif provider_name == "gemini":
+        return _gerar_sintese_gemini(prompt)
+    else:
+        return {"sucesso": False, "erro": f"Provedor desconhecido: {provider_name}. Use 'openai', 'deepseek' ou 'gemini'."}
+
+
 def _gerar_sintese_gemini(prompt: str) -> dict:
     client = _gemini_client()
     if not client:
+        log.warning("Gemini nao configurado para sintese")
         return {"sucesso": False, "erro": "GEMINI_API_KEY não configurada."}
 
     try:
@@ -533,18 +555,22 @@ def _gerar_sintese_gemini(prompt: str) -> dict:
         if not conteudo:
             return {"sucesso": False, "erro": "Resposta vazia da IA."}
 
+        log.info("Gemini sintese concluida com sucesso")
         resultado = json.loads(conteudo)
         return _parse_resultado_sucesso(resultado)
 
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        log.warning("Gemini sintese JSON invalido: %s", e)
         return {"sucesso": False, "erro": "Resposta da IA não pôde ser interpretada. Tente novamente."}
     except Exception as e:
+        log.error("Gemini erro na sintese: %s", e)
         return {"sucesso": False, "erro": f"Erro ao gerar síntese clínica: {str(e)}"}
 
 
 def _gerar_sintese_openai(prompt: str) -> dict:
     client = _openai_client()
     if not client:
+        log.warning("OpenAI nao configurado para sintese")
         return {"sucesso": False, "erro": "OPENAI_API_KEY não configurada."}
     return _gerar_sintese_openai_compat(client, prompt)
 
@@ -552,6 +578,7 @@ def _gerar_sintese_openai(prompt: str) -> dict:
 def _gerar_sintese_deepseek(prompt: str) -> dict:
     api_key = os.getenv("DEEPSEEK_API_KEY")
     if not api_key:
+        log.warning("DeepSeek nao configurado para sintese")
         return {"sucesso": False, "erro": "DEEPSEEK_API_KEY não configurada."}
 
     model = _get_model_name()
@@ -579,6 +606,7 @@ def _gerar_sintese_deepseek(prompt: str) -> dict:
         )
 
         if resp.status_code != 200:
+            log.error("DeepSeek sintese retornou %d: %s", resp.status_code, resp.text[:200])
             return {
                 "sucesso": False,
                 "erro": f"DeepSeek retornou {resp.status_code}: {resp.text[:200]}",
@@ -590,12 +618,15 @@ def _gerar_sintese_deepseek(prompt: str) -> dict:
         if not conteudo:
             return {"sucesso": False, "erro": "Resposta vazia da IA."}
 
+        log.info("DeepSeek sintese concluida com sucesso")
         resultado = json.loads(conteudo)
         return _parse_resultado_sucesso(resultado)
 
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        log.warning("DeepSeek sintese JSON invalido: %s", e)
         return {"sucesso": False, "erro": "Resposta da IA não pôde ser interpretada. Tente novamente."}
     except Exception as e:
+        log.error("DeepSeek erro na sintese: %s", e)
         return {"sucesso": False, "erro": f"Erro ao gerar síntese: {type(e).__name__}: {str(e)}"}
 
 
@@ -612,18 +643,22 @@ def _gerar_sintese_openai_compat(client, prompt: str) -> dict:
             ],
             response_format={"type": "json_object"},
             temperature=0.3,
+            timeout=120,
         )
 
         conteudo = response.choices[0].message.content
         if not conteudo:
             return {"sucesso": False, "erro": "Resposta vazia da IA."}
 
+        log.info("OpenAI sintese concluida com sucesso")
         resultado = json.loads(conteudo)
         return _parse_resultado_sucesso(resultado)
 
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        log.warning("OpenAI sintese JSON invalido: %s", e)
         return {"sucesso": False, "erro": "Resposta da IA não pôde ser interpretada. Tente novamente."}
     except Exception as e:
+        log.error("OpenAI erro na sintese: %s", e)
         return {"sucesso": False, "erro": f"Erro ao gerar síntese clínica: {str(e)}"}
 
 
@@ -643,6 +678,7 @@ def gerar_sintese(
         material_base = relato_manual if relato_manual.strip() else transcricao_relato
 
         if not material_base.strip():
+            log.warning("Sintese abortada: sem material clinico")
             return {
                 "sucesso": False,
                 "erro": "Não há relato ou transcrição suficiente para gerar síntese clínica.",
@@ -659,17 +695,14 @@ def gerar_sintese(
         )
 
         provider = _get_provider()
-
-        if provider == "openai":
-            resultado = _gerar_sintese_openai(prompt)
-        elif provider == "deepseek":
-            resultado = _gerar_sintese_deepseek(prompt)
-        elif provider == "gemini":
-            resultado = _gerar_sintese_gemini(prompt)
-        else:
-            return {"sucesso": False, "erro": f"Provedor desconhecido: {provider}. Use 'openai', 'deepseek' ou 'gemini'."}
-
-        return resultado
+        log.info(
+            "Gerando sintese - provider=%s modelo=%s sessao=%d",
+            provider,
+            _get_model_name(),
+            numero_sessao,
+        )
+        return _chamar_provider_sintese(provider, prompt)
 
     except Exception as e:
+        log.exception("Erro inesperado ao gerar sintese: %s", e)
         return {"sucesso": False, "erro": f"Erro ao gerar síntese clínica: {str(e)}"}

@@ -58,6 +58,16 @@ class PerfilProfissionalService {
     await _box.clear();
   }
 
+  Future<void> removerCriptografiaExistente() async {
+    if (_encryption == null || !_encryption.configurado) return;
+
+    if (_box.isNotEmpty) {
+      final p = _box.values.first;
+      _decryptPerfil(p);
+      await p.save();
+    }
+  }
+
   Stream<BoxEvent> observarPerfil() {
     return _box.watch();
   }

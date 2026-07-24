@@ -28,7 +28,7 @@ class BackupService {
     final perfil = Hive.box<PerfilProfissional>('perfil_profissional');
 
     final dados = {
-      'versao': '1.0',
+      'versao': '2.0',
       'exportado_em': DateTime.now().toIso8601String(),
       'perfil_profissional': perfil.values.map((p) {
         return {
@@ -63,12 +63,13 @@ class BackupService {
         };
       }).toList(),
       'sessoes': sessoes.values.map((s) {
+        final audioB64 = _decrypt(s.audioRelatoBase64);
+        final incluirAudio = audioB64.length < 500000;
         return {
           'id': s.id,
           'paciente_id': s.pacienteId,
           'numero_sessao': s.numeroSessao,
           'data': s.data.toIso8601String(),
-          'humor': s.humor,
           'tema_principal': _decrypt(s.temaPrincipal),
           'eventos_importantes': _decrypt(s.eventosImportantes),
           'pensamentos_automaticos': _decrypt(s.pensamentosAutomaticos),
@@ -93,7 +94,8 @@ class BackupService {
           'revisado_pelo_profissional': s.revisadoPeloProfissional,
           'erro_processamento_ia': _decrypt(s.erroProcessamentoIa),
           'origem_relato': s.origemRelato,
-          'audio_relato_base64': _decrypt(s.audioRelatoBase64),
+          if (incluirAudio) 'audio_relato_base64': audioB64,
+          'audio_excluido_do_backup': !incluirAudio,
           'artigos_sugeridos': _decrypt(s.artigosSugeridos),
         };
       }).toList(),
@@ -107,14 +109,10 @@ class BackupService {
     Box<T> box,
     T novo,
     bool Function(T existente) mesmoId,
+    Map<String, dynamic> idToKey,
   ) async {
-    dynamic chaveExistente;
-    for (final entry in box.toMap().entries) {
-      if (mesmoId(entry.value)) {
-        chaveExistente = entry.key;
-        break;
-      }
-    }
+    final novaId = (novo as dynamic).id as String?;
+    final chaveExistente = idToKey[novaId];
 
     if (chaveExistente != null) {
       await box.put(chaveExistente, novo);
@@ -134,6 +132,19 @@ class BackupService {
       final pacientesBox = Hive.box<Paciente>('pacientes');
       final sessoesBox = Hive.box<Sessao>('sessoes');
       final perfilBox = Hive.box<PerfilProfissional>('perfil_profissional');
+
+      final pacienteIdToKey = <String, dynamic>{};
+      for (final entry in pacientesBox.toMap().entries) {
+        pacienteIdToKey[entry.value.id] = entry.key;
+      }
+      final sessaoIdToKey = <String, dynamic>{};
+      for (final entry in sessoesBox.toMap().entries) {
+        sessaoIdToKey[entry.value.id] = entry.key;
+      }
+      final perfilIdToKey = <String, dynamic>{};
+      for (final entry in perfilBox.toMap().entries) {
+        perfilIdToKey[entry.value.id] = entry.key;
+      }
 
       int pacientesImportados = 0;
       int sessoesImportadas = 0;
@@ -166,6 +177,7 @@ class BackupService {
           pacientesBox,
           paciente,
           (existente) => existente.id == paciente.id,
+          pacienteIdToKey,
         );
         pacientesImportados++;
       }
@@ -225,6 +237,7 @@ class BackupService {
           sessoesBox,
           sessao,
           (existente) => existente.id == sessao.id,
+          sessaoIdToKey,
         );
         sessoesImportadas++;
       }
@@ -257,6 +270,7 @@ class BackupService {
           perfilBox,
           perfil,
           (existente) => existente.id == perfil.id,
+          perfilIdToKey,
         );
         perfisImportados++;
       }

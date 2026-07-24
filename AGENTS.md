@@ -12,7 +12,7 @@ App Flutter para prontuário clínico adaptado à abordagem terapêutica do prof
 - **Geração de código:** build_runner + hive_ce_generator
 - **Backend:** Python FastAPI, OpenAI GPT-4.1 / DeepSeek / Gemini (síntese) + gpt-4o-transcribe (transcrição)
 - **Deploy backend:** Render.com (plano gratuito, cold start ~30-60s)
-- **Segurança:** Criptografia AES-256-CBC (encrypt + pointycastle) + autenticação JWT no backend (python-jose + passlib)
+- **Segurança:** Criptografia AES-256-CBC com PBKDF2-HMAC-SHA256 (100k iterações, pointycastle) + IV aleatório por registro + autenticação JWT no backend (python-jose + passlib)
 
 ## Infraestrutura
 
@@ -56,9 +56,11 @@ lib/
 │   └── configuracao_abordagem_clinica.dart # 14 templates de abordagens (inclui Análise do Comportamento)
 ├── models/
 │   ├── enums.dart                          # AbordagemClinica (14), TermoPessoaAtendida, StatusProcessamento, OrigemRelato (6)
-│   ├── paciente.dart / .g.dart             # Hive typeId: 1 (10 campos: +email, +dataAtualizacao)
-│   ├── perfil_profissional.dart / .g.dart  # Hive typeId: 3 (8 campos: +fotoBase64)
-│   ├── sessao.dart / .g.dart               # Hive typeId: 2 (30 campos: +transcricaoRevisada)
+│   ├── paciente.dart / .g.dart             # Hive typeId: 1 (12 campos: +email, +dataAtualizacao, +fotoBase64)
+│   ├── perfil_profissional.dart / .g.dart  # Hive typeId: 3 (10 campos: +fotoBase64)
+│   ├── sessao.dart / .g.dart               # Hive typeId: 2 (31 campos: +transcricaoRevisada, +artigosSugeridos)
+│   ├── compromisso.dart / .g.dart          # Hive typeId: 4 (17 campos: +canalLembrete)
+│   ├── contrato_terapeutico.dart / .g.dart # Hive typeId: 5 (9 campos)
 │   └── lgpd/
 │       └── registro_auditoria.dart / .g.dart  # Hive typeId: 10
 ├── screens/
@@ -71,31 +73,50 @@ lib/
 │   ├── backup_restore_page_web.dart        # Web: Blob download + FileUpload
 │   ├── backup_restore_page_io.dart         # Mobile/desktop: share_plus (export) + file_picker (import)
 │   ├── perfil_profissional_form_page.dart
+│   ├── configuracoes_page.dart             # Configurações (PIN, agenda, IA, servidor)
+│   ├── agenda_page.dart                    # Agenda completa (Dia/Semana/Mês) ~1190 linhas
+│   ├── pacientes_page.dart                 # Lista dedicada de pacientes (Ativos/Arquivados)
 │   └── lgpd/
-│       └── privacidade_seguranca_page.dart  # Tela de Privacidade e Segurança (LGPD)
+│       ├── privacidade_seguranca_page.dart  # Tela de Privacidade e Segurança (LGPD)
+│       ├── politica_privacidade_page.dart   # Política de Privacidade
+│       └── termos_uso_page.dart             # Termos de Uso
 ├── providers/
 │   └── service_providers.dart              # 12 providers (Stream com async* para emitir valor inicial)
 ├── services/
-│   ├── api_client.dart                     # URL dinâmica via Hive + ensureAuthenticated() + timeout 120s
-│   ├── paciente_service.dart               # + criptografia AES nos campos sensíveis
+│   ├── api_client.dart                     # URL dinâmica via Hive + credenciais no Hive + ensureAuthenticated() + timeout 120s
+│   ├── paciente_service.dart               # + criptografia AES nos campos sensíveis + cascade delete
 │   ├── perfil_profissional_service.dart    # + criptografia AES
-│   ├── sessao_service.dart                 # + criptografia AES (18 campos)
-│   ├── backup_service.dart                 # Export/import JSON com novos campos
+│   ├── sessao_service.dart                 # + criptografia AES (19 campos) + cache próximo número
+│   ├── compromisso_service.dart            # CRUD de compromissos + recorrência + cancelamento de lembretes
+│   ├── lembrete_service.dart               # Agendamento de notificações locais + envio ao backend (WhatsApp/SMS)
+│   ├── backup_service.dart                 # Export/import JSON com exclusão de áudio grande + O(1) import
 │   ├── transcricao_relato_service.dart     # Lê arquivo .m4a e converte Base64 (mobile) + JWT auto-auth
-│   ├── ia_clinica_service.dart             # Conectado ao backend GPT-4.1 + JWT auto-auth
+│   ├── ia_clinica_service.dart             # Conectado ao backend GPT-4.1 + pseudonimização + retry 5xx
 │   ├── audio_relato_service.dart           # Gravação web (WAV/Base64) + mobile (M4A/arquivo)
 │   ├── status_clinico_sessao_service.dart
 │   ├── hive_migration_service.dart         # Schema V3
-│   ├── encryption_service.dart             # AES-256-CBC (encrypt + pointycastle)
-│   ├── auth_service.dart                   # PIN local + JWT backend
-│   ├── pdf_export_service.dart             # 5 tipos: sessão, histórico, relatório clínico, síntese revisada, prontuário completo
-│   ├── logger.dart                         # Log.erro / Log.info / Log.auditoria
+│   ├── encryption_service.dart             # PBKDF2-HMAC-SHA256 (100k iterações) + IV aleatório por registro
+│   ├── auth_service.dart                   # PIN local + JWT backend (credenciais no Hive)
+│   ├── pdf_export_service.dart             # 5 tipos + contrato: sessão, histórico, relatório, síntese, prontuário
+│   ├── contrato_service.dart               # CRUD contratos + comunicação com backend
+│   ├── configuracoes_service.dart          # Preferências (duração, lembretes, IA, tema, canal)
+│   ├── logger.dart                         # Log.erro / Log.info / Log.auditoria + persistência em Hive+arquivo
 │   └── lgpd/
-│       └── auditoria_service.dart          # Registro de eventos LGPD
+│       ├── auditoria_service.dart          # Registro de eventos LGPD
+│       └── pdf_arquitetura_lgpd_service.dart
 ├── widgets/
-  │   ├── secao_campos_clinicos_widget.dart   # 4 seções clínicas simplificadas: síntese, formulação, intervenções, apontamentos
-│   └── lgpd/
-│       └── aviso_privacidade_ia_card.dart
+  │   ├── home_dashboard.dart                # Dashboard da Home (5 seções: saudação, ações, KPIs, sessões, atividade)
+  │   ├── agenda_inline_widget.dart          # Agenda inline (Dia/Semana/Mês) ~640 linhas
+  │   ├── compromisso_form_dialog.dart       # Diálogo de criação/edição de compromisso
+  │   ├── novo_paciente_dialog.dart          # Diálogo de cadastro de paciente
+  │   ├── paciente_card_home.dart            # Card de paciente na lista (avatar, status, WhatsApp)
+  │   ├── paciente_resumo_card.dart          # Card de resumo na ficha do paciente (+ status contrato)
+  │   ├── sessao_card.dart                   # Card de sessão na lista
+  │   ├── sessao_audio_controls.dart         # Controles de áudio extraídos do SessaoFormPage
+  │   ├── sessao_artigos_sugeridos.dart      # Card de artigos sugeridos extraído do SessaoFormPage
+  │   ├── secao_campos_clinicos_widget.dart   # 4 seções clínicas simplificadas
+  │   └── lgpd/
+  │       └── aviso_privacidade_ia_card.dart
 ```
 
 ### Backend Python (`backend/`)
@@ -107,9 +128,13 @@ backend/
 ├── requirements.txt                  # openai>=1.0.0 + httpx + python-jose + passlib
 ├── models/
 │   └── schemas.py                    # Pydantic models + LoginRequest/LoginResponse
+├── templates/
+│   └── contrato.html                  # Página HTML do Acordo Terapêutico (patient-facing)
 ├── services/
 │   ├── ia_clinica.py                 # Síntese clínica (OpenAI/DeepSeek/Gemini) + busca de artigos (OpenAlex > SciELO RSS > rerank IA > links)
-│   └── transcricao.py               # Transcrição (gpt-4o-mini-transcribe + project ID)
+│   ├── transcricao.py               # Transcrição (gpt-4o-mini-transcribe, modelo configurável via TRANSCRICAO_MODEL)
+│   ├── contrato_service.py          # Armazenamento de contratos (token único + aceite)
+│   └── lembrete_service.py          # Scheduler de lembretes WhatsApp/SMS (asyncio + Twilio/Meta)
 └── prompts/
     └── abordagens.py                 # 14 abordagens (inclui Análise do Comportamento)
 ```
@@ -178,6 +203,9 @@ Chamadas à API (`TranscricaoRelatoService`, `IaClinicaService`) devem chamar `A
 4. **Render cold start**: Primeira requisição após inatividade leva 30-60s. Timeout do app ajustado para 120s
 5. **APK release vs debug**: `flutter build apk` gera release (menor). Debug: `flutter build apk --debug`
 6. **SciELO bloqueia datacenter**: `search.scielo.org` usa anti-bot "bunny-shield" que retorna 403 para IPs de datacenter (Render). OpenAlex é a fonte primária; SciELO é fallback (funciona só localmente).
+7. **Localização PT-BR**: `cancelText`/`confirmText` customizados nos 7 `showDatePicker`/`showTimePicker` ainda pendentes (labels padrão agora em PT-BR via `flutter_localizations`, mas custom labels não implementados).
+8. **Faltam acentos/diacríticos**: `compromisso_form_dialog.dart` e `agenda_page.dart` com diversos textos sem acentuação (e.g. "Nao repete", "Ate", "Padrao", "sessao", "Amanha", "Proximo", "mes").
+9. **Tema escuro (cores hardcoded)**: 88 ocorrências de `Colors.white`/`Colors.black` hardcoded + 92 cores hex fixas. `MentAllColors` criado como extensão do `BuildContext` com `ColorScheme`, mas migração das cores hardcoded ainda incompleta (apenas login, sessao_form, perfil_form, paciente_detail e lgpd/* foram migrados).
 
 ### Resolvidos
 - ~~Segurança: zero autenticação~~ ✅ JWT backend + criptografia AES local
@@ -203,6 +231,14 @@ Chamadas à API (`TranscricaoRelatoService`, `IaClinicaService`) devem chamar `A
   - ~~Artigos sugeridos alucinavam links (DOIs inventados pelo LLM)~~ ✅ IA extrai só `temas_pesquisa`; backend busca artigos reais (15/07/2026)
   - ~~Teste perfil_form quebrava sem box Hive~~ ✅ try-catch no initState (15/07/2026)
   - ~~/health mostrava modelo errado~~ ✅ exibe provider + modelo efetivo por provedor (15/07/2026)
+  - ~~App crash no launch (tela preta)~~ ✅ MainActivity.kt movido para pacote `com.mentall.app` correspondente ao namespace (22/07/2026)
+  - ~~flutter_localizations + intl em dev_dependencies~~ ✅ movidos para dependencies (22/07/2026)
+  - ~~Tema escuro (infra do MaterialApp)~~ ✅ darkTheme, themeMode com ColorScheme.fromSeed, toggle no ConfiguracoesService (22/07/2026)
+  - ~~Localização PT-BR (base flutter_localizations)~~ ✅ supportedLocales, locale, delegates no MaterialApp (22/07/2026)
+  - ~~Criptografia fraca (XOR simples)~~ ✅ PBKDF2-HMAC-SHA256 100k iterações + IV aleatório por registro + migração legado (22/07/2026)
+  - ~~Remover PIN sem descriptografar dados~~ ✅ services descriptografam antes de limpar chave (22/07/2026)
+  - ~~usesCleartextTraffic=true global~~ ✅ network_security_config restrito a redes locais (22/07/2026)
+  - ~~Credenciais backend hardcoded~~ ✅ lidas do app_config via AuthService._username/_password (22/07/2026)
 
 ## Novas Funcionalidades (09/07/2026)
 
@@ -490,7 +526,96 @@ curl -X POST https://mentall-api.onrender.com/auth/login \
   -d '{"username":"admin","password":"admin"}'
 ```
 
-## Observações
+## Correções e Funcionalidades (20/07/2026) — SESSÃO 1
+
+### Splash Screen
+- Ao abrir o app, exibe a logo MentAll (`logo_mentall.png` tema claro / `logo_mentall_escuro.png` tema escuro) centralizada por 3 segundos
+- Fade-out de 500ms com `AnimationController` + `TickerProviderStateMixin` no `AppStartPage`
+- Após splash: tela de bloqueio (se PIN ativo), perfil (primeiro uso) ou Home
+- Testes atualizados com `pump(Duration(seconds: 3))` + `pump(Duration(milliseconds: 600))`
+
+### Fix: foregroundColor hardcoded `Colors.white` → `context.corOnPrimaria`
+- **login_page.dart**: botão de bloqueio/desbloqueio estava com `foregroundColor: context.corTextoHeading` (`onSurface`) — no tema claro dava texto escuro sobre botão azul (ilegível); corrigido para `corOnPrimaria`
+- **sessao_form_page.dart**: 4 botões (Transcrever, Gerar síntese, Marcar como revisado, Salvar) + spinners — `Colors.white` → `corOnPrimaria`
+- **perfil_profissional_form_page.dart**: AppBar + botão Salvar + spinner
+- **paciente_detail_page.dart**: AppBar + botão Nova sessão
+- **lgpd/politica_privacidade_page.dart** + **termos_uso_page.dart**: AppBar + scaffold `Colors.white` → `cs.surface`/`cs.primary`/`cs.onPrimary`
+- Adicionado `corOnError` (`cs.onError`) ao `MentAllColors` e aplicado na tela de erro do `sessao_form_page.dart`
+
+### Notas
+- 69 testes passando (2 do app_start atualizados); analyze: 26 issues (todos preexistentes, sem novos erros)
+- APK release 69.3MB
+
+## Novas Funcionalidades e Correções (22/07/2026) — SESSÃO 1
+
+### Fix crítico: App não abria (tela preta e crash imediato)
+- Causa raiz: namespace alterado de `com.example.prontuario_tcc` para `com.mentall.app` no `build.gradle.kts`, mas `MainActivity.kt` permaneceu no pacote antigo (`com.example.prontuario_tcc`). `AndroidManifest.xml` declara `android:name=".MainActivity"` que resolve para `com.mentall.app.MainActivity` — classe não encontrada → `ClassNotFoundException` → crash imediato.
+- Correção: `MainActivity.kt` movido para `android/app/src/main/kotlin/com/mentall/app/` e package atualizado para `com.mentall.app`.
+- `flutter_localizations` e `intl` estavam em `dev_dependencies` — movidos para `dependencies` (causava warning `depend_on_referenced_packages` e seria excluído do tree-shaking em release).
+
+### Tema escuro (dark mode)
+- `MentAllApp` convertido de `StatelessWidget` para `ConsumerWidget` — assiste `configuracoesServiceProvider` + `configuracoesRevisaoProvider`
+- Método `_criarTema(Brightness)` gera `ThemeData` via `ColorScheme.fromSeed` (claro e escuro)
+- `themeMode: temaEscuro ? ThemeMode.dark : ThemeMode.light` — controlado pelo toggle `temaEscuro` no `ConfiguracoesService`
+- `ThemeData` usa `colorScheme` (não mais cores hardcoded): `scaffoldBackgroundColor`, `appBarTheme`, `floatingActionButtonTheme`, `inputDecorationTheme`, `cardTheme`, `filledButtonTheme`
+- Card elevation ajustado: light=1, dark=4
+
+### Utilitário MentAllColors (cores por contexto)
+- Novo arquivo `lib/utils/mentall_colors.dart` — extensão `MentAllColors` no `BuildContext`
+- Propriedades: `corPrimaria`, `corOnPrimaria`, `corFundo`, `corSuperficie`, `corCard`, `corContainerPrimario`
+- Textos: `corTextoHeading`, `corTextoBody` (0.87), `corTextoSecondary` (0.6), `corTextoMuted` (0.5), `corTextoPlaceholder` (0.38), `corTextoDisabled` (0.25)
+- Status: `corSuccess`, `corError`, `corOnError`, `corWarning`, `corDanger`, `corScheduled`, `corCancelled`
+- WhatsApp: `corWhatsAppBg` (#25D366), `corWhatsAppText` (#075E54)
+- Divisores e bordas via `outlineVariant`; AppBar via `surface`/`primary`
+- **Nota**: cores hardcoded (88x `Colors.white`/`Colors.black` + 92 hex fixas) ainda não foram todas migradas para `MentAllColors` — migração incremental nos arquivos modificados (login, sessao_form, perfil_form, paciente_detail, lgpd/*)
+
+### Localização PT-BR (flutter_localizations)
+- `MaterialApp` agora declara `supportedLocales: [Locale('pt', 'BR')]` e `locale: Locale('pt', 'BR')`
+- Delegates: `GlobalMaterialLocalizations`, `GlobalWidgetsLocalizations`, `GlobalCupertinoLocalizations`
+- `intl: ^0.20.2` adicionado como dependência direta
+- Pickers de data/hora agora exibem texto em português (Cancelar/OK em vez de Cancel/OK)
+- **Nota**: `cancelText`/`confirmText` customizados nos 7 `showDatePicker`/`showTimePicker` ainda pendentes
+
+### Criptografia: PBKDF2-HMAC-SHA256 + IV aleatório por registro
+- **KDF**: `_derivarChavePBKDF2()` usando `KeyDerivator('SHA-256/HMAC/PBKDF2')` com 100k iterações (substitui XOR simples legado)
+- **Salt**: 32 bytes (antes 16)
+- **Verification hash**: prefixo `v2:` para distinguir versões (legado sem prefixo)
+- **IV aleatório por registro**: `criptografar()` gera `IV.fromSecureRandom(16)` por chamada; output prefixado com `2:iv:base64:cipher:base64` (formato com marker de versão)
+- **Descriptografia**: detecta prefixo `2:` → extrai IV do ciphertext; fallback para IV global legado; fallback para texto puro (compatível com dados antigos)
+- **Migração automática**: ao desbloquear com KDF v2, tenta fallback legado (`_tentarDesbloquearLegacy`) e re-protege a chave no novo formato (`_atualizarChaveProtegida`)
+- **`trocarPin()`**: re-protege chave AES mestra com novo PIN (não gera chave nova — preserva dados existentes)
+- **`removerPin()`**: agora chama `removerCriptografiaExistente()` nos services (`PacienteService`, `SessaoService`, `PerfilProfissionalService`) antes de limpar — descriptografa dados antes de remover a chave
+- **`AuthService`**: recebe referências a `PacienteService`, `SessaoService`, `PerfilProfissionalService` para `removerPin()`; credenciais (`username`/`password`) lidas do `app_config` (não mais hardcoded `admin`/`admin`)
+
+### Segurança de rede (Android)
+- `usesCleartextTraffic="false"` no `AndroidManifest.xml` (antes `true` global)
+- `network_security_config.xml`: permite cleartext apenas para `localhost`, `127.0.0.1`, `192.168.0.x` e `192.168.1.x` (desenvolvimento local)
+- Produção usa HTTPS (`https://mentall-api.onrender.com`) — sem tráfego cleartext
+
+### Contrato Terapêutico (Acordo Terapêutico)
+- Novo modelo `ContratoTerapeutico` (Hive typeId 5, 9 campos): id, pacienteId, token, dataCriacao, dataEnvio, dataAceite, status, nomeAceite, url
+- Hive box `contratos` aberta no `main()` junto com as demais
+- `ContratoService`: criar contrato via `POST /contratos` (backend gera token único + URL), enviar link ao paciente, verificar status (`GET /contratos/{token}/status`), listar pendentes
+- Provider: `contratoServiceProvider` + `contratoPorPacienteProvider` (StreamProvider.family)
+- Backend: novo `services/contrato_service.py` (armazenamento em JSON, token único, página HTML de aceite em `templates/contrato.html`)
+
+### Lembretes (backend)
+- Novo `backend/services/lembrete_service.py`: scheduler de lembretes WhatsApp/SMS (asyncio + Twilio/Meta)
+- `backend/requirements.txt` atualizado com dependências de lembretes
+
+### Logo e identidade visual
+- Novas logos: `logo_mentall_claro.png` (tema claro), `logo_mentall_escuro.png` (tema escuro), `logo_mentall_home.png` (launcher)
+- Launcher icons regenerados com `logo_mentall_home.png` (todos os drawables e mipmaps atualizados)
+
+### Web
+- `web/manifest.json` atualizado para "MentAll"
+
+### Notas
+- Build APK debug: 162.7 MB (~12 min)
+- APK debug compila e roda sem crash (validado com `flutter build apk --debug`)
+- ~60 arquivos modificados (alterações incrementais nos últimos dias, não commitadas)
+- `ContratoTerapeuticoAdapter` registrado no `hive_registrar.g.dart` (gerado via build_runner)
+
 - **Produto comercial**: app destinado a publicação nas lojas (Google Play / App Store) — NÃO é projeto acadêmico; o nome da pasta `prontuario_tcc` é legado (TCC = Terapia Cognitivo-Comportamental, abordagem inicial do app)
 - Diferencial: `ConfiguracaoAbordagemClinica` adapta o prontuário à abordagem do profissional
 - Síntese clínica: OpenAI GPT-4.1 com response_format json_object + temperature 0.3

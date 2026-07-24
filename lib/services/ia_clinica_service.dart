@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'api_client.dart';
-import 'logger.dart';
 
 class ResultadoIaClinica {
   final bool sucesso;
@@ -116,7 +115,6 @@ class IaClinicaService {
     final transcricaoLimpa = transcricaoRelato.trim();
     final relatoManualLimpo = relatoManual.trim();
     final temaLimpo = temaPrincipal.trim();
-    final nomeLimpo = nomePessoaAtendida.trim();
     final termoLimpo = termoPessoaAtendida.trim();
     final abordagemLimpa = abordagemClinica.trim();
 
@@ -130,13 +128,15 @@ class IaClinicaService {
       );
     }
 
+    final nomePseudonimizado = _pseudonimizarNome(nomePessoaAtendida.trim());
+
     try {
       final resultado = await _fazerRequisicaoComRetry(
         endpoint: '/gerar-sintese',
         body: {
           'sessao_id': sessaoId,
           'numero_sessao': numeroSessao,
-          'nome_pessoa_atendida': nomeLimpo.isNotEmpty ? nomeLimpo : nomePessoaAtendida,
+          'nome_pessoa_atendida': nomePseudonimizado,
           'termo_pessoa_atendida': termoLimpo.isNotEmpty ? termoLimpo : termoPessoaAtendida,
           'abordagem_clinica': abordagemLimpa.isNotEmpty ? abordagemLimpa : 'Integrativa',
           'transcricao_relato': transcricaoLimpa,
@@ -146,8 +146,11 @@ class IaClinicaService {
       );
 
       if (resultado['status'] == 200) {
-        final data = resultado['data'] as Map<String, dynamic>;
-        final sucesso = data['sucesso'] as bool;
+        final data = resultado['data'] as Map<String, dynamic>?;
+        if (data == null) {
+          return ResultadoIaClinica.falha(erro: 'Resposta inválida do servidor.');
+        }
+        final sucesso = data['sucesso'] as bool? ?? false;
         if (sucesso) {
           return ResultadoIaClinica.sucesso(
             relatoClinicoOrganizado: data['relato_clinico_organizado'] as String? ?? '',
@@ -178,6 +181,21 @@ class IaClinicaService {
     }
   }
 
+  String _pseudonimizarNome(String nome) {
+    if (nome.isEmpty) return 'Pessoa atendida';
+    final partes = nome.split(' ');
+    if (partes.length == 1) {
+      return '${partes.first[0]}.';
+    }
+    final primeiroNome = partes.first;
+    final iniciais = partes
+        .skip(1)
+        .where((p) => p.isNotEmpty)
+        .map((p) => '${p[0]}.')
+        .join(' ');
+    return '$primeiroNome $iniciais';
+  }
+
   Future<Map<String, dynamic>> _fazerRequisicaoComRetry({
     required String endpoint,
     required Map<String, dynamic> body,
@@ -190,23 +208,39 @@ class IaClinicaService {
       return {'status': 0, 'data': null};
     }
 
-    final response = await http
-        .post(
-          Uri.parse('${ApiClient.baseUrl}$endpoint'),
-          headers: ApiClient.defaultHeaders(),
-          body: jsonEncode(body),
-        )
-        .timeout(ApiClient.timeout);
-
-    if (response.statusCode == 401 && tentativa < 1) {
-      return _fazerRequisicaoComRetry(endpoint: endpoint, body: body, tentativa: tentativa + 1);
-    }
-
-    Map<String, dynamic>? data;
     try {
-      data = jsonDecode(response.body) as Map<String, dynamic>;
-    } catch (_) {}
+      final response = await http
+          .post(
+            Uri.parse('${ApiClient.baseUrl}$endpoint'),
+            headers: ApiClient.defaultHeaders(),
+            body: jsonEncode(body),
+          )
+          .timeout(ApiClient.timeout);
 
-    return {'status': response.statusCode, 'data': data};
+      if (response.statusCode == 401 && tentativa < 2) {
+        return _fazerRequisicaoComRetry(
+            endpoint: endpoint, body: body, tentativa: tentativa + 1);
+      }
+
+      if (response.statusCode >= 500 && tentativa < 2) {
+        await Future.delayed(Duration(seconds: 2 * (tentativa + 1)));
+        return _fazerRequisicaoComRetry(
+            endpoint: endpoint, body: body, tentativa: tentativa + 1);
+      }
+
+      Map<String, dynamic>? data;
+      try {
+        data = jsonDecode(response.body) as Map<String, dynamic>;
+      } catch (_) {}
+
+      return {'status': response.statusCode, 'data': data};
+    } catch (e) {
+      if (tentativa < 2) {
+        await Future.delayed(Duration(seconds: 2 * (tentativa + 1)));
+        return _fazerRequisicaoComRetry(
+            endpoint: endpoint, body: body, tentativa: tentativa + 1);
+      }
+      return {'status': 0, 'data': null};
+    }
   }
 }

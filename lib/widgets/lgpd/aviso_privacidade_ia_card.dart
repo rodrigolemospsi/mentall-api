@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/mentall_colors.dart';
 
 class AvisoPrivacidadeIaCard extends StatelessWidget {
   const AvisoPrivacidadeIaCard({super.key});
@@ -7,32 +8,35 @@ class AvisoPrivacidadeIaCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       elevation: 0,
-      color: const Color(0xFFEFF6FF),
+      color: context.corContainerPrimario,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFFDBEAFE)),
+        side: BorderSide(color: context.corPrimaria.withValues(alpha: 0.15)),
       ),
-      child: const Padding(
-        padding: EdgeInsets.all(14),
+      child: Semantics(
+        label: 'Aviso de privacidade: A IA atua apenas como apoio documental',
+        child: Padding(
+        padding: const EdgeInsets.all(14),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(Icons.auto_awesome_outlined,
-                color: Color(0xFF64748B), size: 20),
-            SizedBox(width: 10),
+                color: context.corTextoMuted, size: 20),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 'A IA atua apenas como apoio documental. '
-                'Todo conteudo gerado deve ser revisado e validado '
-                'pelo profissional antes de integrar o prontuario.',
+                'Todo conteúdo gerado deve ser revisado e validado '
+                'pelo profissional antes de integrar o prontuário.',
                 style: TextStyle(
                   fontSize: 12,
-                  color: Color(0xFF475569),
+                  color: context.corTextoSecondary,
                   height: 1.4,
                 ),
               ),
             ),
           ],
+        ),
         ),
       ),
     );

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/paciente.dart';
+import '../utils/mentall_colors.dart';
 
 class PacienteCardHome extends StatelessWidget {
   final Paciente paciente;
@@ -27,37 +28,33 @@ class PacienteCardHome extends StatelessWidget {
 
   String get _nomeExibicao {
     final nomeLimpo = paciente.nome.trim();
-    if (nomeLimpo.isEmpty) {
-      return 'Sem nome';
-    }
+    if (nomeLimpo.isEmpty) return 'Sem nome';
     return nomeLimpo;
   }
 
   @override
   Widget build(BuildContext context) {
-    const Color corPrincipal = Color(0xFF2563EB);
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 14,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: cs.outlineVariant),
           ),
           child: Row(
             children: [
               CircleAvatar(
-                radius: 24,
+                radius: 22,
                 backgroundColor: listaArquivada
-                    ? Colors.grey.withValues(alpha: 0.14)
-                    : corPrincipal.withValues(alpha: 0.12),
+                    ? context.corSuperficie
+                    : cs.primaryContainer,
                 backgroundImage: paciente.possuiFoto
                     ? MemoryImage(base64Decode(paciente.fotoBase64))
                     : null,
@@ -66,34 +63,33 @@ class PacienteCardHome extends StatelessWidget {
                     : Text(
                         paciente.inicial,
                         style: TextStyle(
-                          color: listaArquivada
-                              ? Colors.grey.shade700
-                              : corPrincipal,
-                          fontWeight: FontWeight.bold,
+                          color: listaArquivada ? context.corTextoMuted : cs.primary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
                         ),
                       ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: Opacity(
-                  opacity: listaArquivada ? 0.75 : 1,
+                  opacity: listaArquivada ? 0.6 : 1,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         _nomeExibicao,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                          color: Color(0xFF1E293B),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          color: context.corTextoHeading,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 5),
                       Row(
                         children: [
-                          _StatusPacienteChip(
-                            ativo: paciente.ativo,
-                          ),
+                          _StatusPacienteChip(ativo: paciente.ativo),
                           if (sessoesPendentes > 0) ...[
                             const SizedBox(width: 8),
                             _PendenciasBadge(pendentes: sessoesPendentes),
@@ -104,23 +100,14 @@ class PacienteCardHome extends StatelessWidget {
                   ),
                 ),
               ),
-              if (paciente.possuiContato)
+              if (paciente.possuiContato && !listaArquivada)
                 _WhatsAppLogoButton(contato: paciente.contato.trim()),
-              const SizedBox(width: 4),
               PopupMenuButton<String>(
                 tooltip: 'Opções $termoSingular',
-                icon: const Icon(
-                  Icons.more_vert,
-                  color: Color(0xFF64748B),
-                  size: 20,
-                ),
+                icon: Icon(Icons.more_vert, color: context.corTextoMuted, size: 20),
                 onSelected: (value) {
-                  if (value == 'arquivar') {
-                    onArquivar();
-                  }
-                  if (value == 'restaurar') {
-                    onRestaurar();
-                  }
+                  if (value == 'arquivar') onArquivar();
+                  if (value == 'restaurar') onRestaurar();
                 },
                 itemBuilder: (context) {
                   if (listaArquivada) {
@@ -151,10 +138,7 @@ class PacienteCardHome extends StatelessWidget {
                   ];
                 },
               ),
-              const Icon(
-                Icons.chevron_right,
-                color: Color(0xFFCBD5E1),
-              ),
+              Icon(Icons.chevron_right, color: context.corTextoDisabled, size: 18),
             ],
           ),
         ),
@@ -166,29 +150,24 @@ class PacienteCardHome extends StatelessWidget {
 class _StatusPacienteChip extends StatelessWidget {
   final bool ativo;
 
-  const _StatusPacienteChip({
-    required this.ativo,
-  });
+  const _StatusPacienteChip({required this.ativo});
 
   @override
   Widget build(BuildContext context) {
-    final Color cor = ativo ? const Color(0xFF2E7D32) : Colors.grey;
+    final Color cor = ativo ? const Color(0xFF2E7D32) : context.corTextoMuted;
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 9,
-        vertical: 5,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: cor.withValues(alpha: 0.10),
+        color: cor.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         ativo ? 'Ativo' : 'Arquivado',
         style: TextStyle(
           color: cor,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -205,7 +184,7 @@ class _PendenciasBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: const Color(0xFFE65100).withValues(alpha: 0.12),
+        color: const Color(0xFFE65100).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
@@ -252,13 +231,13 @@ class _WhatsAppLogoButton extends StatelessWidget {
     return GestureDetector(
       onTap: _abrirWhatsApp,
       child: const SizedBox(
-        width: 64,
-        height: 64,
+        width: 52,
+        height: 52,
         child: Center(
           child: Image(
             image: AssetImage('assets/images/logo_whats.png'),
-            width: 56,
-            height: 56,
+            width: 44,
+            height: 44,
           ),
         ),
       ),

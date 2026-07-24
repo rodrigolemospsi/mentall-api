@@ -9,6 +9,7 @@ import '../models/endereco_consultorio.dart';
 import '../models/perfil_profissional.dart';
 import '../providers/service_providers.dart';
 import '../services/logger.dart';
+import '../utils/mentall_colors.dart';
 import 'home_page.dart';
 import 'lgpd/politica_privacidade_page.dart';
 import 'lgpd/termos_uso_page.dart';
@@ -260,7 +261,6 @@ class _PerfilProfissionalFormPageState
 
   @override
   Widget build(BuildContext context) {
-    const Color corPrincipal = Color(0xFF2563EB);
     final abordagemSelecionada = ref.watch(_abordagemProvider);
     final termoSelecionado = ref.watch(_termoProvider);
     final salvando = ref.watch(_salvandoProvider);
@@ -272,36 +272,36 @@ class _PerfilProfissionalFormPageState
       ..sort((a, b) => a.value.compareTo(b.value));
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: context.corFundo,
       appBar: _perfilExistente
           ? AppBar(
               title: const Text('Perfil profissional'),
-              backgroundColor: corPrincipal,
-              foregroundColor: Colors.white,
+              backgroundColor: context.corPrimaria,
+              foregroundColor: context.corOnPrimaria,
             )
           : null,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            _cardCabecalho(corPrincipal, fotoBase64, salvando, abordagemSelecionada,
+            _cardCabecalho(fotoBase64, salvando, abordagemSelecionada,
                 termoSelecionado, abordagensOrdenadas),
             const SizedBox(height: 16),
-            _cardInfo(corPrincipal),
+            _cardInfo(),
             const SizedBox(height: 16),
-            _secaoEnderecos(corPrincipal),
+            _secaoEnderecos(),
             const SizedBox(height: 16),
-            _secaoConsentimento(corPrincipal),
+            _secaoConsentimento(),
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: salvando ? null : _salvarPerfil,
               icon: salvando
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: context.corOnPrimaria,
                       ),
                     )
                   : const Icon(Icons.check_circle_outline),
@@ -309,10 +309,10 @@ class _PerfilProfissionalFormPageState
                 salvando ? 'Salvando...' : 'Salvar e começar',
               ),
               style: FilledButton.styleFrom(
-                backgroundColor: corPrincipal,
-                foregroundColor: Colors.white,
-                disabledBackgroundColor: corPrincipal.withValues(alpha: 0.6),
-                disabledForegroundColor: Colors.white,
+                backgroundColor: context.corPrimaria,
+                foregroundColor: context.corOnPrimaria,
+                disabledBackgroundColor: context.corPrimaria.withValues(alpha: 0.6),
+                disabledForegroundColor: context.corOnPrimaria,
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
             ),
@@ -323,7 +323,6 @@ class _PerfilProfissionalFormPageState
   }
 
   Widget _cardCabecalho(
-    Color corPrincipal,
     String fotoBase64,
     bool salvando,
     String abordagemSelecionada,
@@ -344,7 +343,9 @@ class _PerfilProfissionalFormPageState
               Align(
                 alignment: Alignment.centerLeft,
                 child: Image.asset(
-                  'assets/images/logo_mentall.png',
+                  Theme.of(context).brightness == Brightness.dark
+                      ? 'assets/images/logo_mentall_escuro.png'
+                      : 'assets/images/logo_mentall_claro.png',
                   height: 56,
                 ),
               ),
@@ -352,7 +353,9 @@ class _PerfilProfissionalFormPageState
             ] else ...[
               Center(
                 child: Image.asset(
-                  'assets/images/logo_mentall.png',
+                  Theme.of(context).brightness == Brightness.dark
+                      ? 'assets/images/logo_mentall_escuro.png'
+                      : 'assets/images/logo_mentall_claro.png',
                   height: 160,
                 ),
               ),
@@ -360,9 +363,9 @@ class _PerfilProfissionalFormPageState
               const Text('Bem-vindo ao MentAll',
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Antes de cadastrar pessoas atendidas, configure seu perfil profissional e suas preferências clínicas.',
-                style: TextStyle(color: Color(0xFF475569), height: 1.4),
+                style: TextStyle(color: context.corTextoSecondary, height: 1.4),
               ),
               const SizedBox(height: 22),
             ],
@@ -370,27 +373,27 @@ class _PerfilProfissionalFormPageState
               child: GestureDetector(
                 onTap: salvando ? null : _selecionarFoto,
                 child: Stack(
-                  clipBehavior: Clip.none,
+                  clipBehavior: Clip.hardEdge,
                   children: [
                     CircleAvatar(
                       radius: 88,
-                      backgroundColor: corPrincipal.withValues(alpha: 0.1),
+                      backgroundColor: context.corPrimaria.withValues(alpha: 0.1),
                       backgroundImage: fotoBase64.isNotEmpty
                           ? MemoryImage(base64Decode(fotoBase64))
                           : null,
                       child: fotoBase64.isEmpty
                           ? Icon(Icons.camera_alt_outlined,
-                              size: 64, color: corPrincipal)
+                              size: 64, color: context.corPrimaria)
                           : null,
                     ),
                     Positioned(
-                      bottom: 2,
-                      right: 2,
+                      bottom: 0,
+                      right: 0,
                       child: Container(
                         width: 36,
                         height: 36,
                         decoration: BoxDecoration(
-                          color: corPrincipal,
+                          color: context.corPrimaria,
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 2),
                         ),
@@ -475,25 +478,25 @@ class _PerfilProfissionalFormPageState
     );
   }
 
-  Widget _cardInfo(Color corPrincipal) {
+  Widget _cardInfo() {
     return Card(
       elevation: 0,
-      color: corPrincipal.withValues(alpha: 0.06),
+      color: context.corPrimaria.withValues(alpha: 0.06),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: corPrincipal.withValues(alpha: 0.12)),
+        side: BorderSide(color: context.corPrimaria.withValues(alpha: 0.12)),
       ),
-      child: const Padding(
+      child: Padding(
         padding: EdgeInsets.all(16),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.info_outline, color: Color(0xFF2563EB)),
+            Icon(Icons.info_outline, color: context.corPrimaria),
             SizedBox(width: 12),
             Expanded(
               child: Text(
                 'Essas preferências serão usadas para adaptar a linguagem do app e orientar os apontamentos da IA conforme sua abordagem clínica.',
-                style: TextStyle(color: Colors.black87, height: 1.4),
+                style: TextStyle(color: context.corTextoBody, height: 1.4),
               ),
             ),
           ],
@@ -502,7 +505,7 @@ class _PerfilProfissionalFormPageState
     );
   }
 
-  Widget _secaoEnderecos(Color corPrincipal) {
+  Widget _secaoEnderecos() {
     final atendeOnline = ref.watch(_atendeOnlineProvider);
 
     return Card(
@@ -515,16 +518,16 @@ class _PerfilProfissionalFormPageState
           children: [
             Row(
               children: [
-                const Icon(Icons.location_on_outlined,
-                    size: 40, color: Color(0xFF2563EB)),
+                Icon(Icons.location_on_outlined,
+                    size: 40, color: context.corPrimaria),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Endereços',
                     style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF1E293B)),
+                        color: context.corTextoHeading),
                   ),
                 ),
                 TextButton.icon(
@@ -536,17 +539,17 @@ class _PerfilProfissionalFormPageState
             ),
             const SizedBox(height: 12),
             if (_enderecoControllers.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Text(
                   'Nenhum endereço cadastrado. Toque em "Adicionar" para cadastrar um local de atendimento.',
-                  style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                  style: TextStyle(color: context.corTextoMuted, fontSize: 13),
                 ),
               )
             else
               ..._enderecoControllers.asMap().entries.map((entry) {
                 final index = entry.key;
-                return _cardEndereco(index, corPrincipal);
+                return _cardEndereco(index);
               }),
             const SizedBox(height: 16),
             const Divider(height: 1),
@@ -555,16 +558,16 @@ class _PerfilProfissionalFormPageState
               children: [
                 Checkbox(
                   value: atendeOnline,
-                  activeColor: corPrincipal,
+                  activeColor: context.corPrimaria,
                   onChanged: (value) {
                     ref.read(_atendeOnlineProvider.notifier).state =
                         value ?? false;
                   },
                 ),
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Realizo atendimento online',
-                    style: TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+                    style: TextStyle(fontSize: 14, color: context.corTextoHeading),
                   ),
                 ),
               ],
@@ -575,7 +578,7 @@ class _PerfilProfissionalFormPageState
     );
   }
 
-  Widget _cardEndereco(int index, Color corPrincipal) {
+  Widget _cardEndereco(int index) {
     final form = _enderecoControllers[index];
     final podeRemover = _enderecoControllers.length > 1;
 
@@ -583,9 +586,9 @@ class _PerfilProfissionalFormPageState
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: context.corCard,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: context.corDivider),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -596,15 +599,15 @@ class _PerfilProfissionalFormPageState
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: corPrincipal.withValues(alpha: 0.08),
+                  color: context.corPrimaria.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   'Endereço ${index + 1}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF2563EB),
+                    color: context.corPrimaria,
                   ),
                 ),
               ),
@@ -613,7 +616,7 @@ class _PerfilProfissionalFormPageState
                 IconButton(
                   onPressed: () => _removerEndereco(index),
                   icon: const Icon(Icons.close, size: 18),
-                  color: const Color(0xFFD32F2F),
+                  color: context.corError,
                   splashRadius: 16,
                   tooltip: 'Remover endereço',
                 ),
@@ -747,15 +750,15 @@ class _PerfilProfissionalFormPageState
     );
   }
 
-  Widget _secaoConsentimento(Color corPrincipal) {
+  Widget _secaoConsentimento() {
     final aceitou = ref.watch(_aceitouTermosProvider);
 
     return Card(
       elevation: 0,
-      color: const Color(0xFFEFF6FF),
+      color: context.corContainerPrimario,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Color(0xFFDBEAFE)),
+        side: BorderSide(color: context.cs.primaryContainer),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -766,7 +769,7 @@ class _PerfilProfissionalFormPageState
               children: [
                 Checkbox(
                   value: aceitou,
-                  activeColor: corPrincipal,
+                  activeColor: context.corPrimaria,
                   onChanged: (value) {
                     ref.read(_aceitouTermosProvider.notifier).state =
                         value ?? false;

@@ -51,6 +51,9 @@ dependencies:
   timezone: ^0.10.1
   share_plus: 10.1.4
   file_picker: 10.1.0
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -82,9 +85,9 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: false
-  image_path: "assets/images/logo_mentall_2.png"
+  image_path: "assets/images/logo_mentall_home.png"
   adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/images/logo_mentall_2.png"
+  adaptive_icon_foreground: "assets/images/logo_mentall_home.png"
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -12,11 +12,14 @@ class HiveMigrationService {
   static const String _versaoKey = 'schema_versao';
 
   Future<void> executar() async {
-    final metaBox = await Hive.openBox(_metaBoxName);
+    final bool abriuBox = !Hive.isBoxOpen(_metaBoxName);
+    final metaBox = abriuBox
+        ? await Hive.openBox(_metaBoxName)
+        : Hive.box(_metaBoxName);
     final versaoAtual = metaBox.get(_versaoKey, defaultValue: 1) as int;
 
     if (versaoAtual >= _schemaVersaoAtual) {
-      await metaBox.close();
+      if (abriuBox) await metaBox.close();
       return;
     }
 
@@ -29,7 +32,7 @@ class HiveMigrationService {
     }
 
     await metaBox.put(_versaoKey, _schemaVersaoAtual);
-    await metaBox.close();
+    if (abriuBox) await metaBox.close();
     Log.info('HiveMigration: concluida (versao $_schemaVersaoAtual)');
   }
 

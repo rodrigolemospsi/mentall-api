@@ -1,6 +1,8 @@
 import 'package:hive_ce/hive.dart';
 
 import '../models/paciente.dart';
+import '../models/sessao.dart';
+import '../models/compromisso.dart';
 import 'encryption_service.dart';
 
 class PacienteService {
@@ -103,7 +105,32 @@ class PacienteService {
   }
 
   Future<void> excluirPaciente(Paciente paciente) async {
+    final sessoesBox = Hive.box<Sessao>('sessoes');
+    final sessoesParaExcluir = sessoesBox.values
+        .where((s) => s.pacienteId == paciente.id)
+        .toList();
+    for (final s in sessoesParaExcluir) {
+      await s.delete();
+    }
+
+    final compromissosBox = Hive.box<Compromisso>('compromissos');
+    final compromissosParaExcluir = compromissosBox.values
+        .where((c) => c.pacienteId == paciente.id)
+        .toList();
+    for (final c in compromissosParaExcluir) {
+      await c.delete();
+    }
+
     await paciente.delete();
+  }
+
+  Future<void> removerCriptografiaExistente() async {
+    if (_encryption == null || !_encryption.configurado) return;
+
+    for (final p in _box.values) {
+      _decryptPaciente(p);
+      await p.save();
+    }
   }
 
   Stream<BoxEvent> observarPacientes() {

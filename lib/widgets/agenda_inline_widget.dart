@@ -5,6 +5,7 @@ import '../models/compromisso.dart';
 import '../models/enums.dart';
 import '../providers/service_providers.dart';
 import '../services/compromisso_service.dart';
+import '../utils/mentall_colors.dart';
 import 'compromisso_form_dialog.dart';
 
 final agendaDataProvider = StateProvider<DateTime>((ref) {
@@ -115,15 +116,15 @@ class AgendaInlineWidget extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFFEFF6FF),
+          color: context.corContainerPrimario,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFDBEAFE), width: 0.5),
+          border: Border.all(color: context.cs.primaryContainer, width: 0.5),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 8),
-            _buildModoSelector(ref, modo),
+            _buildModoSelector(context, ref, modo),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               child: Row(
@@ -132,7 +133,7 @@ class AgendaInlineWidget extends ConsumerWidget {
                     onPressed: navegarAnterior,
                     icon: const Icon(Icons.chevron_left, size: 20),
                     splashRadius: 18,
-                    color: const Color(0xFF2563EB),
+                    color: context.corPrimaria,
                   ),
                   Expanded(
                     child: GestureDetector(
@@ -143,16 +144,16 @@ class AgendaInlineWidget extends ConsumerWidget {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.calendar_today_rounded,
-                              size: 14, color: Color(0xFF2563EB)),
+                          Icon(Icons.calendar_today_rounded,
+                              size: 14, color: context.corPrimaria),
                           const SizedBox(width: 6),
                           Flexible(
                             child: Text(
                               titulo,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF2563EB),
+                                color: context.corPrimaria,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -165,13 +166,13 @@ class AgendaInlineWidget extends ConsumerWidget {
                     onPressed: navegarProximo,
                     icon: const Icon(Icons.chevron_right, size: 20),
                     splashRadius: 18,
-                    color: const Color(0xFF2563EB),
+                    color: context.corPrimaria,
                   ),
                 ],
               ),
             ),
-            if (modo == 'semana') _buildWeekStrip(ref, dataSelecionada, hoje),
-            if (modo == 'mes') _buildMonthGrid(ref, dataSelecionada, hoje, compService),
+            if (modo == 'semana') _buildWeekStrip(context, ref, dataSelecionada, hoje),
+            if (modo == 'mes') _buildMonthGrid(context, ref, dataSelecionada, hoje, compService),
             if (compromissos.isEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 4, 14, 6),
@@ -179,7 +180,7 @@ class AgendaInlineWidget extends ConsumerWidget {
                   dataSelecionada == hoje
                       ? 'Nenhum compromisso para hoje'
                       : 'Nenhum compromisso nesta data',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  style: TextStyle(fontSize: 12, color: context.corTextoMuted),
                 ),
               )
             else ...[
@@ -219,30 +220,31 @@ class AgendaInlineWidget extends ConsumerWidget {
     );
   }
 
-  Widget _buildModoSelector(WidgetRef ref, String modo) {
+  Widget _buildModoSelector(BuildContext context, WidgetRef ref, String modo) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _modoTab('Dia', 'dia', modo, ref),
+          _modoTab(context, 'Dia', 'dia', modo, ref),
           const SizedBox(width: 4),
-          _modoTab('Semana', 'semana', modo, ref),
+          _modoTab(context, 'Semana', 'semana', modo, ref),
           const SizedBox(width: 4),
-          _modoTab('Mês', 'mes', modo, ref),
+          _modoTab(context, 'Mês', 'mes', modo, ref),
         ],
       ),
     );
   }
 
-  Widget _modoTab(String label, String valor, String atual, WidgetRef ref) {
+  Widget _modoTab(BuildContext context, String label, String valor, String atual, WidgetRef ref) {
     final selecionado = atual == valor;
+    final cs = Theme.of(context).colorScheme;
     return GestureDetector(
       onTap: () => ref.read(agendaModoProvider.notifier).state = valor,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: selecionado ? const Color(0xFF2563EB) : Colors.transparent,
+          color: selecionado ? context.corPrimaria : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Text(
@@ -250,15 +252,16 @@ class AgendaInlineWidget extends ConsumerWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: selecionado ? Colors.white : const Color(0xFF64748B),
+            color: selecionado ? cs.onPrimary : context.corTextoMuted,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildWeekStrip(WidgetRef ref, DateTime centro, DateTime hoje) {
+  Widget _buildWeekStrip(BuildContext context, WidgetRef ref, DateTime centro, DateTime hoje) {
     final dias = _diasDaSemana(centro);
+    final cs = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       child: Row(
@@ -273,13 +276,13 @@ class AgendaInlineWidget extends ConsumerWidget {
               height: 44,
               decoration: BoxDecoration(
                 color: isSelected
-                    ? const Color(0xFF2563EB)
+                    ? context.corPrimaria
                     : isToday
-                        ? const Color(0xFFDBEAFE)
+                        ? cs.primaryContainer
                         : Colors.transparent,
                 borderRadius: BorderRadius.circular(10),
                 border: isToday && !isSelected
-                    ? Border.all(color: const Color(0xFF2563EB), width: 1)
+                    ? Border.all(color: context.corPrimaria, width: 1)
                     : null,
               ),
               child: Column(
@@ -291,10 +294,10 @@ class AgendaInlineWidget extends ConsumerWidget {
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                       color: isSelected
-                          ? Colors.white
+                          ? cs.onPrimary
                           : isToday
-                              ? const Color(0xFF2563EB)
-                              : const Color(0xFF64748B),
+                              ? context.corPrimaria
+                              : context.corTextoMuted,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -304,10 +307,10 @@ class AgendaInlineWidget extends ConsumerWidget {
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: isSelected
-                          ? Colors.white
+                          ? cs.onPrimary
                           : isToday
-                              ? const Color(0xFF2563EB)
-                              : const Color(0xFF1E293B),
+                              ? context.corPrimaria
+                              : context.corTextoHeading,
                     ),
                   ),
                 ],
@@ -319,7 +322,7 @@ class AgendaInlineWidget extends ConsumerWidget {
     );
   }
 
-  Widget _buildMonthGrid(WidgetRef ref, DateTime data, DateTime hoje, CompromissoService compService) {
+  Widget _buildMonthGrid(BuildContext context, WidgetRef ref, DateTime data, DateTime hoje, CompromissoService compService) {
     final inicioMes = DateTime(data.year, data.month, 1);
     final fimMes = DateTime(data.year, data.month + 1, 0);
     final totalDias = fimMes.day;
@@ -337,14 +340,14 @@ class AgendaInlineWidget extends ConsumerWidget {
     final diasMesAnterior = DateTime(data.year, data.month, 0).day;
     for (int i = primeiroDiaSemana - 1; i > 0; i--) {
       final dia = diasMesAnterior - i + 1;
-      celulas.add(_buildDiaCelula(
-        ref, dia, data, hoje, diasComCompromissos, foraLimite: true, mesAnterior: true,
+        celulas.add(_buildDiaCelula(
+        context, ref, dia, data, hoje, diasComCompromissos, foraLimite: true, mesAnterior: true,
       ));
     }
 
     // Dias do mês atual
     for (int dia = 1; dia <= totalDias; dia++) {
-      celulas.add(_buildDiaCelula(ref, dia, data, hoje, diasComCompromissos));
+      celulas.add(_buildDiaCelula(context, ref, dia, data, hoje, diasComCompromissos));
     }
 
     // Preencher até completar a última semana
@@ -353,7 +356,7 @@ class AgendaInlineWidget extends ConsumerWidget {
     if (resto != 0) {
       for (int d = 1; d <= 7 - resto; d++) {
         celulas.add(_buildDiaCelula(
-          ref, d, data, hoje, diasComCompromissos, foraLimite: true, mesAnterior: false,
+          context, ref, d, data, hoje, diasComCompromissos, foraLimite: true, mesAnterior: false,
         ));
       }
     }
@@ -375,8 +378,8 @@ class AgendaInlineWidget extends ConsumerWidget {
           Row(
             children: _diasSemanaAbrev.map((d) => Expanded(
               child: Center(
-                child: Text(d, style: const TextStyle(
-                  fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF64748B),
+                child: Text(d, style: TextStyle(
+                  fontSize: 10, fontWeight: FontWeight.w700, color: context.corTextoMuted,
                 )),
               ),
             )).toList(),
@@ -389,6 +392,7 @@ class AgendaInlineWidget extends ConsumerWidget {
   }
 
   Widget _buildDiaCelula(
+    BuildContext context,
     WidgetRef ref,
     int dia,
     DateTime mesAtual,
@@ -412,6 +416,7 @@ class AgendaInlineWidget extends ConsumerWidget {
         dataDia == ref.read(agendaDataProvider);
     final isToday = dataDia == hoje;
     final temCompromisso = !foraLimite && diasComCompromissos.contains(dia);
+    final cs = Theme.of(context).colorScheme;
 
     return GestureDetector(
       onTap: () {
@@ -424,13 +429,13 @@ class AgendaInlineWidget extends ConsumerWidget {
         height: 36,
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF2563EB)
+              ? context.corPrimaria
               : isToday
-                  ? const Color(0xFFDBEAFE)
+                  ? cs.primaryContainer
                   : null,
           borderRadius: BorderRadius.circular(8),
           border: isToday && !isSelected
-              ? Border.all(color: const Color(0xFF2563EB), width: 1)
+              ? Border.all(color: context.corPrimaria, width: 1)
               : null,
         ),
         child: Column(
@@ -442,20 +447,20 @@ class AgendaInlineWidget extends ConsumerWidget {
                 fontSize: 12,
                 fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
                 color: isSelected
-                    ? Colors.white
+                    ? cs.onPrimary
                     : foraLimite
-                        ? const Color(0xFFCBD5E1)
+                        ? context.corTextoDisabled
                         : isToday
-                            ? const Color(0xFF2563EB)
-                            : const Color(0xFF1E293B),
+                            ? context.corPrimaria
+                            : context.corTextoHeading,
               ),
             ),
             if (temCompromisso && !isSelected)
               Container(
                 width: 4,
                 height: 4,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF2563EB),
+                decoration: BoxDecoration(
+                  color: context.corPrimaria,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -515,9 +520,10 @@ class _CompromissoMiniCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final status = compromisso.statusEnum;
     final cor = status == StatusCompromisso.agendado
-        ? const Color(0xFF2563EB)
+        ? context.corPrimaria
         : status == StatusCompromisso.realizado
             ? const Color(0xFF2E7D32)
             : status == StatusCompromisso.cancelado
@@ -530,9 +536,9 @@ class _CompromissoMiniCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 4),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cs.surface,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFE2E8F0), width: 0.5),
+          border: Border.all(color: cs.outlineVariant, width: 0.5),
         ),
         child: Row(
           children: [
@@ -544,30 +550,30 @@ class _CompromissoMiniCard extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               compromisso.horarioInicioFormatado,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF1E293B),
+                color: context.corTextoHeading,
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 nomePaciente,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
-                  color: Color(0xFF475569),
+                  color: context.corTextoSecondary,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             if (compromisso.lembreteAtivado && compromisso.isAgendado)
-              const Padding(
-                padding: EdgeInsets.only(left: 6, right: 6),
+              Padding(
+                padding: const EdgeInsets.only(left: 6, right: 6),
                 child: Icon(
                   Icons.notifications_active_rounded,
                   size: 14,
-                  color: Color(0xFF2563EB),
+                  color: context.corPrimaria,
                 ),
               ),
             if (!compromisso.isAgendado)
@@ -584,7 +590,7 @@ class _CompromissoMiniCard extends StatelessWidget {
                 ),
               ),
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, size: 16, color: Color(0xFFCBD5E1)),
+            Icon(Icons.chevron_right, size: 16, color: context.corTextoDisabled),
           ],
         ),
       ),
@@ -622,48 +628,50 @@ class _AddAgendaButton extends ConsumerWidget {
           antecedenciaPadraoMinutos: config.antecedenciaPadraoMinutos,
         );
         if (compromisso == null) return;
-        await service.adicionar(compromisso);
+        final gerados = await service.adicionarComRecorrencia(compromisso);
         final pacService = ref.read(pacienteServiceProvider);
         final pacienteAgendado =
             pacService.buscarPacientePorId(compromisso.pacienteId);
         await ref.read(auditoriaServiceProvider).registrar(
               tipoEvento: 'Sessão agendada',
-              descricao: pacienteAgendado?.nome ?? 'Compromisso criado',
+              descricao: pacienteAgendado?.nome ?? 'Compromisso criado${gerados.length > 1 ? ' (${gerados.length}x)' : ''}',
               pacienteId: compromisso.pacienteId,
             );
-        if (compromisso.lembreteAtivado && compromisso.isAgendado) {
-          final perfilService = ref.read(perfilProfissionalServiceProvider);
-          final paciente =
-              pacService.buscarPacientePorId(compromisso.pacienteId);
-          if (paciente != null) {
-            final lembreteService = ref.read(lembreteServiceProvider);
-            await lembreteService.agendarLembrete(
-              compromisso: compromisso,
-              nomePaciente: paciente.nome,
-              nomeProfissional:
-                  perfilService.obterPerfil()?.nome ?? 'Profissional',
-              telefonePaciente: paciente.contato,
-            );
+        for (final c in gerados) {
+          if (c.lembreteAtivado && c.isAgendado) {
+            final perfilService = ref.read(perfilProfissionalServiceProvider);
+            final paciente =
+                pacService.buscarPacientePorId(c.pacienteId);
+            if (paciente != null) {
+              final lembreteService = ref.read(lembreteServiceProvider);
+              await lembreteService.agendarLembrete(
+                compromisso: c,
+                nomePaciente: paciente.nome,
+                nomeProfissional:
+                    perfilService.obterPerfil()?.nome ?? 'Profissional',
+                telefonePaciente: paciente.contato,
+              );
+            }
           }
         }
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.2)),
+         decoration: BoxDecoration(
+          border: Border.all(color: context.corPrimaria.withValues(alpha: 0.2)),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Row(
+        child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.add, size: 16, color: Color(0xFF2563EB)),
-          SizedBox(width: 6),
+          Icon(Icons.add, size: 16, color: context.corPrimaria),
+          const SizedBox(width: 6),
           Text(
             'Novo compromisso',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF2563EB),
+              color: context.corPrimaria,
             ),
           ),
         ],

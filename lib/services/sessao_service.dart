@@ -6,6 +6,7 @@ import 'encryption_service.dart';
 class SessaoService {
   final Box<Sessao> _box = Hive.box<Sessao>('sessoes');
   final EncryptionService? _encryption;
+  final Map<String, int> _cacheProximoNumero = {};
 
   SessaoService({EncryptionService? encryption}) : _encryption = encryption;
 
@@ -63,6 +64,7 @@ class SessaoService {
     _encryptSessao(sessao);
     await _box.add(sessao);
     _decryptSessao(sessao);
+    _cacheProximoNumero.remove(sessao.pacienteId);
   }
 
   Future<void> atualizarSessao(Sessao sessao) async {
@@ -86,17 +88,20 @@ class SessaoService {
   }
 
   int proximoNumeroSessao(String pacienteId) {
-    final sessoes = _box.values
-        .where((sessao) => sessao.pacienteId == pacienteId)
-        .toList();
+    if (_cacheProximoNumero.containsKey(pacienteId)) {
+      return _cacheProximoNumero[pacienteId]!;
+    }
 
-    if (sessoes.isEmpty) return 1;
+    int maiorNumero = 0;
+    for (final sessao in _box.values) {
+      if (sessao.pacienteId == pacienteId && sessao.numeroSessao > maiorNumero) {
+        maiorNumero = sessao.numeroSessao;
+      }
+    }
 
-    final maiorNumero = sessoes
-        .map((sessao) => sessao.numeroSessao)
-        .reduce((a, b) => a > b ? a : b);
-
-    return maiorNumero + 1;
+    final proximo = maiorNumero + 1;
+    _cacheProximoNumero[pacienteId] = proximo;
+    return proximo;
   }
 
   Sessao? buscarSessaoPorId(String id) {
@@ -151,6 +156,15 @@ class SessaoService {
 
   Stream<BoxEvent> observarSessoes() {
     return _box.watch();
+  }
+
+  Future<void> removerCriptografiaExistente() async {
+    if (_encryption == null || !_encryption.configurado) return;
+
+    for (final s in _box.values) {
+      _decryptSessao(s);
+      await s.save();
+    }
   }
 
   String _encrypt(String value) {

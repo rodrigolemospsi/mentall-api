@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acordo Terapêutico - MentAll</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #F7F9FA;
+    color: #1E293B;
+    line-height: 1.6;
+    padding: 20px;
+  }
+  .container {
+    max-width: 680px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    padding: 32px 24px;
+  }
+  .logo {
+    text-align: center;
+    margin-bottom: 24px;
+    font-size: 28px;
+    font-weight: 700;
+    color: #2563EB;
+    letter-spacing: 1px;
+  }
+  h2 {
+    font-size: 18px;
+    color: #2563EB;
+    margin: 24px 0 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #E2E8F0;
+  }
+  h2:first-of-type { margin-top: 0; }
+  p, li {
+    font-size: 15px;
+    color: #334155;
+    margin-bottom: 8px;
+  }
+  ul {
+    padding-left: 20px;
+    margin-bottom: 12px;
+  }
+  li { margin-bottom: 4px; }
+  .destaque {
+    background: #EFF6FF;
+    border-left: 3px solid #2563EB;
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin: 16px 0;
+    font-size: 14px;
+    color: #1E293B;
+  }
+  .assinatura {
+    margin-top: 32px;
+    padding-top: 16px;
+    border-top: 1px solid #E2E8F0;
+  }
+  .assinatura p {
+    margin: 12px 0;
+    font-size: 14px;
+  }
+  .linha {
+    display: inline-block;
+    border-bottom: 1px solid #94A3B8;
+    min-width: 220px;
+    margin-left: 6px;
+  }
+  .secao-aceite {
+    margin-top: 28px;
+    padding: 20px;
+    background: #F8FAFC;
+    border-radius: 12px;
+    border: 1px solid #E2E8F0;
+  }
+  .secao-aceite label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1E293B;
+    margin-bottom: 8px;
+  }
+  .secao-aceite input[type="text"] {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #CBD5E1;
+    border-radius: 10px;
+    font-size: 16px;
+    margin-bottom: 16px;
+    outline: none;
+  }
+  .secao-aceite input[type="text"]:focus {
+    border-color: #2563EB;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+  }
+  .btn-aceitar {
+    width: 100%;
+    padding: 14px;
+    background: #2563EB;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn-aceitar:hover { background: #1D4ED8; }
+  .btn-aceitar:disabled { background: #94A3B8; cursor: not-allowed; }
+  .sucesso {
+    background: #F0FDF4;
+    border: 1px solid #BBF7D0;
+    color: #166534;
+    padding: 16px;
+    border-radius: 10px;
+    text-align: center;
+    font-size: 16px;
+    margin-top: 16px;
+  }
+  .erro {
+    background: #FEF2F2;
+    border: 1px solid #FECACA;
+    color: #991B1B;
+    padding: 12px;
+    border-radius: 10px;
+    text-align: center;
+    font-size: 14px;
+    margin-top: 12px;
+  }
+  .ja-aceito {
+    background: #F0FDF4;
+    border: 1px solid #BBF7D0;
+    color: #166534;
+    padding: 16px;
+    border-radius: 10px;
+    text-align: center;
+    font-size: 14px;
+  }
+  .footer {
+    text-align: center;
+    margin-top: 24px;
+    font-size: 12px;
+    color: #94A3B8;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="logo">MentAll</div>
+  <h2>Acordo Terapêutico</h2>
+  <p>Bem-vindo, <strong>{{nome_paciente}}</strong>!</p>
+  <p>A psicoterapia é um espaço de cuidado, acolhimento, reflexão e desenvolvimento pessoal. Para que esse processo aconteça de forma ética, respeitosa e produtiva, é importante que exista clareza sobre alguns combinados que sustentam o trabalho terapêutico.</p>
+  <p>Este documento tem como objetivo apresentar esses acordos de forma transparente, favorecendo uma relação baseada na confiança, no respeito mútuo e na corresponsabilidade pelo processo terapêutico.</p>
+
+  <h2>Sobre o trabalho {{termo_profissional}}</h2>
+  <p>O psicólogo compromete-se a:</p>
+  <ul>
+    <li>Oferecer um ambiente ético, acolhedor e livre de julgamentos.</li>
+    <li>Conduzir os atendimentos de acordo com os princípios científicos e éticos da Psicologia.</li>
+    <li>Respeitar a singularidade, a autonomia, os valores e a dignidade {{preposicao_termo}} {{termo_pessoa}}.</li>
+    <li>Manter sigilo sobre as informações compartilhadas durante o processo terapêutico, exceto nas situações previstas em lei ou pelo Código de Ética Profissional do Psicólogo.</li>
+    <li>Informar com clareza sobre aspectos relevantes do processo terapêutico sempre que necessário.</li>
+  </ul>
+  <p>A psicoterapia é um trabalho construído em conjunto. O profissional oferece conhecimento técnico e suporte especializado, mas não pode prometer resultados específicos, uma vez que o processo depende também do envolvimento e das circunstâncias de vida {{preposicao_termo}} {{termo_pessoa}}.</p>
+
+  <h2>Sobre o compromisso {{preposicao_termo}} {{termo_pessoa}}</h2>
+  <p>Para favorecer a continuidade e a qualidade do acompanhamento, espera-se que {{artigo_termo}} {{termo_pessoa}}:</p>
+  <ul>
+    <li>Compareça às sessões nos horários previamente combinados.</li>
+    <li>Comunique dúvidas, dificuldades ou necessidades relacionadas ao processo terapêutico.</li>
+    <li>Informe alterações relevantes de contato ou disponibilidade.</li>
+    <li>Participe do processo de maneira voluntária e responsável, respeitando os acordos estabelecidos.</li>
+  </ul>
+  <p>Não se espera perfeição, mas comprometimento com o próprio cuidado e com o espaço terapêutico construído em conjunto.</p>
+
+  <h2>Horários e agendamentos</h2>
+  <p>As sessões ocorrerão nos dias e horários previamente acordados entre as partes.</p>
+  <p>O horário reservado é exclusivo para {{artigo_termo}} {{termo_pessoa}} e faz parte da organização profissional do psicólogo.</p>
+  <p>Eventuais necessidades de alteração de horário serão acolhidas e analisadas conforme a disponibilidade da agenda.</p>
+
+  <h2>Cancelamentos e faltas</h2>
+  <p>Imprevistos fazem parte da vida e são compreendidos com respeito. Ainda assim, para que a agenda possa ser organizada adequadamente, fica estabelecido o seguinte acordo:</p>
+  <ul>
+    <li>Cancelamentos ou solicitações de remarcação poderão ser realizados sem cobrança quando comunicados com antecedência mínima de 24 horas.</li>
+    <li>Cancelamentos realizados com menos de 24 horas de antecedência, assim como faltas sem aviso prévio, gerarão a cobrança integral da sessão agendada.</li>
+  </ul>
+  <p>Essa política não possui caráter punitivo. Ela existe porque o horário foi reservado exclusivamente para aquele atendimento e, em geral, não há tempo hábil para reorganizar a agenda ou oferecer o horário a outra pessoa.</p>
+  <p>Situações excepcionais e imprevisíveis poderão ser consideradas individualmente, com base no diálogo, no bom senso e no cuidado com a relação terapêutica.</p>
+
+  <h2>Sigilo e confidencialidade</h2>
+  <p>As informações compartilhadas durante os atendimentos são protegidas pelo sigilo profissional, conforme os princípios éticos da profissão.</p>
+  <p>O sigilo poderá ser relativizado apenas nas situações previstas pela legislação e pelas normativas profissionais vigentes, especialmente quando houver risco relevante à integridade da própria pessoa ou de terceiros, ou por determinação judicial legalmente fundamentada.</p>
+
+  <h2>Registros e proteção de informações</h2>
+  <p>O psicólogo poderá realizar os registros necessários ao acompanhamento clínico, respeitando os princípios éticos e legais aplicáveis à profissão.</p>
+  <p>Essas informações serão mantidas sob cuidados de confidencialidade e utilizadas exclusivamente para fins relacionados ao atendimento psicológico.</p>
+
+  <h2>Encerramento do acompanhamento</h2>
+  <p>O processo terapêutico poderá ser encerrado a qualquer momento por iniciativa {{preposicao_termo}} {{termo_pessoa}} ou por avaliação profissional tecnicamente fundamentada.</p>
+  <p>Sempre que possível, recomenda-se que esse encerramento seja comunicado e elaborado em sessão, permitindo um fechamento adequado do processo construído.</p>
+
+  <h2>Considerações finais</h2>
+  <p>Mais do que um conjunto de regras, este acordo representa um compromisso mútuo de respeito, responsabilidade e cuidado.</p>
+  <p>A psicoterapia é um encontro humano que se fortalece quando existe clareza, confiança e colaboração entre profissional e {{termo_pessoa}}.</p>
+  <p>Ao prosseguir com o acompanhamento, ambas as partes declaram ter ciência e concordância com os termos aqui apresentados.</p>
+
+  <div class="assinatura">
+    <p><strong>Psicólogo(a):</strong> <span class="linha">{{nome_profissional}}</span></p>
+    <p><strong>CRP:</strong> <span class="linha">{{registro_profissional}}</span></p>
+    <p><strong>{{termo_pessoa_capitalizado}}:</strong> <span class="linha">{{nome_paciente}}</span></p>
+    <p><strong>Local e data:</strong> <span class="linha">{{local_data}}</span></p>
+  </div>
+
+  {% if not aceito %}
+  <div class="secao-aceite" id="secao-aceite">
+    <label for="nome-confirmacao">Digite seu nome completo para aceitar o acordo:</label>
+    <input type="text" id="nome-confirmacao" placeholder="Seu nome completo" autocomplete="off">
+    <button class="btn-aceitar" id="btn-aceitar" onclick="aceitar()">Li e Aceito</button>
+    <div id="erro-msg" class="erro" style="display:none;"></div>
+  </div>
+  <div id="sucesso-msg" class="sucesso" style="display:none;">
+    Obrigado! Seu aceite foi registrado em {{data_agora}}. O profissional responsável será notificado.
+  </div>
+  {% endif %}
+
+  {% if aceito %}
+  <div class="ja-aceito">
+    Este acordo foi aceito por <strong>{{nome_aceite}}</strong> em {{data_aceite}}.
+  </div>
+  {% endif %}
+
+  <div class="footer">
+    MentAll — Prontuário Clínico com IA<br>
+    Documento gerado em {{data_agora}}
+  </div>
+</div>
+
+<script>
+async function aceitar() {
+  const nome = document.getElementById('nome-confirmacao').value.trim();
+  const erroEl = document.getElementById('erro-msg');
+
+  if (!nome || nome.length < 3) {
+    erroEl.textContent = 'Por favor, digite seu nome completo.';
+    erroEl.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('btn-aceitar');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+  erroEl.style.display = 'none';
+
+  try {
+    const resp = await fetch('{{url_aceitar}}', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({nome: nome})
+    });
+
+    if (resp.ok) {
+      document.getElementById('secao-aceite').style.display = 'none';
+      document.getElementById('sucesso-msg').style.display = 'block';
+    } else {
+      const data = await resp.json();
+      erroEl.textContent = data.erro || 'Erro ao registrar aceite. Tente novamente.';
+      erroEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Li e Aceito';
+    }
+  } catch (e) {
+    erroEl.textContent = 'Erro de conexão. Verifique sua internet e tente novamente.';
+    erroEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Li e Aceito';
+  }
+}
+</script>
+</body>
+</html>

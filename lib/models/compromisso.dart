@@ -45,6 +45,18 @@ class Compromisso extends HiveObject {
   @HiveField(12)
   String mensagemLembrete;
 
+  @HiveField(13)
+  String recorrencia;
+
+  @HiveField(14)
+  DateTime? dataLimiteRecorrencia;
+
+  @HiveField(15)
+  String? compromissoPaiId;
+
+  @HiveField(16)
+  String canalLembrete;
+
   Compromisso({
     required this.id,
     required this.pacienteId,
@@ -59,6 +71,10 @@ class Compromisso extends HiveObject {
     this.lembreteAtivado = false,
     this.minutosAntecedencia = 1440,
     this.mensagemLembrete = '',
+    this.recorrencia = '',
+    this.dataLimiteRecorrencia,
+    this.compromissoPaiId,
+    this.canalLembrete = 'whatsapp',
   })  : dataHoraFim = dataHoraFim ??
             dataHoraInicio.add(const Duration(minutes: 50)),
         dataCriacao = dataCriacao ?? DateTime.now();
@@ -74,6 +90,13 @@ class Compromisso extends HiveObject {
 
   bool get isPendente => isAgendado;
   bool get isConcluido => isRealizado;
+
+  FrequenciaRecorrencia get recorrenciaEnum =>
+      FrequenciaRecorrencia.fromString(recorrencia);
+
+  bool get temRecorrencia => recorrenciaEnum.temRecorrencia;
+
+  bool get ehFilhoDeRecorrencia => compromissoPaiId != null;
 
   String get horarioInicioFormatado {
     return '${dataHoraInicio.hour.toString().padLeft(2, '0')}:${dataHoraInicio.minute.toString().padLeft(2, '0')}';
@@ -106,6 +129,10 @@ class Compromisso extends HiveObject {
     bool? lembreteAtivado,
     int? minutosAntecedencia,
     String? mensagemLembrete,
+    String? recorrencia,
+    DateTime? dataLimiteRecorrencia,
+    String? compromissoPaiId,
+    String? canalLembrete,
   }) {
     return Compromisso(
       id: id ?? this.id,
@@ -121,6 +148,11 @@ class Compromisso extends HiveObject {
       lembreteAtivado: lembreteAtivado ?? this.lembreteAtivado,
       minutosAntecedencia: minutosAntecedencia ?? this.minutosAntecedencia,
       mensagemLembrete: mensagemLembrete ?? this.mensagemLembrete,
+      recorrencia: recorrencia ?? this.recorrencia,
+      dataLimiteRecorrencia:
+          dataLimiteRecorrencia ?? this.dataLimiteRecorrencia,
+      compromissoPaiId: compromissoPaiId ?? this.compromissoPaiId,
+      canalLembrete: canalLembrete ?? this.canalLembrete,
     );
   }
 

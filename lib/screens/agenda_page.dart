@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,6 +11,7 @@ import '../services/paciente_service.dart';
 import '../services/compromisso_service.dart';
 import '../screens/paciente_detail_page.dart';
 import '../widgets/compromisso_form_dialog.dart';
+import '../utils/mentall_colors.dart';
 
 final _dataSelecionadaProvider = StateProvider<DateTime>((ref) {
   final agora = DateTime.now();
@@ -16,6 +19,8 @@ final _dataSelecionadaProvider = StateProvider<DateTime>((ref) {
 });
 
 final _modoAgendaProvider = StateProvider<String>((ref) => 'dia');
+
+final _refreshAgendaProvider = StateProvider<int>((ref) => 0);
 
 class AgendaPage extends ConsumerStatefulWidget {
   const AgendaPage({super.key});
@@ -42,6 +47,21 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
   ];
+
+  List<Compromisso> _compromissosDoModo(
+    DateTime data,
+    String modo,
+    CompromissoService service,
+  ) {
+    switch (modo) {
+      case 'semana':
+        return service.listarPorSemana(data);
+      case 'mes':
+        return service.listarPorMes(data);
+      default:
+        return service.listarPorData(data);
+    }
+  }
 
   String _formatarDataLonga(DateTime data) {
     final diaSemana = _diasSemana[data.weekday - 1];
@@ -112,7 +132,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
       final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
       final termo = perfil?.termoPlural ?? 'pacientes';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Cadastre $termo primeiro para agendar sessões.')),
+        SnackBar(content: Text('Cadastre $termo primeiro para agendar sessoes.')),
       );
       return;
     }
@@ -131,18 +151,22 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
     );
 
     if (compromisso == null) return;
-    await service.adicionar(compromisso);
+
+    final gerados = await service.adicionarComRecorrencia(compromisso);
     final pacienteAgendado = pacientes
         .where((p) => p.id == compromisso.pacienteId)
         .toList();
     await ref.read(auditoriaServiceProvider).registrar(
-          tipoEvento: 'Sessão agendada',
+          tipoEvento: 'Sessao agendada',
           descricao: pacienteAgendado.isNotEmpty
               ? pacienteAgendado.first.nome
-              : 'Compromisso criado',
+              : 'Compromisso criado${gerados.length > 1 ? ' (${gerados.length}x)' : ''}',
           pacienteId: compromisso.pacienteId,
         );
-    await _agendarLembrete(ref, compromisso);
+    for (final c in gerados) {
+      await _agendarLembrete(ref, c);
+    }
+    ref.read(_refreshAgendaProvider.notifier).update((n) => n + 1);
   }
 
   Future<void> _editarCompromisso(Compromisso compromisso) async {
@@ -159,6 +183,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
     if (editado == null) return;
     await service.atualizar(editado);
     await _agendarLembrete(ref, editado);
+    ref.read(_refreshAgendaProvider.notifier).update((n) => n + 1);
   }
 
   Future<void> _agendarLembrete(WidgetRef ref, Compromisso compromisso) async {
@@ -200,22 +225,27 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
 
     if (confirmar != true) return;
     await ref.read(compromissoServiceProvider).remover(compromisso);
+    ref.read(_refreshAgendaProvider.notifier).update((n) => n + 1);
   }
 
   Future<void> _marcarRealizado(Compromisso compromisso) async {
     await ref.read(compromissoServiceProvider).marcarComoRealizado(compromisso);
+    ref.read(_refreshAgendaProvider.notifier).update((n) => n + 1);
   }
 
   Future<void> _marcarCancelado(Compromisso compromisso) async {
     await ref.read(compromissoServiceProvider).marcarComoCancelado(compromisso);
+    ref.read(_refreshAgendaProvider.notifier).update((n) => n + 1);
   }
 
   Future<void> _marcarFaltou(Compromisso compromisso) async {
     await ref.read(compromissoServiceProvider).marcarComoFaltou(compromisso);
+    ref.read(_refreshAgendaProvider.notifier).update((n) => n + 1);
   }
 
   Future<void> _marcarAgendado(Compromisso compromisso) async {
     await ref.read(compromissoServiceProvider).marcarComoAgendado(compromisso);
+    ref.read(_refreshAgendaProvider.notifier).update((n) => n + 1);
   }
 
   void _abrirPaciente(Paciente paciente) {
@@ -229,13 +259,19 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(_refreshAgendaProvider);
     final dataSelecionada = ref.watch(_dataSelecionadaProvider);
     final modo = ref.watch(_modoAgendaProvider);
-    final compromissosAsync = ref.watch(compromissosPorDataProvider(dataSelecionada));
-    final pacienteService = ref.watch(pacienteServiceProvider);
     final compService = ref.watch(compromissoServiceProvider);
+    final pacienteService = ref.watch(pacienteServiceProvider);
+    final theme = Theme.of(context);
+    final corPrimaria = theme.colorScheme.primary;
+    final corSurface = theme.colorScheme.surface;
+    final corOnPrimaria = theme.colorScheme.onPrimary;
+    final corMuted = theme.colorScheme.onSurface.withValues(alpha: 0.6);
 
-    final compromissosDoDia = compromissosAsync.value ?? [];
+    final compromissosDoPeriodo =
+        _compromissosDoModo(dataSelecionada, modo, compService);
 
     final hoje = DateTime.now();
     final hojeInicio = DateTime(hoje.year, hoje.month, hoje.day);
@@ -267,17 +303,17 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: corSurface,
       appBar: AppBar(
         title: const Text('Agenda'),
         actions: [
           if (!isHoje || modo != 'dia')
             TextButton.icon(
               onPressed: _irParaHoje,
-              icon: const Icon(Icons.today, color: Colors.white, size: 20),
-              label: const Text(
+              icon: Icon(Icons.today, color: corOnPrimaria, size: 20),
+              label: Text(
                 'Hoje',
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(color: corOnPrimaria),
               ),
             ),
         ],
@@ -285,7 +321,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
       body: Column(
         children: [
           const SizedBox(height: 8),
-          _buildModoSelector(modo),
+          _buildModoSelector(modo, corPrimaria, corMuted),
           _SeletorData(
             data: dataSelecionada,
             onAnterior: _navegarAnterior,
@@ -297,14 +333,15 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
           if (modo == 'mes')
             _buildMonthGrid(dataSelecionada, hojeInicio, compService),
           Expanded(
-            child: compromissosDoDia.isEmpty
+            child: compromissosDoPeriodo.isEmpty
                 ? _EstadoVazioAgenda(
                     onNovo: () => _novoCompromisso(),
                     dataSelecionada: dataSelecionada,
                     isHoje: isHoje,
+                    modo: modo,
                   )
                 : _ListaCompromissos(
-                    compromissos: compromissosDoDia,
+                    compromissos: compromissosDoPeriodo,
                     pacienteService: pacienteService,
                     onEditar: _editarCompromisso,
                     onRemover: _confirmarRemocao,
@@ -313,41 +350,40 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
                     onMarcarFaltou: _marcarFaltou,
                     onMarcarAgendado: _marcarAgendado,
                     onAbrirPaciente: _abrirPaciente,
+                    modo: modo,
                   ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _novoCompromisso(),
-        backgroundColor: const Color(0xFF2563EB),
-        foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('Novo compromisso'),
       ),
     );
   }
 
-  Widget _buildModoSelector(String modo) {
+  Widget _buildModoSelector(String modo, Color corPrimaria, Color corMuted) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _modoTab('Dia', 'dia', modo),
+        _modoTab('Dia', 'dia', modo, corPrimaria, corMuted),
         const SizedBox(width: 4),
-        _modoTab('Semana', 'semana', modo),
+        _modoTab('Semana', 'semana', modo, corPrimaria, corMuted),
         const SizedBox(width: 4),
-        _modoTab('Mês', 'mes', modo),
+        _modoTab('Mês', 'mes', modo, corPrimaria, corMuted),
       ],
     );
   }
 
-  Widget _modoTab(String label, String valor, String atual) {
+  Widget _modoTab(String label, String valor, String atual, Color corPrimaria, Color corMuted) {
     final selecionado = atual == valor;
     return GestureDetector(
       onTap: () => ref.read(_modoAgendaProvider.notifier).state = valor,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: selecionado ? const Color(0xFF2563EB) : Colors.transparent,
+          color: selecionado ? corPrimaria : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Text(
@@ -355,7 +391,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: selecionado ? Colors.white : const Color(0xFF64748B),
+            color: selecionado ? context.corOnPrimaria : corMuted,
           ),
         ),
       ),
@@ -364,6 +400,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
 
   Widget _buildWeekStrip(DateTime centro, DateTime hoje) {
     final dias = _diasDaSemana(centro);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Row(
@@ -379,13 +416,13 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
                 margin: const EdgeInsets.symmetric(horizontal: 2),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? const Color(0xFF2563EB)
+                      ? context.corPrimaria
                       : isToday
-                          ? const Color(0xFFDBEAFE)
+                          ? context.cs.primaryContainer
                           : Colors.transparent,
                   borderRadius: BorderRadius.circular(10),
                   border: isToday && !isSelected
-                      ? Border.all(color: const Color(0xFF2563EB), width: 1)
+                      ? Border.all(color: context.corPrimaria, width: 1)
                       : null,
                 ),
                 child: Column(
@@ -397,10 +434,10 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
                         color: isSelected
-                            ? Colors.white
+                            ? context.corOnPrimaria
                             : isToday
-                                ? const Color(0xFF2563EB)
-                                : const Color(0xFF64748B),
+                                ? context.corPrimaria
+                                : context.corTextoMuted,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -410,10 +447,10 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                         color: isSelected
-                            ? Colors.white
+                            ? context.corOnPrimaria
                             : isToday
-                                ? const Color(0xFF2563EB)
-                                : const Color(0xFF1E293B),
+                                ? context.corPrimaria
+                                : context.corTextoHeading,
                       ),
                     ),
                   ],
@@ -485,10 +522,10 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
                       child: Center(
                         child: Text(
                           d,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF64748B),
+                            color: context.corTextoMuted,
                           ),
                         ),
                       ),
@@ -529,6 +566,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
       onTap: () {
         if (!foraLimite) {
           ref.read(_dataSelecionadaProvider.notifier).state = dataDia;
+          ref.read(_modoAgendaProvider.notifier).state = 'dia';
         }
       },
       child: Container(
@@ -536,13 +574,13 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
         height: 36,
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF2563EB)
+              ? context.corPrimaria
               : isToday
-                  ? const Color(0xFFDBEAFE)
+                  ? context.cs.primaryContainer
                   : null,
           borderRadius: BorderRadius.circular(8),
           border: isToday && !isSelected
-              ? Border.all(color: const Color(0xFF2563EB), width: 1)
+              ? Border.all(color: context.corPrimaria, width: 1)
               : null,
         ),
         child: Column(
@@ -554,20 +592,20 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
                 fontSize: 12,
                 fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
                 color: isSelected
-                    ? Colors.white
+                    ? context.corOnPrimaria
                     : foraLimite
-                        ? const Color(0xFFCBD5E1)
+                        ? context.corTextoDisabled
                         : isToday
-                            ? const Color(0xFF2563EB)
-                            : const Color(0xFF1E293B),
+                            ? context.corPrimaria
+                            : context.corTextoHeading,
               ),
             ),
             if (temCompromisso && !isSelected)
               Container(
                 width: 4,
                 height: 4,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF2563EB),
+                decoration: BoxDecoration(
+                  color: context.corPrimaria,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -594,28 +632,30 @@ class _SeletorData extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.white,
+      color: Theme.of(context).colorScheme.surface,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           IconButton(
             onPressed: onAnterior,
-            icon: const Icon(Icons.chevron_left, color: Color(0xFF2563EB)),
+            icon: Icon(Icons.chevron_left,
+                color: Theme.of(context).colorScheme.primary),
             tooltip: 'Dia anterior',
           ),
           Text(
             titulo,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF2563EB),
+              color: Theme.of(context).colorScheme.primary,
             ),
           ),
           IconButton(
             onPressed: onProximo,
             icon: onProximo != null
-                ? const Icon(Icons.chevron_right, color: Color(0xFF2563EB))
+                ? Icon(Icons.chevron_right,
+                    color: Theme.of(context).colorScheme.primary)
                 : const SizedBox(width: 24),
             tooltip: onProximo != null ? 'Próximo dia' : null,
           ),
@@ -629,12 +669,22 @@ class _EstadoVazioAgenda extends StatelessWidget {
   final VoidCallback onNovo;
   final DateTime dataSelecionada;
   final bool isHoje;
+  final String modo;
 
   const _EstadoVazioAgenda({
     required this.onNovo,
     required this.dataSelecionada,
     required this.isHoje,
+    required this.modo,
   });
+
+  String get _mensagem {
+    if (modo == 'mes') return 'Nenhum compromisso neste mes';
+    if (modo == 'semana') return 'Nenhum compromisso nesta semana';
+    return isHoje
+        ? 'Nenhum compromisso hoje'
+        : 'Nenhum compromisso para esta data';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -647,23 +697,21 @@ class _EstadoVazioAgenda extends StatelessWidget {
             Icon(
               Icons.event_available_outlined,
               size: 64,
-              color: const Color(0xFFCBD5E1),
+              color: context.corTextoDisabled,
             ),
             const SizedBox(height: 16),
             Text(
-              isHoje
-                  ? 'Nenhum compromisso hoje'
-                  : 'Nenhum compromisso para esta data',
+              _mensagem,
               style: TextStyle(
                 fontSize: 18,
-                              color: const Color(0xFF475569),
+                color: context.corTextoSecondary,
                 fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Adicione sessões para organizar seu dia.',
-              style: const TextStyle(fontSize: 14, color: Color(0xFF64748B)),
+              'Adicione sessoes para organizar sua agenda.',
+              style: TextStyle(fontSize: 14, color: context.corTextoMuted),
             ),
             const SizedBox(height: 24),
             OutlinedButton.icon(
@@ -688,6 +736,7 @@ class _ListaCompromissos extends StatelessWidget {
   final void Function(Compromisso) onMarcarFaltou;
   final void Function(Compromisso) onMarcarAgendado;
   final void Function(Paciente) onAbrirPaciente;
+  final String modo;
 
   const _ListaCompromissos({
     required this.compromissos,
@@ -699,10 +748,15 @@ class _ListaCompromissos extends StatelessWidget {
     required this.onMarcarFaltou,
     required this.onMarcarAgendado,
     required this.onAbrirPaciente,
+    required this.modo,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (modo == 'semana' || modo == 'mes') {
+      return _buildAgrupadoPorData();
+    }
+
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: compromissos.length,
@@ -723,6 +777,70 @@ class _ListaCompromissos extends StatelessWidget {
           onAbrirPaciente: paciente != null
               ? () => onAbrirPaciente(paciente)
               : null,
+        );
+      },
+    );
+  }
+
+  Widget _buildAgrupadoPorData() {
+    final Map<String, List<Compromisso>> agrupados = {};
+    for (final c in compromissos) {
+      final chave = '${c.dataHoraInicio.year}-'
+          '${c.dataHoraInicio.month.toString().padLeft(2, '0')}-'
+          '${c.dataHoraInicio.day.toString().padLeft(2, '0')}';
+      agrupados.putIfAbsent(chave, () => []).add(c);
+    }
+
+    final chaves = agrupados.keys.toList()..sort();
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: chaves.length,
+      itemBuilder: (context, index) {
+        final chave = chaves[index];
+        final comps = agrupados[chave]!;
+        final data = comps.first.dataHoraInicio;
+        final dataFormatada =
+            '${data.day.toString().padLeft(2, '0')}/'
+            '${data.month.toString().padLeft(2, '0')}';
+
+        final diaSemana = [
+          '', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom',
+        ][data.weekday];
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 16, bottom: 8, left: 4),
+              child: Text(
+                '$diaSemana, $dataFormatada',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: context.corTextoMuted,
+                ),
+              ),
+            ),
+            ...comps.map((c) {
+              final paciente = pacienteService.buscarPacientePorId(
+                c.pacienteId,
+              );
+              return _CompromissoCard(
+                compromisso: c,
+                paciente: paciente,
+                onEditar: () => onEditar(c),
+                onRemover: () => onRemover(c),
+                onMarcarRealizado: () => onMarcarRealizado(c),
+                onMarcarCancelado: () => onMarcarCancelado(c),
+                onMarcarFaltou: () => onMarcarFaltou(c),
+                onMarcarAgendado: () => onMarcarAgendado(c),
+                onAbrirPaciente: paciente != null
+                    ? () => onAbrirPaciente(paciente)
+                    : null,
+              );
+            }),
+          ],
         );
       },
     );
@@ -799,6 +917,7 @@ class _CompromissoCard extends StatelessWidget {
     final titulo = compromisso.titulo.trim().isNotEmpty
         ? compromisso.titulo.trim()
         : null;
+    final c = Theme.of(context).colorScheme;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -830,19 +949,19 @@ class _CompromissoCard extends StatelessWidget {
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: c.surface,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.access_time, size: 16, color: Color(0xFF475569)),
+                              Icon(Icons.access_time, size: 16, color: c.onSurface.withValues(alpha: 0.6)),
                               const SizedBox(width: 6),
                               Text(
                                 '${compromisso.horarioInicioFormatado} - ${compromisso.horarioFimFormatado}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF1E293B),
+                                  color: c.onSurface,
                                   fontSize: 14,
                                 ),
                               ),
@@ -852,12 +971,21 @@ class _CompromissoCard extends StatelessWidget {
                         const SizedBox(width: 8),
                         Text(
                           compromisso.duracaoFormatada,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF64748B),
+                            color: c.onSurface.withValues(alpha: 0.5),
                           ),
                         ),
                         const Spacer(),
+                        if (compromisso.temRecorrencia || compromisso.ehFilhoDeRecorrencia)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Icon(
+                              Icons.repeat,
+                              size: 18,
+                              color: corStatus.withValues(alpha: 0.7),
+                            ),
+                          ),
                         if (compromisso.lembreteAtivado && compromisso.isAgendado)
                           Padding(
                             padding: const EdgeInsets.only(right: 8),
@@ -880,16 +1008,21 @@ class _CompromissoCard extends StatelessWidget {
                         CircleAvatar(
                           radius: 18,
                           backgroundColor: corStatus.withValues(alpha: 0.15),
-                          child: Text(
-                            nomePaciente.isNotEmpty
-                                ? nomePaciente[0].toUpperCase()
-                                : '?',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: corStatus,
-                            ),
-                          ),
+                          backgroundImage: paciente?.possuiFoto == true
+                              ? MemoryImage(base64Decode(paciente!.fotoBase64))
+                              : null,
+                          child: paciente?.possuiFoto != true
+                              ? Text(
+                                  nomePaciente.isNotEmpty
+                                      ? nomePaciente[0].toUpperCase()
+                                      : '?',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: corStatus,
+                                  ),
+                                )
+                              : null,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -898,7 +1031,7 @@ class _CompromissoCard extends StatelessWidget {
                             children: [
                               Text(
                                 nomePaciente,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 15,
                                 ),
@@ -906,9 +1039,9 @@ class _CompromissoCard extends StatelessWidget {
                               if (titulo != null)
                                 Text(
                                   titulo,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 13,
-                                    color: Color(0xFF64748B),
+                                    color: c.onSurface.withValues(alpha: 0.5),
                                   ),
                                 ),
                             ],
@@ -920,7 +1053,7 @@ class _CompromissoCard extends StatelessWidget {
                             icon: const Icon(Icons.person_outline, size: 20),
                             tooltip: 'Ver ${paciente?.nome ?? 'pessoa'}',
                             style: IconButton.styleFrom(
-                              foregroundColor: const Color(0xFF2563EB),
+                              foregroundColor: c.primary,
                             ),
                           ),
                       ],
@@ -931,12 +1064,12 @@ class _CompromissoCard extends StatelessWidget {
                         width: double.infinity,
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: c.surface,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
                           compromisso.observacoes.trim(),
-                          style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
+                          style: TextStyle(fontSize: 13, color: c.onSurface.withValues(alpha: 0.6)),
                         ),
                       ),
                     ],
@@ -945,42 +1078,43 @@ class _CompromissoCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
-            Wrap(
-              alignment: WrapAlignment.end,
-              spacing: 4,
-              runSpacing: 4,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 if (compromisso.isAgendado) ...[
-                  _AcaoPequena(
-                    icone: Icons.check,
-                    label: 'Realizado',
+                  _IconAcao(
+                    icone: Icons.check_circle_outline,
                     cor: const Color(0xFF2E7D32),
+                    tooltip: 'Realizado',
                     onPressed: onMarcarRealizado,
                   ),
-                  _AcaoPequena(
+                  const SizedBox(width: 4),
+                  _IconAcao(
                     icone: Icons.person_off_outlined,
-                    label: 'Faltou',
                     cor: const Color(0xFFC62828),
+                    tooltip: 'Faltou',
                     onPressed: onMarcarFaltou,
                   ),
-                  _AcaoPequena(
+                  const SizedBox(width: 4),
+                  _IconAcao(
                     icone: Icons.cancel_outlined,
-                    label: 'Cancelar',
                     cor: const Color(0xFF757575),
+                    tooltip: 'Cancelar',
                     onPressed: onMarcarCancelado,
                   ),
                 ] else ...[
-                  _AcaoPequena(
+                  _IconAcao(
                     icone: Icons.restore_outlined,
-                    label: 'Reagendar',
                     cor: const Color(0xFF1976D2),
+                    tooltip: 'Reagendar',
                     onPressed: onMarcarAgendado,
                   ),
                 ],
-                _AcaoPequena(
+                const SizedBox(width: 4),
+                _IconAcao(
                   icone: Icons.delete_outline,
-                  label: 'Remover',
                   cor: const Color(0xFFD32F2F),
+                  tooltip: 'Remover',
                   onPressed: onRemover,
                 ),
               ],
@@ -1005,55 +1139,49 @@ class _ChipStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: cor.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icone, size: 14, color: cor),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: cor,
-            ),
-          ),
-        ],
+    return Tooltip(
+      message: label,
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          color: cor.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Icon(icone, size: 16, color: cor),
       ),
     );
   }
 }
 
-class _AcaoPequena extends StatelessWidget {
+class _IconAcao extends StatelessWidget {
   final IconData icone;
-  final String label;
   final Color cor;
+  final String tooltip;
   final VoidCallback onPressed;
 
-  const _AcaoPequena({
+  const _IconAcao({
     required this.icone,
-    required this.label,
     required this.cor,
+    required this.tooltip,
     required this.onPressed,
   });
 
   @override
   Widget build(BuildContext context) {
-    return TextButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icone, size: 14, color: cor),
-      label: Text(
-        label,
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: cor),
-      ),
-      style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: cor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Icon(icone, size: 20, color: cor),
+        ),
       ),
     );
   }

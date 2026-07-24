@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/compromisso.dart';
+import '../models/enums.dart';
 import '../models/paciente.dart';
 
 Future<Compromisso?> mostrarCompromissoFormDialog({
@@ -61,8 +62,13 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
   late TextEditingController _mensagemLembreteController;
   late bool _lembreteAtivado;
   late int _minutosAntecedencia;
+  late String _canalLembrete;
+  late FrequenciaRecorrencia _recorrencia;
+  late DateTime? _dataLimiteRecorrencia;
 
   bool get _editando => widget.compromissoExistente != null;
+  bool get _editandoRecorrente =>
+      _editando && widget.compromissoExistente!.ehFilhoDeRecorrencia;
 
   @override
   void initState() {
@@ -82,6 +88,9 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
       _mensagemLembreteController = TextEditingController(text: existente.mensagemLembrete);
       _lembreteAtivado = existente.lembreteAtivado;
       _minutosAntecedencia = existente.minutosAntecedencia;
+      _canalLembrete = existente.canalLembrete.isNotEmpty ? existente.canalLembrete : 'whatsapp';
+      _recorrencia = FrequenciaRecorrencia.nenhuma;
+      _dataLimiteRecorrencia = null;
 
       final pacienteEncontrado = widget.pacientes
           .where((p) => p.id == existente.pacienteId)
@@ -103,6 +112,9 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
       _mensagemLembreteController = TextEditingController();
       _lembreteAtivado = widget.lembretePadraoAtivado;
       _minutosAntecedencia = widget.antecedenciaPadraoMinutos;
+      _canalLembrete = 'whatsapp';
+      _recorrencia = FrequenciaRecorrencia.nenhuma;
+      _dataLimiteRecorrencia = null;
       _pacienteSelecionado = widget.pacientes.first;
     }
   }
@@ -201,6 +213,9 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
       lembreteAtivado: _lembreteAtivado,
       minutosAntecedencia: _minutosAntecedencia,
       mensagemLembrete: _mensagemLembreteController.text.trim(),
+      canalLembrete: _canalLembrete,
+      recorrencia: _recorrencia.value,
+      dataLimiteRecorrencia: _dataLimiteRecorrencia,
     );
 
     Navigator.pop(context, compromisso);
@@ -316,10 +331,74 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
                 ),
                 maxLines: 2,
               ),
+              const SizedBox(height: 16),
+              if (!_editando) ...[
+                DropdownButtonFormField<FrequenciaRecorrencia>(
+                  initialValue: _recorrencia,
+                  decoration: const InputDecoration(
+                    labelText: 'Repetir',
+                    prefixIcon: Icon(Icons.repeat),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: FrequenciaRecorrencia.values.map((f) {
+                    return DropdownMenuItem(
+                      value: f,
+                      child: Text(f.value.isEmpty ? 'Não repete' : f.value),
+                    );
+                  }).toList(),
+                  onChanged: (v) {
+                    if (v != null) setState(() => _recorrencia = v);
+                  },
+                ),
+                if (_recorrencia.temRecorrencia) ...[
+                  const SizedBox(height: 16),
+                  InkWell(
+                    onTap: () async {
+                      final limite = await showDatePicker(
+                        context: context,
+                        initialDate: _dataLimiteRecorrencia ??
+                            _data.add(const Duration(days: 90)),
+                        firstDate: _data.add(const Duration(days: 1)),
+                        lastDate: DateTime.now().add(const Duration(days: 730)),
+                        helpText: 'Data limite da recorrencia',
+                      );
+                      if (limite != null) {
+                        setState(() => _dataLimiteRecorrencia = limite);
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Até (opcional)',
+                        prefixIcon: Icon(Icons.event_repeat),
+                        border: OutlineInputBorder(),
+                        hintText: 'Padrão: 6 meses',
+                      ),
+                      child: Text(
+                        _dataLimiteRecorrencia != null
+                            ? _formatarData(_dataLimiteRecorrencia!)
+                            : 'Sem data limite',
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+              if (_editandoRecorrente)
+              Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                'Este e um compromisso recorrente.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+                ),
               const SizedBox(height: 20),
               Container(
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
+                  border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 padding: const EdgeInsets.all(14),
@@ -328,9 +407,15 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
                   children: [
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text(
-                        'Lembrete via SMS',
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                      title: Row(
+                        children: [
+                          Text(
+                            _canalLembrete == 'whatsapp'
+                                ? 'Lembrete via WhatsApp'
+                                : 'Lembrete via SMS',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ],
                       ),
                       subtitle: Text(
                         _lembreteAtivado
@@ -340,9 +425,32 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
                       value: _lembreteAtivado,
                       onChanged: (v) =>
                           setState(() => _lembreteAtivado = v),
-                      activeThumbColor: const Color(0xFF2563EB),
+                      activeThumbColor: Theme.of(context).colorScheme.primary,
                     ),
                     if (_lembreteAtivado) ...[
+                      const SizedBox(height: 12),
+                      SegmentedButton<String>(
+                        segments: const [
+                          ButtonSegment<String>(
+                            value: 'whatsapp',
+                            label: Text('WhatsApp'),
+                            icon: Icon(Icons.chat_outlined, size: 18),
+                          ),
+                          ButtonSegment<String>(
+                            value: 'sms',
+                            label: Text('SMS'),
+                            icon: Icon(Icons.sms_outlined, size: 18),
+                          ),
+                        ],
+                        selected: {_canalLembrete},
+                        onSelectionChanged: (sel) {
+                          setState(() => _canalLembrete = sel.first);
+                        },
+                        style: ButtonStyle(
+                          visualDensity: VisualDensity.compact,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<int>(
                         initialValue: _minutosAntecedencia,

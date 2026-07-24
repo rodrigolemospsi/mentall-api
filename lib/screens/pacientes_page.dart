@@ -15,8 +15,9 @@ class PacientesPage extends ConsumerStatefulWidget {
   ConsumerState<PacientesPage> createState() => _PacientesPageState();
 }
 
-class _PacientesPageState extends ConsumerState<PacientesPage> {
-  static const Color _azul = Color(0xFF2563EB);
+class _PacientesPageState extends ConsumerState<PacientesPage>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
 
   String get _termoSingular {
     final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
@@ -44,6 +45,18 @@ class _PacientesPageState extends ConsumerState<PacientesPage> {
   String get _restauradoOuRestaurada =>
       _termoFeminino ? 'restaurada' : 'restaurado';
   String get _doOuDa => _termoFeminino ? 'da' : 'do';
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   Future<void> _confirmarArquivamentoPaciente(Paciente paciente) async {
     final confirmar = await showDialog<bool>(
@@ -155,70 +168,155 @@ class _PacientesPageState extends ConsumerState<PacientesPage> {
       if (c > 0) arquivadosComPendentes[p.id] = c;
     }
 
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        appBar: AppBar(
-          title: const Text('Pacientes'),
-          backgroundColor: _azul,
-          foregroundColor: Colors.white,
-          bottom: TabBar(
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            indicatorColor: Colors.white,
-            indicatorWeight: 2.5,
-            labelStyle: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-            ),
-            tabs: [
-              Tab(text: 'Ativos (${pacientesAtivos.length})'),
-              Tab(text: 'Arquivados (${pacientesArquivados.length})'),
-            ],
+    final termoPluralCapitalizado = _termoPlural.isNotEmpty
+        ? '${_termoPlural[0].toUpperCase()}${_termoPlural.substring(1)}'
+        : 'Pacientes';
+
+    final colors = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      backgroundColor: colors.surface,
+      appBar: AppBar(
+        title: Text(
+          termoPluralCapitalizado,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: colors.onSurface,
           ),
         ),
-        body: TabBarView(
-          children: [
-            _ListaPacientes(
-              pacientes: pacientesAtivos,
-              termoSingular: _termoSingular,
-              termoPlural: _termoPlural,
-              nenhumOuNenhuma: _nenhumOuNenhuma,
-              primeiroOuPrimeira: _primeiroOuPrimeira,
-              cadastradoOuCadastrada: _cadastradoOuCadastrada,
-              listaArquivada: false,
-              sessoesPendentesPorPaciente: ativosComPendentes,
-              onAbrirPaciente: (p) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => PacienteDetailPage(paciente: p),
-                  ),
-                );
-              },
-              onArquivarPaciente: _confirmarArquivamentoPaciente,
-              onRestaurarPaciente: _confirmarRestauracaoPaciente,
+        backgroundColor: colors.surface,
+        foregroundColor: colors.primary,
+        elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(44),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                _PillTab(
+                  label: 'Ativos',
+                  count: pacientesAtivos.length,
+                  selected: _tabController.index == 0,
+                  onTap: () => _tabController.animateTo(0),
+                ),
+                const SizedBox(width: 8),
+                _PillTab(
+                  label: 'Arquivados',
+                  count: pacientesArquivados.length,
+                  selected: _tabController.index == 1,
+                  onTap: () => _tabController.animateTo(1),
+                ),
+              ],
             ),
-            _ListaPacientes(
-              pacientes: pacientesArquivados,
-              termoSingular: _termoSingular,
-              termoPlural: _termoPlural,
-              nenhumOuNenhuma: _nenhumOuNenhuma,
-              primeiroOuPrimeira: _primeiroOuPrimeira,
-              cadastradoOuCadastrada: _cadastradoOuCadastrada,
-              listaArquivada: true,
-              sessoesPendentesPorPaciente: arquivadosComPendentes,
-              onAbrirPaciente: (p) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => PacienteDetailPage(paciente: p),
-                  ),
-                );
-              },
-              onArquivarPaciente: _confirmarArquivamentoPaciente,
-              onRestaurarPaciente: _confirmarRestauracaoPaciente,
+          ),
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _ListaPacientes(
+            pacientes: pacientesAtivos,
+            termoSingular: _termoSingular,
+            termoPlural: _termoPlural,
+            nenhumOuNenhuma: _nenhumOuNenhuma,
+            primeiroOuPrimeira: _primeiroOuPrimeira,
+            cadastradoOuCadastrada: _cadastradoOuCadastrada,
+            listaArquivada: false,
+            sessoesPendentesPorPaciente: ativosComPendentes,
+            onAbrirPaciente: (p) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PacienteDetailPage(paciente: p),
+                ),
+              );
+            },
+            onArquivarPaciente: _confirmarArquivamentoPaciente,
+            onRestaurarPaciente: _confirmarRestauracaoPaciente,
+          ),
+          _ListaPacientes(
+            pacientes: pacientesArquivados,
+            termoSingular: _termoSingular,
+            termoPlural: _termoPlural,
+            nenhumOuNenhuma: _nenhumOuNenhuma,
+            primeiroOuPrimeira: _primeiroOuPrimeira,
+            cadastradoOuCadastrada: _cadastradoOuCadastrada,
+            listaArquivada: true,
+            sessoesPendentesPorPaciente: arquivadosComPendentes,
+            onAbrirPaciente: (p) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PacienteDetailPage(paciente: p),
+                ),
+              );
+            },
+            onArquivarPaciente: _confirmarArquivamentoPaciente,
+            onRestaurarPaciente: _confirmarRestauracaoPaciente,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PillTab extends StatelessWidget {
+  final String label;
+  final int count;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _PillTab({
+    required this.label,
+    required this.count,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? colors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? colors.primary : colors.outlineVariant,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: selected ? colors.onPrimary : colors.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: selected
+                    ? colors.onPrimary.withValues(alpha: 0.25)
+                    : colors.primaryContainer,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '$count',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? colors.onPrimary : colors.primary,
+                ),
+              ),
             ),
           ],
         ),
@@ -267,9 +365,10 @@ class _ListaPacientes extends StatelessWidget {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
       itemCount: pacientes.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 0),
       itemBuilder: (context, index) {
         final paciente = pacientes[index];
         return PacienteCardHome(

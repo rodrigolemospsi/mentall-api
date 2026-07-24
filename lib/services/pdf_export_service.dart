@@ -23,7 +23,7 @@ class PdfExportService {
   static Future<void> _carregarLogo() async {
     if (_logoBytes != null) return;
     try {
-      _logoBytes = (await rootBundle.load('assets/images/logo_mentall.png'))
+      _logoBytes = (await rootBundle.load('assets/images/logo_mentall_claro.png'))
           .buffer
           .asUint8List();
       _logoImage = pw.MemoryImage(_logoBytes!);
@@ -220,17 +220,10 @@ class PdfExportService {
   pw.Widget _cabecalhoPagina(PerfilProfissional perfil) {
     final infoProfissional = <pw.Widget>[
       pw.Text(
-        'Psicólogo',
-        style: pw.TextStyle(
-          fontSize: 8,
-          fontWeight: pw.FontWeight.bold,
-          color: _secundaria,
-        ),
-      ),
-      pw.Text(
         perfil.nomeExibicao,
         style: pw.TextStyle(
           fontSize: 8,
+          fontWeight: pw.FontWeight.bold,
           color: _secundaria,
         ),
       ),
@@ -550,7 +543,7 @@ class PdfExportService {
       child: pw.Text(
         'Este documento pode conter conteúdo auxiliado por inteligência artificial. '
         'A IA é uma ferramenta de apoio à documentação clínica e não substitui o '
-        'julgamento profissional do psicólogo. Todo o conteúdo aqui presente foi '
+        'julgamento do profissional de saúde. Todo o conteúdo aqui presente foi '
         'revisado e validado pelo profissional responsável.',
         style: const pw.TextStyle(fontSize: 6.5, color: PdfColors.grey500, height: 1.4),
         textAlign: pw.TextAlign.center,
@@ -607,22 +600,15 @@ class PdfExportService {
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: pw.MainAxisAlignment.start,
               children: [
-                pw.Text(
-                  'Sessão ${sessao.numeroSessao}',
-                  style: pw.TextStyle(
-                    fontSize: 13,
-                    fontWeight: pw.FontWeight.bold,
-                    color: _primaria,
-                  ),
-                ),
                 pw.Text(
                   '${_formatarData(sessao.data)} às '
                   '${_formatarHorario(sessao.data)}',
                   style: pw.TextStyle(
-                    fontSize: 9,
-                    color: _secundaria,
+                    fontSize: 11,
+                    fontWeight: pw.FontWeight.bold,
+                    color: _primaria,
                   ),
                 ),
               ],
@@ -688,7 +674,7 @@ class PdfExportService {
         header: (context) => _cabecalhoPagina(perfil),
         footer: (context) => _rodapePagina(context),
         build: (context) => [
-          _tituloSecao('Relatorio Clinico'),
+          _tituloSecao('Relatório Clínico'),
           pw.SizedBox(height: 12),
           _dadosPaciente(paciente),
           pw.SizedBox(height: 8),
@@ -696,7 +682,7 @@ class PdfExportService {
           pw.SizedBox(height: 8),
           _linhaSeparadora(),
           pw.SizedBox(height: 16),
-          _tituloSecao('Evolucao Clinica'),
+          _tituloSecao('Evolução Clínica'),
           pw.SizedBox(height: 8),
           ..._evolucaoClinicaSessoes(sessoesAtivas),
           pw.SizedBox(height: 16),
@@ -731,10 +717,10 @@ class PdfExportService {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    _tituloSecao('Sintese Revisada'),
+                    _tituloSecao('Síntese Revisada'),
                     pw.SizedBox(height: 4),
                     pw.Text(
-                      'Sessao ${sessao.numeroSessao} — ${paciente.nomeExibicao}',
+                      'Sessão ${sessao.numeroSessao} — ${paciente.nomeExibicao}',
                       style: pw.TextStyle(
                         fontSize: 16,
                         fontWeight: pw.FontWeight.bold,
@@ -753,18 +739,18 @@ class PdfExportService {
           _linhaSeparadora(),
           pw.SizedBox(height: 12),
           if (sessao.relatoPosSessao.trim().isNotEmpty) ...[
-            _tituloSecao('Relato Clinico Organizado'),
+            _tituloSecao('Relato Clínico Organizado'),
             pw.SizedBox(height: 4),
             _blocoTexto(sessao.relatoPosSessao),
             pw.SizedBox(height: 12),
           ],
           if (sessao.transcricaoRevisada.trim().isNotEmpty) ...[
-            _tituloSecao('Transcricao Revisada'),
+            _tituloSecao('Transcrição Revisada'),
             pw.SizedBox(height: 4),
             _blocoTexto(sessao.transcricaoRevisada),
             pw.SizedBox(height: 12),
           ] else if (sessao.transcricaoRelato.trim().isNotEmpty) ...[
-            _tituloSecao('Transcricao'),
+            _tituloSecao('Transcrição'),
             pw.SizedBox(height: 4),
             _blocoTexto(sessao.transcricaoRelato),
             pw.SizedBox(height: 12),
@@ -824,7 +810,7 @@ class PdfExportService {
         header: (context) => _cabecalhoPagina(perfil),
         footer: (context) => _rodapePagina(context),
         build: (context) => [
-          _tituloSecao('Prontuario Completo'),
+          _tituloSecao('Prontuário Completo'),
           pw.SizedBox(height: 4),
           pw.Text(
             paciente.nomeExibicao,
@@ -843,7 +829,7 @@ class PdfExportService {
           pw.SizedBox(height: 16),
           if (sessoesAtivas.isEmpty)
             pw.Text(
-              'Nenhuma sessao registrada.',
+              'Nenhuma sessão registrada.',
               style: pw.TextStyle(
                 color: _secundaria,
                 fontSize: 12,
@@ -909,7 +895,7 @@ class PdfExportService {
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Text(
-                'Sessão — ${_formatarData(s.data)}',
+                'Sessão dia ${_formatarData(s.data)}',
                 style: pw.TextStyle(
                   fontSize: 10,
                   fontWeight: pw.FontWeight.bold,
@@ -931,7 +917,7 @@ class PdfExportService {
     if (widgets.isEmpty) {
       widgets.add(
         pw.Text(
-          'Nenhuma evolucao clinica registrada.',
+          'Nenhuma evolução clínica registrada.',
           style: pw.TextStyle(
             color: _secundaria,
             fontSize: 10,
@@ -959,7 +945,7 @@ class PdfExportService {
           children: [
             pw.Expanded(
               child: pw.Text(
-                'Sessao ${sessao.numeroSessao} — ${_formatarData(sessao.data)} às ${_formatarHorario(sessao.data)}',
+                'Sessão ${sessao.numeroSessao} — ${_formatarData(sessao.data)} às ${_formatarHorario(sessao.data)}',
                 style: pw.TextStyle(
                   fontSize: 12,
                   fontWeight: pw.FontWeight.bold,

@@ -1,4 +1,4 @@
-package com.example.prontuario_tcc
+package com.mentall.app
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -7,6 +7,7 @@ import '../models/paciente.dart';
 import '../services/logger.dart';
 import '../services/paciente_service.dart';
 import '../services/lgpd/auditoria_service.dart';
+import '../utils/mentall_colors.dart';
 
 Future<void> mostrarDialogNovoPaciente({
   required BuildContext context,
@@ -64,13 +65,13 @@ Future<void> mostrarDialogNovoPaciente({
                               },
                         child: CircleAvatar(
                           radius: 36,
-                          backgroundColor: Colors.grey.shade200,
+                          backgroundColor: context.corSuperficie,
                           backgroundImage: fotoBase64 != null
                               ? MemoryImage(base64Decode(fotoBase64!))
                               : null,
                           child: fotoBase64 == null
                               ? Icon(Icons.camera_alt_outlined,
-                                  size: 28, color: Colors.grey.shade500)
+                                  size: 28, color: context.corTextoMuted)
                               : null,
                         ),
                       ),
@@ -133,7 +134,7 @@ Future<void> mostrarDialogNovoPaciente({
                           style: TextStyle(
                             color: dataNascimento != null
                                 ? null
-                                : Colors.grey.shade600,
+                                : context.corTextoSecondary,
                           ),
                         ),
                       ),
@@ -187,7 +188,7 @@ Future<void> mostrarDialogNovoPaciente({
                                       ? Icons.videocam_outlined
                                       : Icons.location_on_outlined,
                                   size: 16,
-                                  color: const Color(0xFF64748B),
+                                  color: context.corTextoMuted,
                                 ),
                                 const SizedBox(width: 8),
                                 Text(modo),
@@ -296,12 +297,12 @@ Future<void> mostrarDialogNovoPaciente({
                           }
                         },
                   child: salvando
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color: context.corOnPrimaria,
                           ),
                         )
                       : const Text('Salvar'),

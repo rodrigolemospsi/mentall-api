@@ -35,6 +35,21 @@ class CompromissoService {
     return compromissos;
   }
 
+  List<Compromisso> listarPorSemana(DateTime data) {
+    final segunda = data.subtract(Duration(days: data.weekday - 1));
+    final inicio = DateTime(segunda.year, segunda.month, segunda.day);
+    final fim = inicio.add(const Duration(days: 7));
+
+    final compromissos = _box.values
+        .where((c) =>
+            c.dataHoraInicio.isAfter(
+                inicio.subtract(const Duration(seconds: 1))) &&
+            c.dataHoraInicio.isBefore(fim))
+        .toList();
+    compromissos.sort((a, b) => a.dataHoraInicio.compareTo(b.dataHoraInicio));
+    return compromissos;
+  }
+
   List<Compromisso> listarPorMes(DateTime data) {
     final inicioMes = DateTime(data.year, data.month, 1);
     final fimMes = DateTime(data.year, data.month + 1, 0, 23, 59, 59);
@@ -78,6 +93,76 @@ class CompromissoService {
 
   Future<void> adicionar(Compromisso compromisso) async {
     await _box.add(compromisso);
+  }
+
+  Future<List<Compromisso>> adicionarComRecorrencia(
+    Compromisso compromisso,
+  ) async {
+    final gerados = <Compromisso>[];
+    await _box.add(compromisso);
+    gerados.add(compromisso);
+
+    final freq = compromisso.recorrenciaEnum;
+    if (!freq.temRecorrencia) return gerados;
+
+    final limite = compromisso.dataLimiteRecorrencia ??
+        compromisso.dataHoraInicio
+            .add(const Duration(days: 180));
+
+    var index = 1;
+    while (true) {
+      final proxima = _proximaData(
+        compromisso.dataHoraInicio,
+        freq,
+        index,
+      );
+      if (proxima.isAfter(limite)) break;
+      if (index > 52) break;
+
+      final copia = Compromisso(
+        id: '${compromisso.id}_$index',
+        pacienteId: compromisso.pacienteId,
+        dataHoraInicio: proxima,
+        dataHoraFim: proxima.add(
+          compromisso.dataHoraFim.difference(compromisso.dataHoraInicio),
+        ),
+        titulo: compromisso.titulo,
+        observacoes: compromisso.observacoes,
+        lembreteAtivado: compromisso.lembreteAtivado,
+        minutosAntecedencia: compromisso.minutosAntecedencia,
+        mensagemLembrete: compromisso.mensagemLembrete,
+        recorrencia: '',
+        compromissoPaiId: compromisso.id,
+      );
+      await _box.add(copia);
+      gerados.add(copia);
+      index++;
+    }
+
+    return gerados;
+  }
+
+  DateTime _proximaData(
+    DateTime base,
+    FrequenciaRecorrencia freq,
+    int indice,
+  ) {
+    switch (freq) {
+      case FrequenciaRecorrencia.semanal:
+        return base.add(Duration(days: 7 * indice));
+      case FrequenciaRecorrencia.quinzenal:
+        return base.add(Duration(days: 14 * indice));
+      case FrequenciaRecorrencia.mensal:
+        return DateTime(
+          base.year,
+          base.month + indice,
+          base.day,
+          base.hour,
+          base.minute,
+        );
+      case FrequenciaRecorrencia.nenhuma:
+        return base;
+    }
   }
 
   Future<void> atualizar(Compromisso compromisso) async {

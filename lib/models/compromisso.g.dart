@@ -32,13 +32,17 @@ class CompromissoAdapter extends TypeAdapter<Compromisso> {
           ? 1440
           : (fields[11] as num).toInt(),
       mensagemLembrete: fields[12] == null ? '' : fields[12] as String,
+      recorrencia: fields[13] == null ? '' : fields[13] as String,
+      dataLimiteRecorrencia: fields[14] as DateTime?,
+      compromissoPaiId: fields[15] as String?,
+      canalLembrete: fields[16] == null ? 'whatsapp' : fields[16] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, Compromisso obj) {
     writer
-      ..writeByte(13)
+      ..writeByte(17)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -64,7 +68,15 @@ class CompromissoAdapter extends TypeAdapter<Compromisso> {
       ..writeByte(11)
       ..write(obj.minutosAntecedencia)
       ..writeByte(12)
-      ..write(obj.mensagemLembrete);
+      ..write(obj.mensagemLembrete)
+      ..writeByte(13)
+      ..write(obj.recorrencia)
+      ..writeByte(14)
+      ..write(obj.dataLimiteRecorrencia)
+      ..writeByte(15)
+      ..write(obj.compromissoPaiId)
+      ..writeByte(16)
+      ..write(obj.canalLembrete);
   }
 
   @override

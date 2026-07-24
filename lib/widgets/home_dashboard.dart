@@ -9,14 +9,8 @@ import '../models/lgpd/registro_auditoria.dart';
 import '../providers/service_providers.dart';
 import '../screens/agenda_page.dart';
 import '../screens/paciente_detail_page.dart';
+import '../utils/mentall_colors.dart';
 import 'compromisso_form_dialog.dart';
-
-const Color _azul = Color(0xFF2563EB);
-const Color _azulBg = Color(0xFFEFF6FF);
-const Color _azulBorda = Color(0xFFDBEAFE);
-const Color _heading = Color(0xFF1E293B);
-const Color _muted = Color(0xFF64748B);
-const Color _divider = Color(0xFFE2E8F0);
 
 class SaudacaoResumoHome extends ConsumerWidget {
   final String saudacao;
@@ -49,17 +43,17 @@ class SaudacaoResumoHome extends ConsumerWidget {
       children: [
         Text(
           texto,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w700,
-            color: _heading,
+            color: context.corTextoHeading,
             height: 1.3,
           ),
         ),
         const SizedBox(height: 2),
         Text(
           resumo,
-          style: const TextStyle(fontSize: 14, color: _muted),
+          style: TextStyle(fontSize: 14, color: context.corTextoMuted),
         ),
       ],
     );
@@ -127,8 +121,9 @@ class _AcaoRapida extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Material(
-      color: _azulBg,
+      color: cs.primaryContainer,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
@@ -136,22 +131,22 @@ class _AcaoRapida extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            border: Border.all(color: _azulBorda),
+            border: Border.all(color: cs.primaryContainer),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icone, size: 22, color: _azul),
+              Icon(icone, size: 22, color: cs.primary),
               const SizedBox(height: 6),
               Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: _azul,
+                  color: cs.primary,
                 ),
               ),
             ],
@@ -202,7 +197,7 @@ class KpiCardsHome extends ConsumerWidget {
                 titulo: 'Hoje',
                 subtitulo: hoje == 1 ? 'sessão agendada' : 'sessões agendadas',
                 icone: Icons.today_outlined,
-                cor: _azul,
+                cor: context.corPrimaria,
                 onTap: onHojeTap,
               ),
             ),
@@ -269,6 +264,7 @@ class _KpiCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -277,9 +273,9 @@ class _KpiCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cs.surface,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _divider),
+            border: Border.all(color: cs.outlineVariant),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,10 +287,10 @@ class _KpiCard extends StatelessWidget {
                       titulo,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: _muted,
+                        color: context.corTextoMuted,
                       ),
                     ),
                   ),
@@ -316,7 +312,7 @@ class _KpiCard extends StatelessWidget {
                 subtitulo,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 11, color: _muted),
+                style: TextStyle(fontSize: 11, color: context.corTextoMuted),
               ),
             ],
           ),
@@ -337,11 +333,12 @@ class SessoesHojeCard extends ConsumerWidget {
         ref.watch(compromissosHojeProvider).valueOrNull ?? [];
     final pacService = ref.watch(pacienteServiceProvider);
 
+    final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _divider),
+        border: Border.all(color: cs.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -350,13 +347,13 @@ class SessoesHojeCard extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
             child: Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Sessões de hoje',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: _heading,
+                      color: context.corTextoHeading,
                     ),
                   ),
                 ),
@@ -367,9 +364,9 @@ class SessoesHojeCard extends ConsumerWidget {
                       MaterialPageRoute(builder: (_) => const AgendaPage()),
                     );
                   },
-                  child: const Text(
+                  child: Text(
                     'Ver todas',
-                    style: TextStyle(fontSize: 12, color: _azul),
+                    style: TextStyle(fontSize: 12, color: cs.primary),
                   ),
                 ),
               ],
@@ -380,10 +377,10 @@ class SessoesHojeCard extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
               child: Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Nenhuma sessão agendada para hoje.',
-                      style: TextStyle(fontSize: 13, color: _muted),
+                      style: TextStyle(fontSize: 13, color: context.corTextoMuted),
                     ),
                   ),
                   OutlinedButton.icon(
@@ -502,17 +499,17 @@ class _SessaoHojeItem extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 18,
-              backgroundColor: _azulBg,
+              backgroundColor: context.corContainerPrimario,
               backgroundImage: fotoBase64.isNotEmpty
                   ? MemoryImage(base64Decode(fotoBase64))
                   : null,
               child: fotoBase64.isEmpty
                   ? Text(
                       inicial,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
-                        color: _azul,
+                        color: context.corPrimaria,
                       ),
                     )
                   : null,
@@ -526,15 +523,15 @@ class _SessaoHojeItem extends StatelessWidget {
                     nomePaciente,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: _heading,
+                      color: context.corTextoHeading,
                     ),
                   ),
                   Text(
                     compromisso.horarioInicioFormatado,
-                    style: const TextStyle(fontSize: 12, color: _muted),
+                    style: TextStyle(fontSize: 12, color: context.corTextoMuted),
                   ),
                 ],
               ),
@@ -571,23 +568,24 @@ class AtividadeRecenteCard extends ConsumerWidget {
 
     if (registros.isEmpty) return const SizedBox.shrink();
 
+    final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _divider),
+        border: Border.all(color: cs.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 14, 16, 6),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
             child: Text(
               'Atividade recente',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: _heading,
+                color: context.corTextoHeading,
               ),
             ),
           ),
@@ -670,11 +668,11 @@ class _AtividadeItem extends StatelessWidget {
           Container(
             width: 34,
             height: 34,
-            decoration: const BoxDecoration(
-              color: _azulBg,
+            decoration: BoxDecoration(
+              color: context.corContainerPrimario,
               shape: BoxShape.circle,
             ),
-            child: Icon(_icone, size: 17, color: _azul),
+            child: Icon(_icone, size: 17, color: context.corPrimaria),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -685,17 +683,17 @@ class _AtividadeItem extends StatelessWidget {
                   titulo,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: _heading,
+                    color: context.corTextoHeading,
                   ),
                 ),
                 Text(
                   registro.descricao,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, color: _muted),
+                  style: TextStyle(fontSize: 12, color: context.corTextoMuted),
                 ),
               ],
             ),
@@ -703,7 +701,7 @@ class _AtividadeItem extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             _tempoRelativo,
-            style: const TextStyle(fontSize: 11, color: _muted),
+            style: TextStyle(fontSize: 11, color: context.corTextoMuted),
           ),
         ],
       ),

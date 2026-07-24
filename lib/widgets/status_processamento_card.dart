@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/mentall_colors.dart';
 
 class StatusProcessamentoCard extends StatelessWidget {
   final String status;
@@ -53,8 +54,8 @@ class StatusProcessamentoCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   'Origem do relato: $origemRelato',
-                  style: const TextStyle(
-                    color: const Color(0xFF475569),
+                  style: TextStyle(
+                    color: context.corTextoSecondary,
                     fontSize: 13,
                   ),
                 ),
@@ -62,8 +63,8 @@ class StatusProcessamentoCard extends StatelessWidget {
                   geradoComIa
                       ? 'Conteúdo auxiliado por IA'
                       : 'Sem processamento por IA',
-                  style: const TextStyle(
-                    color: const Color(0xFF475569),
+                  style: TextStyle(
+                    color: context.corTextoSecondary,
                     fontSize: 13,
                   ),
                 ),
@@ -71,16 +72,16 @@ class StatusProcessamentoCard extends StatelessWidget {
                   revisadoPeloProfissional
                       ? 'Revisado pelo profissional'
                       : 'Ainda não marcado como revisado',
-                  style: const TextStyle(
-                    color: const Color(0xFF475569),
+                  style: TextStyle(
+                    color: context.corTextoSecondary,
                     fontSize: 13,
                   ),
                 ),
                 if (dataProcessamentoIa != null)
                   Text(
                     'Último processamento: $dataProcessamentoIa',
-                    style: const TextStyle(
-                      color: const Color(0xFF475569),
+                    style: TextStyle(
+                      color: context.corTextoSecondary,
                       fontSize: 13,
                     ),
                   ),
@@ -89,8 +90,8 @@ class StatusProcessamentoCard extends StatelessWidget {
                     audioMantido
                         ? 'Áudio original mantido'
                         : 'Áudio original poderá ser descartado',
-                    style: const TextStyle(
-                      color: const Color(0xFF475569),
+                    style: TextStyle(
+                      color: context.corTextoSecondary,
                       fontSize: 13,
                     ),
                   ),
