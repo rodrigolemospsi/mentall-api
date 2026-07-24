@@ -132,7 +132,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
       final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
       final termo = perfil?.termoPlural ?? 'pacientes';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Cadastre $termo primeiro para agendar sessoes.')),
+        SnackBar(content: Text('Cadastre $termo primeiro para agendar sessões.')),
       );
       return;
     }
@@ -157,7 +157,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
         .where((p) => p.id == compromisso.pacienteId)
         .toList();
     await ref.read(auditoriaServiceProvider).registrar(
-          tipoEvento: 'Sessao agendada',
+          tipoEvento: 'Sessão agendada',
           descricao: pacienteAgendado.isNotEmpty
               ? pacienteAgendado.first.nome
               : 'Compromisso criado${gerados.length > 1 ? ' (${gerados.length}x)' : ''}',
@@ -679,7 +679,7 @@ class _EstadoVazioAgenda extends StatelessWidget {
   });
 
   String get _mensagem {
-    if (modo == 'mes') return 'Nenhum compromisso neste mes';
+    if (modo == 'mes') return 'Nenhum compromisso neste mês';
     if (modo == 'semana') return 'Nenhum compromisso nesta semana';
     return isHoje
         ? 'Nenhum compromisso hoje'
@@ -710,7 +710,7 @@ class _EstadoVazioAgenda extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Adicione sessoes para organizar sua agenda.',
+              'Adicione sessões para organizar sua agenda.',
               style: TextStyle(fontSize: 14, color: context.corTextoMuted),
             ),
             const SizedBox(height: 24),

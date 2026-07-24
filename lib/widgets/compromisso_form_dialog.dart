@@ -360,7 +360,7 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
                             _data.add(const Duration(days: 90)),
                         firstDate: _data.add(const Duration(days: 1)),
                         lastDate: DateTime.now().add(const Duration(days: 730)),
-                        helpText: 'Data limite da recorrencia',
+                        helpText: 'Data limite da recorrência',
                       );
                       if (limite != null) {
                         setState(() => _dataLimiteRecorrencia = limite);
@@ -387,7 +387,7 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
               Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                'Este e um compromisso recorrente.',
+                'Este é um compromisso recorrente.',
                 style: TextStyle(
                   fontSize: 12,
                   color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
@@ -419,7 +419,7 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
                       ),
                       subtitle: Text(
                         _lembreteAtivado
-                            ? 'Enviar ${_formatarAntecedencia()} antes da sessao'
+                            ? 'Enviar ${_formatarAntecedencia()} antes da sessão'
                             : 'Notificar o paciente automaticamente',
                       ),
                       value: _lembreteAtivado,
@@ -455,7 +455,7 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
                       DropdownButtonFormField<int>(
                         initialValue: _minutosAntecedencia,
                         decoration: const InputDecoration(
-                          labelText: 'Antecedencia do lembrete',
+                          labelText: 'Antecedência do lembrete',
                           prefixIcon: Icon(Icons.timer_outlined),
                           border: OutlineInputBorder(),
                         ),
@@ -489,7 +489,7 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
                           border: const OutlineInputBorder(),
                           alignLabelWithHint: true,
                           helperText: _mensagemLembreteController.text.isEmpty
-                              ? 'Ex: Ola {nome}, lembrete da sessao em {data} as {hora}.'
+                              ? 'Ex: Olá {nome}, lembrete da sessão em {data} às {hora}.'
                               : null,
                         ),
                       ),
