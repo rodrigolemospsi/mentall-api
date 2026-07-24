@@ -143,6 +143,23 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
     return ref.read(gravandoAudioProvider) || _transcrevendoRelato || _gerandoSinteseIa;
   }
 
+  bool _descarteConfirmado = false;
+
+  bool _temAlteracoesNaoSalvas() {
+    if (_descarteConfirmado) return false;
+    if (_modoEdicao) return true;
+
+    if (_editando) return false;
+
+    return _relatoPosSessaoController.text.trim().isNotEmpty ||
+        _transcricaoRelatoController.text.trim().isNotEmpty ||
+        _sinteseController.text.trim().isNotEmpty ||
+        _formulacaoController.text.trim().isNotEmpty ||
+        _intervencoesController.text.trim().isNotEmpty ||
+        _apontamentosController.text.trim().isNotEmpty ||
+        _possuiAudioRelato;
+  }
+
   String get _termoSingular {
     final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
     return perfil?.termoSingular ?? 'paciente';
@@ -1425,7 +1442,33 @@ if (!mounted || confirmar != true) return;
     ref.watch(_formRebuildProvider);
     final configuracao = _configuracaoAbordagem;
 
-    return Scaffold(
+    return PopScope(
+      canPop: !_temAlteracoesNaoSalvas(),
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final confirmar = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Descartar alterações?'),
+            content: const Text('As alterações não salvas serão perdidas.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Continuar editando'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Descartar'),
+              ),
+            ],
+          ),
+        );
+        if (confirmar == true && mounted) {
+          _descarteConfirmado = true;
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
       backgroundColor: context.corFundo,
       appBar: AppBar(
         title: Text(_editando ? 'Prontuário Clínico' : 'Nova sessão'),
@@ -1480,6 +1523,7 @@ if (!mounted || confirmar != true) return;
           ],
           const SizedBox(height: 24),
         ],
+      ),
       ),
     );
   }

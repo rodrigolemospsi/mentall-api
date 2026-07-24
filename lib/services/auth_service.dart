@@ -113,6 +113,29 @@ class AuthService {
     unawaited(_tentarAutenticarBackend());
   }
 
+  Future<String> configurarPinComFraseRecuperacao(String pin) async {
+    await _encryptionService.configurarPin(pin);
+    final frase = _encryptionService.gerarFraseRecuperacao();
+    await _encryptionService.configurarFraseRecuperacao(frase);
+    _desbloqueado = true;
+    unawaited(_tentarAutenticarBackend());
+    return frase;
+  }
+
+  bool get possuiFraseRecuperacao => _encryptionService.possuiFraseRecuperacao;
+
+  bool verificarFraseRecuperacao(String frase) =>
+      _encryptionService.verificarFraseRecuperacao(frase);
+
+  Future<bool> recuperarComFrase(String frase) async {
+    final sucesso = await _encryptionService.recuperarComFrase(frase);
+    if (sucesso) {
+      _desbloqueado = true;
+      await _encryptionService.limparRecuperacao();
+    }
+    return sucesso;
+  }
+
   Future<void> _tentarAutenticarBackend() async {
     try {
       await autenticarBackend();

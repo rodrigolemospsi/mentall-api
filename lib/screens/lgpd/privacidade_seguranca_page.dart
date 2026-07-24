@@ -262,20 +262,16 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
                 return;
               }
               try {
-                await ref.read(authServiceProvider).configurarPin(pin);
+                final frase = await ref.read(authServiceProvider).configurarPinComFraseRecuperacao(pin);
                 ref.read(_pinRevisaoProvider.notifier).update((v) => v + 1);
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('PIN configurado com sucesso.'),
-                  ),
-                );
+                _mostrarFraseRecuperacao(context, frase);
               } catch (e) {
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Não foi possível configurar o PIN: $e'),
+                  const SnackBar(
+                    content: Text('Não foi possível configurar o PIN. Tente novamente.'),
                   ),
                 );
               }
@@ -366,6 +362,64 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
           ],
         );
       },
+    );
+  }
+
+  void _mostrarFraseRecuperacao(BuildContext context, String frase) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Frase de recuperação'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Guarde esta frase em local seguro. Sem ela, seus dados serão permanentemente inacessíveis se você esquecer o PIN.',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(ctx).colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: SelectableText(
+                frase,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(ctx).colorScheme.onPrimaryContainer,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Copie ou anote estas 12 palavras na ordem exata.',
+              style: TextStyle(fontSize: 12, color: Colors.orange),
+            ),
+          ],
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('PIN configurado com sucesso. Guarde a frase de recuperação.'),
+                ),
+              );
+            },
+            child: const Text('Eu anotei. OK'),
+          ),
+        ],
+      ),
     );
   }
 }

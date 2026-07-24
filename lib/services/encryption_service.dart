@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
 import 'package:hive_ce/hive.dart';
 import 'package:pointycastle/export.dart';
@@ -14,8 +15,37 @@ class EncryptionService {
   static const String _ivKey = 'iv_base64';
   static const String _verificationKey = 'verification';
   static const String _kdfVersionKey = 'kdf_version';
+  static const String _recoveryPhraseHashKey = 'recovery_phrase_hash';
+  static const String _recoveryEncryptedKeyKey = 'recovery_encrypted_key';
   static const int _kdfIterations = 100000;
   static const int _kdfKeyLength = 32;
+
+  static const List<String> _palavrasRecuperacao = [
+    'abacate', 'abril', 'agua', 'alegre', 'amarelo', 'amigo', 'amor', 'anel',
+    'animal', 'arco', 'arvore', 'azul', 'balao', 'banana', 'barco', 'bateria',
+    'beijo', 'bicicleta', 'bola', 'bolo', 'bolsa', 'bone', 'branco', 'brilho',
+    'cadeira', 'caderno', 'cafe', 'calmo', 'cama', 'campo', 'caneta', 'carro',
+    'carta', 'casa', 'ceu', 'chale', 'chave', 'chuva', 'cinema', 'circo',
+    'cobra', 'colar', 'coracao', 'coroa', 'correr', 'costela', 'dado', 'dança',
+    'dedo', 'dente', 'doce', 'dragao', 'elefante', 'escola', 'escova', 'espada',
+    'espelho', 'estrela', 'fada', 'familia', 'feliz', 'ferro', 'festa', 'filme',
+    'flauta', 'flecha', 'flor', 'foca', 'fogo', 'folha', 'fonte', 'forma',
+    'fruta', 'fumaça', 'galinha', 'gato', 'gelo', 'girafa', 'girassol', 'golfe',
+    'grama', 'grilo', 'guerra', 'heroi', 'ilha', 'irmao', 'janela', 'jardim',
+    'joia', 'jornal', 'lago', 'lampada', 'lapis', 'laranja', 'leao', 'leite',
+    'lenha', 'livro', 'lua', 'luva', 'maca', 'madeira', 'mae', 'magico',
+    'manga', 'mansao', 'mar', 'mascara', 'mel', 'mesa', 'moeda', 'montanha',
+    'morango', 'motor', 'musica', 'nave', 'neve', 'ninho', 'noiva', 'norte',
+    'nuvem', 'oceano', 'oculos', 'onda', 'ouro', 'pai', 'palacio', 'palheta',
+    'pano', 'papel', 'parque', 'passaro', 'pedra', 'peixe', 'pena', 'pente',
+    'piano', 'pilha', 'pincel', 'planeta', 'planta', 'pluma', 'poeira', 'pomba',
+    'ponte', 'porta', 'praia', 'prato', 'princesa', 'quadro', 'queijo', 'raio',
+    'raposa', 'rede', 'relogio', 'rio', 'robo', 'rocha', 'rosa', 'roda',
+    'sabao', 'sapato', 'selva', 'sino', 'sombra', 'sorvete', 'tela', 'tempo',
+    'tesoura', 'tigre', 'tijolo', 'toalha', 'torre', 'trator', 'trem', 'trigo',
+    'trono', 'uva', 'vassoura', 'vela', 'vento', 'verao', 'vidro', 'vinho',
+    'violao', 'vulcao', 'zebra', 'zero',
+  ];
 
   late final Box<String> _box = Hive.box<String>(_boxName);
   encrypt.Key? _key;
@@ -313,5 +343,73 @@ class EncryptionService {
     _iv = null;
     _kdfVersion = 1;
     await _box.clear();
+  }
+
+  String gerarFraseRecuperacao() {
+    final random = Random.secure();
+    final words = <String>[];
+    for (int i = 0; i < 12; i++) {
+      words.add(_palavrasRecuperacao[random.nextInt(_palavrasRecuperacao.length)]);
+    }
+    return words.join(' ');
+  }
+
+  Future<void> configurarFraseRecuperacao(String frase) async {
+    if (_key == null) return;
+
+    final salt = _gerarSalt();
+    final recoveryKey = _derivarChavePBKDF2(frase, salt);
+    final phraseHash = sha256.convert(utf8.encode(frase)).toString();
+
+    final iv = encrypt.IV.fromSecureRandom(16);
+    final encrypter = encrypt.Encrypter(encrypt.AES(recoveryKey));
+    final encryptedKeyBytes = encrypter.encryptBytes(_key!.bytes, iv: iv);
+
+    await _box.put(_recoveryPhraseHashKey, phraseHash);
+    await _box.put(_recoveryEncryptedKeyKey,
+        '$salt:${iv.base64}:${encryptedKeyBytes.base64}');
+  }
+
+  bool get possuiFraseRecuperacao =>
+      _box.get(_recoveryPhraseHashKey) != null &&
+      _box.get(_recoveryEncryptedKeyKey) != null;
+
+  bool verificarFraseRecuperacao(String frase) {
+    final storedHash = _box.get(_recoveryPhraseHashKey);
+    if (storedHash == null) return false;
+    final computedHash = sha256.convert(utf8.encode(frase)).toString();
+    return computedHash == storedHash;
+  }
+
+  Future<bool> recuperarComFrase(String frase) async {
+    final combined = _box.get(_recoveryEncryptedKeyKey);
+    if (combined == null) return false;
+
+    final parts = combined.split(':');
+    if (parts.length < 3) return false;
+
+    final salt = parts[0];
+    final ivBase64 = parts[1];
+    final encryptedPart = parts.sublist(2).join(':');
+
+    final recoveryKey = _derivarChavePBKDF2(frase, salt);
+    final iv = encrypt.IV.fromBase64(ivBase64);
+
+    try {
+      final encrypter = encrypt.Encrypter(encrypt.AES(recoveryKey));
+      final encryptedBytes = encrypt.Encrypted.fromBase64(encryptedPart);
+      final keyBytes = encrypter.decryptBytes(encryptedBytes, iv: iv);
+      _key = encrypt.Key(Uint8List.fromList(keyBytes));
+      _iv = iv;
+      return true;
+    } catch (e) {
+      Log.erro(e, contexto: 'EncryptionService.recuperarComFrase');
+      return false;
+    }
+  }
+
+  Future<void> limparRecuperacao() async {
+    await _box.delete(_recoveryPhraseHashKey);
+    await _box.delete(_recoveryEncryptedKeyKey);
   }
 }

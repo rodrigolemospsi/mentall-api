@@ -74,11 +74,15 @@ def _rate_limit_check(ip: str, max_requests: int) -> None:
     _rate_limit_store[ip] = timestamps
 
 
-JWT_SECRET = os.getenv("JWT_SECRET", "desenvolvimento_segredo_temporario")
+JWT_SECRET = os.getenv("JWT_SECRET")
+if not JWT_SECRET:
+    raise RuntimeError("JWT_SECRET não configurado. Defina a variável de ambiente JWT_SECRET.")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 JWT_EXPIRATION = int(os.getenv("JWT_EXPIRATION_MINUTES", "480"))
 APP_USERNAME = os.getenv("APP_USERNAME", "admin")
-APP_PASSWORD_HASH = os.getenv("APP_PASSWORD_HASH", "")
+APP_PASSWORD_HASH = os.getenv("APP_PASSWORD_HASH")
+if not APP_PASSWORD_HASH:
+    raise RuntimeError("APP_PASSWORD_HASH não configurado. Gere um hash bcrypt e defina a variável de ambiente.")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
@@ -86,7 +90,7 @@ security = HTTPBearer()
 
 def _verificar_senha(senha: str) -> bool:
     if not APP_PASSWORD_HASH:
-        return senha == "admin"
+        return False
     try:
         return pwd_context.verify(senha, APP_PASSWORD_HASH)
     except Exception:
@@ -133,11 +137,6 @@ async def lifespan(app: FastAPI):
     model = os.getenv("IA_MODEL", "gpt-4.1")
     print(f"Modelo de IA: {provider}/{model}")
 
-    if JWT_SECRET == "desenvolvimento_segredo_temporario":
-        print("ATENCAO: usando JWT_SECRET padrao. Configure no .env para producao.")
-    if not APP_PASSWORD_HASH:
-        print("ATENCAO: APP_PASSWORD_HASH nao configurado. Senha padrao: admin")
-
     yield
     await parar_scheduler()
 
@@ -162,26 +161,10 @@ iniciar_scheduler()
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 def health():
-    openai_key = os.getenv("OPENAI_API_KEY")
-    project_id = os.getenv("OPENAI_PROJECT_ID")
-    gemini_key = os.getenv("GEMINI_API_KEY")
-    deepseek_key = os.getenv("DEEPSEEK_API_KEY")
-    provider = os.getenv("IA_MODEL_PROVIDER", "openai").strip().lower()
-    modelos_padrao = {"openai": "gpt-4.1", "deepseek": "deepseek-chat", "gemini": "gemini-2.0-flash"}
-    modelo_efetivo = os.getenv("IA_MODEL") or modelos_padrao.get(provider, "gpt-4.1")
     return HealthResponse(
         status="ok",
         versao="1.0.0",
-        debug_info={
-            "openai_key_configured": bool(openai_key),
-            "openai_key_prefix": (openai_key[:20] + "...") if openai_key else "N/A",
-            "openai_project_id_configured": bool(project_id),
-            "openai_project_id": project_id or "N/A",
-            "gemini_key_configured": bool(gemini_key),
-            "deepseek_key_configured": bool(deepseek_key),
-            "ia_model_provider": provider,
-            "ia_model": modelo_efetivo,
-        },
+        debug_info=None,
     )
 
 

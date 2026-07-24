@@ -76,12 +76,141 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     try {
       final authService = ref.read(authServiceProvider);
-      await authService.configurarPin(pin);
+      final frase = await authService.configurarPinComFraseRecuperacao(pin);
 
       if (!mounted) return;
 
       pinController.clear();
-      _navegarParaHome();
+      _mostrarFraseRecuperacao(frase);
+    } finally {
+      if (mounted) {
+        ref.read(_processandoProvider.notifier).state = false;
+      }
+    }
+  }
+
+  void _mostrarFraseRecuperacao(String frase) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Frase de recuperação'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Guarde esta frase em local seguro. Ela será necessária caso você esqueça seu PIN.',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(ctx).colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: SelectableText(
+                frase,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(ctx).colorScheme.onPrimaryContainer,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Copie ou anote estas 12 palavras. Sem elas, seus dados serão permanentemente inacessíveis em caso de esquecimento do PIN.',
+              style: TextStyle(fontSize: 12, color: Colors.orange),
+            ),
+          ],
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _navegarParaHome();
+            },
+            child: const Text('Eu anotei. Continuar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _recuperarPin() async {
+    final fraseController = TextEditingController();
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Recuperar acesso'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Digite a frase de recuperação de 12 palavras que foi gerada quando você configurou o PIN.',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: fraseController,
+              maxLines: 3,
+              textCapitalization: TextCapitalization.none,
+              decoration: const InputDecoration(
+                hintText: 'Ex: casa carro flor livro mesa ...',
+                border: OutlineInputBorder(),
+                labelText: 'Frase de recuperação',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Verificar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmado != true || !mounted) return;
+
+    final frase = fraseController.text.trim().toLowerCase();
+    if (frase.isEmpty) {
+      ref.read(_erroProvider.notifier).state = 'Informe a frase de recuperação.';
+      return;
+    }
+
+    ref.read(_processandoProvider.notifier).state = true;
+    ref.read(_erroProvider.notifier).state = '';
+
+    try {
+      final authService = ref.read(authServiceProvider);
+      if (!authService.verificarFraseRecuperacao(frase)) {
+        ref.read(_erroProvider.notifier).state =
+            'Frase de recuperação incorreta. Verifique as palavras e a ordem.';
+        return;
+      }
+
+      final sucesso = await authService.recuperarComFrase(frase);
+      if (!mounted) return;
+
+      if (sucesso) {
+        ref.read(_pinControllerProvider).clear();
+        _navegarParaHome();
+      } else {
+        ref.read(_erroProvider.notifier).state =
+            'Não foi possível recuperar o acesso.';
+      }
     } finally {
       if (mounted) {
         ref.read(_processandoProvider.notifier).state = false;
@@ -195,6 +324,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     ),
                   ),
                 ),
+                if (!configurandoPin) ...[
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: processando ? null : _recuperarPin,
+                    child: const Text('Esqueci meu PIN'),
+                  ),
+                ],
               ],
             ),
           ),
