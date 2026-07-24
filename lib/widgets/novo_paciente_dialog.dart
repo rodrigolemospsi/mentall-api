@@ -23,8 +23,8 @@ Future<void> mostrarDialogNovoPaciente({
   final nomeController = TextEditingController();
   final contatoController = TextEditingController();
   final emailController = TextEditingController();
+  final dataNascimentoController = TextEditingController();
   final observacoesController = TextEditingController();
-  DateTime? dataNascimento;
   String? fotoBase64;
 
   String tipoAtendimento = 'Particular';
@@ -104,40 +104,34 @@ Future<void> mostrarDialogNovoPaciente({
                       ),
                     ),
                     const SizedBox(height: 12),
-                    InkWell(
-                      onTap: salvando
-                          ? null
-                          : () async {
-                              final picked = await showDatePicker(
-                                context: dialogContext,
-                                initialDate:
-                                    dataNascimento ?? DateTime.now(),
-                                firstDate: DateTime(1900),
-                                lastDate: DateTime.now(),
-                                helpText: 'Data de nascimento',
-                              );
-                              if (picked != null) {
-                                setDialogState(() {
-                                  dataNascimento = picked;
-                                });
-                              }
-                            },
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: 'Data de nascimento',
-                          border: OutlineInputBorder(),
-                        ),
-                        child: Text(
-                          dataNascimento != null
-                              ? '${dataNascimento!.day.toString().padLeft(2, '0')}/${dataNascimento!.month.toString().padLeft(2, '0')}/${dataNascimento!.year}'
-                              : 'Informe a data de nascimento',
-                          style: TextStyle(
-                            color: dataNascimento != null
-                                ? null
-                                : context.corTextoSecondary,
-                          ),
-                        ),
+                    TextField(
+                      controller: dataNascimentoController,
+                      keyboardType: TextInputType.datetime,
+                      decoration: const InputDecoration(
+                        labelText: 'Data de nascimento',
+                        hintText: 'dd/mm/aaaa',
+                        border: OutlineInputBorder(),
                       ),
+                      onChanged: (value) {
+                        final digits = value.replaceAll(RegExp(r'[^\d]'), '');
+                        if (digits.length > 2 && digits.length <= 4) {
+                          final txt = '${digits.substring(0, 2)}/${digits.substring(2)}';
+                          if (txt != value) {
+                            dataNascimentoController.value = TextEditingValue(
+                              text: txt,
+                              selection: TextSelection.collapsed(offset: txt.length),
+                            );
+                          }
+                        } else if (digits.length > 4) {
+                          final txt = '${digits.substring(0, 2)}/${digits.substring(2, 4)}/${digits.substring(4, 8)}';
+                          if (txt != value) {
+                            dataNascimentoController.value = TextEditingValue(
+                              text: txt,
+                              selection: TextSelection.collapsed(offset: txt.length),
+                            );
+                          }
+                        }
+                      },
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
@@ -248,6 +242,25 @@ Future<void> mostrarDialogNovoPaciente({
                             salvando = true;
                           });
                           try {
+                            DateTime? dataNascimento;
+                            final dataTexto = dataNascimentoController.text.trim();
+                            if (dataTexto.isNotEmpty) {
+                              final match = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$').firstMatch(dataTexto);
+                              if (match == null) {
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Data de nascimento deve estar no formato dd/mm/aaaa.'),
+                                  ),
+                                );
+                                return;
+                              }
+                              dataNascimento = DateTime(
+                                int.parse(match.group(3)!),
+                                int.parse(match.group(2)!),
+                                int.parse(match.group(1)!),
+                              );
+                            }
                             final paciente = Paciente(
                               id: DateTime.now()
                                   .millisecondsSinceEpoch
@@ -318,6 +331,7 @@ Future<void> mostrarDialogNovoPaciente({
     nomeController.dispose();
     contatoController.dispose();
     emailController.dispose();
+    dataNascimentoController.dispose();
     observacoesController.dispose();
   }
 }

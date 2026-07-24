@@ -289,13 +289,17 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
             children: [
               DropdownButtonFormField<Paciente>(
                 initialValue: _pacienteSelecionado,
+                isExpanded: true,
                 decoration: InputDecoration(
                   labelText: widget.termoPessoa,
                   prefixIcon: Icon(Icons.person_outline),
                   border: OutlineInputBorder(),
                 ),
                 items: widget.pacientes.map((p) {
-                  return DropdownMenuItem(value: p, child: Text(p.nome));
+                  return DropdownMenuItem(
+                    value: p,
+                    child: Text(p.nome, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  );
                 }).toList(),
                 onChanged: (v) {
                   if (v != null) setState(() => _pacienteSelecionado = v);

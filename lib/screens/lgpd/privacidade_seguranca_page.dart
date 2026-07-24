@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../providers/service_providers.dart';
+import '../../services/lgpd/auditoria_service.dart';
 import '../../services/lgpd/pdf_arquitetura_lgpd_service.dart';
 import '../../utils/mentall_colors.dart';
 import '../login_page.dart';
@@ -320,29 +322,35 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
       builder: (ctx) {
         final container = ProviderScope.containerOf(context);
         final auditoriaService = container.read(auditoriaServiceProvider);
-        final registros = auditoriaService.listar(limite: 50);
+        final registros = auditoriaService.listar(limite: 200);
+        final relatorio = auditoriaService.gerarRelatorioLeigo(registros);
 
         return AlertDialog(
-          title: const Text('Registros de Auditoria'),
+          title: const Text('Registro de Atividades'),
           content: SizedBox(
             width: double.maxFinite,
             child: registros.isEmpty
-                ? const Text('Nenhum registro de auditoria encontrado.')
+                ? const Text('Nenhum registro de atividade encontrado.')
                 : ListView.builder(
                     shrinkWrap: true,
                     itemCount: registros.length,
                     itemBuilder: (_, i) {
                       final r = registros[i];
+                      final traducao = AuditoriaService.traduzirEvento(r.tipoEvento);
                       return ListTile(
                         dense: true,
                         title: Text(
-                          r.tipoEvento,
+                          traducao,
                           style: const TextStyle(fontSize: 13),
                         ),
-                        subtitle: Text(
-                          r.descricao,
-                          style: const TextStyle(fontSize: 11),
-                        ),
+                        subtitle: r.descricao.isNotEmpty
+                            ? Text(
+                                r.descricao,
+                                style: const TextStyle(fontSize: 11),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              )
+                            : null,
                         trailing: Text(
                           '${r.dataHora.day.toString().padLeft(2, '0')}/'
                           '${r.dataHora.month.toString().padLeft(2, '0')} '
@@ -355,6 +363,17 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
                   ),
           ),
           actions: [
+            if (registros.isNotEmpty)
+              TextButton.icon(
+                onPressed: () {
+                  Share.share(
+                    relatorio,
+                    subject: 'Relatório de Atividade — MentAll',
+                  );
+                },
+                icon: const Icon(Icons.share_outlined, size: 18),
+                label: const Text('Compartilhar'),
+              ),
             TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: const Text('Fechar'),

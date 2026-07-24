@@ -1471,7 +1471,7 @@ if (!mounted || confirmar != true) return;
       child: Scaffold(
       backgroundColor: context.corFundo,
       appBar: AppBar(
-        title: Text(_editando ? 'Prontuário Clínico' : 'Nova sessão'),
+        title: Text(_editando ? 'Sessão $_numeroSessao' : 'Nova sessão'),
         backgroundColor: context.corPrimaria,
         foregroundColor: context.corOnPrimaria,
         actions: _editando
@@ -1517,7 +1517,7 @@ if (!mounted || confirmar != true) return;
             ),
           ),
           ),
-          if (_modoEdicao || !_editando) ...[
+          if (_modoEdicao || (!_editando && _possuiTranscricaoRelato)) ...[
             const SizedBox(height: 16),
             _botaoSalvar(),
           ],
@@ -1559,37 +1559,12 @@ if (!mounted || confirmar != true) return;
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _nomePessoaAtendidaExibicao.toUpperCase(),
-              style: const TextStyle(
-                fontSize: 21,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Sessão $_numeroSessao',
-                    style: TextStyle(color: context.corTextoSecondary),
-                  ),
-                ),
-                if (_editando && !_modoEdicao)
-                  TextButton.icon(
-                    onPressed: () {
-                      _modoEdicao = true;
-                      _triggerRebuild();
-                    },
-                    icon: const Icon(Icons.edit_outlined, size: 18),
-                    label: const Text('Editar'),
-                  ),
-              ],
-            ),
-          ],
+        child: Text(
+          _nomePessoaAtendidaExibicao.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 21,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );

@@ -42,12 +42,17 @@ class ContratoService {
     required PerfilProfissional perfil,
   }) async {
     final autenticado = await ApiClient.ensureAuthenticated();
-    if (!autenticado) return null;
+    if (!autenticado) {
+      Log.erro('Autenticacao falhou ao criar contrato', contexto: 'ContratoService.criarContrato');
+      return null;
+    }
 
     try {
+      final url = '${ApiClient.baseUrl}/contratos';
+      Log.auditoria('POST $url', contexto: 'ContratoService');
       final response = await http
           .post(
-            Uri.parse('${ApiClient.baseUrl}/contratos'),
+            Uri.parse(url),
             headers: ApiClient.defaultHeaders(),
             body: jsonEncode({
               'nome_paciente': paciente.nome,
@@ -57,6 +62,8 @@ class ContratoService {
             }),
           )
           .timeout(ApiClient.timeout);
+
+      Log.auditoria('POST /contratos response: ${response.statusCode}', contexto: 'ContratoService');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -72,6 +79,9 @@ class ContratoService {
           await _box.add(contrato);
           return contrato;
         }
+        Log.erro('POST /contratos sucesso=false: ${response.body}', contexto: 'ContratoService');
+      } else {
+        Log.erro('POST /contratos ${response.statusCode}: ${response.body}', contexto: 'ContratoService');
       }
       return null;
     } catch (e) {

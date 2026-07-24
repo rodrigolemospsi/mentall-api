@@ -29,8 +29,11 @@ class PacienteCardHome extends StatelessWidget {
   String get _nomeExibicao {
     final nomeLimpo = paciente.nome.trim();
     if (nomeLimpo.isEmpty) return 'Sem nome';
-    return nomeLimpo;
+    final primeiroNome = nomeLimpo.split(' ').first;
+    return primeiroNome;
   }
+
+  String get _modalidadeExibicao => paciente.modoAtendimento.trim();
 
   @override
   Widget build(BuildContext context) {
@@ -73,18 +76,33 @@ class PacienteCardHome extends StatelessWidget {
               Expanded(
                 child: Opacity(
                   opacity: listaArquivada ? 0.6 : 1,
-                  child: Column(
+                      child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        _nomeExibicao,
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: _nomeExibicao,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                                color: context.corTextoHeading,
+                              ),
+                            ),
+                            if (_modalidadeExibicao.isNotEmpty)
+                              TextSpan(
+                                text: ' - $_modalidadeExibicao',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w400,
+                                  fontSize: 13,
+                                  color: context.corTextoMuted,
+                                ),
+                              ),
+                          ],
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                          color: context.corTextoHeading,
-                        ),
                       ),
                       const SizedBox(height: 5),
                       Row(

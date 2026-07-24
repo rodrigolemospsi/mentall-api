@@ -161,7 +161,7 @@ class KpiCardsHome extends ConsumerWidget {
   final String termoPlural;
   final VoidCallback onHojeTap;
   final VoidCallback onPacientesTap;
-  final VoidCallback onSessoesTap;
+  final VoidCallback? onSessoesTap;
   final VoidCallback onRevisoesTap;
 
   const KpiCardsHome({
@@ -169,7 +169,7 @@ class KpiCardsHome extends ConsumerWidget {
     required this.termoPlural,
     required this.onHojeTap,
     required this.onPacientesTap,
-    required this.onSessoesTap,
+    this.onSessoesTap,
     required this.onRevisoesTap,
   });
 
@@ -251,7 +251,7 @@ class _KpiCard extends StatelessWidget {
   final String subtitulo;
   final IconData icone;
   final Color cor;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _KpiCard({
     required this.valor,
@@ -259,64 +259,68 @@ class _KpiCard extends StatelessWidget {
     required this.subtitulo,
     required this.icone,
     required this.cor,
-    required this.onTap,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final card = Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cs.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  titulo,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: context.corTextoMuted,
+                  ),
+                ),
+              ),
+              Icon(icone, size: 18, color: cor),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            valor,
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              color: cor,
+              height: 1,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitulo,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 11, color: context.corTextoMuted),
+          ),
+        ],
+      ),
+    );
+
+    if (onTap == null) return card;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: cs.surface,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: cs.outlineVariant),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      titulo,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: context.corTextoMuted,
-                      ),
-                    ),
-                  ),
-                  Icon(icone, size: 18, color: cor),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                valor,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  color: cor,
-                  height: 1,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitulo,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 11, color: context.corTextoMuted),
-              ),
-            ],
-          ),
-        ),
+        child: card,
       ),
     );
   }

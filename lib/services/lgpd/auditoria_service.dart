@@ -10,6 +10,57 @@ class AuditoriaService {
 
   Box<RegistroAuditoria> get _box => Hive.box<RegistroAuditoria>(_boxName);
 
+  static String traduzirEvento(String tipoEvento) {
+    final t = tipoEvento.toLowerCase();
+    if (t.contains('agendad')) return 'Agendamento de consulta';
+    if (t.contains('cadastrad')) return 'Cadastro de pessoa atendida no sistema';
+    if (t.contains('sintese') || t.contains('síntese')) return 'Uso de IA para organizar anotações da sessão';
+    if (t.contains('transcri')) return 'Conversão de áudio em texto';
+    if (t.contains('gravacao') || t.contains('gravação') || t.contains('audio') || t.contains('áudio')) return 'Gravação de relato em áudio';
+    if (t.contains('revis')) return 'Revisão da sessão pelo profissional';
+    if (t.contains('registrad') || t.contains('sessao') || t.contains('sessão')) return 'Registro de sessão no prontuário';
+    if (t.contains('contrato') || t.contains('acordo')) return 'Envio de acordo terapêutico';
+    if (t.contains('arquivad')) return 'Arquivamento de registro';
+    if (t.contains('restaurad')) return 'Restauração de registro';
+    if (t.contains('export')) return 'Exportação de dados';
+    if (t.contains('ia') || t.contains('processad')) return 'Uso de IA para organizar anotações';
+    return tipoEvento;
+  }
+
+  String gerarRelatorioLeigo(List<RegistroAuditoria> registros) {
+    if (registros.isEmpty) return 'Nenhum registro de atividade encontrado.';
+
+    final buffer = StringBuffer();
+    buffer.writeln('RELATÓRIO DE ATIVIDADE — MENTALL');
+    buffer.writeln('Gerado em: ${_formatarDataCompleta(DateTime.now())}');
+    buffer.writeln('Total de eventos registrados: ${registros.length}');
+    buffer.writeln('');
+    buffer.writeln('Este relatório descreve, em linguagem simples, todas as ações');
+    buffer.writeln('realizadas no aplicativo MentAll que envolvem o prontuário.');
+    buffer.writeln('');
+
+    for (final r in registros) {
+      final traducao = traduzirEvento(r.tipoEvento);
+      buffer.writeln('• ${_formatarDataCompleta(r.dataHora)}');
+      buffer.writeln('  $traducao');
+      if (r.descricao.isNotEmpty) {
+        buffer.writeln('  Detalhes: ${r.descricao}');
+      }
+      buffer.writeln('');
+    }
+
+    return buffer.toString();
+  }
+
+  String _formatarDataCompleta(DateTime data) {
+    final dia = data.day.toString().padLeft(2, '0');
+    final mes = data.month.toString().padLeft(2, '0');
+    final ano = data.year.toString();
+    final hora = data.hour.toString().padLeft(2, '0');
+    final minuto = data.minute.toString().padLeft(2, '0');
+    return '$dia/$mes/$ano às $hora:$minuto';
+  }
+
   Future<void> registrar({
     required String tipoEvento,
     required String descricao,
