@@ -16,6 +16,7 @@ import 'lgpd/termos_uso_page.dart';
 
 final _abordagemProvider = StateProvider<String>((ref) => 'Integrativa');
 final _termoProvider = StateProvider<String>((ref) => 'paciente');
+final _tratamentoProvider = StateProvider<String>((ref) => 'masculino');
 final _salvandoProvider = StateProvider<bool>((ref) => false);
 final _aceitouTermosProvider = StateProvider<bool>((ref) => false);
 final _fotoProvider = StateProvider<String>((ref) => '');
@@ -98,6 +99,7 @@ class _PerfilProfissionalFormPageState
         _registroController.text = perfil.registroProfissional;
         ref.read(_abordagemProvider.notifier).state = perfil.abordagemClinica;
         ref.read(_termoProvider.notifier).state = perfil.termoPessoaAtendida;
+        ref.read(_tratamentoProvider.notifier).state = perfil.tratamento;
         ref.read(_fotoProvider.notifier).state = perfil.fotoBase64;
         ref.read(_atendeOnlineProvider.notifier).state = perfil.atendeOnline;
         for (final e in perfil.enderecosConsultorios) {
@@ -223,6 +225,7 @@ class _PerfilProfissionalFormPageState
         abordagemClinica: ref.read(_abordagemProvider),
         termoPessoaAtendida: ref.read(_termoProvider),
         fotoBase64: ref.read(_fotoProvider),
+        tratamento: ref.read(_tratamentoProvider),
         modalidadesAtendimentoJson: jsonEncode(modalidades),
         enderecosConsultoriosJson: jsonEncode(
           enderecos.map((e) => e.toJson()).toList(),
@@ -470,6 +473,27 @@ class _PerfilProfissionalFormPageState
                   : (value) {
                       if (value == null) return;
                       ref.read(_termoProvider.notifier).state = value;
+                    },
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: ref.watch(_tratamentoProvider),
+              decoration: const InputDecoration(
+                labelText: 'Tratamento',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.person_outline),
+              ),
+              items: const [
+                DropdownMenuItem(
+                    value: 'masculino', child: Text('Masculino')),
+                DropdownMenuItem(
+                    value: 'feminino', child: Text('Feminino')),
+              ],
+              onChanged: salvando
+                  ? null
+                  : (value) {
+                      if (value == null) return;
+                      ref.read(_tratamentoProvider.notifier).state = value;
                     },
             ),
           ],

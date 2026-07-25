@@ -40,6 +40,9 @@ class Paciente extends HiveObject {
   @HiveField(11)
   String fotoBase64;
 
+  @HiveField(12)
+  String tratamento;
+
   Paciente({
     required this.id,
     required this.nome,
@@ -53,6 +56,7 @@ class Paciente extends HiveObject {
     this.ativo = true,
     DateTime? dataCadastro,
     this.dataAtualizacao,
+    this.tratamento = 'masculino',
   }) : dataCadastro = dataCadastro ?? DateTime.now();
 
   static const String tipoAtendimentoPadrao = 'Particular';
@@ -200,6 +204,7 @@ class Paciente extends HiveObject {
     bool? ativo,
     DateTime? dataCadastro,
     DateTime? dataAtualizacao,
+    String? tratamento,
   }) {
     return Paciente(
       id: id ?? this.id,
@@ -216,6 +221,9 @@ class Paciente extends HiveObject {
       ativo: ativo ?? this.ativo,
       dataCadastro: dataCadastro ?? this.dataCadastro,
       dataAtualizacao: dataAtualizacao ?? this.dataAtualizacao,
+      tratamento: tratamento ?? this.tratamento,
     );
   }
+
+  bool get isMasculino => tratamento == 'masculino';
 }

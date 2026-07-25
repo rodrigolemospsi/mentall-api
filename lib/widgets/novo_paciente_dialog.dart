@@ -29,6 +29,7 @@ Future<void> mostrarDialogNovoPaciente({
 
   String tipoAtendimento = 'Particular';
   String? modoAtendimento;
+  String tratamento = 'masculino';
   bool salvando = false;
 
   try {
@@ -200,6 +201,32 @@ Future<void> mostrarDialogNovoPaciente({
                       ),
                     ],
                     const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: tratamento,
+                      decoration: const InputDecoration(
+                        labelText: 'Tratamento',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'masculino',
+                          child: Text('Masculino'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'feminino',
+                          child: Text('Feminino'),
+                        ),
+                      ],
+                      onChanged: salvando
+                          ? null
+                          : (value) {
+                              if (value == null) return;
+                              setDialogState(() {
+                                tratamento = value;
+                              });
+                            },
+                    ),
+                    const SizedBox(height: 12),
                     TextField(
                       controller: observacoesController,
                       maxLines: 3,
@@ -273,6 +300,7 @@ Future<void> mostrarDialogNovoPaciente({
                               modoAtendimento: modoAtendimento ?? '',
                               observacoes: observacoesController.text.trim(),
                               fotoBase64: fotoBase64 ?? '',
+                              tratamento: tratamento,
                             );
                             await pacienteService.adicionarPaciente(paciente);
                             await auditoriaService?.registrar(

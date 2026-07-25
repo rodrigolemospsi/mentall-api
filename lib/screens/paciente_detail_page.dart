@@ -113,6 +113,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
 
     bool ativo = widget.paciente.ativo;
     String fotoBase64 = widget.paciente.fotoBase64;
+    String tratamento = widget.paciente.tratamento;
 
     final opcoesModo = perfil?.opcoesModoAtendimento ?? <String>[];
     String? modoAtendimentoSelecionado = widget.paciente.modoAtendimento.trim().isEmpty
@@ -150,10 +151,12 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                 fotoBase64: fotoBase64,
                 opcoesModo: opcoesDropdown,
                 modoAtendimentoSelecionado: modoAtendimentoSelecionado,
+                tratamento: tratamento,
                 setDialogState: setDialogState,
                 onTipoAlterado: (v) => tipoAtendimento = v,
                 onAtivoAlterado: (v) => ativo = v,
                 onModoAlterado: (v) => modoAtendimentoSelecionado = v,
+                onTratamentoAlterado: (v) => tratamento = v,
                 onFotoAlterada: (v) => fotoBase64 = v,
               ),
               actions: [
@@ -184,6 +187,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                         modoAtendimentoSelecionado ?? '';
                     widget.paciente.ativo = ativo;
                     widget.paciente.fotoBase64 = fotoBase64;
+                    widget.paciente.tratamento = tratamento;
                     await pacienteService.atualizarPaciente(widget.paciente);
                     if (!dialogContext.mounted) return;
                     Navigator.pop(dialogContext);
@@ -223,10 +227,12 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
     required String fotoBase64,
     required List<String> opcoesModo,
     required String? modoAtendimentoSelecionado,
+    required String tratamento,
     required void Function(void Function()) setDialogState,
     required void Function(String) onTipoAlterado,
     required void Function(bool) onAtivoAlterado,
     required void Function(String?) onModoAlterado,
+    required void Function(String) onTratamentoAlterado,
     required void Function(String) onFotoAlterada,
   }) {
     Future<void> selecionarFoto() async {
@@ -358,6 +364,22 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
             }).toList(),
             onChanged: (value) {
               setDialogState(() => onModoAlterado(value));
+            },
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: tratamento,
+            decoration: const InputDecoration(
+              labelText: 'Tratamento',
+              border: OutlineInputBorder(),
+            ),
+            items: const [
+              DropdownMenuItem(value: 'masculino', child: Text('Masculino')),
+              DropdownMenuItem(value: 'feminino', child: Text('Feminino')),
+            ],
+            onChanged: (value) {
+              if (value == null) return;
+              setDialogState(() => onTratamentoAlterado(value));
             },
           ),
           const SizedBox(height: 12),

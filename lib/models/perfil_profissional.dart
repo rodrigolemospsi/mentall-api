@@ -39,6 +39,9 @@ class PerfilProfissional extends HiveObject {
   @HiveField(9)
   String fotoBase64;
 
+  @HiveField(10)
+  String tratamento;
+
   PerfilProfissional({
     required this.id,
     required this.nome,
@@ -50,6 +53,7 @@ class PerfilProfissional extends HiveObject {
     this.modalidadesAtendimentoJson = '[]',
     this.enderecosConsultoriosJson = '[]',
     this.fotoBase64 = '',
+    this.tratamento = 'masculino',
   }) : dataCriacao = dataCriacao ?? DateTime.now();
 
   static const String abordagemClinicaPadrao = 'Integrativa';
@@ -265,6 +269,7 @@ class PerfilProfissional extends HiveObject {
     String? modalidadesAtendimentoJson,
     String? enderecosConsultoriosJson,
     String? fotoBase64,
+    String? tratamento,
   }) {
     return PerfilProfissional(
       id: id ?? this.id,
@@ -279,8 +284,11 @@ class PerfilProfissional extends HiveObject {
       enderecosConsultoriosJson:
           enderecosConsultoriosJson ?? this.enderecosConsultoriosJson,
       fotoBase64: fotoBase64 ?? this.fotoBase64,
+      tratamento: tratamento ?? this.tratamento,
     );
   }
+
+  bool get isMasculino => tratamento == 'masculino';
 
   static String _capitalizarPrimeiraLetra(String texto) {
     final textoLimpo = texto.trim();
