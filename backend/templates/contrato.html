@@ -182,14 +182,6 @@
   <h2>Consentimento</h2>
   <p>Ao preencher e assinar este formul&aacute;rio, declaro estar ciente e de acordo com os termos deste acordo terap&ecirc;utico.</p>
 
-  <div class="assinatura">
-    <p><strong>Psic&oacute;logo(a):</strong> <span class="linha">{{nome_profissional}}</span></p>
-    <p><strong>CRP:</strong> <span class="linha">{{registro_profissional}}</span></p>
-    <p><strong>{{termo_pessoa_capitalizado}}:</strong> <span class="linha">{{nome_paciente}}</span></p>
-    <p><strong>Local:</strong> <span class="linha">{{local_data}}</span></p>
-    <p><strong>Data:</strong> <span class="linha js-data-local"></span></p>
-  </div>
-
   {% if not aceito %}
   <div class="secao-aceite" id="secao-aceite">
     <label for="nome-confirmacao">Digite seu nome completo para confirmar:</label>

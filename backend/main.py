@@ -263,12 +263,6 @@ def _renderizar_template_personalizado(
   <div class="crp">CRP {registro}</div>
   <div class="subtitulo">Acordo Terap\u00eautico</div>
   {paragrafos}
-  <div class="assinatura">
-    <p><strong>Psic\u00f3logo(a):</strong> <span class="linha">{nome_profissional}</span></p>
-    <p><strong>CRP:</strong> <span class="linha">{registro}</span></p>
-    <p><strong>{termo_cap}:</strong> <span class="linha">{nome_paciente}</span></p>
-    <p><strong>Data:</strong> <span class="linha js-data-local"></span></p>
-  </div>
   {aceito_msg}
   {"".join(f'''<div class="secao-aceite" id="secao-aceite">
     <label for="nome-confirmacao">Digite seu nome completo para confirmar:</label>

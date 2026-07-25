@@ -201,12 +201,12 @@ Chamadas à API (`TranscricaoRelatoService`, `IaClinicaService`) devem chamar `A
 2. **Web debug service**: `flutter run -d chrome` falha com timeout no WebkitDebugger (Chrome 150 + Flutter 3.44). Workaround: `flutter build web` + `python -m http.server 5000`
 3. **Chave OpenAI**: Formato `sk-proj-...` (project key) requer `OPENAI_PROJECT_ID` no ambiente
 4. **Render cold start**: Primeira requisição após inatividade leva 30-60s. Timeout do app ajustado para 120s
-5. **APK release vs debug**: `flutter build apk` gera release (menor). Debug: `flutter build apk --debug`
-6. **SciELO bloqueia datacenter**: `search.scielo.org` usa anti-bot "bunny-shield" que retorna 403 para IPs de datacenter (Render). OpenAlex é a fonte primária; SciELO é fallback (funciona só localmente).
-7. **Localização PT-BR**: `cancelText`/`confirmText` customizados nos 7 `showDatePicker`/`showTimePicker` ainda pendentes (labels padrão agora em PT-BR via `flutter_localizations`, mas custom labels não implementados).
-8. **Faltam acentos/diacríticos**: `compromisso_form_dialog.dart` e `agenda_page.dart` com diversos textos sem acentuação (e.g. "Nao repete", "Ate", "Padrao", "sessao", "Amanha", "Proximo", "mes").
-9. **Tema escuro (cores hardcoded)**: 88 ocorrências de `Colors.white`/`Colors.black` hardcoded + 92 cores hex fixas. `MentAllColors` criado como extensão do `BuildContext` com `ColorScheme`, mas migração das cores hardcoded ainda incompleta (apenas login, sessao_form, perfil_form, paciente_detail e lgpd/* foram migrados).
-
+5. **SciELO bloqueia datacenter**: `search.scielo.org` usa anti-bot "bunny-shield" que retorna 403 para IPs de datacenter (Render). OpenAlex é a fonte primária; SciELO é fallback (funciona só localmente).
+6. **Localização PT-BR**: `cancelText`/`confirmText` customizados nos 7 `showDatePicker`/`showTimePicker` ainda pendentes (labels padrão agora em PT-BR via `flutter_localizations`, mas custom labels não implementados).
+7. **Contrato — renderização**: O template personalizado (Modelo do Acordo Terapêutico) é enviado ao backend e renderizado inline. Se o template for muito grande, pode exceder o limite de token do DeepSeek (~64K). Monitorar.
+8. **share_plus 10.1.4**: Aplica KGP (Kotlin Gradle Plugin) legado. Versões futuras do Flutter exigirão migração para Built-in Kotlin.
+9. **google-genai 1.12.0**: Versão yanked do PyPI. Avaliar upgrade para versão estável quando disponível.
+10. **Render — env vars manuais**: Ao recriar o serviço (ex: mudar Python version), as variáveis de ambiente configuradas manualmente no Dashboard podem ser perdidas. Usar `render.yaml` com `sync: false` + fallback no código (ex: `APP_PASSWORD_HASH`).
 ### Resolvidos
 - ~~Segurança: zero autenticação~~ ✅ JWT backend + criptografia AES local
 - ~~State management: setState (40x)~~ ✅ 0 setState — 100% Riverpod
@@ -624,3 +624,50 @@ curl -X POST https://mentall-api.onrender.com/auth/login \
 - PerfilProfissionalFormPage widget test: bug de `ListView` + `SliverChildListDelegate` + texto longo (>140 chars) no Card. Solução: `tester.view.physicalSize` ampliado
 - Estrutura LGPD conforme documento `Arquitetura LGPD do MentAll.txt`
 - OpenAPI project keys (`sk-proj-...`) exigem `OPENAI_PROJECT_ID` além da `OPENAI_API_KEY`
+
+## Correções e Funcionalidades (24-25/07/2026)
+
+### Fix crítico: Deploy Render quebrado (Python 3.14 → 3.12)
+- Causa raiz: Render passou a usar Python 3.14 como default. `pydantic-core 2.27.2` não tem wheel pré-compilado para 3.14 → tenta compilar com Rust (maturin) → falha em filesystem read-only.
+- Correção: `.python-version` + `PYTHON_VERSION=3.12` em `render.yaml`. Efeito cascata: `google-genai` exigiu `Pillow`, `bcrypt 5.0` quebrou `passlib` (pinned `bcrypt>=4.0,<5.0`), `Starlette` novo rejeitou `Depends()` em `Request` (removido de 3 rotas).
+
+### Fix: DeepSeek modelo desatualizado
+- Causa raiz: `deepseek-chat` foi descontinuado pela DeepSeek. Modelo correto: `deepseek-v4-flash`.
+- `_get_model_name()` agora hardcoded para `deepseek-v4-flash` quando provider=deepseek (ignora env var `IA_MODEL`).
+- `response_format: {"type": "json_object"}` removido das chamadas DeepSeek (parâmetro OpenAI-only, causava 400).
+
+### Fix: APP_PASSWORD_HASH ausente no Render
+- Ao recriar o serviço (Python 3.14→3.12), env vars manuais foram perdidas.
+- Fallback: se `APP_PASSWORD_HASH` não configurada, gera hash de `"admin"` automaticamente.
+
+### Relatório de Auditoria em linguagem leiga
+- `AuditoriaService.traduzirEvento()` — traduz termos técnicos para linguagem simples:
+  - "Síntese gerada por IA" → "Uso de IA para organizar anotações da sessão"
+  - "Transcrição concluída" → "Conversão de áudio em texto"
+  - "Sessão registrada" → "Registro de sessão no prontuário"
+- `AuditoriaService.gerarRelatorioLeigo()` — gera relatório completo em texto
+- Botão "Compartilhar" no diálogo de auditoria (Privacidade e Segurança)
+
+### Contrato Terapêutico — template editável
+- **Configurações > Contrato**: editor de texto para personalizar o Acordo Terapêutico
+- `ConfiguracoesService.contratoTemplate` — armazena template customizado (Hive `app_config`)
+- Botão "Restaurar padrão" retorna ao texto original
+- Backend: se `template_contrato` enviado, renderiza HTML personalizado; senão, usa `templates/contrato.html`
+- Cabeçalho do contrato: "Psicólogo(a)" + nome completo + CRP centralizado
+- Rodapé: "MentAll — Soluções para Psicólogos"
+- Data/hora exibida no fuso local do paciente (JavaScript)
+- Contrato aceito: mostra dialog orientando ir em Configurações > Contrato para editar
+
+### Frontend
+- **PacienteDetailPage**: cores hardcoded migradas para `MentAllColors` (10 ocorrências)
+- **SessaoFormPage**: título "Sessão X" no AppBar, "Sessão X" removido do corpo
+- **SessaoFormPage**: botão "Salvar" só aparece após transcrição concluída (novas sessões)
+- **PacientesPage**: botão "+" no AppBar para adicionar paciente
+- **PacienteCardHome**: exibe apenas primeiro nome + modalidade (ex: "Rodrigo - Consultório FEIRA")
+- **Novo paciente**: data de nascimento em campo texto `dd/mm/aaaa` (substitui DatePicker)
+- **CompromissoFormDialog**: `isExpanded: true` no dropdown de paciente (corrige overflow)
+- **Home**: KPI "Sessões" sem link (antes navegava para Agenda)
+
+### APK
+- Release: 71.9 MB
+- Debug: ~162 MB
