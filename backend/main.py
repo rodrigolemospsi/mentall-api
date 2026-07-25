@@ -80,11 +80,11 @@ if not JWT_SECRET:
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 JWT_EXPIRATION = int(os.getenv("JWT_EXPIRATION_MINUTES", "480"))
 APP_USERNAME = os.getenv("APP_USERNAME", "admin")
-APP_PASSWORD_HASH = os.getenv("APP_PASSWORD_HASH")
-if not APP_PASSWORD_HASH:
-    raise RuntimeError("APP_PASSWORD_HASH não configurado. Gere um hash bcrypt e defina a variável de ambiente.")
-
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+APP_PASSWORD_HASH = os.getenv("APP_PASSWORD_HASH", "")
+if not APP_PASSWORD_HASH:
+    APP_PASSWORD_HASH = pwd_context.hash("admin")
+    log.warning("APP_PASSWORD_HASH nao configurado. Usando senha padrao 'admin'.")
 security = HTTPBearer()
 
 
