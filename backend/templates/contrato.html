@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Acordo Terapêutico - MentAll</title>
+<title>Acordo Terap&ecirc;utico - MentAll</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -51,7 +51,6 @@
   ul { padding-left: 22px; margin-bottom: 8px; }
   li { margin-bottom: 4px; }
   strong { color: #1E293B; }
-  em { font-style: normal; color: #475569; }
   .assinatura {
     margin-top: 36px;
     padding-top: 20px;
@@ -179,7 +178,7 @@
     <p><strong>CRP:</strong> <span class="linha">{{registro_profissional}}</span></p>
     <p><strong>{{termo_pessoa_capitalizado}}:</strong> <span class="linha">{{nome_paciente}}</span></p>
     <p><strong>Local:</strong> <span class="linha">{{local_data}}</span></p>
-    <p><strong>Data:</strong> <span class="linha">{{data_agora}}</span></p>
+    <p><strong>Data:</strong> <span class="linha js-data-local"></span></p>
   </div>
 
   {% if not aceito %}
@@ -191,26 +190,51 @@
     <div class="confirmacao">Ao marcar &ldquo;Li e aceito&rdquo;, {{artigo_termo}} {{termo_pessoa}} declara que leu, compreendeu e concorda com os termos deste acordo terap&ecirc;utico.</div>
   </div>
   <div id="sucesso-msg" class="sucesso" style="display:none;">
-    Obrigado! Seu aceite foi registrado em {{data_agora}}. O profissional respons&aacute;vel ser&aacute; notificado.
+    Obrigado! Seu aceite foi registrado. O profissional respons&aacute;vel ser&aacute; notificado.
   </div>
   {% endif %}
 
   {% if aceito %}
   <div class="ja-aceito">
-    &#10003; Este acordo foi aceito por <strong>{{nome_aceite}}</strong> em {{data_aceite}}.
+    &#10003; Este acordo foi aceito por <strong>{{nome_aceite}}</strong> em <span class="js-data-aceite" data-iso="{{data_aceite_iso}}">em {{data_aceite}}</span>.
   </div>
   {% endif %}
 
   <div class="footer">
-    MentAll &mdash; Prontu&aacute;rio Cl&iacute;nico com IA<br>
-    Documento gerado em {{data_agora}}
+    MentAll &mdash; Prontu&aacute;rio Cl&iacute;nico com IA
   </div>
 </div>
 
 <script>
+function formatarDataLocal(data) {
+  if (!data || isNaN(data.getTime())) return '';
+  var dd = String(data.getDate()).padStart(2, '0');
+  var mm = String(data.getMonth() + 1).padStart(2, '0');
+  var aa = data.getFullYear();
+  var hh = String(data.getHours()).padStart(2, '0');
+  var min = String(data.getMinutes()).padStart(2, '0');
+  return dd + '/' + mm + '/' + aa + ' \u00e0s ' + hh + ':' + min;
+}
+
+(function() {
+  var agora = new Date();
+  var els = document.getElementsByClassName('js-data-local');
+  for (var i = 0; i < els.length; i++) {
+    els[i].textContent = formatarDataLocal(agora);
+  }
+
+  var elsAceite = document.getElementsByClassName('js-data-aceite');
+  for (var j = 0; j < elsAceite.length; j++) {
+    var iso = elsAceite[j].getAttribute('data-iso');
+    if (iso) {
+      elsAceite[j].textContent = 'em ' + formatarDataLocal(new Date(iso));
+    }
+  }
+})();
+
 async function aceitar() {
-  const nome = document.getElementById('nome-confirmacao').value.trim();
-  const erroEl = document.getElementById('erro-msg');
+  var nome = document.getElementById('nome-confirmacao').value.trim();
+  var erroEl = document.getElementById('erro-msg');
 
   if (!nome || nome.length < 3) {
     erroEl.textContent = 'Por favor, digite seu nome completo.';
@@ -218,13 +242,13 @@ async function aceitar() {
     return;
   }
 
-  const btn = document.getElementById('btn-aceitar');
+  var btn = document.getElementById('btn-aceitar');
   btn.disabled = true;
   btn.textContent = 'Enviando...';
   erroEl.style.display = 'none';
 
   try {
-    const resp = await fetch('{{url_aceitar}}', {
+    var resp = await fetch('{{url_aceitar}}', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({nome: nome})
@@ -234,14 +258,14 @@ async function aceitar() {
       document.getElementById('secao-aceite').style.display = 'none';
       document.getElementById('sucesso-msg').style.display = 'block';
     } else {
-      const data = await resp.json();
+      var data = await resp.json();
       erroEl.textContent = data.erro || 'Erro ao registrar aceite. Tente novamente.';
       erroEl.style.display = 'block';
       btn.disabled = false;
       btn.textContent = 'Li e aceito';
     }
   } catch (e) {
-    erroEl.textContent = 'Erro de conex&atilde;o. Verifique sua internet e tente novamente.';
+    erroEl.textContent = 'Erro de conex\u00e3o. Verifique sua internet e tente novamente.';
     erroEl.style.display = 'block';
     btn.disabled = false;
     btn.textContent = 'Li e aceito';

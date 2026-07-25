@@ -381,8 +381,8 @@ def pagina_contrato(token: str):
         preposicao = "do"
 
     aceito = contrato["status"] == "aceito"
-    data_agora = __import__("datetime").datetime.now().strftime("%d/%m/%Y às %H:%M")
     base_url = os.getenv("API_BASE_URL", "https://mentall-api.onrender.com")
+    aceito_em = contrato.get("aceito_em", "")
 
     template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", "contrato.html")
     try:
@@ -394,16 +394,16 @@ def pagina_contrato(token: str):
     substituicoes = {
         "{{nome_paciente}}": dados.get("nome_paciente", ""),
         "{{nome_profissional}}": dados.get("nome_profissional", ""),
-        "{{registro_profissional}}": dados.get("registro_profissional", "Não informado"),
+        "{{registro_profissional}}": dados.get("registro_profissional", "N\u00e3o informado"),
         "{{termo_pessoa}}": termo,
         "{{termo_pessoa_capitalizado}}": termo_capitalizado,
         "{{artigo_termo}}": artigo,
         "{{preposicao_termo}}": preposicao,
-        "{{termo_profissional}}": "do psicólogo",
+        "{{termo_profissional}}": "do psic\u00f3logo",
         "{{local_data}}": "",
-        "{{data_agora}}": data_agora,
         "{{url_aceitar}}": f"{base_url}/contratos/{token}/aceitar",
-        "{{data_aceite}}": contrato.get("aceito_em", "-")[:10] if contrato.get("aceito_em") else "-",
+        "{{data_aceite}}": aceito_em[:10] if aceito_em else "-",
+        "{{data_aceite_iso}}": aceito_em or "",
         "{{nome_aceite}}": contrato.get("nome_aceite", ""),
         "{% if not aceito %}": "" if aceito else "<!--",
         "{% endif %}": "<!--" if not aceito else "",
