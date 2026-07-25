@@ -169,7 +169,7 @@ def health():
 
 
 @app.post("/auth/login", response_model=LoginResponse, tags=["Autenticacao"])
-def login(request: LoginRequest, _req: Request = Depends()):
+def login(request: LoginRequest, _req: Request):
     ip = _req.client.host if _req.client else "unknown"
     _rate_limit_check(ip, max_requests=10)
     if not _verificar_senha(request.password):
@@ -189,7 +189,7 @@ def login(request: LoginRequest, _req: Request = Depends()):
     tags=["Transcricao"],
     dependencies=[Depends(_verificar_token)],
 )
-def transcrever(request: TranscricaoRequest, req: Request = Depends()):
+def transcrever(request: TranscricaoRequest, req: Request):
     content_length = req.headers.get("content-length")
     max_body = 35 * 1024 * 1024  # 35MB (25MB audio + base64 overhead + JSON)
     if content_length and int(content_length) > max_body:
@@ -215,7 +215,7 @@ def transcrever(request: TranscricaoRequest, req: Request = Depends()):
     tags=["IA Clinica"],
     dependencies=[Depends(_verificar_token)],
 )
-def sintese(request: SinteseRequest, _req: Request = Depends()):
+def sintese(request: SinteseRequest, _req: Request):
     ip = _req.client.host if _req.client else "unknown"
     _rate_limit_check(ip, max_requests=30)
 
