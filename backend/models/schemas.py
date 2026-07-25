@@ -73,6 +73,7 @@ class ContratoRequest(BaseModel):
     nome_profissional: str
     registro_profissional: str
     termo_pessoa: str
+    template_contrato: str = ""
 
 
 class ContratoResponse(BaseModel):

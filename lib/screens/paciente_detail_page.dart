@@ -758,9 +758,11 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
     );
 
     final contratoService = ref.read(contratoServiceProvider);
+    final config = ref.read(configuracoesServiceProvider);
     final contrato = await contratoService.criarContrato(
       paciente: widget.paciente,
       perfil: perfil,
+      templateContrato: config.contratoTemplate,
     );
 
     if (!mounted) return;
@@ -825,12 +827,23 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
   }
 
   Future<void> _verContrato(ContratoTerapeutico contrato) async {
-    if (contrato.url.isNotEmpty) {
-      final uri = Uri.parse(contrato.url);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-    }
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Acordo Terap\u00eautico'),
+        content: const Text(
+          'Este acordo j\u00e1 foi aceito pelo paciente.\n\n'
+          'Para visualizar ou editar o modelo do documento, '
+          'acesse Configura\u00e7\u00f5es > Contrato.',
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Entendi'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _corpoSessoes() {

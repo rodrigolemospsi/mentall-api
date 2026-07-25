@@ -40,6 +40,7 @@ class ContratoService {
   Future<ContratoTerapeutico?> criarContrato({
     required Paciente paciente,
     required PerfilProfissional perfil,
+    String templateContrato = '',
   }) async {
     final autenticado = await ApiClient.ensureAuthenticated();
     if (!autenticado) {
@@ -59,6 +60,7 @@ class ContratoService {
               'nome_profissional': perfil.nome,
               'registro_profissional': perfil.registroProfissional,
               'termo_pessoa': perfil.termoSingular,
+              'template_contrato': templateContrato,
             }),
           )
           .timeout(ApiClient.timeout);

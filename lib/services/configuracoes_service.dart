@@ -10,6 +10,25 @@ class ConfiguracoesService {
   static const String _kSugerirArtigos = 'ia_sugerir_artigos';
   static const String _kTemaEscuro = 'tema_escuro';
   static const String _kCanalLembretePadrao = 'canal_lembrete_padrao';
+  static const String _kContratoTemplate = 'contrato_template';
+
+  static const String contratoPadrao = '''Acordo Terap\u00eautico
+
+Este \u00e9 um espa\u00e7o de cuidado, escuta e respeito.
+
+Compromissos
+Psic\u00f3logo(a): ofere\u00e7o um atendimento \u00e9tico, acolhedor e sigiloso, respeitando sua singularidade e autonomia.
+Paciente: comprometo-me a participar dos atendimentos com responsabilidade, pontualidade e comunica\u00e7\u00e3o sempre que houver d\u00favidas, imprevistos ou necessidade de remarca\u00e7\u00e3o.
+
+Cancelamentos
+Cancelamentos ou remarca\u00e7\u00f5es devem ser informados com pelo menos 24 horas de anteced\u00eancia.
+Ap\u00f3s esse prazo, ou em caso de falta sem aviso, a sess\u00e3o poder\u00e1 ser cobrada integralmente.
+
+Sigilo
+Tudo o que for compartilhado ser\u00e1 preservado em confidencialidade, exceto nas situa\u00e7\u00f5es previstas em lei.
+
+Consentimento
+Ao preencher e aceitar este formul\u00e1rio, declaro estar ciente e de acordo com os termos deste acordo terap\u00eautico.''';
 
   static const int duracaoPadraoFallback = 60;
   static const int antecedenciaPadraoFallback = 1440;
@@ -63,6 +82,13 @@ class ConfiguracoesService {
 
   Future<void> setCanalLembretePadrao(String canal) async {
     await _box.put(_kCanalLembretePadrao, canal);
+  }
+
+  String get contratoTemplate =>
+      _box.get(_kContratoTemplate) ?? contratoPadrao;
+
+  Future<void> setContratoTemplate(String texto) async {
+    await _box.put(_kContratoTemplate, texto);
   }
 
   Stream<BoxEvent> observar() {

@@ -209,6 +209,22 @@ class ConfiguracoesPage extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 16),
+          _secao(
+            context,
+            titulo: 'Contrato',
+            children: [
+              ListTile(
+                leading: Icon(Icons.description_outlined, color: context.corPrimaria),
+                title: const Text('Modelo do Acordo Terap\u00eautico'),
+                subtitle: const Text(
+                  'Personalize o texto do contrato enviado aos pacientes.',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _mostrarDialogContrato(context, ref),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
         ],
       ),
     );
@@ -495,6 +511,54 @@ class ConfiguracoesPage extends ConsumerWidget {
         ],
       ),
     ).then((_) => urlController.dispose());
+  }
+
+  void _mostrarDialogContrato(BuildContext context, WidgetRef ref) {
+    final config = ref.read(configuracoesServiceProvider);
+    final controller = TextEditingController(text: config.contratoTemplate);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Modelo do Contrato'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: TextField(
+            controller: controller,
+            maxLines: 12,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: const InputDecoration(
+              labelText: 'Texto do acordo terap\u00eautico',
+              border: OutlineInputBorder(),
+              alignLabelWithHint: true,
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              controller.text = ConfiguracoesService.contratoPadrao;
+            },
+            child: const Text('Restaurar padr\u00e3o'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              await config.setContratoTemplate(controller.text.trim());
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Contrato atualizado com sucesso.')),
+                );
+              }
+            },
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    ).then((_) => controller.dispose());
   }
 
   void _mostrarFraseRecuperacao(BuildContext context, String frase) {

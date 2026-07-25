@@ -88,6 +88,225 @@ if not APP_PASSWORD_HASH:
 security = HTTPBearer()
 
 
+def _renderizar_template_personalizado(
+    token: str,
+    dados: dict,
+    aceito: bool,
+    aceito_em: str,
+    base_url: str,
+) -> HTMLResponse:
+    nome_paciente = dados.get("nome_paciente", "")
+    nome_profissional = dados.get("nome_profissional", "")
+    registro = dados.get("registro_profissional", "")
+    texto = dados.get("template_contrato", "")
+    termo = dados.get("termo_pessoa", "paciente")
+    termo_cap = termo[0].upper() + termo[1:] if termo else "Paciente"
+    aceito_msg = ""
+    if aceito:
+        data_fmt = aceito_em[:10].replace("-", "/") if aceito_em else ""
+        nome_aceite = dados.get("nome_aceite", "")
+        aceito_msg = f'<div class="ja-aceito">&#10003; Aceito por {nome_aceite} em {data_fmt}</div>'
+
+    paragrafos = "".join(f"<p>{p}</p>" for p in texto.split("\n") if p.strip())
+
+    html = f"""<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acordo Terap\u00eautico - MentAll</title>
+<style>
+  * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+  body {{
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #F7F9FA;
+    color: #1E293B;
+    line-height: 1.7;
+    padding: 24px 16px;
+  }}
+  .container {{
+    max-width: 640px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    padding: 40px 28px;
+  }}
+  .logo {{
+    text-align: center;
+    color: #2563EB;
+    font-weight: 700;
+    line-height: 1.3;
+  }}
+  .logo .titulo {{ font-size: 18px; }}
+  .logo .nome {{ font-size: 26px; letter-spacing: 1px; }}
+  .crp {{
+    text-align: center;
+    font-size: 13px;
+    color: #475569;
+    margin: 6px 0 4px;
+  }}
+  .subtitulo {{
+    text-align: center;
+    font-size: 14px;
+    color: #64748B;
+    margin-bottom: 32px;
+  }}
+  h2 {{
+    font-size: 18px;
+    color: #2563EB;
+    margin: 28px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #E2E8F0;
+  }}
+  p {{ font-size: 15px; color: #334155; margin-bottom: 6px; }}
+  .assinatura {{
+    margin-top: 36px;
+    padding-top: 20px;
+    border-top: 1px solid #E2E8F0;
+  }}
+  .assinatura p {{ margin: 14px 0; font-size: 14px; }}
+  .linha {{
+    display: inline-block;
+    border-bottom: 1px solid #94A3B8;
+    min-width: 200px;
+    margin-left: 6px;
+  }}
+  .secao-aceite {{
+    margin-top: 32px;
+    padding: 24px;
+    background: #F8FAFC;
+    border-radius: 12px;
+    border: 1px solid #E2E8F0;
+  }}
+  .secao-aceite label {{
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1E293B;
+    margin-bottom: 8px;
+  }}
+  .secao-aceite input[type="text"] {{
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #CBD5E1;
+    border-radius: 10px;
+    font-size: 16px;
+    margin-bottom: 16px;
+    outline: none;
+  }}
+  .secao-aceite input[type="text"]:focus {{
+    border-color: #2563EB;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+  }}
+  .btn-aceitar {{
+    width: 100%;
+    padding: 14px;
+    background: #2563EB;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+  }}
+  .btn-aceitar:disabled {{ background: #94A3B8; cursor: not-allowed; }}
+  .sucesso {{
+    background: #F0FDF4;
+    border: 1px solid #BBF7D0;
+    color: #166534;
+    padding: 16px;
+    border-radius: 10px;
+    text-align: center;
+    font-size: 15px;
+    margin-top: 16px;
+  }}
+  .erro {{
+    background: #FEF2F2;
+    border: 1px solid #FECACA;
+    color: #991B1B;
+    padding: 12px;
+    border-radius: 10px;
+    text-align: center;
+    font-size: 14px;
+    margin-top: 12px;
+  }}
+  .ja-aceito {{
+    background: #F0FDF4;
+    border: 1px solid #BBF7D0;
+    color: #166534;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    font-size: 15px;
+  }}
+  .confirmacao {{
+    font-size: 13px;
+    color: #64748B;
+    text-align: center;
+    margin-top: 12px;
+  }}
+  .footer {{
+    text-align: center;
+    margin-top: 28px;
+    font-size: 12px;
+    color: #94A3B8;
+  }}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="logo">
+    <div class="titulo">Psic\u00f3logo(a)</div>
+    <div class="nome">{nome_profissional}</div>
+  </div>
+  <div class="crp">CRP {registro}</div>
+  <div class="subtitulo">Acordo Terap\u00eautico</div>
+  {paragrafos}
+  <div class="assinatura">
+    <p><strong>Psic\u00f3logo(a):</strong> <span class="linha">{nome_profissional}</span></p>
+    <p><strong>CRP:</strong> <span class="linha">{registro}</span></p>
+    <p><strong>{termo_cap}:</strong> <span class="linha">{nome_paciente}</span></p>
+    <p><strong>Data:</strong> <span class="linha js-data-local"></span></p>
+  </div>
+  {aceito_msg}
+  {"".join(f'''<div class="secao-aceite" id="secao-aceite">
+    <label for="nome-confirmacao">Digite seu nome completo para confirmar:</label>
+    <input type="text" id="nome-confirmacao" placeholder="Seu nome completo" autocomplete="off">
+    <button class="btn-aceitar" id="btn-aceitar" onclick="aceitar()">Li e aceito</button>
+    <div id="erro-msg" class="erro" style="display:none;"></div>
+    <div class="confirmacao">Ao marcar "Li e aceito", {termo} declara que leu, compreendeu e concorda com os termos deste acordo.</div>
+  </div>
+  <div id="sucesso-msg" class="sucesso" style="display:none;">Obrigado! Seu aceite foi registrado. O profissional ser\u00e1 notificado.</div>''' if not aceito else "")}
+  <div class="footer">MentAll \u2014 Solu\u00e7\u00f5es para Psic\u00f3logos</div>
+</div>
+<script>
+function formatarDataLocal(d) {{
+  if (!d || isNaN(d.getTime())) return '';
+  return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear() + ' \\u00e0s ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}}
+(function() {{
+  var els = document.getElementsByClassName('js-data-local');
+  for (var i = 0; i < els.length; i++) els[i].textContent = formatarDataLocal(new Date());
+}})();
+async function aceitar() {{
+  var nome = document.getElementById('nome-confirmacao').value.trim();
+  var erroEl = document.getElementById('erro-msg');
+  if (!nome || nome.length < 3) {{ erroEl.textContent = 'Digite seu nome completo.'; erroEl.style.display = 'block'; return; }}
+  var btn = document.getElementById('btn-aceitar');
+  btn.disabled = true; btn.textContent = 'Enviando...'; erroEl.style.display = 'none';
+  try {{
+    var resp = await fetch('{base_url}/contratos/{token}/aceitar', {{ method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify({{nome: nome}}) }});
+    if (resp.ok) {{ document.getElementById('secao-aceite').style.display = 'none'; document.getElementById('sucesso-msg').style.display = 'block'; }}
+    else {{ var d = await resp.json(); erroEl.textContent = d.erro || 'Erro ao registrar.'; erroEl.style.display = 'block'; btn.disabled = false; btn.textContent = 'Li e aceito'; }}
+  }} catch(e) {{ erroEl.textContent = 'Erro de conex\\u00e3o.'; erroEl.style.display = 'block'; btn.disabled = false; btn.textContent = 'Li e aceito'; }}
+}}
+</script>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
+
+
 def _verificar_senha(senha: str) -> bool:
     if not APP_PASSWORD_HASH:
         return False
@@ -345,6 +564,7 @@ def criar_contrato_endpoint(request: ContratoRequest):
         "nome_profissional": request.nome_profissional.strip(),
         "registro_profissional": request.registro_profissional.strip(),
         "termo_pessoa": request.termo_pessoa.strip() or "paciente",
+        "template_contrato": request.template_contrato.strip(),
     }
 
     token = criar_contrato(dados)
@@ -383,6 +603,16 @@ def pagina_contrato(token: str):
     aceito = contrato["status"] == "aceito"
     base_url = os.getenv("API_BASE_URL", "https://mentall-api.onrender.com")
     aceito_em = contrato.get("aceito_em", "")
+    template_personalizado = dados.get("template_contrato", "")
+
+    if template_personalizado:
+        return _renderizar_template_personalizado(
+            token=token,
+            dados=dados,
+            aceito=aceito,
+            aceito_em=aceito_em,
+            base_url=base_url,
+        )
 
     template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", "contrato.html")
     try:
