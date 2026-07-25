@@ -154,7 +154,7 @@
 <body>
 <div class="container">
 
-  <div class="logo">MentAll</div>
+  <div class="logo">{{nome_profissional}}</div>
   <div class="subtitulo">Acordo Terap&ecirc;utico</div>
 
   <p>Este &eacute; um espa&ccedil;o de cuidado, escuta e respeito.</p>
@@ -194,14 +194,8 @@
   </div>
   {% endif %}
 
-  {% if aceito %}
-  <div class="ja-aceito">
-    &#10003; Este acordo foi aceito por <strong>{{nome_aceite}}</strong> em <span class="js-data-aceite" data-iso="{{data_aceite_iso}}">em {{data_aceite}}</span>.
-  </div>
-  {% endif %}
-
   <div class="footer">
-    MentAll &mdash; Prontu&aacute;rio Cl&iacute;nico com IA
+    MentAll &mdash; Solu&ccedil;&otilde;es para Psic&oacute;logos
   </div>
 </div>
 
