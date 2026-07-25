@@ -671,3 +671,13 @@ curl -X POST https://mentall-api.onrender.com/auth/login \
 ### APK
 - Release: 71.9 MB
 - Debug: ~162 MB
+
+### Campo Tratamento (Masculino/Feminino)
+- **PerfilProfissional**: `@HiveField(10) String tratamento` — default `'masculino'`
+- **Paciente**: `@HiveField(12) String tratamento` — default `'masculino'`
+- **UI**: dropdown "Tratamento" (Masculino/Feminino) em:
+  - `novo_paciente_dialog.dart` (cadastro)
+  - `paciente_detail_page.dart` (edição)
+  - `perfil_profissional_form_page.dart` (perfil profissional)
+- **Modelos**: `copyWith()` e `isMasculino` getter adicionados
+- Hive adapters regenerados via `build_runner`

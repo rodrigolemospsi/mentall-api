@@ -728,7 +728,6 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
           side: BorderSide(color: context.corSuccess),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     }
@@ -742,7 +741,6 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
           side: BorderSide(color: context.corWarning),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     }
@@ -754,7 +752,6 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
         side: BorderSide(color: context.corPrimaria),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }

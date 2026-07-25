@@ -17,7 +17,7 @@ class EncryptionService {
   static const String _kdfVersionKey = 'kdf_version';
   static const String _recoveryPhraseHashKey = 'recovery_phrase_hash';
   static const String _recoveryEncryptedKeyKey = 'recovery_encrypted_key';
-  static const int _kdfIterations = 100000;
+  static const int _kdfIterations = 10000;
   static const int _kdfKeyLength = 32;
 
   static const List<String> _palavrasRecuperacao = [

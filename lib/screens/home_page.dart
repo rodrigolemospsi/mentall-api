@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/service_providers.dart';
@@ -437,8 +438,8 @@ class _HomePageState extends ConsumerState<HomePage> {
             ],
           ),
         );
-        if (sair == true && context.mounted) {
-          Navigator.of(context).pop();
+        if (sair == true) {
+          SystemNavigator.pop();
         }
       },
       child: Scaffold(
