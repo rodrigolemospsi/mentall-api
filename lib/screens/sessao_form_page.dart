@@ -1,6 +1,3 @@
-part 'sessao_form_audio.dart';
-part 'sessao_form_ia.dart';
-
 import 'dart:async';
 import 'dart:convert';
 
@@ -18,12 +15,15 @@ import '../services/logger.dart';
 import '../services/pdf_export_service.dart';
 import '../services/sessao_service.dart';
 import '../services/transcricao_relato_service.dart';
+import '../utils/mentall_colors.dart';
 import '../widgets/campo_texto_widget.dart';
 import '../widgets/secao_campos_clinicos_widget.dart';
 import '../widgets/secao_formulario.dart';
 import '../widgets/sessao_artigos_sugeridos.dart';
 import '../widgets/sessao_audio_controls.dart';
-import '../utils/mentall_colors.dart';
+
+part 'sessao_form_audio.dart';
+part 'sessao_form_ia.dart';
 
 final _salvandoProvider = StateProvider<bool>((ref) => false);
 final _dataSessaoProvider = StateProvider<DateTime>((ref) => DateTime.now());
