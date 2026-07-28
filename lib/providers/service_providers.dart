@@ -1,22 +1,28 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/paciente.dart';
+import '../models/anamnese_enviada.dart';
+import '../models/avaliacao_inicial.dart';
+import '../models/compromisso.dart';
 import '../models/contrato_terapeutico.dart';
+import '../models/lgpd/registro_auditoria.dart';
+import '../models/paciente.dart';
+import '../models/resposta_escala.dart';
+import '../services/anamnese_enviada_service.dart';
 import '../services/audio_relato_service.dart';
 import '../services/auth_service.dart';
+import '../services/avaliacao_inicial_service.dart';
+import '../services/backup_service.dart';
+import '../services/compromisso_service.dart';
+import '../services/configuracoes_service.dart';
 import '../services/contrato_service.dart';
 import '../services/encryption_service.dart';
+import '../services/escala_service.dart';
 import '../services/ia_clinica_service.dart';
+import '../services/lembrete_service.dart';
+import '../services/lgpd/auditoria_service.dart';
 import '../services/paciente_service.dart';
 import '../services/perfil_profissional_service.dart';
 import '../services/sessao_service.dart';
-import '../services/backup_service.dart';
-import '../services/lgpd/auditoria_service.dart';
-import '../models/compromisso.dart';
-import '../models/lgpd/registro_auditoria.dart';
-import '../services/compromisso_service.dart';
-import '../services/configuracoes_service.dart';
-import '../services/lembrete_service.dart';
 import '../services/transcricao_relato_service.dart';
 
 final encryptionServiceProvider = Provider<EncryptionService>((ref) {
@@ -172,6 +178,47 @@ final contratoServiceProvider = Provider<ContratoService>((ref) {
 final contratoPorPacienteProvider =
     StreamProvider.autoDispose.family<ContratoTerapeutico?, String>((ref, pacienteId) async* {
   final service = ref.watch(contratoServiceProvider);
+  yield service.obterPorPaciente(pacienteId);
+  await for (final _ in service.observar()) {
+    yield service.obterPorPaciente(pacienteId);
+  }
+});
+
+final avaliacaoInicialServiceProvider = Provider<AvaliacaoInicialService>((ref) {
+  final encryption = ref.watch(encryptionServiceProvider);
+  return AvaliacaoInicialService(encryption: encryption);
+});
+
+final avaliacaoInicialPorPacienteProvider =
+    StreamProvider.autoDispose.family<AvaliacaoInicial?, String>((ref, pacienteId) async* {
+  final service = ref.watch(avaliacaoInicialServiceProvider);
+  yield service.obterPorPaciente(pacienteId);
+  await for (final _ in service.observar()) {
+    yield service.obterPorPaciente(pacienteId);
+  }
+});
+
+final escalaServiceProvider = Provider<EscalaService>((ref) {
+  final encryption = ref.watch(encryptionServiceProvider);
+  return EscalaService(encryption: encryption);
+});
+
+final respostasEscalasPorPacienteProvider =
+    StreamProvider.autoDispose.family<List<RespostaEscala>, String>((ref, pacienteId) async* {
+  final service = ref.watch(escalaServiceProvider);
+  yield service.listarPorPaciente(pacienteId);
+  await for (final _ in service.observar()) {
+    yield service.listarPorPaciente(pacienteId);
+  }
+});
+
+final anamneseEnviadaServiceProvider = Provider<AnamneseEnviadaService>((ref) {
+  return AnamneseEnviadaService();
+});
+
+final anamnesePorPacienteProvider =
+    StreamProvider.autoDispose.family<AnamneseEnviada?, String>((ref, pacienteId) async* {
+  final service = ref.watch(anamneseEnviadaServiceProvider);
   yield service.obterPorPaciente(pacienteId);
   await for (final _ in service.observar()) {
     yield service.obterPorPaciente(pacienteId);

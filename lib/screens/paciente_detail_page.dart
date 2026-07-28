@@ -549,13 +549,12 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
-      builder: (context) => _bottomSheetExportacaoBody(
-        exportService: exportService,
-        sessoes: sessoes,
-        perfil: perfil,
-        context: context,
-        temaEscuro: temaEscuro,
-      ),
+        builder: (context) => _bottomSheetExportacaoBody(
+          exportService: exportService,
+          sessoes: sessoes,
+          perfil: perfil,
+          context: context,
+        ),
     );
   }
 
@@ -564,7 +563,6 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
     required List<Sessao> sessoes,
     required PerfilProfissional perfil,
     required BuildContext context,
-    required bool temaEscuro,
   }) {
     return SafeArea(
       child: Padding(
@@ -598,7 +596,6 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                     paciente: widget.paciente,
                     sessoes: sessoes,
                     perfil: perfil,
-                    temaEscuro: temaEscuro,
                   );
                 },
                 icon: const Icon(Icons.history_outlined),
@@ -618,7 +615,6 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                     paciente: widget.paciente,
                     sessoes: sessoes,
                     perfil: perfil,
-                    temaEscuro: temaEscuro,
                   );
                 },
                 icon: const Icon(Icons.assignment_outlined),
@@ -638,7 +634,6 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                     sessao: sessoes.first,
                     paciente: widget.paciente,
                     perfil: perfil,
-                    temaEscuro: temaEscuro,
                   );
                 },
                 icon: const Icon(Icons.rate_review_outlined),
@@ -658,7 +653,6 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                     sessao: sessoes.first,
                     paciente: widget.paciente,
                     perfil: perfil,
-                    temaEscuro: temaEscuro,
                   );
                 },
                 icon: const Icon(Icons.description_outlined),
@@ -678,7 +672,6 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                     paciente: widget.paciente,
                     sessoes: sessoes,
                     perfil: perfil,
-                    temaEscuro: temaEscuro,
                   );
                 },
                 icon: const Icon(Icons.folder_zip_outlined),
