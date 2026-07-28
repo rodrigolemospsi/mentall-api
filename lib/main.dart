@@ -49,9 +49,9 @@ void main() async {
     Hive.openBox<ContratoTerapeutico>('contratos'),
     Hive.openBox<String>('logs_tecnicos'),
     Hive.openBox('schema_meta'),
-    Hive.openBox<AvaliacaoInicial>('avaliacoes_iniciais'),
-    Hive.openBox<AnamneseEnviada>('anamneses_enviadas'),
-    Hive.openBox<RespostaEscala>('respostas_escalas'),
+    Hive.openBox('avaliacoes_iniciais'),
+    Hive.openBox('anamneses_enviadas'),
+    Hive.openBox('respostas_escalas'),
   ]);
   debugPrint('[startup] openBoxes: ${sw.elapsedMilliseconds}ms');
 

@@ -9,10 +9,11 @@ import 'logger.dart';
 class AnamneseEnviadaService {
   static const String _boxName = 'anamneses_enviadas';
 
-  Box<AnamneseEnviada> get _box => Hive.box<AnamneseEnviada>(_boxName);
+  Box get _box => Hive.box(_boxName);
 
   AnamneseEnviada? obterPorPaciente(String pacienteId) {
     final anamneses = _box.values
+        .whereType<AnamneseEnviada>()
         .where((a) => a.pacienteId == pacienteId)
         .toList()
       ..sort((a, b) => b.dataCriacao.compareTo(a.dataCriacao));

@@ -6,7 +6,7 @@ import 'encryption_service.dart';
 
 class EscalaService {
   final EncryptionService? _encryption;
-  Box<RespostaEscala> get _box => Hive.box<RespostaEscala>('respostas_escalas');
+  Box get _box => Hive.box('respostas_escalas');
 
   EscalaService({EncryptionService? encryption}) : _encryption = encryption;
 
@@ -30,6 +30,7 @@ class EscalaService {
 
   List<RespostaEscala> listarPorPaciente(String pacienteId) {
     final lista = _box.values
+        .whereType<RespostaEscala>()
         .where((r) => r.pacienteId == pacienteId)
         .toList();
     for (final r in lista) {
@@ -40,7 +41,7 @@ class EscalaService {
   }
 
   List<RespostaEscala> listarPorPacienteEEscala(String pacienteId, String escalaId) {
-    return _box.values.where((r) =>
+    return _box.values.whereType<RespostaEscala>().where((r) =>
       r.pacienteId == pacienteId && r.escalaId == escalaId,
     ).toList();
   }
@@ -55,7 +56,7 @@ class EscalaService {
 
   void removerCriptografiaExistente() {
     if (_encryption == null || !_encryption.configurado) return;
-    for (final r in _box.values) {
+    for (final r in _box.values.whereType<RespostaEscala>()) {
       r.observacoes = _decrypt(r.observacoes);
     }
   }

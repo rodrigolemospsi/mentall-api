@@ -6,7 +6,7 @@ import 'encryption_service.dart';
 
 class AvaliacaoInicialService {
   final EncryptionService? _encryption;
-  Box<AvaliacaoInicial> get _box => Hive.box<AvaliacaoInicial>('avaliacoes_iniciais');
+  Box get _box => Hive.box('avaliacoes_iniciais');
 
   AvaliacaoInicialService({EncryptionService? encryption}) : _encryption = encryption;
 
@@ -21,9 +21,22 @@ class AvaliacaoInicialService {
   }
 
   AvaliacaoInicial? obterPorPaciente(String pacienteId) {
-    return _box.values.cast<AvaliacaoInicial?>().firstWhere(
-      (a) => a!.pacienteId == pacienteId,
-      orElse: () => null,
+    final a = _box.values.whereType<AvaliacaoInicial>().firstWhere(
+      (b) => b.pacienteId == pacienteId,
+      orElse: () => null as AvaliacaoInicial,
+    );
+    if (a == null) return null;
+    return _decryptAvaliacao(a);
+  }
+
+  AvaliacaoInicial _decryptAvaliacao(AvaliacaoInicial a) {
+    return a.copyWith(
+      queixaPrincipal: _decrypt(a.queixaPrincipal),
+      historicoClinico: _decrypt(a.historicoClinico),
+      medicamentos: _decrypt(a.medicamentos),
+      hipoteseDiagnostica: _decrypt(a.hipoteseDiagnostica),
+      objetivosTerapeuticos: _decrypt(a.objetivosTerapeuticos),
+      observacoes: _decrypt(a.observacoes),
     );
   }
 
@@ -52,7 +65,7 @@ class AvaliacaoInicialService {
 
   void removerCriptografiaExistente() {
     if (_encryption == null || !_encryption.configurado) return;
-    for (final a in _box.values) {
+    for (final a in _box.values.whereType<AvaliacaoInicial>()) {
       a.queixaPrincipal = _decrypt(a.queixaPrincipal);
       a.historicoClinico = _decrypt(a.historicoClinico);
       a.medicamentos = _decrypt(a.medicamentos);
