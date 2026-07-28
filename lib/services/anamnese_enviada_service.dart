@@ -19,7 +19,7 @@ class AnamneseEnviadaService {
     return anamneses.isNotEmpty ? anamneses.first : null;
   }
 
-  Future<AnamneseEnviada?> criar({
+  Future<AnamneseEnviada> criar({
     required String pacienteId,
     required String abordagem,
     required String templateJson,
@@ -27,53 +27,48 @@ class AnamneseEnviadaService {
     required String nomeProfissional,
     required String registro,
   }) async {
-    try {
-      final autenticado = await ApiClient.ensureAuthenticated();
-      if (!autenticado) {
-        Log.erro('Autenticacao falhou ao criar anamnese', contexto: 'AnamneseEnviadaService.criar');
-        return null;
-      }
-
-      final response = await ApiClient.post(
-        '/anamneses',
-        body: {
-          'template_json': templateJson,
-          'abordagem': abordagem,
-          'nome_paciente': nomePaciente,
-          'nome_profissional': nomeProfissional,
-          'registro': registro,
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        if (data['sucesso'] == true) {
-          final anamnese = AnamneseEnviada(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            pacienteId: pacienteId,
-            token: data['token'] as String,
-            abordagem: abordagem,
-            status: 'pendente',
-            url: data['url'] as String,
-            dataCriacao: DateTime.now(),
-          );
-          await _box.put(anamnese.id, anamnese);
-          _box.toMap();
-          return anamnese;
-        }
-        Log.erro('Resposta inesperada do servidor: ${response.body}', contexto: 'AnamneseEnviadaService.criar');
-        return null;
-      }
-
-      Log.erro(
-        'Erro HTTP ${response.statusCode} ao criar anamnese: ${response.body}',
-        contexto: 'AnamneseEnviadaService.criar',
-      );
-      return null;
-    } catch (e) {
-      Log.erro('Excecao: $e', contexto: 'AnamneseEnviadaService.criar');
-      return null;
+    final autenticado = await ApiClient.ensureAuthenticated();
+    if (!autenticado) {
+      Log.erro('Autenticacao falhou ao criar anamnese', contexto: 'AnamneseEnviadaService.criar');
+      throw Exception('Falha na autenticacao com o servidor. Verifique credenciais em Configuracoes > Avancado.');
     }
+
+    final response = await ApiClient.post(
+      '/anamneses',
+      body: {
+        'template_json': templateJson,
+        'abordagem': abordagem,
+        'nome_paciente': nomePaciente,
+        'nome_profissional': nomeProfissional,
+        'registro': registro,
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (data['sucesso'] == true) {
+        final anamnese = AnamneseEnviada(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          pacienteId: pacienteId,
+          token: data['token'] as String,
+          abordagem: abordagem,
+          status: 'pendente',
+          url: data['url'] as String,
+          dataCriacao: DateTime.now(),
+        );
+        await _box.put(anamnese.id, anamnese);
+        _box.toMap();
+        return anamnese;
+      }
+      Log.erro('Resposta inesperada do servidor: ${response.body}', contexto: 'AnamneseEnviadaService.criar');
+      throw Exception('Servidor retornou sucesso=false: ${response.body}');
+    }
+
+    Log.erro(
+      'Erro HTTP ${response.statusCode} ao criar anamnese: ${response.body}',
+      contexto: 'AnamneseEnviadaService.criar',
+    );
+    throw Exception('Erro HTTP ${response.statusCode} do servidor: ${response.body}');
   }
 
   Future<void> marcarComoEnviada(AnamneseEnviada anamnese) async {

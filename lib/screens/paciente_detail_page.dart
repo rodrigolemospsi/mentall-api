@@ -803,19 +803,12 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
-      if (anamnese != null) {
-        _enviarAnamneseWhatsApp(anamnese);
-      } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erro ao criar questionário. Verifique a conexão.')),
-        );
-      }
+      _enviarAnamneseWhatsApp(anamnese);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao criar questionário: $e')),
+        SnackBar(content: Text('Erro ao criar questionário: $e'), duration: const Duration(seconds: 8)),
       );
     }
   }
@@ -998,88 +991,156 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
     return labels[id] ?? id;
   }
 
-  Widget _botaoContrato() {
+  Widget _contratoCard() {
     final contrato = ref.watch(contratoPorPacienteProvider(widget.paciente.id)).valueOrNull;
 
-    if (contrato != null && contrato.isAceito) {
-      return OutlinedButton.icon(
-        onPressed: () => _verContrato(contrato),
-        icon: Icon(Icons.check_circle_outline, color: context.corSuccess, size: 20),
-        label: Text('Aceito em ${contrato.dataAceiteFormatada}',
-            style: TextStyle(fontSize: 12, color: context.corSuccess)),
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-          side: BorderSide(color: context.corSuccess),
+    return Card(
+      margin: EdgeInsets.zero,
+      color: context.corCard,
+      elevation: Theme.of(context).brightness == Brightness.dark ? 4 : 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.description_outlined, color: context.corPrimaria, size: 22),
+                const SizedBox(width: 8),
+                Text(
+                  'Acordo Terapêutico',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: context.corTextoHeading,
+                  ),
+                ),
+                const Spacer(),
+                if (contrato != null && contrato.isAceito)
+                  TextButton.icon(
+                    onPressed: () => _verContrato(contrato),
+                    icon: Icon(Icons.visibility_outlined, size: 16, color: context.corSuccess),
+                    label: Text('Ver', style: TextStyle(fontSize: 13, color: context.corSuccess)),
+                  )
+                else if (contrato != null)
+                  TextButton.icon(
+                    onPressed: () => _enviarContratoWhatsApp(contrato),
+                    icon: Icon(Icons.send_outlined, size: 16, color: context.corPrimaria),
+                    label: Text('Enviar', style: TextStyle(fontSize: 13, color: context.corPrimaria)),
+                  )
+                else
+                  TextButton.icon(
+                    onPressed: _criarEnviarContrato,
+                    icon: Icon(Icons.send_outlined, size: 16, color: context.corPrimaria),
+                    label: Text('Enviar', style: TextStyle(fontSize: 13, color: context.corPrimaria)),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            if (contrato == null)
+              Text(
+                'Envie o Acordo Terapêutico para leitura e aceite do $_termoSingular.',
+                style: TextStyle(fontSize: 13, color: context.corTextoMuted, height: 1.4),
+              )
+            else ...[
+              Row(
+                children: [
+                  _statusBadge(contrato),
+                  const SizedBox(width: 10),
+                  if (contrato.isAceito && contrato.nomeAceite.isNotEmpty)
+                    Expanded(
+                      child: Text(
+                        'por ${contrato.nomeAceite} em ${contrato.dataAceiteFormatada}',
+                        style: TextStyle(fontSize: 12, color: context.corTextoSecondary),
+                      ),
+                    )
+                  else if (contrato.isEnviado)
+                    Expanded(
+                      child: Text(
+                        'Enviado em ${contrato.dataCriacao.day.toString().padLeft(2, '0')}/${contrato.dataCriacao.month.toString().padLeft(2, '0')}/${contrato.dataCriacao.year}',
+                        style: TextStyle(fontSize: 12, color: context.corTextoSecondary),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ],
         ),
-      );
-    }
+      ),
+    );
+  }
 
-    if (contrato != null && contrato.isEnviado) {
-      return OutlinedButton.icon(
-        onPressed: () => _enviarContratoWhatsApp(contrato),
-        icon: Icon(Icons.hourglass_empty, color: context.corWarning, size: 20),
-        label: Text('Reenviar contrato',
-            style: TextStyle(fontSize: 12, color: context.corWarning)),
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-          side: BorderSide(color: context.corWarning),
-        ),
-      );
+  Widget _statusBadge(ContratoTerapeutico contrato) {
+    final Color cor;
+    final String texto;
+    if (contrato.isAceito) {
+      cor = context.corSuccess;
+      texto = 'Aceito';
+    } else if (contrato.isEnviado) {
+      cor = context.corWarning;
+      texto = 'Aguardando';
+    } else {
+      cor = context.corTextoMuted;
+      texto = 'Pendente';
     }
-
-    return OutlinedButton.icon(
-      onPressed: _criarEnviarContrato,
-      icon: const Icon(Icons.description_outlined, size: 20),
-      label: const Text('Contrato', style: TextStyle(fontSize: 12)),
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-        side: BorderSide(color: context.corPrimaria),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: cor.withAlpha(30),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        texto,
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: cor),
       ),
     );
   }
 
   Future<void> _criarEnviarContrato() async {
-    final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
-    if (perfil == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Configure o perfil profissional primeiro.')),
-      );
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(children: [
-          SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Theme.of(context).colorScheme.onInverseSurface)),
-          SizedBox(width: 12),
-          Text('Criando contrato...'),
-        ]),
-        duration: Duration(seconds: 120),
-      ),
-    );
-
-    final contratoService = ref.read(contratoServiceProvider);
-    final config = ref.read(configuracoesServiceProvider);
-    final contrato = await contratoService.criarContrato(
-      paciente: widget.paciente,
-      perfil: perfil,
-      templateContrato: config.contratoTemplate,
-    );
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-
-    if (contrato == null) {
+    try {
+      final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
+      if (perfil == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Erro ao criar contrato. Verifique a conexão com o servidor.'),
-            backgroundColor: context.corError,
-          ),
+          const SnackBar(content: Text('Configure o perfil profissional primeiro.')),
         );
-      return;
-    }
+        return;
+      }
 
-    await _enviarContratoWhatsApp(contrato);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(children: [
+            SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Theme.of(context).colorScheme.onInverseSurface)),
+            SizedBox(width: 12),
+            Text('Criando contrato...'),
+          ]),
+          duration: Duration(seconds: 120),
+        ),
+      );
+
+      final contratoService = ref.read(contratoServiceProvider);
+      final config = ref.read(configuracoesServiceProvider);
+      final contrato = await contratoService.criarContrato(
+        paciente: widget.paciente,
+        perfil: perfil,
+        templateContrato: config.contratoTemplate,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      await _enviarContratoWhatsApp(contrato);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao criar contrato: $e'),
+          backgroundColor: context.corError,
+          duration: const Duration(seconds: 8),
+        ),
+      );
+    }
   }
 
   Future<void> _enviarContratoWhatsApp(ContratoTerapeutico contrato) async {
@@ -1201,12 +1262,12 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                         ),
                       ),
                   const SizedBox(width: 10),
-                  _botaoContrato(),
-                  const SizedBox(width: 10),
                   _botaoAnamnese(),
                 ],
               ),
               const SizedBox(height: 20),
+              _contratoCard(),
+              const SizedBox(height: 14),
               AnamneseCard(
                 pacienteId: widget.paciente.id,
                 termoSingular: _termoSingular,

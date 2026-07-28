@@ -37,7 +37,7 @@ class ContratoService {
     return _box.values.where((c) => c.status == 'pendente' || c.status == 'enviado').length;
   }
 
-  Future<ContratoTerapeutico?> criarContrato({
+  Future<ContratoTerapeutico> criarContrato({
     required Paciente paciente,
     required PerfilProfissional perfil,
     String templateContrato = '',
@@ -45,51 +45,47 @@ class ContratoService {
     final autenticado = await ApiClient.ensureAuthenticated();
     if (!autenticado) {
       Log.erro('Autenticacao falhou ao criar contrato', contexto: 'ContratoService.criarContrato');
-      return null;
+      throw Exception('Falha na autenticacao com o servidor. Verifique credenciais em Configuracoes > Avancado.');
     }
 
-    try {
-      final url = '${ApiClient.baseUrl}/contratos';
-      Log.auditoria('POST $url', contexto: 'ContratoService');
-      final response = await http
-          .post(
-            Uri.parse(url),
-            headers: ApiClient.defaultHeaders(),
-            body: jsonEncode({
-              'nome_paciente': paciente.nome,
-              'nome_profissional': perfil.nome,
-              'registro_profissional': perfil.registroProfissional,
-              'termo_pessoa': perfil.termoSingular,
-              'template_contrato': templateContrato,
-            }),
-          )
-          .timeout(ApiClient.timeout);
+    final url = '${ApiClient.baseUrl}/contratos';
+    Log.auditoria('POST $url', contexto: 'ContratoService');
+    final response = await http
+        .post(
+          Uri.parse(url),
+          headers: ApiClient.defaultHeaders(),
+          body: jsonEncode({
+            'nome_paciente': paciente.nome,
+            'nome_profissional': perfil.nome,
+            'registro_profissional': perfil.registroProfissional,
+            'termo_pessoa': perfil.termoSingular,
+            'template_contrato': templateContrato,
+          }),
+        )
+        .timeout(ApiClient.timeout);
 
-      Log.auditoria('POST /contratos response: ${response.statusCode}', contexto: 'ContratoService');
+    Log.auditoria('POST /contratos response: ${response.statusCode}', contexto: 'ContratoService');
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        if (data['sucesso'] == true) {
-          final contrato = ContratoTerapeutico(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            pacienteId: paciente.id,
-            token: data['token'] as String,
-            url: data['url'] as String,
-            dataCriacao: DateTime.now(),
-            status: 'pendente',
-          );
-          await _box.add(contrato);
-          return contrato;
-        }
-        Log.erro('POST /contratos sucesso=false: ${response.body}', contexto: 'ContratoService');
-      } else {
-        Log.erro('POST /contratos ${response.statusCode}: ${response.body}', contexto: 'ContratoService');
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (data['sucesso'] == true) {
+        final contrato = ContratoTerapeutico(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          pacienteId: paciente.id,
+          token: data['token'] as String,
+          url: data['url'] as String,
+          dataCriacao: DateTime.now(),
+          status: 'pendente',
+        );
+        await _box.add(contrato);
+        return contrato;
       }
-      return null;
-    } catch (e) {
-      Log.erro(e, contexto: 'ContratoService.criarContrato');
-      return null;
+      Log.erro('POST /contratos sucesso=false: ${response.body}', contexto: 'ContratoService');
+      throw Exception('Servidor retornou sucesso=false: ${response.body}');
     }
+
+    Log.erro('POST /contratos ${response.statusCode}: ${response.body}', contexto: 'ContratoService');
+    throw Exception('Erro HTTP ${response.statusCode} do servidor: ${response.body}');
   }
 
   Future<bool> marcarComoEnviado(ContratoTerapeutico contrato) async {
