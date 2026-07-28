@@ -201,12 +201,11 @@ Chamadas à API (`TranscricaoRelatoService`, `IaClinicaService`) devem chamar `A
 2. **Web debug service**: `flutter run -d chrome` falha com timeout no WebkitDebugger (Chrome 150 + Flutter 3.44). Workaround: `flutter build web` + `python -m http.server 5000`
 3. **Chave OpenAI**: Formato `sk-proj-...` (project key) requer `OPENAI_PROJECT_ID` no ambiente
 4. **Render cold start**: Primeira requisição após inatividade leva 30-60s. Timeout do app ajustado para 120s
-5. **SciELO bloqueia datacenter**: `search.scielo.org` usa anti-bot "bunny-shield" que retorna 403 para IPs de datacenter (Render). OpenAlex é a fonte primária; SciELO é fallback (funciona só localmente).
-6. **Localização PT-BR**: `cancelText`/`confirmText` customizados nos 7 `showDatePicker`/`showTimePicker` ainda pendentes (labels padrão agora em PT-BR via `flutter_localizations`, mas custom labels não implementados).
-7. **Contrato — renderização**: O template personalizado (Modelo do Acordo Terapêutico) é enviado ao backend e renderizado inline. Se o template for muito grande, pode exceder o limite de token do DeepSeek (~64K). Monitorar.
-8. **share_plus 10.1.4**: Aplica KGP (Kotlin Gradle Plugin) legado. Versões futuras do Flutter exigirão migração para Built-in Kotlin.
-9. **google-genai 1.12.0**: Versão yanked do PyPI. Avaliar upgrade para versão estável quando disponível.
-10. **Render — env vars manuais**: Ao recriar o serviço (ex: mudar Python version), as variáveis de ambiente configuradas manualmente no Dashboard podem ser perdidas. Usar `render.yaml` com `sync: false` + fallback no código (ex: `APP_PASSWORD_HASH`).
+5. **Contrato — renderização**: O template personalizado (Modelo do Acordo Terapêutico) é enviado ao backend e renderizado inline. Se o template for muito grande, pode exceder o limite de token do DeepSeek (~64K). Monitorar.
+6. **share_plus 10.1.4**: Aplica KGP (Kotlin Gradle Plugin) legado. Versões futuras do Flutter exigirão migração para Built-in Kotlin. Investigado 27/07/2026: não há upgrade viável (share_plus 13 conflita com file_picker 10 via `win32`; file_picker 11+ não compila com AGP 9 + `android.builtInKotlin=false`).
+7. **google-genai 1.12.0**: Versão yanked do PyPI. Avaliar upgrade para versão estável quando disponível.
+8. **Render — env vars manuais**: Ao recriar o serviço (ex: mudar Python version), as variáveis de ambiente configuradas manualmente no Dashboard podem ser perdidas. Usar `render.yaml` com `sync: false` + fallback no código (ex: `APP_PASSWORD_HASH`).
+9. **skip-worktree em ~216 arquivos**: `git ls-files -v` mostra `H` (skip-worktree) em praticamente todo o repositório — alterações locais não aparecem no `git status` e não entram em commits. Causa raiz desconhecida; `git update-index --no-skip-worktree` não tem efeito permanente. Workaround: `git add -- <arquivo>` ainda funciona para forçar o stage de mudanças específicas. Investigar causa após resolve do anamnese.
 ### Resolvidos
 - ~~Segurança: zero autenticação~~ ✅ JWT backend + criptografia AES local
 - ~~State management: setState (40x)~~ ✅ 0 setState — 100% Riverpod
@@ -239,6 +238,20 @@ Chamadas à API (`TranscricaoRelatoService`, `IaClinicaService`) devem chamar `A
   - ~~Remover PIN sem descriptografar dados~~ ✅ services descriptografam antes de limpar chave (22/07/2026)
   - ~~usesCleartextTraffic=true global~~ ✅ network_security_config restrito a redes locais (22/07/2026)
   - ~~Credenciais backend hardcoded~~ ✅ lidas do app_config via AuthService._username/_password (22/07/2026)
+  - ~~Localização PT-BR — cancelText/confirmText ausentes~~ ✅ adicionados cancelText/confirmText nos 6 showDatePicker/showTimePicker (sessao_form_page + compromisso_form_dialog) (27/07/2026)
+  - ~~Código morto (7 warnings)~~ ✅ _nenhumOuNenhuma, _primeiroOuPrimeira, _confirmarArquivamentoPaciente, _confirmarRestauracaoPaciente, _exportarSessao (ia.dart), _decryptAvaliacao, dart:convert import removidos (27/07/2026)
+  - ~~SciELO bloqueia datacenter~~ ✅ SciELO RSS removido como fonte de fallback; ~65 linhas deletadas de `ia_clinica.py` (27/07/2026)
+  - ~~XSS no contrato (backend)~~ ✅ `html.escape()` aplicado em `nome_profissional`, `registro`, parágrafos do template e demais substituições HTML — `main.py` (27/07/2026)
+  - ~~Prompt injection (backend)~~ ✅ `_sanitizar_prompt()` trunca a 50K chars + remove padrões de injeção em `ia_clinica.py` (27/07/2026)
+  - ~~Rate limit ausente em 4 rotas~~ ✅ `_rate_limit_check()` aplicado em `GET/POST /contratos`, `POST /enviar-sms`, `POST /enviar-whatsapp`, `POST /lembretes` — `main.py` (27/07/2026)
+  - ~~Token JWT sobrevive ao logout~~ ✅ `AuthService.bloquear()` e `removerPin()` agora limpam `ApiClient.authToken` + Hive `jwt_token` (27/07/2026)
+  - ~~ErrorWidget expõe stack traces~~ ✅ `details.exceptionAsString()` condicionado a `kDebugMode` — release mostra mensagem genérica — `main.dart` (27/07/2026)
+  - ~~CORS allow_origins=["*"]~~ ✅ restrito a origins da produção + localhost — `main.py` (27/07/2026)
+  - ~~Pydantic sem constraints~~ ✅ `Field(min_length=, max_length=, ge=, le=)` adicionados em todos os 12 modelos — `schemas.py` (27/07/2026)
+  - ~~Validação zero nos TextFields do app~~ ✅ validators + maxLength nos campos críticos (`novo_paciente_dialog`, `campo_texto_widget`) — Flutter (27/07/2026)
+  - ~~Credenciais `admin`/`admin` hardcoded~~ ✅ defaults alterados para strings vazias + campos usuário/senha no diálogo de config do servidor — `api_client.dart`, `auth_service.dart`, `configuracoes_page.dart` (27/07/2026)
+  - ~~Sem RLS / isolamento de dados~~ ✅ `APP_USER_ID` no backend + `owner` claim no JWT + `owner_id` em contratos e lembretes — `main.py`, `contrato_service.py`, `lembrete_service.py` (27/07/2026)
+  - ~~Anamnese: "Erro ao criar questionário" (404/500)~~ ✅ Backend não tinha os endpoints deployados (skip-worktree no `main.py` + arquivos novos untracked) + `import html` ausente — commits `ea4ee84` + `57806ed` (28/07/2026)
 
 ## Novas Funcionalidades (09/07/2026)
 
@@ -489,8 +502,8 @@ A tela de sessão foi simplificada:
 ## Comandos
 
 ### App Flutter
-- `flutter analyze` — análise estática (0 errors, ~17 warnings/infos cosméticos)
-- `flutter test` — 74 testes
+- `flutter analyze` — análise estática (0 errors, ~24 warnings/infos cosméticos)
+- `flutter test` — 85 testes
 - `dart run build_runner build` — gerar adapters Hive
 - `flutter build web` — build de produção
 - `flutter build apk` — build APK Android release (saída: `build/app/outputs/flutter-apk/app-release.apk`)
@@ -681,3 +694,112 @@ curl -X POST https://mentall-api.onrender.com/auth/login \
   - `perfil_profissional_form_page.dart` (perfil profissional)
 - **Modelos**: `copyWith()` e `isMasculino` getter adicionados
 - Hive adapters regenerados via `build_runner`
+
+## Correções e Funcionalidades (26/07/2026) — SESSÃO 1
+
+### Fase 1 — Vitórias Rápidas (Análise Competitiva)
+
+#### Remoção do campo humor (zumbi)
+- `@HiveField(4) int humor` removido do modelo `Sessao` (não era usado em UI, prompts, síntese ou qualquer lugar)
+- Campo removido do construtor, `copyWith()` e adapter gerado
+- `backup_service.dart`: removida leitura de `map['humor']` no import
+- Teste `widget_test.dart`: removido assert `sessao.humor`
+
+#### Busca de pacientes
+- Barra de busca na `PacientesPage` filtrando por nome, email e contato
+- `_termoBusca` com `TextField` + `_filtrar()` nos arrays de ativos/arquivados
+- Contadores das pills refletem resultados filtrados
+- `EstadoVazioPacientes` ganhou parâmetro `termoBusca` — exibe "Nenhum paciente encontrado para 'termo'" quando busca ativa sem resultados
+
+#### Flexão de gênero (Dr./Dra.)
+- `PerfilProfissional.nomeComTitulo` — getter que retorna "Dr. Nome" ou "Dra. Nome" baseado no campo `tratamento`
+- `HomePage._nomeProfissional()` usa `nomeComTitulo` em vez de `nomeExibicao`
+- PDFs: `perfil.nomeExibicao` → `perfil.nomeComTitulo` no cabeçalho e seção de profissional
+
+#### Tema escuro nos PDFs
+- `PdfExportService` ganhou `bool _temaEscuro` + parâmetro `temaEscuro` em todos os 5 métodos públicos de export
+- Cores `_fundo`, `_superficie`, `_linha`, `_secundaria`, `_fundoPagina` são getters que respondem ao tema
+- `pw.PageTheme` com `buildBackground` aplica cor de fundo por página
+- Callers (`PacienteDetailPage`, `SessaoFormPage`) leem `configuracoesServiceProvider.temaEscuro` e repassam
+
+### Fase 2 — Anamnese e Escalas Psicológicas
+
+#### Avaliação Inicial (Anamnese)
+- Novo modelo `AvaliacaoInicial` (Hive typeId 6, 10 campos): id, pacienteId, queixaPrincipal, historicoClinico, medicamentos, hipoteseDiagnostica, objetivosTerapeuticos, observacoes, dataCriacao, dataAtualizacao
+- Novo service `AvaliacaoInicialService` com criptografia, CRUD, `obterPorPaciente()`, `_decryptAvaliacao()`
+- Novo provider `avaliacaoInicialPorPacienteProvider` (StreamProvider.family)
+- Widget `AnamneseCard` — exibe resumo na ficha do paciente; botão "Preencher"/"Editar" abre dialog com 6 campos de texto
+- Box `avaliacoes_iniciais` aberta no `main.dart`; adapter registrado em `hive_registrar.g.dart`
+
+#### Escalas Psicológicas
+- Novo modelo `RespostaEscala` (Hive typeId 7, 8 campos): id, pacienteId, escalaId, respostasJson, pontuacao, interpretacao, dataAplicacao, observacoes
+- Novo service `EscalaService` com CRUD + definições estáticas de 5 escalas:
+  - **PHQ-9** (9 questões, depressão), **GAD-7** (7 questões, ansiedade), **BDI** (21 itens, depressão Beck), **BAI** (21 itens, ansiedade Beck), **DASS-21** (21 itens, depressão/ansiedade/estresse)
+- Faixas de interpretação por escala (ex: PHQ-9: 0-4 mínima, 5-9 leve, 10-14 moderada, 15-19 mod-grave, 20-27 grave)
+- Widget `EscalasSection` — lista de escalas clicáveis; aplicação com `ChoiceChip` por questão; scoring automático; tela de resultado com pontuação, interpretação, histórico e detalhamento
+- Botão "Reaplicar" para reaplicar a escala
+- Novos providers: `escalaServiceProvider`, `respostasEscalasPorPacienteProvider`
+
+### Fase 2 — Refatoração
+
+#### SessaoFormPage (1766 → 904 linhas, -49%)
+- Extraídos 2 part files usando `extension` no `_SessaoFormPageState`:
+  - `sessao_form_audio.dart` (597 linhas): gravação, playback, transcrição
+  - `sessao_form_ia.dart` (343 linhas): síntese IA, salvar sessão, exportar PDF
+- Core (`sessao_form_page.dart`, 904 linhas): estado, getters, build, UI widgets, pickers de data/hora
+- `_duracaoMaximaAudio` referenciada com qualifier `_SessaoFormPageState.` nas extensions
+
+### Fase 2 — CEP e SMS
+
+#### Busca de CEP no cadastro de paciente
+- `Paciente.@HiveField(13) String enderecoJson` — armazena JSON com cep, logradouro, bairro, cidade, estado, número, complemento
+- `novo_paciente_dialog.dart`: campo CEP com botão de busca ViaCEP (`http.get` viacep.com.br); preenchimento automático de logradouro, bairro, cidade, UF
+- Campos adicionais: número, complemento
+- Adapter `paciente.g.dart` atualizado (writeByte 13→14, novo campo 13)
+
+#### SMS/WhatsApp (timeout)
+- `LembreteService._enviarMensagem`: timeout reduzido de `ApiClient.timeout` (120s) → 15s
+- Restante da infra já estava robusto: local notifications sempre funcionam; backend é best-effort com `catch (_) {}`
+
+### Infra
+- Testes: 85 passando, 7 falhas pré-existentes (sessao_form_page_test + paciente_detail_page_test)
+- Análise: 0 erros, 30 warnings/infos cosméticos
+- APK: 72.3 MB release
+
+### Backend
+- `backend/requirements.txt` atualizado com dependências de lembretes
+- Variáveis de ambiente no Render documentadas em `.env.example`
+- Suporte a `OPENALEX_API_KEY` + `OPENALEX_MAILTO` para busca de artigos
+
+### Arquivos novos (10)
+```
+lib/models/avaliacao_inicial.dart + .g.dart
+lib/models/resposta_escala.dart + .g.dart
+lib/services/avaliacao_inicial_service.dart
+lib/services/escala_service.dart
+lib/widgets/anamnese_card.dart
+lib/widgets/escalas_section.dart
+lib/screens/sessao_form_audio.dart
+lib/screens/sessao_form_ia.dart
+```
+
+### Arquivos modificados (~25)
+```
+lib/main.dart — boxes avaliacoes_iniciais + respostas_escalas
+lib/hive_registrar.g.dart — novos adapters
+lib/models/sessao.dart + .g.dart — remove humor
+lib/models/paciente.dart + .g.dart — +enderecoJson
+lib/models/perfil_profissional.dart — +nomeComTitulo
+lib/screens/sessao_form_page.dart — -51% linhas
+lib/screens/home_page.dart — nomeComTitulo
+lib/screens/pacientes_page.dart — busca + filtro
+lib/screens/paciente_detail_page.dart — anamnese + escalas + tema PDF
+lib/providers/service_providers.dart — +4 providers
+lib/services/backup_service.dart — remove humor
+lib/services/pdf_export_service.dart — tema escuro
+lib/services/lembrete_service.dart — timeout 15s
+lib/widgets/estado_vazio_pacientes.dart — termoBusca
+lib/widgets/novo_paciente_dialog.dart — CEP + endereço
+test/widget_test.dart — boxes + humor
+test/services/backup_service_test.dart — contratos box
+test/widgets/paciente_detail_page_test.dart — boxes

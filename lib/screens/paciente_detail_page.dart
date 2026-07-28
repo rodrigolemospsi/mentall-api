@@ -5,14 +5,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../models/anamnese_enviada.dart';
 import '../models/contrato_terapeutico.dart';
 import '../models/paciente.dart';
 import '../models/perfil_profissional.dart';
 import '../models/sessao.dart';
 import '../providers/service_providers.dart';
+import '../services/anamnese_templates.dart';
 import '../services/logger.dart';
 import '../services/pdf_export_service.dart';
 import '../utils/mentall_colors.dart';
+import '../widgets/anamnese_card.dart';
+import '../widgets/escalas_section.dart';
 import '../widgets/lista_sessoes.dart';
 import '../widgets/paciente_resumo_card.dart';
 import 'sessao_form_page.dart';
@@ -538,6 +542,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
     }
 
     final exportService = PdfExportService();
+    final temaEscuro = ref.read(configuracoesServiceProvider).temaEscuro;
 
     await showModalBottomSheet(
       context: context,
@@ -549,6 +554,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
         sessoes: sessoes,
         perfil: perfil,
         context: context,
+        temaEscuro: temaEscuro,
       ),
     );
   }
@@ -558,6 +564,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
     required List<Sessao> sessoes,
     required PerfilProfissional perfil,
     required BuildContext context,
+    required bool temaEscuro,
   }) {
     return SafeArea(
       child: Padding(
@@ -591,6 +598,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                     paciente: widget.paciente,
                     sessoes: sessoes,
                     perfil: perfil,
+                    temaEscuro: temaEscuro,
                   );
                 },
                 icon: const Icon(Icons.history_outlined),
@@ -610,6 +618,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                     paciente: widget.paciente,
                     sessoes: sessoes,
                     perfil: perfil,
+                    temaEscuro: temaEscuro,
                   );
                 },
                 icon: const Icon(Icons.assignment_outlined),
@@ -629,6 +638,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                     sessao: sessoes.first,
                     paciente: widget.paciente,
                     perfil: perfil,
+                    temaEscuro: temaEscuro,
                   );
                 },
                 icon: const Icon(Icons.rate_review_outlined),
@@ -648,6 +658,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                     sessao: sessoes.first,
                     paciente: widget.paciente,
                     perfil: perfil,
+                    temaEscuro: temaEscuro,
                   );
                 },
                 icon: const Icon(Icons.description_outlined),
@@ -667,6 +678,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                     paciente: widget.paciente,
                     sessoes: sessoes,
                     perfil: perfil,
+                    temaEscuro: temaEscuro,
                   );
                 },
                 icon: const Icon(Icons.folder_zip_outlined),
@@ -714,6 +726,276 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
         onPressed: _abrirDialogEditarPaciente,
       ),
     ];
+  }
+
+  Widget _botaoAnamnese() {
+    final anamnese = ref.watch(anamnesePorPacienteProvider(widget.paciente.id)).valueOrNull;
+
+    if (anamnese != null && anamnese.isRespondido) {
+      return OutlinedButton.icon(
+        onPressed: () => _verAnamnese(anamnese),
+        icon: Icon(Icons.check_circle_outline, color: context.corSuccess, size: 20),
+        label: Text(
+          anamnese.dataResposta != null
+              ? 'Respondido em ${anamnese.dataResposta!.day.toString().padLeft(2, '0')}/${anamnese.dataResposta!.month.toString().padLeft(2, '0')}'
+              : 'Respondido',
+          style: TextStyle(fontSize: 11, color: context.corSuccess),
+        ),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+          side: BorderSide(color: context.corSuccess),
+        ),
+      );
+    }
+
+    if (anamnese != null && anamnese.isEnviado) {
+      return OutlinedButton.icon(
+        onPressed: () => _enviarAnamneseWhatsApp(anamnese),
+        icon: Icon(Icons.hourglass_empty, color: context.corWarning, size: 20),
+        label: Text('Reenviar anamnese', style: TextStyle(fontSize: 11, color: context.corWarning)),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+          side: BorderSide(color: context.corWarning),
+        ),
+      );
+    }
+
+    return OutlinedButton.icon(
+      onPressed: _criarEnviarAnamnese,
+      icon: const Icon(Icons.assignment_outlined, size: 20),
+      label: const Text('Anamnese', style: TextStyle(fontSize: 11)),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+        side: BorderSide(color: context.corPrimaria),
+      ),
+    );
+  }
+
+  Future<void> _criarEnviarAnamnese() async {
+    try {
+      final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
+      if (perfil == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Configure o perfil profissional primeiro.')),
+        );
+        return;
+      }
+
+      final abordagem = perfil.abordagemClinica;
+      final template = AnamneseTemplates.templatePadrao(abordagem);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Criando questionário...'), duration: Duration(seconds: 30)),
+      );
+
+      final service = ref.read(anamneseEnviadaServiceProvider);
+      final anamnese = await service.criar(
+        pacienteId: widget.paciente.id,
+        abordagem: abordagem,
+        templateJson: template,
+        nomePaciente: widget.paciente.nome,
+        nomeProfissional: perfil.nomeExibicao,
+        registro: perfil.registroProfissional,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      if (anamnese != null) {
+        _enviarAnamneseWhatsApp(anamnese);
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erro ao criar questionário. Verifique a conexão.')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao criar questionário: $e')),
+      );
+    }
+  }
+
+  Future<void> _enviarAnamneseWhatsApp(AnamneseEnviada anamnese) async {
+    final contato = widget.paciente.contatoExibicao.replaceAll(RegExp(r'[^\d]'), '');
+    if (contato.length < 8) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cadastre um telefone válido para o paciente.')),
+      );
+      return;
+    }
+
+    final mensagem = Uri.encodeComponent(
+      'Olá ${widget.paciente.nome.trim()}! Antes da nossa consulta, gostaria que você respondesse este questionário. '
+      'Leva cerca de 10 minutos e me ajuda a conhecer você melhor:\n\n'
+      '${anamnese.url}',
+    );
+    final uri = Uri.parse('https://wa.me/$contato?text=$mensagem');
+
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+      final service = ref.read(anamneseEnviadaServiceProvider);
+      await service.marcarComoEnviada(anamnese);
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Não foi possível abrir o WhatsApp.')),
+      );
+    }
+  }
+
+  void _verAnamnese(AnamneseEnviada anamnese) {
+    final respostas = anamnese.respostas;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Anamnese — ${widget.paciente.nome}'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: _buildRespostasAnamnese(respostas),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Fechar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRespostasAnamnese(Map<String, dynamic> respostas) {
+    if (respostas.isEmpty) {
+      return const Text('Nenhuma resposta disponível.');
+    }
+
+    final blocos = <Widget>[];
+    final segurancaIds = ['pensou_morte', 'pensou_machucar', 'esta_seguro'];
+
+    for (final segId in segurancaIds) {
+      if (respostas.containsKey(segId)) {
+        final valor = respostas[segId];
+        final texto = valor == true ? 'Sim' : 'Não';
+        final isRisco = segId != 'esta_seguro' && valor == true;
+        blocos.add(
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isRisco ? const Color(0xFFFFF3E0) : null,
+              borderRadius: BorderRadius.circular(8),
+              border: isRisco ? Border.all(color: const Color(0xFFFFB74D)) : null,
+            ),
+            child: Row(
+              children: [
+                if (isRisco)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 8),
+                    child: Icon(Icons.warning_amber_rounded, color: Color(0xFFE65100), size: 20),
+                  ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _labelResposta(segId),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: isRisco ? const Color(0xFFE65100) : null,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        texto,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: isRisco ? const Color(0xFFC62828) : (valor == true ? const Color(0xFFE65100) : const Color(0xFF2E7D32)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    }
+
+    blocos.insert(0, const SizedBox(height: 8));
+    blocos.insert(0, Text(
+      'Segurança emocional',
+      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B)),
+    ));
+
+    final outrosIds = respostas.keys.where((k) => !segurancaIds.contains(k)).toList();
+    blocos.insert(0, const SizedBox(height: 16));
+    for (final id in outrosIds) {
+      final valor = respostas[id];
+      blocos.insert(0, Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(_labelResposta(id), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
+            const SizedBox(height: 2),
+            Text(
+              valor is List ? valor.join(', ') : (valor is bool ? (valor ? 'Sim' : 'Não') : '${valor ?? ''}'),
+              style: const TextStyle(fontSize: 14, color: Color(0xFF1E293B)),
+            ),
+          ],
+        ),
+      ));
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: blocos);
+  }
+
+  String _labelResposta(String id) {
+    const labels = {
+      'nome': 'Nome',
+      'nascimento': 'Data de nascimento',
+      'telefone': 'Telefone',
+      'email': 'E-mail',
+      'cidade': 'Cidade',
+      'como_chamar': 'Como prefere ser chamado(a)',
+      'motivos': 'O que te trouxe à terapia',
+      'motivo_aberto': 'Motivo da procura',
+      'sofrimento': 'Nível de sofrimento (0-10)',
+      'frequencia': 'Frequência',
+      'afeta_rotina': 'Afeta rotina (0-10)',
+      'afeta_relacoes': 'Afeta relacionamentos (0-10)',
+      'afeta_trabalho': 'Afeta trabalho/estudos (0-10)',
+      'fez_terapia': 'Já fez terapia',
+      'foi_psiquiatra': 'Já foi ao psiquiatra',
+      'usa_medicacao': 'Usa medicação',
+      'tem_diagnostico': 'Tem diagnóstico',
+      'sono': 'Sono',
+      'substancias': 'Usa álcool/substâncias',
+      'situacoes_pioram': 'Situações que pioram',
+      'pensamentos': 'Pensamentos que aparecem',
+      'emocoes_frequentes': 'Emoções frequentes',
+      'quando_mal': 'O que faz quando se sente mal',
+      'evita': 'Evita situações',
+      'busca_confirmacao': 'Busca aprovação',
+      'se_cobra': 'Se cobra demais',
+      'o_que_mudar': 'O que gostaria de mudar',
+      'pensou_morte': 'Pensamentos de não querer viver',
+      'pensou_machucar': 'Pensou em se machucar',
+      'esta_seguro': 'Está em segurança',
+      'objetivos': 'Objetivos',
+      'expectativa': 'O que espera da terapia',
+    };
+    return labels[id] ?? id;
   }
 
   Widget _botaoContrato() {
@@ -918,12 +1200,21 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      _botaoContrato(),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  _tabBarComListas(
+                  const SizedBox(width: 10),
+                  _botaoContrato(),
+                  const SizedBox(width: 10),
+                  _botaoAnamnese(),
+                ],
+              ),
+              const SizedBox(height: 20),
+              AnamneseCard(
+                pacienteId: widget.paciente.id,
+                termoSingular: _termoSingular,
+              ),
+              const SizedBox(height: 14),
+              EscalasSection(pacienteId: widget.paciente.id),
+              const SizedBox(height: 20),
+              _tabBarComListas(
                     sessoesAtivas: sessoesAtivas,
                     sessoesArquivadas: sessoesArquivadas,
                   ),
