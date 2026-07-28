@@ -380,6 +380,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://mentall-api.onrender.com",
+        "https://rodrigolemospsi.github.io",
         "http://localhost:5000",
         "http://localhost:8000",
     ],
