@@ -3,31 +3,40 @@
 // Check in to version control
 
 import 'package:hive_ce/hive_ce.dart';
+import 'package:prontuario_tcc/models/anamnese_enviada.dart';
+import 'package:prontuario_tcc/models/avaliacao_inicial.dart';
 import 'package:prontuario_tcc/models/compromisso.dart';
 import 'package:prontuario_tcc/models/contrato_terapeutico.dart';
 import 'package:prontuario_tcc/models/lgpd/registro_auditoria.dart';
 import 'package:prontuario_tcc/models/paciente.dart';
 import 'package:prontuario_tcc/models/perfil_profissional.dart';
+import 'package:prontuario_tcc/models/resposta_escala.dart';
 import 'package:prontuario_tcc/models/sessao.dart';
 
 extension HiveRegistrar on HiveInterface {
   void registerAdapters() {
+    registerAdapter(AnamneseEnviadaAdapter());
+    registerAdapter(AvaliacaoInicialAdapter());
     registerAdapter(CompromissoAdapter());
     registerAdapter(ContratoTerapeuticoAdapter());
     registerAdapter(PacienteAdapter());
     registerAdapter(PerfilProfissionalAdapter());
     registerAdapter(RegistroAuditoriaAdapter());
+    registerAdapter(RespostaEscalaAdapter());
     registerAdapter(SessaoAdapter());
   }
 }
 
 extension IsolatedHiveRegistrar on IsolatedHiveInterface {
   void registerAdapters() {
+    registerAdapter(AnamneseEnviadaAdapter());
+    registerAdapter(AvaliacaoInicialAdapter());
     registerAdapter(CompromissoAdapter());
     registerAdapter(ContratoTerapeuticoAdapter());
     registerAdapter(PacienteAdapter());
     registerAdapter(PerfilProfissionalAdapter());
     registerAdapter(RegistroAuditoriaAdapter());
+    registerAdapter(RespostaEscalaAdapter());
     registerAdapter(SessaoAdapter());
   }
 }
