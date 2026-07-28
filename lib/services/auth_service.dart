@@ -42,12 +42,16 @@ class AuthService {
 
   String get _username {
     final box = Hive.box<String>('app_config');
-    return box.get(_usernameKey, defaultValue: _defaultUsername) as String;
+    final stored = box.get(_usernameKey) as String?;
+    if (stored != null && stored.isNotEmpty) return stored;
+    return _defaultUsername;
   }
 
   String get _password {
     final box = Hive.box<String>('app_config');
-    return box.get(_passwordKey, defaultValue: _defaultPassword) as String;
+    final stored = box.get(_passwordKey) as String?;
+    if (stored != null && stored.isNotEmpty) return stored;
+    return _defaultPassword;
   }
 
   Future<void> inicializar() async {
@@ -148,6 +152,10 @@ class AuthService {
 
   Future<void> bloquear() async {
     _desbloqueado = false;
+    ApiClient.authToken = null;
+    try {
+      await Hive.box<String>('auth_meta').delete('jwt_token');
+    } catch (_) {}
   }
 
   Future<bool> trocarPin(String pinAtual, String novoPin) async {
@@ -164,5 +172,9 @@ class AuthService {
     await _perfilProfissionalService?.removerCriptografiaExistente();
     await _encryptionService.limpar();
     _desbloqueado = false;
+    ApiClient.authToken = null;
+    try {
+      await Hive.box<String>('auth_meta').delete('jwt_token');
+    } catch (_) {}
   }
 }

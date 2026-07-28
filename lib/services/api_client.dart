@@ -36,15 +36,28 @@ class ApiClient {
 
   static set authToken(String? token) => _authToken = token;
 
-  static String get _username {
+  static String get username {
     final box = Hive.box<String>('app_config');
-    return box.get(_usernameKey, defaultValue: _defaultUsername) as String;
+    final stored = box.get(_usernameKey) as String?;
+    if (stored != null && stored.isNotEmpty) return stored;
+    return _defaultUsername;
   }
 
-  static String get _password {
+  static String get password {
     final box = Hive.box<String>('app_config');
-    return box.get(_passwordKey, defaultValue: _defaultPassword) as String;
+    final stored = box.get(_passwordKey) as String?;
+    if (stored != null && stored.isNotEmpty) return stored;
+    return _defaultPassword;
   }
+
+  static Future<void> setCredentials(String username, String password) async {
+    final box = Hive.box<String>('app_config');
+    await box.put(_usernameKey, username);
+    await box.put(_passwordKey, password);
+  }
+
+  static String get _username => username;
+  static String get _password => password;
 
   static Map<String, String> get authHeaders {
     final token = _authToken;
@@ -126,5 +139,27 @@ class ApiClient {
     }
 
     return false;
+  }
+
+  static Future<http.Response> post(
+    String path, {
+    Map<String, dynamic>? body,
+  }) async {
+    return http
+        .post(
+          Uri.parse('$baseUrl$path'),
+          headers: defaultHeaders(),
+          body: body != null ? jsonEncode(body) : null,
+        )
+        .timeout(timeout);
+  }
+
+  static Future<http.Response> get(String path) async {
+    return http
+        .get(
+          Uri.parse('$baseUrl$path'),
+          headers: defaultHeaders(),
+        )
+        .timeout(timeout);
   }
 }
