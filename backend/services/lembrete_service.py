@@ -127,7 +127,8 @@ async def parar_scheduler() -> None:
 
 
 async def agendar_lembrete(compromisso_id: str, telefone: str, mensagem: str,
-                           horario_envio: str, canal: str = "whatsapp") -> str:
+                           horario_envio: str, canal: str = "whatsapp",
+                           owner_id: str = "") -> str:
     rid = compromisso_id
     async with _LOCK:
         _LEMBRETES[rid] = {
@@ -138,6 +139,7 @@ async def agendar_lembrete(compromisso_id: str, telefone: str, mensagem: str,
             "horario_envio": horario_envio,
             "canal": canal,
             "status": "pendente",
+            "owner_id": owner_id,
             "criado_em": datetime.now(timezone.utc).isoformat(),
             "enviado_em": None,
         }

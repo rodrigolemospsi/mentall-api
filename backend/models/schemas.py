@@ -1,9 +1,13 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class TranscricaoRequest(BaseModel):
-    audio_base64: str
-    formato: str = "wav"
+    audio_base64: str = Field(
+        min_length=1,
+        max_length=50_000_000,
+        description="Arquivo de audio em base64",
+    )
+    formato: str = Field(default="wav", max_length=10)
 
 
 class TranscricaoResponse(BaseModel):
@@ -13,14 +17,14 @@ class TranscricaoResponse(BaseModel):
 
 
 class SinteseRequest(BaseModel):
-    sessao_id: str
-    numero_sessao: int
-    nome_pessoa_atendida: str
-    termo_pessoa_atendida: str
-    abordagem_clinica: str
-    transcricao_relato: str
-    relato_manual: str
-    tema_principal: str
+    sessao_id: str = Field(min_length=1, max_length=100)
+    numero_sessao: int = Field(ge=1, le=10_000)
+    nome_pessoa_atendida: str = Field(max_length=120)
+    termo_pessoa_atendida: str = Field(max_length=50)
+    abordagem_clinica: str = Field(max_length=100)
+    transcricao_relato: str = Field(max_length=100_000)
+    relato_manual: str = Field(max_length=100_000)
+    tema_principal: str = Field(max_length=200)
 
 
 class SinteseResponse(BaseModel):
@@ -48,8 +52,8 @@ class HealthResponse(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    username: str
-    password: str
+    username: str = Field(min_length=1, max_length=100)
+    password: str = Field(min_length=1, max_length=200)
 
 
 class LoginResponse(BaseModel):
@@ -58,8 +62,8 @@ class LoginResponse(BaseModel):
 
 
 class SmsRequest(BaseModel):
-    telefone: str
-    mensagem: str
+    telefone: str = Field(min_length=8, max_length=30)
+    mensagem: str = Field(min_length=1, max_length=1600)
 
 
 class SmsResponse(BaseModel):
@@ -69,11 +73,11 @@ class SmsResponse(BaseModel):
 
 
 class ContratoRequest(BaseModel):
-    nome_paciente: str
-    nome_profissional: str
-    registro_profissional: str
-    termo_pessoa: str
-    template_contrato: str = ""
+    nome_paciente: str = Field(min_length=1, max_length=120)
+    nome_profissional: str = Field(min_length=1, max_length=120)
+    registro_profissional: str = Field(max_length=30)
+    termo_pessoa: str = Field(max_length=50)
+    template_contrato: str = Field(default="", max_length=50_000)
 
 
 class ContratoResponse(BaseModel):
@@ -84,7 +88,7 @@ class ContratoResponse(BaseModel):
 
 
 class ContratoAceiteRequest(BaseModel):
-    nome: str
+    nome: str = Field(min_length=3, max_length=120)
 
 
 class ContratoStatusResponse(BaseModel):
@@ -96,8 +100,8 @@ class ContratoStatusResponse(BaseModel):
 
 
 class WhatsAppRequest(BaseModel):
-    telefone: str
-    mensagem: str
+    telefone: str = Field(min_length=8, max_length=30)
+    mensagem: str = Field(min_length=1, max_length=1600)
 
 
 class WhatsAppResponse(BaseModel):
@@ -107,14 +111,40 @@ class WhatsAppResponse(BaseModel):
 
 
 class LembreteRequest(BaseModel):
-    compromisso_id: str
-    telefone: str
-    mensagem: str
-    horario_envio: str
-    canal: str = "whatsapp"
+    compromisso_id: str = Field(min_length=1, max_length=100)
+    telefone: str = Field(min_length=8, max_length=30)
+    mensagem: str = Field(min_length=1, max_length=1600)
+    horario_envio: str = Field(min_length=10, max_length=30)
+    canal: str = Field(default="whatsapp", max_length=20)
 
 
 class LembreteResponse(BaseModel):
     sucesso: bool
     id: str = ""
+    erro: str = ""
+
+
+class AnamneseRequest(BaseModel):
+    template_json: str = Field(min_length=10, max_length=50_000)
+    abordagem: str = Field(max_length=100)
+    nome_paciente: str = Field(min_length=1, max_length=120)
+    nome_profissional: str = Field(min_length=1, max_length=120)
+    registro: str = Field(default="", max_length=30)
+
+
+class AnamneseResponse(BaseModel):
+    sucesso: bool
+    token: str = ""
+    url: str = ""
+
+
+class ResponderAnamneseRequest(BaseModel):
+    respostas: str = Field(min_length=2, max_length=100_000)
+
+
+class AnamneseStatusResponse(BaseModel):
+    sucesso: bool
+    status: str = "pendente"
+    data_resposta: str | None = None
+    respostas_json: str = ""
     erro: str = ""

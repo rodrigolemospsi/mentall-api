@@ -1,8 +1,6 @@
 import json
 import logging
 import os
-import re
-import xml.etree.ElementTree as ET
 from urllib.parse import quote_plus
 
 import requests
@@ -20,16 +18,27 @@ BASES_PESQUISA = [
     ("Oasisbr", "https://oasisbr.ibict.br/vufind/Search/Results?lookfor={consulta}&type=AllFields"),
 ]
 
-SCIELO_RSS_URL = "https://search.scielo.org/"
-SCIELO_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-    "Accept": "application/rss+xml, application/xml, text/xml, */*",
-    "Accept-Language": "pt-BR,pt;q=0.9",
-}
 MAX_ARTIGOS_TOTAL = 3
 MAX_CANDIDATOS_POR_TEMA = 5
+MAX_PROMPT_CHARS = 50000
+INJECAO_PADROES = [
+    r"(?i)ignore\s+all\s+(previous|prior)\s+instructions",
+    r"(?i)disregard\s+(all\s+)?(previous|prior)\s+instructions",
+    r"(?i)system\s*prompt\s*:",
+    r"(?i)you\s+are\s+now\s+(a\s+)?\w+\s*(assistant|bot|ai)",
+    r"(?i)new\s+instructions?\s*:",
+]
 OPENALEX_FILTROS_BASE = "language:pt,type:article,from_publication_date:2010-01-01"
 OPENALEX_FILTRO_PSICOLOGIA = "primary_topic.field.id:fields/32"
+
+
+def _sanitizar_prompt(texto: str) -> str:
+    if not texto:
+        return ""
+    import re
+    for padrao in INJECAO_PADROES:
+        texto = re.sub(padrao, "[removido]", texto)
+    return texto[:MAX_PROMPT_CHARS]
 
 
 def _openalex_params(params: dict) -> dict:
@@ -42,24 +51,6 @@ def _openalex_params(params: dict) -> dict:
     return params
 
 
-def _extrair_pid_scielo(link: str) -> str:
-    ultimo = link.rstrip("/").rsplit("/", 1)[-1]
-    return ultimo.rsplit("-", 1)[0] if "-" in ultimo else ultimo
-
-
-def _formatar_autores(autores_raw: str) -> str:
-    autores = [a.strip() for a in (autores_raw or "").split(";") if a.strip()]
-    if not autores:
-        return ""
-    if len(autores) > 3:
-        return "; ".join(autores[:3]) + " et al."
-    return "; ".join(autores)
-
-
-def _limpar_html(texto: str) -> str:
-    return re.sub(r"<[^>]+>", " ", texto or "").replace("\xa0", " ").strip()
-
-
 def _reconstruir_resumo_openalex(inverted_index: dict) -> str:
     if not inverted_index:
         return ""
@@ -69,57 +60,6 @@ def _reconstruir_resumo_openalex(inverted_index: dict) -> str:
             posicoes.append((i, palavra))
     posicoes.sort()
     return " ".join(palavra for _, palavra in posicoes)[:400]
-
-
-def _buscar_candidatos_scielo(consulta: str) -> list:
-    try:
-        resp = requests.get(
-            SCIELO_RSS_URL,
-            params={
-                "q": consulta,
-                "lang": "pt",
-                "output": "rss",
-                "count": 10,
-                "sort": "RELEVANCE",
-                "filter[la][]": "pt",
-            },
-            headers=SCIELO_HEADERS,
-            timeout=10,
-        )
-        if resp.status_code != 200:
-            return []
-
-        root = ET.fromstring(resp.content)
-        candidatos = []
-        pids_vistos = set()
-        for item in root.iter("item"):
-            if len(candidatos) >= MAX_CANDIDATOS_POR_TEMA:
-                break
-
-            titulo = (item.findtext("title") or "").strip()
-            link = (item.findtext("link") or "").strip()
-            if not titulo or not link:
-                continue
-
-            pid = _extrair_pid_scielo(link)
-            if pid in pids_vistos:
-                continue
-            pids_vistos.add(pid)
-
-            candidatos.append({
-                "id": pid,
-                "titulo": titulo.split(" / ")[0].strip(),
-                "autores": _formatar_autores(item.findtext("author") or ""),
-                "link": link,
-                "ano": None,
-                "citacoes": None,
-                "resumo": _limpar_html(item.findtext("description") or "")[:400],
-            })
-        return candidatos
-
-    except Exception as e:
-        log.warning("SciELO RSS indisponivel para '%s': %s", consulta[:80], e)
-        return []
 
 
 def _buscar_candidatos_openalex(consulta: str) -> list:
@@ -199,8 +139,6 @@ def _buscar_candidatos_tema(especifico: str, amplo: str) -> list:
     chaves = set()
     for consulta in consultas:
         achados = _buscar_candidatos_openalex(consulta)
-        if not achados:
-            achados = _buscar_candidatos_scielo(consulta)
         for c in achados:
             chave = c.get("id") or c["link"]
             if chave in chaves:
@@ -434,8 +372,9 @@ def _montar_prompt_sintese(
     prompt_abordagem: str,
 ) -> str:
     termo = termo_pessoa_atendida or "paciente"
-    nome = nome_pessoa_atendida or "não informado"
-    tema = tema_principal or "não informado"
+    nome = _sanitizar_prompt(nome_pessoa_atendida or "não informado")
+    tema = _sanitizar_prompt(tema_principal or "não informado")
+    material = _sanitizar_prompt(material_base)
 
     return f"""
 {PROMPT_UNIVERSAL}
@@ -448,7 +387,7 @@ Número da sessão: {numero_sessao}
 Tema principal informado: {tema}
 
 --- MATERIAL CLÍNICO ---
-{material_base}
+{material}
 
 --- INSTRUÇÕES ---
 Com base no material acima, gere um JSON válido com a seguinte estrutura (sem markdown, sem ```json, apenas o JSON puro):

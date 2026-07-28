@@ -1,4 +1,6 @@
 import asyncio
+import json
+import uuid
 import logging
 import os
 import time
@@ -13,6 +15,9 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from models.schemas import (
+    AnamneseRequest,
+    AnamneseResponse,
+    AnamneseStatusResponse,
     ContratoAceiteRequest,
     ContratoRequest,
     ContratoResponse,
@@ -22,6 +27,7 @@ from models.schemas import (
     LembreteResponse,
     LoginRequest,
     LoginResponse,
+    ResponderAnamneseRequest,
     SinteseRequest,
     SinteseResponse,
     SmsRequest,
@@ -30,6 +36,11 @@ from models.schemas import (
     TranscricaoResponse,
     WhatsAppRequest,
     WhatsAppResponse,
+)
+from services.anamnese_service import (
+    criar_anamnese,
+    obter_anamnese,
+    registrar_resposta,
 )
 from services.contrato_service import (
     criar_contrato,
@@ -85,6 +96,8 @@ APP_PASSWORD_HASH = os.getenv("APP_PASSWORD_HASH", "")
 if not APP_PASSWORD_HASH:
     APP_PASSWORD_HASH = pwd_context.hash("admin")
     log.warning("APP_PASSWORD_HASH nao configurado. Usando senha padrao 'admin'.")
+APP_USER_ID = os.getenv("APP_USER_ID", "").strip() or str(uuid.uuid4())
+log.info("APP_USER_ID: %s", APP_USER_ID[:8])
 security = HTTPBearer()
 
 
@@ -105,9 +118,9 @@ def _renderizar_template_personalizado(
     if aceito:
         data_fmt = aceito_em[:10].replace("-", "/") if aceito_em else ""
         nome_aceite = dados.get("nome_aceite", "")
-        aceito_msg = f'<div class="ja-aceito">&#10003; Aceito por {nome_aceite} em {data_fmt}</div>'
+        aceito_msg = f'<div class="ja-aceito">&#10003; Aceito por {html.escape(nome_aceite)} em {data_fmt}</div>'
 
-    paragrafos = "".join(f"<p>{p}</p>" for p in texto.split("\n") if p.strip())
+    paragrafos = "".join(f"<p>{html.escape(p)}</p>" for p in texto.split("\n") if p.strip())
 
     html = f"""<!DOCTYPE html>
 <html lang="pt-BR">
@@ -258,9 +271,9 @@ def _renderizar_template_personalizado(
 <div class="container">
   <div class="logo">
     <div class="titulo">Psic\u00f3logo(a)</div>
-    <div class="nome">{nome_profissional}</div>
+    <div class="nome">{html.escape(nome_profissional)}</div>
   </div>
-  <div class="crp">CRP {registro}</div>
+  <div class="crp">CRP {html.escape(registro)}</div>
   <div class="subtitulo">Acordo Terap\u00eautico</div>
   {paragrafos}
   {aceito_msg}
@@ -312,21 +325,22 @@ def _verificar_senha(senha: str) -> bool:
 
 def _criar_token_jwt(username: str) -> str:
     expiracao = datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRATION)
-    payload = {"sub": username, "exp": expiracao}
+    payload = {"sub": username, "exp": expiracao, "owner": APP_USER_ID}
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
-def _verificar_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+def _verificar_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> tuple[str, str]:
     token = credentials.credentials
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         username: str | None = payload.get("sub")
-        if username is None:
+        owner_id: str | None = payload.get("owner")
+        if username is None or owner_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token invalido.",
             )
-        return username
+        return username, owner_id
     except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -363,7 +377,11 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://mentall-api.onrender.com",
+        "http://localhost:5000",
+        "http://localhost:8000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -479,7 +497,9 @@ def sintese(request: SinteseRequest, _req: Request):
     tags=["Mensagens"],
     dependencies=[Depends(_verificar_token)],
 )
-def enviar_sms(request: SmsRequest):
+def enviar_sms(request: SmsRequest, _req: Request):
+    ip = _req.client.host if _req.client else "unknown"
+    _rate_limit_check(ip, max_requests=5)
     if not request.telefone.strip():
         raise HTTPException(status_code=400, detail="Telefone nao informado.")
     if not request.mensagem.strip():
@@ -547,7 +567,8 @@ async def _global_exception_handler(request: Request, exc: Exception):
     tags=["Contratos"],
     dependencies=[Depends(_verificar_token)],
 )
-def criar_contrato_endpoint(request: ContratoRequest):
+def criar_contrato_endpoint(request: ContratoRequest, auth: tuple = Depends(_verificar_token)):
+    _, owner_id = auth
     if not request.nome_paciente.strip():
         raise HTTPException(status_code=400, detail="Nome do paciente nao informado.")
     if not request.nome_profissional.strip():
@@ -561,7 +582,7 @@ def criar_contrato_endpoint(request: ContratoRequest):
         "template_contrato": request.template_contrato.strip(),
     }
 
-    token = criar_contrato(dados)
+    token = criar_contrato(dados, owner_id)
     base_url = os.getenv("API_BASE_URL", "https://mentall-api.onrender.com")
     url = f"{base_url}/contratos/{token}"
 
@@ -570,7 +591,9 @@ def criar_contrato_endpoint(request: ContratoRequest):
 
 
 @app.get("/contratos/{token}", response_class=HTMLResponse, tags=["Contratos"])
-def pagina_contrato(token: str):
+def pagina_contrato(token: str, _req: Request):
+    ip = _req.client.host if _req.client else "unknown"
+    _rate_limit_check(ip, max_requests=30)
     contrato = obter_contrato(token)
     if contrato is None:
         return HTMLResponse(
@@ -616,19 +639,19 @@ def pagina_contrato(token: str):
         html = "<html><body>Erro ao carregar template.</body></html>"
 
     substituicoes = {
-        "{{nome_paciente}}": dados.get("nome_paciente", ""),
-        "{{nome_profissional}}": dados.get("nome_profissional", ""),
-        "{{registro_profissional}}": dados.get("registro_profissional", "N\u00e3o informado"),
-        "{{termo_pessoa}}": termo,
-        "{{termo_pessoa_capitalizado}}": termo_capitalizado,
-        "{{artigo_termo}}": artigo,
-        "{{preposicao_termo}}": preposicao,
+        "{{nome_paciente}}": html.escape(dados.get("nome_paciente", "")),
+        "{{nome_profissional}}": html.escape(dados.get("nome_profissional", "")),
+        "{{registro_profissional}}": html.escape(dados.get("registro_profissional", "N\u00e3o informado")),
+        "{{termo_pessoa}}": html.escape(termo),
+        "{{termo_pessoa_capitalizado}}": html.escape(termo_capitalizado),
+        "{{artigo_termo}}": html.escape(artigo),
+        "{{preposicao_termo}}": html.escape(preposicao),
         "{{termo_profissional}}": "do psic\u00f3logo",
         "{{local_data}}": "",
         "{{url_aceitar}}": f"{base_url}/contratos/{token}/aceitar",
         "{{data_aceite}}": aceito_em[:10] if aceito_em else "-",
         "{{data_aceite_iso}}": aceito_em or "",
-        "{{nome_aceite}}": contrato.get("nome_aceite", ""),
+        "{{nome_aceite}}": html.escape(contrato.get("nome_aceite", "")),
         "{% if not aceito %}": "" if aceito else "<!--",
         "{% endif %}": "<!--" if not aceito else "",
     }
@@ -642,7 +665,9 @@ def pagina_contrato(token: str):
 
 
 @app.post("/contratos/{token}/aceitar", response_model=ContratoStatusResponse, tags=["Contratos"])
-def aceitar_contrato(token: str, request: ContratoAceiteRequest):
+def aceitar_contrato(token: str, request: ContratoAceiteRequest, _req: Request):
+    ip = _req.client.host if _req.client else "unknown"
+    _rate_limit_check(ip, max_requests=10)
     if not request.nome.strip() or len(request.nome.strip()) < 3:
         raise HTTPException(status_code=400, detail="Nome invalido. Digite seu nome completo.")
 
@@ -683,7 +708,10 @@ def status_contrato(token: str):
     tags=["Lembretes"],
     dependencies=[Depends(_verificar_token)],
 )
-async def criar_lembrete(request: LembreteRequest):
+async def criar_lembrete(request: LembreteRequest, _req: Request, auth: tuple = Depends(_verificar_token)):
+    _, owner_id = auth
+    ip = _req.client.host if _req.client else "unknown"
+    _rate_limit_check(ip, max_requests=10)
     if not request.telefone.strip():
         raise HTTPException(status_code=400, detail="Telefone nao informado.")
     if not request.mensagem.strip():
@@ -697,6 +725,7 @@ async def criar_lembrete(request: LembreteRequest):
         mensagem=request.mensagem.strip(),
         horario_envio=request.horario_envio,
         canal=request.canal or "whatsapp",
+        owner_id=owner_id,
     )
     return LembreteResponse(sucesso=True, id=rid)
 
@@ -720,7 +749,9 @@ async def remover_lembrete(compromisso_id: str):
     tags=["Mensagens"],
     dependencies=[Depends(_verificar_token)],
 )
-def enviar_whatsapp(request: WhatsAppRequest):
+def enviar_whatsapp(request: WhatsAppRequest, _req: Request):
+    ip = _req.client.host if _req.client else "unknown"
+    _rate_limit_check(ip, max_requests=10)
     if not request.telefone.strip():
         raise HTTPException(status_code=400, detail="Telefone nao informado.")
     if not request.mensagem.strip():
@@ -790,6 +821,141 @@ def enviar_whatsapp(request: WhatsAppRequest):
             sucesso=False,
             erro=f"Erro ao enviar WhatsApp: {str(e)}",
         )
+
+
+@app.post(
+    "/anamneses",
+    response_model=AnamneseResponse,
+    tags=["Anamnese"],
+    dependencies=[Depends(_verificar_token)],
+)
+def criar_anamnese_endpoint(request: AnamneseRequest, auth: tuple = Depends(_verificar_token)):
+    _, owner_id = auth
+    if not request.template_json.strip():
+        raise HTTPException(status_code=400, detail="Template nao informado.")
+    if not request.nome_paciente.strip():
+        raise HTTPException(status_code=400, detail="Nome do paciente nao informado.")
+
+    dados_extra = {
+        "nome_paciente": html.escape(request.nome_paciente.strip()),
+        "nome_profissional": html.escape(request.nome_profissional.strip()),
+        "registro": html.escape(request.registro.strip()),
+        "abordagem": request.abordagem.strip(),
+    }
+
+    token = criar_anamnese(request.template_json, owner_id, dados_extra)
+    base_url = os.getenv("API_BASE_URL", "https://mentall-api.onrender.com")
+    url = f"{base_url}/anamneses/{token}"
+
+    log.info("Anamnese criada via API: token=%s paciente=%s abordagem=%s",
+             token[:8], request.nome_paciente[:20], request.abordagem)
+    return AnamneseResponse(sucesso=True, token=token, url=url)
+
+
+@app.get("/anamneses/{token}", response_class=HTMLResponse, tags=["Anamnese"])
+def pagina_anamnese(token: str, _req: Request):
+    ip = _req.client.host if _req.client else "unknown"
+    _rate_limit_check(ip, max_requests=30)
+    anamnese = obter_anamnese(token)
+    if anamnese is None:
+        return HTMLResponse(
+            content="<html><body style='font-family:sans-serif;text-align:center;padding:40px;'>"
+            "<h2 style='color:#D32F2F;'>Questionário não encontrado</h2>"
+            "<p>O link pode ter expirado ou ser inválido.</p></body></html>",
+            status_code=404,
+        )
+
+    if anamnese["status"] == "respondido":
+        dados = anamnese.get("dados_extra", {})
+        data_fmt = ""
+        if anamnese.get("respondido_em"):
+            try:
+                dt = datetime.fromisoformat(anamnese["respondido_em"])
+                data_fmt = dt.strftime("%d/%m/%Y às %H:%M")
+            except Exception:
+                pass
+        return HTMLResponse(
+            content=f"""<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anamnese — MentAll</title>
+<style>
+* {{ margin:0; padding:0; box-sizing:border-box; }}
+body {{ font-family:-apple-system,sans-serif; background:#F0F4FF; color:#1E293B; }}
+.container {{ max-width:640px; margin:0 auto; padding:48px 20px; text-align:center; }}
+.icone {{ width:64px; height:64px; border-radius:50%; background:#E8F5E9; color:#2E7D32;
+font-size:32px; display:flex; align-items:center; justify-content:center; margin:0 auto 20px; }}
+h2 {{ font-size:20px; color:#1E293B; margin-bottom:8px; }}
+p {{ color:#64748B; font-size:15px; }}
+.footer {{ margin-top:32px; font-size:12px; color:#94A3B8; }}
+</style></head>
+<body><div class="container">
+<div class="icone">&#10003;</div>
+<h2>Questionário já respondido</h2>
+<p>Você já enviou suas respostas em {data_fmt}.</p>
+<p>O profissional {dados.get('nome_profissional', '')} já as recebeu.</p>
+<div class="footer">MentAll — Soluções para Psicólogos</div>
+</div></body></html>""",
+        )
+
+    dados = anamnese.get("dados_extra", {})
+    template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", "anamnese.html")
+    try:
+        with open(template_path, "r", encoding="utf-8") as f:
+            html_base = f.read()
+    except FileNotFoundError:
+        return HTMLResponse(
+            content="<html><body>Erro ao carregar template.</body></html>",
+            status_code=500,
+        )
+
+    html = html_base.replace("{{TOKEN}}", token)
+    html = html.replace("{{DADOS_PROFISSIONAL}}", json.dumps(dados, ensure_ascii=False))
+    html = html.replace("{{TEMPLATE}}", anamnese["template_json"])
+
+    return HTMLResponse(content=html)
+
+
+@app.post(
+    "/anamneses/{token}/responder",
+    response_model=AnamneseStatusResponse,
+    tags=["Anamnese"],
+)
+def responder_anamnese(token: str, request: ResponderAnamneseRequest, _req: Request):
+    ip = _req.client.host if _req.client else "unknown"
+    _rate_limit_check(ip, max_requests=10)
+    if not request.respostas.strip():
+        raise HTTPException(status_code=400, detail="Respostas nao informadas.")
+
+    anamnese = registrar_resposta(token, request.respostas)
+    if anamnese is None:
+        raise HTTPException(status_code=404, detail="Anamnese nao encontrada.")
+
+    return AnamneseStatusResponse(
+        sucesso=True,
+        status=anamnese["status"],
+        data_resposta=anamnese.get("respondido_em"),
+        respostas_json=anamnese.get("respostas", ""),
+    )
+
+
+@app.get(
+    "/anamneses/{token}/status",
+    response_model=AnamneseStatusResponse,
+    tags=["Anamnese"],
+    dependencies=[Depends(_verificar_token)],
+)
+def status_anamnese(token: str):
+    anamnese = obter_anamnese(token)
+    if anamnese is None:
+        return AnamneseStatusResponse(sucesso=False, erro="Anamnese nao encontrada.")
+
+    return AnamneseStatusResponse(
+        sucesso=True,
+        status=anamnese["status"],
+        data_resposta=anamnese.get("respondido_em"),
+        respostas_json=anamnese.get("respostas", "") or "",
+    )
 
 
 if __name__ == "__main__":

@@ -34,12 +34,13 @@ def _persistir() -> None:
         log.error("Erro ao persistir contratos: %s", e)
 
 
-def criar_contrato(dados: dict) -> str:
+def criar_contrato(dados: dict, owner_id: str = "") -> str:
     token = secrets.token_urlsafe(32)
     _CONTRATOS[token] = {
         "token": token,
         "dados": dados,
         "status": "pendente",
+        "owner_id": owner_id,
         "criado_em": datetime.now(timezone.utc).isoformat(),
         "aceito_em": None,
         "nome_aceite": None,
@@ -47,6 +48,10 @@ def criar_contrato(dados: dict) -> str:
     _persistir()
     log.info("Contrato criado: token=%s", token[:8])
     return token
+
+
+def listar_contratos_por_owner(owner_id: str) -> list:
+    return [c for c in _CONTRATOS.values() if c.get("owner_id") == owner_id]
 
 
 def obter_contrato(token: str) -> dict | None:

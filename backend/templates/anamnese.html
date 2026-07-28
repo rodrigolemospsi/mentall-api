@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anamnese — MentAll</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #F0F4FF;
+  color: #1E293B;
+  line-height: 1.5;
+}
+.container {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 32px 20px 48px;
+}
+.card {
+  background: #FFFFFF;
+  border-radius: 16px;
+  padding: 32px 24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.logo { text-align: center; margin-bottom: 24px; }
+.logo .titulo { font-size: 13px; color: #64748B; text-transform: uppercase; letter-spacing: 1px; }
+.logo .nome { font-size: 20px; font-weight: 700; color: #1E293B; margin-top: 4px; }
+.logo .crp { font-size: 13px; color: #94A3B8; margin-top: 2px; }
+
+.bem-vindo {
+  text-align: center;
+  padding: 24px 0 8px;
+}
+.bem-vindo h1 {
+  font-size: 22px;
+  color: #2563EB;
+  font-weight: 600;
+}
+.bem-vindo p {
+  color: #64748B;
+  margin-top: 8px;
+  font-size: 15px;
+}
+
+.secao {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid #E2E8F0;
+}
+.secao:first-of-type { border-top: none; margin-top: 16px; }
+.secao-titulo {
+  font-size: 17px;
+  font-weight: 600;
+  color: #1E293B;
+  margin-bottom: 4px;
+}
+.secao-descricao {
+  font-size: 14px;
+  color: #64748B;
+  margin-bottom: 16px;
+}
+
+.secao.secao-destaque {
+  background: #FFF3E0;
+  border: 1px solid #FFB74D;
+  border-radius: 12px;
+  padding: 20px;
+  border-top: 1px solid #FFB74D;
+}
+.secao.secao-destaque .secao-titulo {
+  color: #E65100;
+}
+
+.pergunta {
+  margin-bottom: 18px;
+}
+.pergunta-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #334155;
+  margin-bottom: 6px;
+}
+.pergunta-label .required { color: #D32F2F; margin-left: 2px; }
+
+.campo-texto, .campo-data {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #CBD5E1;
+  border-radius: 10px;
+  font-size: 15px;
+  color: #1E293B;
+  outline: none;
+  transition: border 0.15s;
+}
+.campo-texto:focus, .campo-data:focus, .campo-textarea:focus {
+  border-color: #2563EB;
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+}
+.campo-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #CBD5E1;
+  border-radius: 10px;
+  font-size: 15px;
+  color: #1E293B;
+  outline: none;
+  resize: vertical;
+  min-height: 72px;
+  font-family: inherit;
+}
+
+.checklist { display: flex; flex-direction: column; gap: 6px; }
+.checklist label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #334155;
+  transition: background 0.15s, border 0.15s;
+}
+.checklist label:hover { background: #F8FAFC; }
+.checklist input:checked + span { color: #2563EB; font-weight: 500; }
+.checklist label:has(input:checked) { border-color: #2563EB; background: #EFF6FF; }
+
+.radio-group { display: flex; flex-direction: column; gap: 6px; }
+.radio-group label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #334155;
+  transition: background 0.15s, border 0.15s;
+}
+.radio-group label:hover { background: #F8FAFC; }
+.radio-group input:checked + span { color: #2563EB; font-weight: 500; }
+.radio-group label:has(input:checked) { border-color: #2563EB; background: #EFF6FF; }
+
+.scale-container { display: flex; align-items: center; gap: 12px; }
+.scale-container input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: #E2E8F0;
+  outline: none;
+}
+.scale-container input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: #2563EB;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+}
+.scale-labels { display: flex; justify-content: space-between; font-size: 11px; color: #94A3B8; margin-top: 4px; }
+.scale-valor {
+  font-size: 18px;
+  font-weight: 700;
+  color: #2563EB;
+  min-width: 28px;
+  text-align: center;
+}
+
+.btn-sim-nao { display: flex; gap: 10px; }
+.btn-sim, .btn-nao {
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  border: 2px solid #E2E8F0;
+  background: #FFFFFF;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  color: #475569;
+  transition: all 0.15s;
+}
+.btn-sim:hover, .btn-nao:hover { background: #F8FAFC; }
+.btn-sim.selecionado { border-color: #2563EB; background: #EFF6FF; color: #2563EB; font-weight: 600; }
+.btn-nao.selecionado { border-color: #64748B; background: #F1F5F9; color: #1E293B; font-weight: 600; }
+
+.btn-enviar {
+  width: 100%;
+  padding: 16px;
+  margin-top: 32px;
+  background: #2563EB;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-enviar:hover { background: #1D4ED8; }
+.btn-enviar:disabled { background: #94A3B8; cursor: not-allowed; }
+
+.sucesso {
+  display: none;
+  text-align: center;
+  padding: 48px 24px;
+}
+.sucesso .icone {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  background: #E8F5E9;
+  color: #2E7D32;
+  font-size: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+}
+.sucesso h2 { font-size: 20px; color: #1E293B; margin-bottom: 8px; }
+.sucesso p { color: #64748B; font-size: 15px; margin-bottom: 4px; }
+
+.erro-msg {
+  display: none;
+  background: #FFEBEE;
+  color: #C62828;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  margin-top: 12px;
+  text-align: center;
+}
+
+.footer {
+  text-align: center;
+  margin-top: 32px;
+  font-size: 12px;
+  color: #94A3B8;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <div class="logo">
+      <div class="titulo">Psicólogo(a)</div>
+      <div class="nome" id="nome-profissional"></div>
+      <div class="crp" id="crp-profissional"></div>
+    </div>
+    <div class="bem-vindo">
+      <h1>Questionário inicial</h1>
+      <p>Suas respostas ajudarão o profissional a se preparar para o seu atendimento. Leva cerca de 10 minutos.</p>
+    </div>
+    <form id="form-anamnese"></form>
+    <button class="btn-enviar" id="btn-enviar" onclick="enviar()">Enviar respostas</button>
+    <div class="erro-msg" id="erro-msg"></div>
+  </div>
+  <div class="sucesso" id="sucesso">
+    <div class="icone">&#10003;</div>
+    <h2>Obrigado!</h2>
+    <p>Suas respostas foram enviadas com sucesso.</p>
+    <p>O profissional irá analisá-las antes da sua consulta.</p>
+  </div>
+  <div class="footer">MentAll — Soluções para Psicólogos</div>
+</div>
+
+<script>
+const TOKEN = "{{TOKEN}}";
+const DADOS_PROFISSIONAL = {{DADOS_PROFISSIONAL}};
+const TEMPLATE = {{TEMPLATE}};
+
+document.getElementById('nome-profissional').textContent =
+  (DADOS_PROFISSIONAL.nome_profissional || '').replace(/</g, '&lt;');
+document.getElementById('crp-profissional').textContent =
+  DADOS_PROFISSIONAL.registro ? 'CRP ' + DADOS_PROFISSIONAL.registro.replace(/</g, '&lt;') : '';
+
+var respostasYn = {};
+
+function renderForm(template) {
+  var form = document.getElementById('form-anamnese');
+  var secoes = template.secoes || [];
+  var html = '';
+  for (var s = 0; s < secoes.length; s++) {
+    var sec = secoes[s];
+    var classe = sec.destaque ? ' secao secao-destaque' : ' secao';
+    html += '<div class="' + classe + '">';
+    html += '<div class="secao-titulo">' + esc(sec.titulo) + '</div>';
+    if (sec.descricao) {
+      html += '<div class="secao-descricao">' + esc(sec.descricao) + '</div>';
+    }
+    for (var p = 0; p < sec.perguntas.length; p++) {
+      html += renderPergunta(sec.perguntas[p]);
+    }
+    html += '</div>';
+  }
+  form.innerHTML = html;
+
+  var ranges = form.querySelectorAll('input[type="range"]');
+  for (var i = 0; i < ranges.length; i++) {
+    (function(r) {
+      r.addEventListener('input', function() {
+        var span = r.parentElement.querySelector('.scale-valor');
+        if (span) span.textContent = r.value;
+      });
+    })(ranges[i]);
+  }
+}
+
+function esc(texto) {
+  if (!texto) return '';
+  return String(texto).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function renderPergunta(q) {
+  var id = esc(q.id);
+  var label = esc(q.label);
+  var req = q.required ? ' <span class="required">*</span>' : '';
+  var html = '<div class="pergunta" data-id="' + id + '" data-tipo="' + esc(q.tipo) + '"';
+  if (q.required) html += ' data-required="1"';
+  html += '>';
+  html += '<span class="pergunta-label">' + label + req + '</span>';
+
+  switch (q.tipo) {
+    case 'text':
+      html += '<input type="text" class="campo-texto" name="' + id + '">';
+      break;
+    case 'date':
+      html += '<input type="date" class="campo-data" name="' + id + '">';
+      break;
+    case 'textarea':
+      html += '<textarea class="campo-textarea" name="' + id + '" rows="3"></textarea>';
+      break;
+    case 'checklist':
+      html += '<div class="checklist">';
+      var ops = q.opcoes || [];
+      for (var i = 0; i < ops.length; i++) {
+        html += '<label><input type="checkbox" name="' + id + '" value="' + esc(ops[i]) + '"><span>' + esc(ops[i]) + '</span></label>';
+      }
+      html += '</div>';
+      break;
+    case 'radio':
+      html += '<div class="radio-group">';
+      var ops2 = q.opcoes || [];
+      for (var j = 0; j < ops2.length; j++) {
+        html += '<label><input type="radio" name="' + id + '" value="' + esc(ops2[j]) + '"><span>' + esc(ops2[j]) + '</span></label>';
+      }
+      html += '</div>';
+      break;
+    case 'scale':
+      var min = q.min || 0;
+      var max = q.max || 10;
+      html += '<div class="scale-container">';
+      html += '<span style="font-size:12px;color:#94A3B8">' + min + '</span>';
+      html += '<input type="range" name="' + id + '" min="' + min + '" max="' + max + '" value="' + Math.floor((max - min) / 2) + '">';
+      html += '<span style="font-size:12px;color:#94A3B8">' + max + '</span>';
+      html += '<span class="scale-valor">' + Math.floor((max - min) / 2) + '</span>';
+      html += '</div>';
+      if (q.minLabel || q.maxLabel) {
+        html += '<div class="scale-labels"><span>' + esc(q.minLabel || '') + '</span><span>' + esc(q.maxLabel || '') + '</span></div>';
+      }
+      break;
+    case 'yesno':
+      html += '<div class="btn-sim-nao">';
+      html += '<button type="button" class="btn-sim" onclick="toggleYn(\'' + id + '\', true, this)">Sim</button>';
+      html += '<button type="button" class="btn-nao selecionado" onclick="toggleYn(\'' + id + '\', false, this)">Não</button>';
+      html += '</div>';
+      respostasYn[id] = false;
+      break;
+    default:
+      html += '<input type="text" class="campo-texto" name="' + id + '">';
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function toggleYn(id, valor, btn) {
+  respostasYn[id] = valor;
+  var container = btn.parentElement;
+  container.querySelector('.btn-sim').classList.toggle('selecionado', valor === true);
+  container.querySelector('.btn-nao').classList.toggle('selecionado', valor === false);
+}
+
+function validar() {
+  var perguntas = document.querySelectorAll('.pergunta');
+  var erro = null;
+  for (var i = 0; i < perguntas.length; i++) {
+    var p = perguntas[i];
+    var req = p.getAttribute('data-required') === '1';
+    if (!req) continue;
+    var tipo = p.getAttribute('data-tipo');
+    var id = p.getAttribute('data-id');
+    var preenchido = false;
+
+    if (tipo === 'yesno') {
+      preenchido = respostasYn.hasOwnProperty(id);
+    } else if (tipo === 'checklist') {
+      var cbs = p.querySelectorAll('input[type="checkbox"]:checked');
+      preenchido = cbs.length > 0;
+    } else if (tipo === 'radio') {
+      var rb = p.querySelector('input[type="radio"]:checked');
+      preenchido = rb !== null;
+    } else {
+      var el = p.querySelector('input, textarea');
+      preenchido = el && el.value.trim() !== '';
+    }
+
+    if (!preenchido) {
+      erro = 'Por favor, preencha todos os campos obrigatórios (marcados com *).';
+      p.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      break;
+    }
+  }
+  return erro;
+}
+
+function coletar() {
+  var respostas = {};
+  var perguntas = document.querySelectorAll('.pergunta');
+  for (var i = 0; i < perguntas.length; i++) {
+    var p = perguntas[i];
+    var id = p.getAttribute('data-id');
+    var tipo = p.getAttribute('data-tipo');
+
+    if (tipo === 'yesno') {
+      respostas[id] = respostasYn[id] || false;
+    } else if (tipo === 'checklist') {
+      var cbs = p.querySelectorAll('input[type="checkbox"]:checked');
+      var vals = [];
+      for (var j = 0; j < cbs.length; j++) vals.push(cbs[j].value);
+      respostas[id] = vals;
+    } else if (tipo === 'radio') {
+      var rb = p.querySelector('input[type="radio"]:checked');
+      respostas[id] = rb ? rb.value : '';
+    } else if (tipo === 'scale') {
+      var rng = p.querySelector('input[type="range"]');
+      respostas[id] = rng ? parseInt(rng.value) : 0;
+    } else {
+      var el = p.querySelector('input, textarea');
+      respostas[id] = el ? el.value.trim() : '';
+    }
+  }
+  return respostas;
+}
+
+function enviar() {
+  var btn = document.getElementById('btn-enviar');
+  var erroEl = document.getElementById('erro-msg');
+
+  var erro = validar();
+  if (erro) {
+    erroEl.textContent = erro;
+    erroEl.style.display = 'block';
+    return;
+  }
+  erroEl.style.display = 'none';
+
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  var respostas = coletar();
+
+  fetch('/anamneses/' + TOKEN + '/responder', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ respostas: JSON.stringify(respostas) })
+  })
+  .then(function(r) {
+    if (!r.ok) throw new Error('Erro ao enviar');
+    return r.json();
+  })
+  .then(function(data) {
+    if (data.sucesso) {
+      document.querySelector('.card').style.display = 'none';
+      document.getElementById('sucesso').style.display = 'block';
+    } else {
+      throw new Error(data.erro || 'Erro desconhecido');
+    }
+  })
+  .catch(function(e) {
+    erroEl.textContent = 'Erro ao enviar respostas. Tente novamente.';
+    erroEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Enviar respostas';
+  });
+}
+
+renderForm(TEMPLATE);
+</script>
+</body>
+</html>
