@@ -843,6 +843,7 @@ def criar_anamnese_endpoint(request: AnamneseRequest, auth: tuple = Depends(_ver
         "nome_profissional": html.escape(request.nome_profissional.strip()),
         "registro": html.escape(request.registro.strip()),
         "abordagem": request.abordagem.strip(),
+        "tratamento": request.tratamento.strip() or "masculino",
     }
 
     token = criar_anamnese(request.template_json, owner_id, dados_extra)

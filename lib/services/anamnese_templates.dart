@@ -40,7 +40,6 @@ class AnamneseTemplates {
   static const String _secaoMotivoProcura = '''
     {
       "titulo": "Motivo da procura",
-      "descricao": "Entenda o que te trouxe até aqui.",
       "perguntas": [
         {"id": "motivos",         "tipo": "checklist", "label": "O que te trouxe à terapia?", "required": true,
          "opcoes": ["Ansiedade", "Tristeza", "Estresse", "Relacionamentos", "Trabalho/estudos", "Autoestima", "Luto", "Trauma", "Outro"]},
@@ -51,7 +50,6 @@ class AnamneseTemplates {
   static const String _secaoIntensidade = '''
     {
       "titulo": "Intensidade e impacto",
-      "descricao": "Para entender o quanto essa questão está te afetando.",
       "perguntas": [
         {"id": "sofrimento",      "tipo": "scale",  "label": "Nível de sofrimento atual",   "min": 0, "max": 10,
          "minLabel": "Nenhum", "maxLabel": "Muito intenso"},
@@ -73,11 +71,14 @@ class AnamneseTemplates {
       "perguntas": [
         {"id": "fez_terapia",       "tipo": "yesno", "label": "Já fez terapia antes?"},
         {"id": "foi_psiquiatra",    "tipo": "yesno", "label": "Já consultou um psiquiatra?"},
-        {"id": "usa_medicacao",     "tipo": "yesno", "label": "Usa medicação atualmente?"},
-        {"id": "tem_diagnostico",   "tipo": "yesno", "label": "Tem algum diagnóstico anterior?"},
+        {"id": "usa_medicacao",     "tipo": "yesno", "label": "Usa medicação atualmente?",
+         "condicional_sim": {"id": "usa_medicacao_quais", "tipo": "text", "label": "Quais?"}},
+        {"id": "tem_diagnostico",   "tipo": "yesno", "label": "Tem algum diagnóstico anterior?",
+         "condicional_sim": {"id": "tem_diagnostico_qual", "tipo": "text", "label": "Qual?"}},
         {"id": "sono",              "tipo": "radio", "label": "Como está seu sono?",
          "opcoes": ["Durmo bem", "Às vezes tenho dificuldade", "Insônia frequente", "Durmo muito", "Quase não durmo"]},
-        {"id": "substancias",       "tipo": "yesno", "label": "Usa álcool ou outras substâncias com frequência?"}
+        {"id": "substancias",       "tipo": "yesno", "label": "Usa álcool ou outras substâncias com frequência?",
+         "condicional_sim": {"id": "substancias_quais", "tipo": "text", "label": "Quais?"}}
       ]
     }''';
 
@@ -96,11 +97,9 @@ class AnamneseTemplates {
   static const String _secaoObjetivos = '''
     {
       "titulo": "Objetivos da terapia",
-      "descricao": "O que você espera alcançar?",
       "perguntas": [
         {"id": "objetivos",      "tipo": "checklist", "label": "O que você espera alcançar com a terapia?",
-         "opcoes": ["Reduzir ansiedade", "Melhorar autoestima", "Organizar a rotina", "Melhorar relacionamentos", "Lidar melhor com pensamentos", "Regular emoções", "Superar uma situação difícil", "Me conhecer melhor", "Outro"]},
-        {"id": "expectativa",    "tipo": "textarea",  "label": "O que você espera que esteja diferente após alguns meses de terapia?"}
+         "opcoes": ["Reduzir ansiedade", "Melhorar autoestima", "Organizar a rotina", "Melhorar relacionamentos", "Lidar melhor com pensamentos", "Regular emoções", "Superar uma situação difícil", "Me conhecer melhor", "Outro"]}
       ]
     }''';
 

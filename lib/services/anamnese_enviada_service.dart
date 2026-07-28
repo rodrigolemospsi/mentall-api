@@ -26,6 +26,7 @@ class AnamneseEnviadaService {
     required String nomePaciente,
     required String nomeProfissional,
     required String registro,
+    String tratamento = 'masculino',
   }) async {
     final autenticado = await ApiClient.ensureAuthenticated();
     if (!autenticado) {
@@ -41,6 +42,7 @@ class AnamneseEnviadaService {
         'nome_paciente': nomePaciente,
         'nome_profissional': nomeProfissional,
         'registro': registro,
+        'tratamento': tratamento,
       },
     );
 

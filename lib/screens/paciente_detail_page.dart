@@ -798,6 +798,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
         nomePaciente: widget.paciente.nome,
         nomeProfissional: perfil.nomeExibicao,
         registro: perfil.registroProfissional,
+        tratamento: perfil.tratamento,
       );
 
       if (!mounted) return;

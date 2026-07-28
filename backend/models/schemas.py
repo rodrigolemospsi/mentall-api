@@ -130,6 +130,7 @@ class AnamneseRequest(BaseModel):
     nome_paciente: str = Field(min_length=1, max_length=120)
     nome_profissional: str = Field(min_length=1, max_length=120)
     registro: str = Field(default="", max_length=30)
+    tratamento: str = Field(default="masculino", max_length=10)
 
 
 class AnamneseResponse(BaseModel):

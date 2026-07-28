@@ -246,13 +246,13 @@ body {
 <div class="container">
   <div class="card">
     <div class="logo">
-      <div class="titulo">Psicólogo(a)</div>
+      <div class="titulo" id="titulo-profissional"></div>
       <div class="nome" id="nome-profissional"></div>
       <div class="crp" id="crp-profissional"></div>
     </div>
     <div class="bem-vindo">
       <h1>Questionário inicial</h1>
-      <p>Suas respostas ajudarão o profissional a se preparar para o seu atendimento. Leva cerca de 10 minutos.</p>
+      <p>Cerca de 10 minutos.</p>
     </div>
     <form id="form-anamnese"></form>
     <button class="btn-enviar" id="btn-enviar" onclick="enviar()">Enviar respostas</button>
@@ -272,10 +272,14 @@ const TOKEN = "{{TOKEN}}";
 const DADOS_PROFISSIONAL = {{DADOS_PROFISSIONAL}};
 const TEMPLATE = {{TEMPLATE}};
 
+document.getElementById('titulo-profissional').textContent =
+  (DADOS_PROFISSIONAL.tratamento === 'feminino') ? 'Psicóloga' : 'Psicólogo';
 document.getElementById('nome-profissional').textContent =
   (DADOS_PROFISSIONAL.nome_profissional || '').replace(/</g, '&lt;');
+var registroRaw = (DADOS_PROFISSIONAL.registro || '');
+var registroLimpo = registroRaw.replace(/^CRP\s*/i, '');
 document.getElementById('crp-profissional').textContent =
-  DADOS_PROFISSIONAL.registro ? 'CRP ' + DADOS_PROFISSIONAL.registro.replace(/</g, '&lt;') : '';
+  registroLimpo ? 'CRP ' + registroLimpo.replace(/</g, '&lt;') : '';
 
 var respostasYn = {};
 
@@ -368,6 +372,11 @@ function renderPergunta(q) {
       html += '<button type="button" class="btn-nao selecionado" onclick="toggleYn(\'' + id + '\', false, this)">Não</button>';
       html += '</div>';
       respostasYn[id] = false;
+      if (q.condicional_sim) {
+        html += '<div class="condicional-sim" id="cond-' + id + '" style="display:none; margin-top:10px;">';
+        html += renderCondicional(q.condicional_sim);
+        html += '</div>';
+      }
       break;
     default:
       html += '<input type="text" class="campo-texto" name="' + id + '">';
@@ -377,11 +386,27 @@ function renderPergunta(q) {
   return html;
 }
 
+function renderCondicional(c) {
+  var id = esc(c.id);
+  var label = esc(c.label);
+  var html = '<div class="pergunta" data-id="' + id + '" data-tipo="' + esc(c.tipo) + '" data-condicional="1">';
+  html += '<span class="pergunta-label">' + label + '</span>';
+  if (c.tipo === 'text') {
+    html += '<input type="text" class="campo-texto" name="' + id + '">';
+  } else if (c.tipo === 'textarea') {
+    html += '<textarea class="campo-textarea" name="' + id + '" rows="2"></textarea>';
+  }
+  html += '</div>';
+  return html;
+}
+
 function toggleYn(id, valor, btn) {
   respostasYn[id] = valor;
   var container = btn.parentElement;
   container.querySelector('.btn-sim').classList.toggle('selecionado', valor === true);
   container.querySelector('.btn-nao').classList.toggle('selecionado', valor === false);
+  var cond = document.getElementById('cond-' + id);
+  if (cond) cond.style.display = valor ? 'block' : 'none';
 }
 
 function validar() {
@@ -419,7 +444,12 @@ function validar() {
 
 function coletar() {
   var respostas = {};
-  var perguntas = document.querySelectorAll('.pergunta');
+  var perguntas = document.querySelectorAll('.pergunta[data-condicional="1"]');
+  for (var i = 0; i < perguntas.length; i++) {
+    var el = perguntas[i].querySelector('input, textarea');
+    if (el) respostas[perguntas[i].getAttribute('data-id')] = el.value.trim();
+  }
+  perguntas = document.querySelectorAll('.pergunta:not([data-condicional="1"])');
   for (var i = 0; i < perguntas.length; i++) {
     var p = perguntas[i];
     var id = p.getAttribute('data-id');
