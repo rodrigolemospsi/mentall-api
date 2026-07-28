@@ -38,14 +38,14 @@ class ApiClient {
 
   static String get username {
     final box = Hive.box<String>('app_config');
-    final stored = box.get(_usernameKey) as String?;
+    final stored = box.get(_usernameKey);
     if (stored != null && stored.isNotEmpty) return stored;
     return _defaultUsername;
   }
 
   static String get password {
     final box = Hive.box<String>('app_config');
-    final stored = box.get(_passwordKey) as String?;
+    final stored = box.get(_passwordKey);
     if (stored != null && stored.isNotEmpty) return stored;
     return _defaultPassword;
   }
