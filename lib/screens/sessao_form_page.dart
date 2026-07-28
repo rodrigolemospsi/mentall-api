@@ -1,11 +1,11 @@
+part 'sessao_form_audio.dart';
+part 'sessao_form_ia.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
-
-part 'sessao_form_audio.dart';
-part 'sessao_form_ia.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/configuracao_abordagem_clinica.dart';
