@@ -144,6 +144,7 @@ class ApiClient {
   static Future<http.Response> post(
     String path, {
     Map<String, dynamic>? body,
+    Duration? customTimeout,
   }) async {
     return http
         .post(
@@ -151,15 +152,15 @@ class ApiClient {
           headers: defaultHeaders(),
           body: body != null ? jsonEncode(body) : null,
         )
-        .timeout(timeout);
+        .timeout(customTimeout ?? timeout);
   }
 
-  static Future<http.Response> get(String path) async {
+  static Future<http.Response> get(String path, {Duration? customTimeout}) async {
     return http
         .get(
           Uri.parse('$baseUrl$path'),
           headers: defaultHeaders(),
         )
-        .timeout(timeout);
+        .timeout(customTimeout ?? timeout);
   }
 }

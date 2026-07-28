@@ -44,6 +44,7 @@ class AnamneseEnviadaService {
         'registro': registro,
         'tratamento': tratamento,
       },
+      customTimeout: const Duration(seconds: 30),
     );
 
     if (response.statusCode == 200) {

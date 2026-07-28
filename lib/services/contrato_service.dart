@@ -62,7 +62,7 @@ class ContratoService {
             'template_contrato': templateContrato,
           }),
         )
-        .timeout(ApiClient.timeout);
+          .timeout(const Duration(seconds: 30));
 
     Log.auditoria('POST /contratos response: ${response.statusCode}', contexto: 'ContratoService');
 
