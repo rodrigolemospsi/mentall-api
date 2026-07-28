@@ -5,38 +5,38 @@ import 'package:hive_ce/hive.dart';
 part 'anamnese_enviada.g.dart';
 
 @HiveType(typeId: 8)
-class AnamneseEnviada {
+class AnamneseEnviada extends HiveObject {
   @HiveField(0)
-  final String id;
+  String id;
 
   @HiveField(1)
-  final String pacienteId;
+  String pacienteId;
 
   @HiveField(2)
-  final String token;
+  String token;
 
   @HiveField(3)
-  final String abordagem;
+  String abordagem;
 
   @HiveField(4)
-  final String status;
+  String status;
 
   @HiveField(5)
-  final String url;
+  String url;
 
   @HiveField(6)
-  final String respostasJson;
+  String respostasJson;
 
   @HiveField(7)
-  final DateTime dataCriacao;
+  DateTime dataCriacao;
 
   @HiveField(8)
-  final DateTime? dataEnvio;
+  DateTime? dataEnvio;
 
   @HiveField(9)
-  final DateTime? dataResposta;
+  DateTime? dataResposta;
 
-  const AnamneseEnviada({
+  AnamneseEnviada({
     required this.id,
     required this.pacienteId,
     required this.token,
