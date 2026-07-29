@@ -3,37 +3,32 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
-from pathlib import Path
 
 import requests
 
+from services.db import _obter_conexao
+
 log = logging.getLogger("mentall.lembretes")
 
-_LEMBRETES: dict[str, dict] = {}
 _LOCK = asyncio.Lock()
 _TAREFA: asyncio.Task | None = None
-_ARQUIVO = Path(os.path.dirname(os.path.abspath(__file__))) / ".." / "data" / "lembretes.json"
 
 
-def _carregar() -> None:
-    global _LEMBRETES
-    if not _ARQUIVO.exists():
-        return
-    try:
-        with open(_ARQUIVO, "r", encoding="utf-8") as f:
-            _LEMBRETES = json.load(f)
-        log.info("Lembretes carregados: %d", len(_LEMBRETES))
-    except Exception:
-        _LEMBRETES = {}
-
-
-def _persistir() -> None:
-    _ARQUIVO.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        with open(_ARQUIVO, "w", encoding="utf-8") as f:
-            json.dump(_LEMBRETES, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        log.error("Erro ao persistir lembretes: %s", e)
+def _row_para_dict(row) -> dict:
+    if row is None:
+        return None
+    return {
+        "id": row["id"],
+        "compromisso_id": row["compromisso_id"],
+        "telefone": row["telefone"],
+        "mensagem": row["mensagem"],
+        "horario_envio": row["horario_envio"],
+        "canal": row["canal"],
+        "status": row["status"],
+        "owner_id": row["owner_id"],
+        "criado_em": row["criado_em"],
+        "enviado_em": row["enviado_em"],
+    }
 
 
 def _enviar_whatsapp_direto(telefone: str, mensagem: str) -> bool:
@@ -87,31 +82,38 @@ async def _scheduler() -> None:
             enviados: list[str] = []
 
             async with _LOCK:
-                for rid, r in list(_LEMBRETES.items()):
+                conn = _obter_conexao()
+                pendentes = conn.execute(
+                    "SELECT * FROM lembretes WHERE status = 'pendente' AND horario_envio <= ?",
+                    (agora.isoformat(),),
+                ).fetchall()
+
+                for row in pendentes:
+                    r = _row_para_dict(row)
                     try:
-                        horario = datetime.fromisoformat(r["horario_envio"])
-                        if horario <= agora and r.get("status") == "pendente":
-                            sucesso = _enviar_whatsapp_direto(
-                                r["telefone"], r["mensagem"]
+                        sucesso = _enviar_whatsapp_direto(r["telefone"], r["mensagem"])
+                        if sucesso:
+                            conn.execute(
+                                "UPDATE lembretes SET status = 'enviado', enviado_em = ? WHERE id = ?",
+                                (agora.isoformat(), r["id"]),
                             )
-                            if sucesso:
-                                r["status"] = "enviado"
-                                r["enviado_em"] = agora.isoformat()
-                                enviados.append(rid)
-                            else:
-                                r["status"] = "falha"
+                            enviados.append(r["id"])
+                        else:
+                            conn.execute(
+                                "UPDATE lembretes SET status = 'falha' WHERE id = ?",
+                                (r["id"],),
+                            )
                     except Exception as e:
-                        log.error("Erro ao processar lembrete %s: %s", rid[:8], e)
+                        log.error("Erro ao processar lembrete %s: %s", r["id"][:8], e)
 
                 if enviados:
-                    _persistir()
+                    conn.commit()
         except Exception as e:
             log.exception("Erro no scheduler de lembretes: %s", e)
 
 
 def iniciar_scheduler() -> None:
     global _TAREFA
-    _carregar()
     if _TAREFA is None or _TAREFA.done():
         _TAREFA = asyncio.create_task(_scheduler())
 
@@ -131,35 +133,29 @@ async def agendar_lembrete(compromisso_id: str, telefone: str, mensagem: str,
                            owner_id: str = "") -> str:
     rid = compromisso_id
     async with _LOCK:
-        _LEMBRETES[rid] = {
-            "id": rid,
-            "compromisso_id": compromisso_id,
-            "telefone": telefone,
-            "mensagem": mensagem,
-            "horario_envio": horario_envio,
-            "canal": canal,
-            "status": "pendente",
-            "owner_id": owner_id,
-            "criado_em": datetime.now(timezone.utc).isoformat(),
-            "enviado_em": None,
-        }
-        _persistir()
+        conn = _obter_conexao()
+        conn.execute(
+            "INSERT OR REPLACE INTO lembretes (id, compromisso_id, telefone, mensagem, horario_envio, canal, status, owner_id, criado_em) "
+            "VALUES (?, ?, ?, ?, ?, ?, 'pendente', ?, ?)",
+            (rid, compromisso_id, telefone, mensagem, horario_envio, canal, owner_id, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
     log.info("Lembrete agendado: %s para %s", rid[:8], horario_envio)
     return rid
 
 
 async def cancelar_lembrete(compromisso_id: str) -> bool:
     async with _LOCK:
-        if compromisso_id in _LEMBRETES:
-            del _LEMBRETES[compromisso_id]
-            _persistir()
+        conn = _obter_conexao()
+        cursor = conn.execute("DELETE FROM lembretes WHERE compromisso_id = ?", (compromisso_id,))
+        conn.commit()
+        deletado = cursor.rowcount > 0
+        if deletado:
             log.info("Lembrete cancelado: %s", compromisso_id[:8])
-            return True
-    return False
+        return deletado
 
 
 def listar_lembretes() -> list[dict]:
-    return list(_LEMBRETES.values())
-
-
-_carregar()
+    conn = _obter_conexao()
+    rows = conn.execute("SELECT * FROM lembretes").fetchall()
+    return [_row_para_dict(r) for r in rows]

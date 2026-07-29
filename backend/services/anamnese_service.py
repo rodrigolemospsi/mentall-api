@@ -1,75 +1,71 @@
 import json
 import logging
-import os
 import secrets
-import time
 from datetime import datetime, timezone
-from pathlib import Path
+
+from services.db import _obter_conexao
 
 log = logging.getLogger("mentall.anamneses")
 
-_ANAMNESES: dict[str, dict] = {}
-_ARQUIVO = Path(os.path.dirname(os.path.abspath(__file__))) / ".." / "data" / "anamneses.json"
 
-
-def _carregar() -> None:
-    global _ANAMNESES
-    if not _ARQUIVO.exists():
-        return
-    try:
-        with open(_ARQUIVO, "r", encoding="utf-8") as f:
-            _ANAMNESES = json.load(f)
-        log.info("Anamneses carregadas: %d", len(_ANAMNESES))
-    except Exception:
-        _ANAMNESES = {}
-
-
-def _persistir() -> None:
-    _ARQUIVO.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        with open(_ARQUIVO, "w", encoding="utf-8") as f:
-            json.dump(_ANAMNESES, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        log.error("Erro ao persistir anamneses: %s", e)
+def _row_para_dict(row) -> dict:
+    if row is None:
+        return None
+    return {
+        "token": row["token"],
+        "template_json": row["template_json"],
+        "owner_id": row["owner_id"],
+        "status": row["status"],
+        "respostas": row["respostas"],
+        "criado_em": row["criado_em"],
+        "respondido_em": row["respondido_em"],
+        "dados_extra": json.loads(row["dados_extra"]) if row["dados_extra"] else {},
+    }
 
 
 def criar_anamnese(template_json: str, owner_id: str, dados_extra: dict | None = None) -> str:
     token = secrets.token_urlsafe(32)
-    _ANAMNESES[token] = {
-        "token": token,
-        "template_json": template_json,
-        "owner_id": owner_id,
-        "status": "pendente",
-        "respostas": None,
-        "criado_em": datetime.now(timezone.utc).isoformat(),
-        "respondido_em": None,
-        "dados_extra": dados_extra or {},
-    }
-    _persistir()
+    conn = _obter_conexao()
+    conn.execute(
+        "INSERT INTO anamneses (token, template_json, owner_id, status, criado_em, dados_extra) "
+        "VALUES (?, ?, ?, 'pendente', ?, ?)",
+        (
+            token,
+            template_json,
+            owner_id,
+            datetime.now(timezone.utc).isoformat(),
+            json.dumps(dados_extra or {}, ensure_ascii=False),
+        ),
+    )
+    conn.commit()
     log.info("Anamnese criada: token=%s", token[:8])
     return token
 
 
 def obter_anamnese(token: str) -> dict | None:
-    return _ANAMNESES.get(token)
+    conn = _obter_conexao()
+    row = conn.execute("SELECT * FROM anamneses WHERE token = ?", (token,)).fetchone()
+    return _row_para_dict(row)
 
 
 def registrar_resposta(token: str, respostas_json: str) -> dict | None:
-    anamnese = _ANAMNESES.get(token)
-    if anamnese is None:
+    conn = _obter_conexao()
+    row = conn.execute("SELECT * FROM anamneses WHERE token = ?", (token,)).fetchone()
+    if row is None:
         return None
-    if anamnese["status"] == "respondido":
-        return anamnese
-    anamnese["status"] = "respondido"
-    anamnese["respostas"] = respostas_json
-    anamnese["respondido_em"] = datetime.now(timezone.utc).isoformat()
-    _persistir()
+    if row["status"] == "respondido":
+        return _row_para_dict(row)
+    agora = datetime.now(timezone.utc).isoformat()
+    conn.execute(
+        "UPDATE anamneses SET status = 'respondido', respostas = ?, respondido_em = ? WHERE token = ?",
+        (respostas_json, agora, token),
+    )
+    conn.commit()
     log.info("Anamnese respondida: token=%s", token[:8])
-    return anamnese
+    return obter_anamnese(token)
 
 
 def listar_por_owner(owner_id: str) -> list:
-    return [a for a in _ANAMNESES.values() if a.get("owner_id") == owner_id]
-
-
-_carregar()
+    conn = _obter_conexao()
+    rows = conn.execute("SELECT * FROM anamneses WHERE owner_id = ?", (owner_id,)).fetchall()
+    return [_row_para_dict(r) for r in rows]

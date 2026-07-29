@@ -1,75 +1,63 @@
-import hashlib
 import json
 import logging
-import os
 import secrets
-import time
 from datetime import datetime, timezone
-from pathlib import Path
+
+from services.db import _obter_conexao
 
 log = logging.getLogger("mentall.contratos")
 
-_CONTRATOS: dict[str, dict] = {}
-_ARQUIVO = Path(os.path.dirname(os.path.abspath(__file__))) / ".." / "data" / "contratos.json"
 
-
-def _carregar() -> None:
-    global _CONTRATOS
-    if not _ARQUIVO.exists():
-        return
-    try:
-        with open(_ARQUIVO, "r", encoding="utf-8") as f:
-            _CONTRATOS = json.load(f)
-        log.info("Contratos carregados: %d", len(_CONTRATOS))
-    except Exception:
-        _CONTRATOS = {}
-
-
-def _persistir() -> None:
-    _ARQUIVO.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        with open(_ARQUIVO, "w", encoding="utf-8") as f:
-            json.dump(_CONTRATOS, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        log.error("Erro ao persistir contratos: %s", e)
+def _row_para_dict(row) -> dict:
+    if row is None:
+        return None
+    return {
+        "token": row["token"],
+        "dados": json.loads(row["dados"]) if row["dados"] else {},
+        "status": row["status"],
+        "owner_id": row["owner_id"],
+        "criado_em": row["criado_em"],
+        "aceito_em": row["aceito_em"],
+        "nome_aceite": row["nome_aceite"],
+    }
 
 
 def criar_contrato(dados: dict, owner_id: str = "") -> str:
     token = secrets.token_urlsafe(32)
-    _CONTRATOS[token] = {
-        "token": token,
-        "dados": dados,
-        "status": "pendente",
-        "owner_id": owner_id,
-        "criado_em": datetime.now(timezone.utc).isoformat(),
-        "aceito_em": None,
-        "nome_aceite": None,
-    }
-    _persistir()
+    conn = _obter_conexao()
+    conn.execute(
+        "INSERT INTO contratos (token, dados, status, owner_id, criado_em) VALUES (?, ?, 'pendente', ?, ?)",
+        (token, json.dumps(dados, ensure_ascii=False), owner_id, datetime.now(timezone.utc).isoformat()),
+    )
+    conn.commit()
     log.info("Contrato criado: token=%s", token[:8])
     return token
 
 
 def listar_contratos_por_owner(owner_id: str) -> list:
-    return [c for c in _CONTRATOS.values() if c.get("owner_id") == owner_id]
+    conn = _obter_conexao()
+    rows = conn.execute("SELECT * FROM contratos WHERE owner_id = ?", (owner_id,)).fetchall()
+    return [_row_para_dict(r) for r in rows]
 
 
 def obter_contrato(token: str) -> dict | None:
-    return _CONTRATOS.get(token)
+    conn = _obter_conexao()
+    row = conn.execute("SELECT * FROM contratos WHERE token = ?", (token,)).fetchone()
+    return _row_para_dict(row)
 
 
 def registrar_aceite(token: str, nome: str) -> dict | None:
-    contrato = _CONTRATOS.get(token)
-    if contrato is None:
+    conn = _obter_conexao()
+    row = conn.execute("SELECT * FROM contratos WHERE token = ?", (token,)).fetchone()
+    if row is None:
         return None
-    if contrato["status"] == "aceito":
-        return contrato
-    contrato["status"] = "aceito"
-    contrato["aceito_em"] = datetime.now(timezone.utc).isoformat()
-    contrato["nome_aceite"] = nome.strip()
-    _persistir()
+    if row["status"] == "aceito":
+        return _row_para_dict(row)
+    agora = datetime.now(timezone.utc).isoformat()
+    conn.execute(
+        "UPDATE contratos SET status = 'aceito', aceito_em = ?, nome_aceite = ? WHERE token = ?",
+        (agora, nome.strip(), token),
+    )
+    conn.commit()
     log.info("Contrato aceito: token=%s nome=%s", token[:8], nome[:20])
-    return contrato
-
-
-_carregar()
+    return obter_contrato(token)
