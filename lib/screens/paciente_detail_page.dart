@@ -39,6 +39,8 @@ class PacienteDetailPage extends ConsumerStatefulWidget {
 }
 
 class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
+  bool _statusVerificado = false;
+
   @override
   void initState() {
     super.initState();
@@ -62,10 +64,13 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
   }
 
   Future<void> _verificarStatusAnamnese() async {
+    if (_statusVerificado) return;
+    _statusVerificado = true;
     final service = ref.read(anamneseEnviadaServiceProvider);
     final existente = service.obterPorPaciente(widget.paciente.id);
     if (existente != null && existente.isEnviado) {
       await service.verificarStatus(existente);
+      ref.invalidate(anamnesePorPacienteProvider(widget.paciente.id));
     }
   }
 
@@ -753,8 +758,9 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
     }
 
     if (anamnese != null && anamnese.isEnviado) {
+      _verificarStatusAnamnese();
       return OutlinedButton.icon(
-        onPressed: () => _enviarAnamneseWhatsApp(anamnese),
+        onPressed: () => _verificarOuReenviarAnamnese(anamnese),
         icon: Icon(Icons.hourglass_empty, color: context.corWarning, size: 20),
         label: Text('Reenviar anamnese', style: TextStyle(fontSize: 11, color: context.corWarning)),
         style: OutlinedButton.styleFrom(
@@ -773,6 +779,15 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
         side: BorderSide(color: context.corPrimaria),
       ),
     );
+  }
+
+  Future<void> _verificarOuReenviarAnamnese(AnamneseEnviada anamnese) async {
+    _statusVerificado = false;
+    await _verificarStatusAnamnese();
+    if (!mounted) return;
+    final atual = ref.read(anamnesePorPacienteProvider(widget.paciente.id)).valueOrNull;
+    if (atual != null && atual.isRespondido) return;
+    _enviarAnamneseWhatsApp(anamnese);
   }
 
   Future<void> _criarEnviarAnamnese() async {
