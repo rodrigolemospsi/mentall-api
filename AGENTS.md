@@ -33,6 +33,8 @@ App Flutter para prontuário clínico adaptado à abordagem terapêutica do prof
   - `APP_PASSWORD_HASH` — hash bcrypt da senha (vazio = senha padrão `admin`)
   - `OPENALEX_API_KEY` — chave gratuita da OpenAlex (https://openalex.org/settings/api, $1/dia ≈ 10k buscas; **obrigatória** — sem ela a API retorna 429 em IP de datacenter)
   - `OPENALEX_MAILTO` — email de contato enviado nas requisições à OpenAlex (`mentall.brasil@gmail.com`)
+  - `TURSO_DATABASE_URL` — URL do banco Turso (formato `libsql://nome-banco.turso.io`; **obrigatória**)
+  - `TURSO_AUTH_TOKEN` — token de autenticação do Turso (gerado em https://console.turso.org)
 
 ### APK (Android)
 - **Permissões necessárias:** `INTERNET`, `RECORD_AUDIO`, `usesCleartextTraffic=true`
@@ -251,7 +253,8 @@ Chamadas à API (`TranscricaoRelatoService`, `IaClinicaService`) devem chamar `A
   - ~~Validação zero nos TextFields do app~~ ✅ validators + maxLength nos campos críticos (`novo_paciente_dialog`, `campo_texto_widget`) — Flutter (27/07/2026)
   - ~~Credenciais `admin`/`admin` hardcoded~~ ✅ defaults alterados para strings vazias + campos usuário/senha no diálogo de config do servidor — `api_client.dart`, `auth_service.dart`, `configuracoes_page.dart` (27/07/2026)
   - ~~Sem RLS / isolamento de dados~~ ✅ `APP_USER_ID` no backend + `owner` claim no JWT + `owner_id` em contratos e lembretes — `main.py`, `contrato_service.py`, `lembrete_service.py` (27/07/2026)
-  - ~~Anamnese: "Erro ao criar questionário" (404/500)~~ ✅ Backend não tinha os endpoints deployados (skip-worktree no `main.py` + arquivos novos untracked) + `import html` ausente — commits `ea4ee84` + `57806ed` (28/07/2026)
+  - ~~Anamnese: "Erro ao criar questionário" (404/500)~~ ✅ Backend não tinha os endpoints deployados + `import html` ausente — commits `ea4ee84` + `57806ed` (28/07/2026)
+  - ~~Dados efêmeros no Render (cold start apaga contratos/ananmeses/lembretes)~~ ✅ Migrado de JSON local para Turso SQLite (gratuito) — commit `3f56d2b` (29/07/2026)
 
 ## Novas Funcionalidades (09/07/2026)
 
