@@ -10,12 +10,7 @@ class AnamneseEnviadaService {
   static const String _boxName = 'anamneses_enviadas';
 
   Box _abrirBox() {
-    try {
-      return Hive.box(_boxName);
-    } catch (_) {
-      final box = Hive.box<AnamneseEnviada>(_boxName);
-      return box;
-    }
+    return Hive.box(_boxName);
   }
 
   Box get _box => _abrirBox();

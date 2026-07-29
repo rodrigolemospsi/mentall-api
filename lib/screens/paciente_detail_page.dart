@@ -56,6 +56,17 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
         );
       });
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _verificarStatusAnamnese();
+    });
+  }
+
+  Future<void> _verificarStatusAnamnese() async {
+    final service = ref.read(anamneseEnviadaServiceProvider);
+    final existente = service.obterPorPaciente(widget.paciente.id);
+    if (existente != null && existente.isEnviado) {
+      await service.verificarStatus(existente);
+    }
   }
 
   String get _termoSingular {

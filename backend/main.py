@@ -124,7 +124,7 @@ def _renderizar_template_personalizado(
 
     paragrafos = "".join(f"<p>{html.escape(p)}</p>" for p in texto.split("\n") if p.strip())
 
-    html = f"""<!DOCTYPE html>
+    page_html = f"""<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -284,7 +284,7 @@ def _renderizar_template_personalizado(
     <input type="text" id="nome-confirmacao" placeholder="Seu nome completo" autocomplete="off">
     <button class="btn-aceitar" id="btn-aceitar" onclick="aceitar()">Li e aceito</button>
     <div id="erro-msg" class="erro" style="display:none;"></div>
-    <div class="confirmacao">Ao marcar "Li e aceito", {termo} declara que leu, compreendeu e concorda com os termos deste acordo.</div>
+    <div class="confirmacao">Ao marcar "Li e aceito", {html.escape(termo)} declara que leu, compreendeu e concorda com os termos deste acordo.</div>
   </div>
   <div id="sucesso-msg" class="sucesso" style="display:none;">Obrigado! Seu aceite foi registrado. O profissional ser\u00e1 notificado.</div>''' if not aceito else "")}
   <div class="footer">MentAll \u2014 Solu\u00e7\u00f5es para Psic\u00f3logos</div>
@@ -307,13 +307,13 @@ async function aceitar() {{
   try {{
     var resp = await fetch('{base_url}/contratos/{token}/aceitar', {{ method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify({{nome: nome}}) }});
     if (resp.ok) {{ document.getElementById('secao-aceite').style.display = 'none'; document.getElementById('sucesso-msg').style.display = 'block'; }}
-    else {{ var d = await resp.json(); erroEl.textContent = d.erro || 'Erro ao registrar.'; erroEl.style.display = 'block'; btn.disabled = false; btn.textContent = 'Li e aceito'; }}
+    else {{ var d = await resp.json(); erroEl.textContent = d.erro || d.detail || 'Erro ao registrar.'; erroEl.style.display = 'block'; btn.disabled = false; btn.textContent = 'Li e aceito'; }}
   }} catch(e) {{ erroEl.textContent = 'Erro de conex\\u00e3o.'; erroEl.style.display = 'block'; btn.disabled = false; btn.textContent = 'Li e aceito'; }}
 }}
 </script>
 </body>
 </html>"""
-    return HTMLResponse(content=html)
+    return HTMLResponse(content=page_html)
 
 
 def _verificar_senha(senha: str) -> bool:
@@ -570,7 +570,9 @@ async def _global_exception_handler(request: Request, exc: Exception):
     tags=["Contratos"],
     dependencies=[Depends(_verificar_token)],
 )
-def criar_contrato_endpoint(request: ContratoRequest, auth: tuple = Depends(_verificar_token)):
+def criar_contrato_endpoint(request: ContratoRequest, _req: Request, auth: tuple = Depends(_verificar_token)):
+    ip = _req.client.host if _req.client else "unknown"
+    _rate_limit_check(ip, max_requests=10)
     _, owner_id = auth
     if not request.nome_paciente.strip():
         raise HTTPException(status_code=400, detail="Nome do paciente nao informado.")
@@ -638,9 +640,9 @@ def pagina_contrato(token: str, _req: Request):
     template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", "contrato.html")
     try:
         with open(template_path, "r", encoding="utf-8") as f:
-            html = f.read()
+            page_html = f.read()
     except (FileNotFoundError, OSError):
-        html = "<html><body>Erro ao carregar template.</body></html>"
+        page_html = "<html><body>Erro ao carregar template.</body></html>"
 
     substituicoes = {
         "{{nome_paciente}}": html.escape(dados.get("nome_paciente", "")),
@@ -661,11 +663,11 @@ def pagina_contrato(token: str, _req: Request):
     }
 
     for chave, valor in substituicoes.items():
-        html = html.replace(chave, str(valor))
+        page_html = page_html.replace(chave, str(valor))
 
-    html = html.replace("<!--", "").replace("-->", "")
+    page_html = page_html.replace("<!--", "").replace("-->", "")
 
-    return HTMLResponse(content=html)
+    return HTMLResponse(content=page_html)
 
 
 @app.post("/contratos/{token}/aceitar", response_model=ContratoStatusResponse, tags=["Contratos"])

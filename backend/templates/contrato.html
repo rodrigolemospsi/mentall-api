@@ -254,7 +254,7 @@ async function aceitar() {
       document.getElementById('sucesso-msg').style.display = 'block';
     } else {
       var data = await resp.json();
-      erroEl.textContent = data.erro || 'Erro ao registrar aceite. Tente novamente.';
+      erroEl.textContent = data.erro || data.detail || 'Erro ao registrar aceite. Tente novamente.';
       erroEl.style.display = 'block';
       btn.disabled = false;
       btn.textContent = 'Li e aceito';
