@@ -803,3 +803,88 @@ lib/widgets/novo_paciente_dialog.dart — CEP + endereço
 test/widget_test.dart — boxes + humor
 test/services/backup_service_test.dart — contratos box
 test/widgets/paciente_detail_page_test.dart — boxes
+
+## Correções e Funcionalidades (28-29/07/2026) — SESSÃO 1
+
+### Fix: Anamnese — descriptografia na leitura (dupla criptografia)
+- Mesmo bug corrigido nas sessões em 16/07: `AvaliacaoInicialService.obterPorPaciente()` retornava campos cifrados
+- Adicionado `_decryptAvaliacao()` chamado em `obterPorPaciente()` — `avaliacao_inicial_service.dart`
+
+### Credenciais padrão admin/admin + fallback strings vazias
+- `ApiClient._defaultUsername`/`_defaultPassword` restaurados para `admin`/`admin` (backend usa hash de "admin" como fallback)
+- Hive `app_config` pode ter strings vazias armazenadas → getters com `isNotEmpty` antes de usar o default
+- Mesma correção em `api_client.dart` e `auth_service.dart`
+
+### Contrato — botão "+" trocado por ícone de enviar
+- Unificado: sem contrato e aguardando → mesmo ícone `send_outlined` + label "Enviar"
+- Contrato aceito → ícone `visibility_outlined` + label "Ver"
+
+### Serviços lançam exceções descritivas (diagnóstico)
+- `AnamneseEnviadaService.criar()` e `ContratoService.criarContrato()` agora lançam `Exception` com a causa exata
+- Antes retornavam `null` silencioso → impossível diagnosticar o erro
+- Fluxo: auth falhou → `Exception('Falha na autenticacao...')`, HTTP 422 → `Exception('Erro HTTP 422...')`
+
+### Ajustes na Anamnese (template + HTML)
+- **Cabeçalho**: "Psicólogo(a)" → "Psicólogo" ou "Psicóloga" conforme `tratamento` do perfil
+- **CRP**: sem duplicação — `registro.replace(/^CRP\s*/i, '')` remove prefixo antes de exibir
+- **Intro**: "Suas respostas ajudarão... Leva cerca de 10 minutos." → "Cerca de 10 minutos."
+- **Motivo da procura**: removida descrição "Entenda o que te trouxe até aqui."
+- **Intensidade**: removida descrição "Para entender o quanto essa questão está te afetando."
+- **Saúde**: condicionais Sim/Não — `usa_medicacao`, `tem_diagnostico`, `substancias` ganharam `condicional_sim` com campo texto ("Quais?"/"Qual?")
+- **Objetivos**: removida descrição e pergunta `expectativa` (textarea)
+- `tratamento` adicionado ao `AnamneseRequest` (schema) e `dados_extra` (main.py)
+- HTML: `toggleYn` mostra/esconde `condicional-sim`, `coletar` inclui campos condicionais
+
+### Deploy: GitHub Pages + CORS
+- CORS adicionado `https://rodrigolemospsi.github.io` no backend
+- Web build: `flutter build web --base-href "/mentall-api/"`
+- Deploy em `gh-pages` branch → `https://rodrigolemospsi.github.io/mentall-api/`
+- `.nojekyll` adicionado para evitar processamento Jekyll
+
+### Providers anamnese/escala/avaliacao
+- Adicionados ao `service_providers.dart`: `anamneseEnviadaServiceProvider`, `anamnesePorPacienteProvider`, `avaliacaoInicialServiceProvider`, `avaliacaoInicialPorPacienteProvider`, `escalaServiceProvider`, `respostasEscalasPorPacienteProvider`
+
+### Part directives no SessaoFormPage
+- `part 'sessao_form_audio.dart';` e `part 'sessao_form_ia.dart';` adicionados após imports
+- Arquivos são extensions on `_SessaoFormPageState` — precisam ser analisados como parte do arquivo principal
+
+### Hive boxes + adapters (AnamneseEnviada, AvaliacaoInicial, RespostaEscala)
+- **main.dart**: boxes abertas como `Hive.openBox('anamneses_enviadas')`, `Hive.openBox('avaliacoes_iniciais')`, `Hive.openBox('respostas_escalas')` (untyped)
+- **hive_registrar.g.dart**: `registerAdapter()` para `AnamneseEnviadaAdapter`, `AvaliacaoInicialAdapter`, `RespostaEscalaAdapter`
+- `AnamneseEnviada` alterado de `class AnamneseEnviada {}` para `extends HiveObject` (campos mutáveis, sem const)
+- Serviços adaptados para Box untyped: `.whereType<T>()` substituiu `.cast<T>()`
+
+### Timeout 30s para endpoints de criação
+- `ApiClient.post()` ganhou parâmetro `customTimeout`
+- Anamnese e contrato usam `customTimeout: Duration(seconds: 30)` (antes 120s)
+
+### Pendente: HiveError "Box not found" na AnamneseEnviadaService
+- **Sintoma**: ao clicar "Anamnese" → `HiveError: Box not found. Did you forget to call Hive.openBox()?`
+- **Tentativas** (todas já aplicadas):
+  1. Box `anamneses_enviadas` aberta em `main.dart` ✓
+  2. Adapter registrado em `hive_registrar.g.dart` ✓
+  3. `AnamneseEnviada` estende `HiveObject` ✓
+  4. Boxes abertas untyped (`Hive.openBox('nome')`) ✓
+  5. Fallback `_abrirBox()` que tenta untyped → typed ✓
+- **Hipótese**: possível conflito entre tipo da box na abertura (`Box<dynamic>`) e acesso (`Box<AnamneseEnviada>`), ou build_runner não regenerou `hive_registrar.g.dart` corretamente
+- **A testar**: rodar `dart run build_runner build` completo (~3min) para regenerar todos os adapters
+
+### Arquivos modificados nesta sessão
+```
+lib/main.dart — +3 boxes untyped, +3 imports
+lib/hive_registrar.g.dart — +3 adapters, +3 imports
+lib/models/anamnese_enviada.dart — extends HiveObject (mutable)
+lib/services/anamnese_enviada_service.dart — _abrirBox() fallback + whereType
+lib/services/avaliacao_inicial_service.dart — _decryptAvaliacao + whereType + untyped box
+lib/services/escala_service.dart — whereType + untyped box
+lib/services/api_client.dart — customTimeout + admin/admin + isNotEmpty
+lib/services/auth_service.dart — admin/admin + isNotEmpty
+lib/services/contrato_service.dart — exceções descritivas + timeout 30s
+lib/services/anamnese_templates.dart — condicionais + textos simplificados
+lib/screens/paciente_detail_page.dart — tratamento + botão enviar + try-catch
+lib/screens/sessao_form_page.dart — part directives
+lib/providers/service_providers.dart — +6 providers anamnese/escala/avaliacao
+backend/main.py — CORS github.io + tratamento + html.escape
+backend/models/schemas.py — tratamento no AnamneseRequest
+backend/templates/anamnese.html — cabeçalho dinâmico + CRP fix + condicionais + intro texto
+```
