@@ -9,9 +9,19 @@ import 'logger.dart';
 class AnamneseEnviadaService {
   static const String _boxName = 'anamneses_enviadas';
 
-  Box get _box => Hive.box(_boxName);
+  late final Box _box;
+
+  Box _abrirBox() {
+    try {
+      return Hive.box(_boxName);
+    } catch (_) {
+      final box = Hive.box<AnamneseEnviada>(_boxName);
+      return box;
+    }
+  }
 
   AnamneseEnviada? obterPorPaciente(String pacienteId) {
+    _box = _abrirBox();
     final anamneses = _box.values
         .whereType<AnamneseEnviada>()
         .where((a) => a.pacienteId == pacienteId)
@@ -60,8 +70,8 @@ class AnamneseEnviadaService {
           url: data['url'] as String,
           dataCriacao: DateTime.now(),
         );
+        _box = _abrirBox();
         await _box.put(anamnese.id, anamnese);
-        _box.toMap();
         return anamnese;
       }
       Log.erro('Resposta inesperada do servidor: ${response.body}', contexto: 'AnamneseEnviadaService.criar');
@@ -80,8 +90,8 @@ class AnamneseEnviadaService {
       status: 'enviado',
       dataEnvio: DateTime.now(),
     );
+    _box = _abrirBox();
     await _box.put(atualizada.id, atualizada);
-    _box.toMap();
   }
 
   Future<bool> verificarStatus(AnamneseEnviada anamnese) async {
@@ -109,8 +119,8 @@ class AnamneseEnviadaService {
             respostasJson: respostas,
             dataResposta: dataResposta,
           );
+          _box = _abrirBox();
           await _box.put(atualizada.id, atualizada);
-          _box.toMap();
           return true;
         }
       }
@@ -122,6 +132,7 @@ class AnamneseEnviadaService {
   }
 
   Stream<BoxEvent> observar() {
+    _box = _abrirBox();
     return _box.watch();
   }
 }
