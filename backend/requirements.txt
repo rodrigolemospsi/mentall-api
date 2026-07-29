@@ -11,4 +11,4 @@ passlib[bcrypt]==1.7.4
 bcrypt>=4.0,<5.0
 requests==2.32.3
 Pillow>=10.0.0
-libsql-experimental>=0.3.0
+libsql>=0.6.0

@@ -21,7 +21,7 @@ def _conectar_local() -> sqlite3.Connection:
 
 
 def _conectar_turso() -> sqlite3.Connection:
-    import libsql_experimental as libsql
+    import libsql
 
     conn = libsql.connect(
         database=TURSO_URL,
