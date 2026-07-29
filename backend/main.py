@@ -108,6 +108,7 @@ def _renderizar_template_personalizado(
     aceito: bool,
     aceito_em: str,
     base_url: str,
+    nome_aceite: str = "",
 ) -> HTMLResponse:
     nome_paciente = dados.get("nome_paciente", "")
     nome_profissional = dados.get("nome_profissional", "")
@@ -118,8 +119,8 @@ def _renderizar_template_personalizado(
     aceito_msg = ""
     if aceito:
         data_fmt = aceito_em[:10].replace("-", "/") if aceito_em else ""
-        nome_aceite = dados.get("nome_aceite", "")
-        aceito_msg = f'<div class="ja-aceito">&#10003; Aceito por {html.escape(nome_aceite)} em {data_fmt}</div>'
+        nome_aceite_val = nome_aceite
+        aceito_msg = f'<div class="ja-aceito">&#10003; Aceito por {html.escape(nome_aceite_val)} em {data_fmt}</div>'
 
     paragrafos = "".join(f"<p>{html.escape(p)}</p>" for p in texto.split("\n") if p.strip())
 
@@ -605,7 +606,7 @@ def pagina_contrato(token: str, _req: Request):
             status_code=404,
         )
 
-    dados = contrato["dados"]
+    dados = contrato.get("dados", {})
     termo = dados.get("termo_pessoa", "paciente")
     termo_capitalizado = termo[0].upper() + termo[1:] if termo else "Paciente"
 
@@ -621,7 +622,7 @@ def pagina_contrato(token: str, _req: Request):
 
     aceito = contrato["status"] == "aceito"
     base_url = os.getenv("API_BASE_URL", "https://mentall-api.onrender.com")
-    aceito_em = contrato.get("aceito_em", "")
+    aceito_em = contrato.get("aceito_em") or ""
     template_personalizado = dados.get("template_contrato", "")
 
     if template_personalizado:
@@ -631,13 +632,14 @@ def pagina_contrato(token: str, _req: Request):
             aceito=aceito,
             aceito_em=aceito_em,
             base_url=base_url,
+            nome_aceite=contrato.get("nome_aceite") or "",
         )
 
     template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", "contrato.html")
     try:
         with open(template_path, "r", encoding="utf-8") as f:
             html = f.read()
-    except FileNotFoundError:
+    except (FileNotFoundError, OSError):
         html = "<html><body>Erro ao carregar template.</body></html>"
 
     substituicoes = {

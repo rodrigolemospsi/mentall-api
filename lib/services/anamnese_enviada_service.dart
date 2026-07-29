@@ -9,8 +9,6 @@ import 'logger.dart';
 class AnamneseEnviadaService {
   static const String _boxName = 'anamneses_enviadas';
 
-  late final Box _box;
-
   Box _abrirBox() {
     try {
       return Hive.box(_boxName);
@@ -20,8 +18,9 @@ class AnamneseEnviadaService {
     }
   }
 
+  Box get _box => _abrirBox();
+
   AnamneseEnviada? obterPorPaciente(String pacienteId) {
-    _box = _abrirBox();
     final anamneses = _box.values
         .whereType<AnamneseEnviada>()
         .where((a) => a.pacienteId == pacienteId)
@@ -70,7 +69,6 @@ class AnamneseEnviadaService {
           url: data['url'] as String,
           dataCriacao: DateTime.now(),
         );
-        _box = _abrirBox();
         await _box.put(anamnese.id, anamnese);
         return anamnese;
       }
@@ -90,7 +88,6 @@ class AnamneseEnviadaService {
       status: 'enviado',
       dataEnvio: DateTime.now(),
     );
-    _box = _abrirBox();
     await _box.put(atualizada.id, atualizada);
   }
 
@@ -119,7 +116,6 @@ class AnamneseEnviadaService {
             respostasJson: respostas,
             dataResposta: dataResposta,
           );
-          _box = _abrirBox();
           await _box.put(atualizada.id, atualizada);
           return true;
         }
@@ -132,7 +128,6 @@ class AnamneseEnviadaService {
   }
 
   Stream<BoxEvent> observar() {
-    _box = _abrirBox();
     return _box.watch();
   }
 }
