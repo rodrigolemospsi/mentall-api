@@ -1,12 +1,16 @@
 import logging
 import os
 import sqlite3
-from functools import lru_cache
+import threading
 
 log = logging.getLogger("mentall.db")
 
 TURSO_URL = os.getenv("TURSO_DATABASE_URL", "").strip()
 TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN", "").strip()
+
+_conexao = None
+_conexao_lock = threading.Lock()
+_usa_turso = False
 
 
 def _conectar_local():
@@ -16,6 +20,7 @@ def _conectar_local():
     conn = sqlite3.connect(db_path, check_same_thread=False)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA busy_timeout=5000")
+    conn.row_factory = sqlite3.Row
     return conn
 
 
@@ -29,22 +34,49 @@ def _to_dict(row, cursor):
         return None
     if isinstance(row, dict):
         return row
+    if isinstance(row, sqlite3.Row):
+        return dict(row)
     try:
-        if cursor.description is None:
-            return row
-        cols = [col[0] for col in cursor.description]
-        return dict(zip(cols, row))
+        if cursor is not None and cursor.description is not None:
+            cols = [col[0] for col in cursor.description]
+            return dict(zip(cols, row))
     except Exception:
-        return row
+        pass
+    return row
 
 
-@lru_cache(maxsize=1)
 def _obter_conexao():
-    if TURSO_URL and TURSO_TOKEN:
-        log.info("Conectando ao Turso: %s", TURSO_URL[:60])
-        return _conectar_turso()
-    log.info("Turso nao configurado. Usando SQLite local.")
-    return _conectar_local()
+    global _conexao, _usa_turso
+    if _conexao is not None:
+        try:
+            _conexao.execute("SELECT 1")
+            return _conexao
+        except Exception:
+            log.warning("Conexao perdida. Reconectando...")
+            with _conexao_lock:
+                _conexao = None
+
+    with _conexao_lock:
+        if _conexao is not None:
+            return _conexao
+
+        if TURSO_URL and TURSO_TOKEN:
+            log.info("Conectando ao Turso: %s", TURSO_URL[:60])
+            try:
+                _conexao = _conectar_turso()
+                _conexao.execute("SELECT 1")
+                _usa_turso = True
+                log.info("Turso conectado.")
+                return _conexao
+            except Exception as e:
+                log.error("Falha ao conectar ao Turso: %s. Fallback para SQLite local.", e)
+                _conexao = None
+                _usa_turso = False
+
+        log.info("Usando SQLite local.")
+        _conexao = _conectar_local()
+        _usa_turso = False
+        return _conexao
 
 
 def executar(sql: str, params=()):

@@ -395,10 +395,16 @@ iniciar_scheduler()
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 def health():
+    db_info = "unknown"
+    try:
+        from services.db import _usa_turso
+        db_info = "turso" if _usa_turso else "sqlite_local"
+    except Exception:
+        pass
     return HealthResponse(
         status="ok",
         versao="1.0.0",
-        debug_info=None,
+        debug_info={"database": db_info},
     )
 
 
