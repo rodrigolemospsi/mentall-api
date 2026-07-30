@@ -9,12 +9,16 @@ TURSO_URL = os.getenv("TURSO_DATABASE_URL", "")
 TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN", "")
 
 
+def _row_factory(cursor, row):
+    return dict(zip([col[0] for col in cursor.description], row))
+
+
 def _conectar_local() -> sqlite3.Connection:
     data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
     os.makedirs(data_dir, exist_ok=True)
     db_path = os.path.join(data_dir, "mentall.db")
     conn = sqlite3.connect(db_path, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
+    conn.row_factory = _row_factory
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA busy_timeout=5000")
     return conn
@@ -27,7 +31,7 @@ def _conectar_turso() -> sqlite3.Connection:
         database=TURSO_URL,
         auth_token=TURSO_TOKEN,
     )
-    conn.row_factory = sqlite3.Row
+    conn.row_factory = _row_factory
     return conn
 
 
