@@ -1,34 +1,16 @@
 import asyncio
-import json
 import logging
 import os
 from datetime import datetime, timezone
 
 import requests
 
-from services.db import _obter_conexao
+from services.db import executar
 
 log = logging.getLogger("mentall.lembretes")
 
 _LOCK = asyncio.Lock()
 _TAREFA: asyncio.Task | None = None
-
-
-def _row_para_dict(row) -> dict:
-    if row is None:
-        return None
-    return {
-        "id": row["id"],
-        "compromisso_id": row["compromisso_id"],
-        "telefone": row["telefone"],
-        "mensagem": row["mensagem"],
-        "horario_envio": row["horario_envio"],
-        "canal": row["canal"],
-        "status": row["status"],
-        "owner_id": row["owner_id"],
-        "criado_em": row["criado_em"],
-        "enviado_em": row["enviado_em"],
-    }
 
 
 def _enviar_whatsapp_direto(telefone: str, mensagem: str) -> bool:
@@ -82,24 +64,23 @@ async def _scheduler() -> None:
             enviados: list[str] = []
 
             async with _LOCK:
-                conn = _obter_conexao()
-                pendentes = conn.execute(
+                cur = executar(
                     "SELECT * FROM lembretes WHERE status = 'pendente' AND horario_envio <= ?",
                     (agora.isoformat(),),
-                ).fetchall()
+                )
+                pendentes = cur.fetchall()
 
-                for row in pendentes:
-                    r = _row_para_dict(row)
+                for r in pendentes:
                     try:
                         sucesso = _enviar_whatsapp_direto(r["telefone"], r["mensagem"])
                         if sucesso:
-                            conn.execute(
+                            executar(
                                 "UPDATE lembretes SET status = 'enviado', enviado_em = ? WHERE id = ?",
                                 (agora.isoformat(), r["id"]),
                             )
                             enviados.append(r["id"])
                         else:
-                            conn.execute(
+                            executar(
                                 "UPDATE lembretes SET status = 'falha' WHERE id = ?",
                                 (r["id"],),
                             )
@@ -107,7 +88,7 @@ async def _scheduler() -> None:
                         log.error("Erro ao processar lembrete %s: %s", r["id"][:8], e)
 
                 if enviados:
-                    conn.commit()
+                    cur.commit()
         except Exception as e:
             log.exception("Erro no scheduler de lembretes: %s", e)
 
@@ -133,29 +114,25 @@ async def agendar_lembrete(compromisso_id: str, telefone: str, mensagem: str,
                            owner_id: str = "") -> str:
     rid = compromisso_id
     async with _LOCK:
-        conn = _obter_conexao()
-        conn.execute(
+        executar(
             "INSERT OR REPLACE INTO lembretes (id, compromisso_id, telefone, mensagem, horario_envio, canal, status, owner_id, criado_em) "
             "VALUES (?, ?, ?, ?, ?, ?, 'pendente', ?, ?)",
             (rid, compromisso_id, telefone, mensagem, horario_envio, canal, owner_id, datetime.now(timezone.utc).isoformat()),
-        )
-        conn.commit()
+        ).commit()
     log.info("Lembrete agendado: %s para %s", rid[:8], horario_envio)
     return rid
 
 
 async def cancelar_lembrete(compromisso_id: str) -> bool:
     async with _LOCK:
-        conn = _obter_conexao()
-        cursor = conn.execute("DELETE FROM lembretes WHERE compromisso_id = ?", (compromisso_id,))
-        conn.commit()
-        deletado = cursor.rowcount > 0
+        cur = executar("DELETE FROM lembretes WHERE compromisso_id = ?", (compromisso_id,))
+        cur.commit()
+        deletado = cur.rowcount > 0
         if deletado:
             log.info("Lembrete cancelado: %s", compromisso_id[:8])
         return deletado
 
 
 def listar_lembretes() -> list[dict]:
-    conn = _obter_conexao()
-    rows = conn.execute("SELECT * FROM lembretes").fetchall()
-    return [_row_para_dict(r) for r in rows]
+    cur = executar("SELECT * FROM lembretes")
+    return cur.fetchall()

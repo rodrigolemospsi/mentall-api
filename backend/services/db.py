@@ -9,34 +9,46 @@ TURSO_URL = os.getenv("TURSO_DATABASE_URL", "")
 TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN", "")
 
 
-def _row_factory(cursor, row):
+def _dict_factory(cursor, row):
     return dict(zip([col[0] for col in cursor.description], row))
 
 
-def _conectar_local() -> sqlite3.Connection:
+def _conectar_local():
     data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
     os.makedirs(data_dir, exist_ok=True)
     db_path = os.path.join(data_dir, "mentall.db")
     conn = sqlite3.connect(db_path, check_same_thread=False)
-    conn.row_factory = _row_factory
+    conn.row_factory = _dict_factory
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA busy_timeout=5000")
     return conn
 
 
-def _conectar_turso() -> sqlite3.Connection:
+def _conectar_turso():
     import libsql
 
     conn = libsql.connect(
         database=TURSO_URL,
         auth_token=TURSO_TOKEN,
     )
-    conn.row_factory = _row_factory
+    try:
+        conn.row_factory = _dict_factory
+    except (AttributeError, TypeError):
+        pass
     return conn
 
 
+def _to_dict(row_or_tuple, cursor):
+    if row_or_tuple is None:
+        return None
+    if isinstance(row_or_tuple, dict):
+        return row_or_tuple
+    cols = [col[0] for col in cursor.description]
+    return dict(zip(cols, row_or_tuple))
+
+
 @lru_cache(maxsize=1)
-def _obter_conexao() -> sqlite3.Connection:
+def _obter_conexao():
     if TURSO_URL and TURSO_TOKEN:
         log.info("Conectando ao Turso: %s", TURSO_URL[:60])
         return _conectar_turso()
@@ -44,7 +56,39 @@ def _obter_conexao() -> sqlite3.Connection:
     return _conectar_local()
 
 
-def _criar_tabelas() -> None:
+def executar(sql: str, params: tuple = ()) -> 'CursorWrapper':
+    conn = _obter_conexao()
+    return CursorWrapper(conn.execute(sql, params), conn)
+
+
+class CursorWrapper:
+    def __init__(self, cursor, connection):
+        self._cursor = cursor
+        self._connection = connection
+
+    @property
+    def rowcount(self):
+        return self._cursor.rowcount
+
+    def fetchone(self) -> dict | None:
+        row = self._cursor.fetchone()
+        return _to_dict(row, self._cursor)
+
+    def fetchall(self) -> list[dict]:
+        rows = self._cursor.fetchall()
+        return [_to_dict(r, self._cursor) for r in rows]
+
+    def commit(self):
+        self._connection.commit()
+
+
+def reset_cache():
+    _obter_conexao.cache_clear()
+
+
+_criar_tabelas_inicial = True
+if _criar_tabelas_inicial:
+    _criar_tabelas_inicial = False
     conn = _obter_conexao()
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS contratos (
@@ -87,11 +131,3 @@ def _criar_tabelas() -> None:
     """)
     conn.commit()
     log.info("Tabelas verificadas/criadas com sucesso.")
-
-
-def reset_cache() -> None:
-    _obter_conexao.cache_clear()
-    _criar_tabelas()
-
-
-_criar_tabelas()
