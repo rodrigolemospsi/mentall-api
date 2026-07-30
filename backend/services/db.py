@@ -5,8 +5,8 @@ from functools import lru_cache
 
 log = logging.getLogger("mentall.db")
 
-TURSO_URL = os.getenv("TURSO_DATABASE_URL", "")
-TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN", "")
+TURSO_URL = os.getenv("TURSO_DATABASE_URL", "").strip()
+TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN", "").strip()
 
 
 def _dict_factory(cursor, row):
