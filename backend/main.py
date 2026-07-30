@@ -651,10 +651,11 @@ def _pagina_contrato(token: str, _req: Request):
         )
 
     template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", "contrato.html")
+    page_html = ""
     try:
         with open(template_path, "r", encoding="utf-8") as f:
             page_html = f.read()
-    except (FileNotFoundError, OSError):
+    except Exception:
         page_html = "<html><body>Erro ao carregar template.</body></html>"
 
     substituicoes = {
@@ -920,10 +921,11 @@ p {{ color:#64748B; font-size:15px; }}
 
     dados = anamnese.get("dados_extra", {})
     template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", "anamnese.html")
+    html_base = ""
     try:
         with open(template_path, "r", encoding="utf-8") as f:
             html_base = f.read()
-    except FileNotFoundError:
+    except Exception:
         return HTMLResponse(
             content="<html><body>Erro ao carregar template.</body></html>",
             status_code=500,
