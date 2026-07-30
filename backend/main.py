@@ -597,6 +597,19 @@ def criar_contrato_endpoint(request: ContratoRequest, _req: Request, auth: tuple
 
 @app.get("/contratos/{token}", response_class=HTMLResponse, tags=["Contratos"])
 def pagina_contrato(token: str, _req: Request):
+    try:
+        return _pagina_contrato(token, _req)
+    except Exception as e:
+        log.exception("Erro ao renderizar contrato %s", token[:8])
+        return HTMLResponse(
+            content=f"<html><body style='font-family:sans-serif;text-align:center;padding:40px;'>"
+            f"<h2 style='color:#D32F2F;'>Erro ao carregar contrato</h2>"
+            f"<p>{html.escape(str(e))}</p></body></html>",
+            status_code=500,
+        )
+
+
+def _pagina_contrato(token: str, _req: Request):
     ip = _req.client.host if _req.client else "unknown"
     _rate_limit_check(ip, max_requests=30)
     contrato = obter_contrato(token)
