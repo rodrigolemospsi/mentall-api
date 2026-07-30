@@ -63,7 +63,7 @@ class AvaliacaoInicialService {
     return _box.watch();
   }
 
-  void removerCriptografiaExistente() {
+  Future<void> removerCriptografiaExistente() async {
     if (_encryption == null || !_encryption.configurado) return;
     for (final a in _box.values.whereType<AvaliacaoInicial>()) {
       a.queixaPrincipal = _decrypt(a.queixaPrincipal);
@@ -72,6 +72,7 @@ class AvaliacaoInicialService {
       a.hipoteseDiagnostica = _decrypt(a.hipoteseDiagnostica);
       a.objetivosTerapeuticos = _decrypt(a.objetivosTerapeuticos);
       a.observacoes = _decrypt(a.observacoes);
+      await a.save();
     }
   }
 

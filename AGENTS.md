@@ -208,6 +208,39 @@ Chamadas à API (`TranscricaoRelatoService`, `IaClinicaService`) devem chamar `A
 7. **google-genai 1.12.0**: Versão yanked do PyPI. Avaliar upgrade para versão estável quando disponível.
 8. **Render — env vars manuais**: Ao recriar o serviço (ex: mudar Python version), as variáveis de ambiente configuradas manualmente no Dashboard podem ser perdidas. Usar `render.yaml` com `sync: false` + fallback no código (ex: `APP_PASSWORD_HASH`).
 9. **skip-worktree em ~216 arquivos**: `git ls-files -v` mostra `H` (skip-worktree) em praticamente todo o repositório — alterações locais não aparecem no `git status` e não entram em commits. Causa raiz desconhecida; `git update-index --no-skip-worktree` não tem efeito permanente. Workaround: `git add -- <arquivo>` ainda funciona para forçar o stage de mudanças específicas. Investigar causa após resolve do anamnese.
+
+## Correções e Funcionalidades (30/07/2026) — AUDITORIA DE SEGURANÇA E PERFORMANCE
+
+### CRÍTICO — Corrigido
+- **Perda de dados ao remover PIN**: `AvaliacaoInicialService.removerCriptografiaExistente()` e `EscalaService.removerCriptografiaExistente()` não chamavam `.save()` após descriptografar — dados de anamnese e escalas eram perdidos permanentemente. Corrigido: adicionado `await a.save()` em ambos + `AuthService.removerPin()` agora chama ambos os serviços.
+- **Cascade delete incompleto**: `PacienteService.excluirPaciente()` não removia `avaliacoes_iniciais`, `respostas_escalas` e `anamneses_enviadas`. Corrigido: adicionada exclusão dos 3 boxes órfãos.
+- **Stack traces em release**: `ErrorWidget.builder` em `main.dart` e `_erroInicializacao` em `sessao_form_page.dart` expunham `exceptionAsString()` sem guarda `kDebugMode`. Corrigido: stack traces só em debug.
+- **KDF 10.000 → 100.000 iterações**: PBKDF2 agora usa 100k iterações (V3). PINs existentes (V2: 10k) têm fallback automático com migração transparente na próxima autenticação bem-sucedida.
+- **Hash da frase de recuperação com PBKDF2 + salt**: Substituído SHA-256 puro por PBKDF2-HMAC-SHA256 com 100k iterações + salt. Hash legado (SHA-256) tem fallback com upgrade automático.
+- **`criptografar()` lança exceção em vez de retornar texto puro**: Antes, falha silenciosa armazenava dados em texto puro sem detecção. Agora usa `rethrow` — o chamador deve tratar.
+- **911 linhas de código morto deletadas**: `sessao_form_audio.dart` (597 linhas) e `sessao_form_ia.dart` (314 linhas) eram extensions cujos métodos nunca executavam (métodos de instância da classe têm precedência). Arquivos deletados + `part` directives removidos.
+- **Campo `Sessao.humor` depreciado**: Default alterado de `5` para `-1`, anotado com `@Deprecated`. Mantido no schema Hive para compatibilidade.
+
+### ALTO — Corrigido
+- **PIN lockout**: 5 tentativas máximas com exponential backoff (1s → 2s → 4s → 8s → ... até 60s). Armazenado em `encryption_meta` (`pin_attempts`, `pin_locked_until`). Reset automático ao desbloquear.
+- **Input validation no cadastro**: `maxLength: 120` em nome e email, `maxLength: 20` em contato.
+- **DebugPrint em release**: 6 `debugPrint()` de startup em `main.dart` agora condicionados a `kDebugMode`.
+- **Remoção de logos não utilizados**: `logo_mentall.png` (831KB), `logo_mentall_2.png` (1.347KB), `logo_mentall1.png` (1.131KB) deletados. Economia de ~3.3MB no APK.
+- **Redimensionamento de fotos**: Já implementado — `maxWidth: 512, maxHeight: 512, imageQuality: 85` em todos os 3 callers de `ImagePicker` (confirmado). Nenhuma ação necessária.
+
+### MÉDIO — Documentado (pendente)
+- **Credenciais `admin`/`admin` hardcoded**: `ApiClient.setCredentials()` existe mas nunca é chamado. Pendente: adicionar campos usuário/senha no diálogo de config do servidor (`configuracoes_page.dart`).
+- **Áudio como base64 no Hive (~70MB)**: Pendente migração para armazenamento em arquivo (path_provider) com path no Hive.
+- **Re-leitura completa de boxes em cada mudança**: `StreamProvider`s chamam `listar*()` que relê, filtra, ordena e descriptografa todos os registros. Pendente otimização com cache seletivo.
+- **Export/import bloqueia main thread**: Pendente mover para `Isolate.run()`.
+- **`_encrypt`/`_decrypt` duplicados em 6 serviços**: Pendente extrair para mixin `EncryptedServiceMixin`.
+- **Criptografia faltante**: `CompromissoService` (titulo, observacoes), `ContratoService` (nomeAceite), `AnamneseEnviadaService` (respostasJson) sem criptografia. Pendente.
+- **Log de auditoria cresce sem limite**: Pendente rotação/cleanup de entradas antigas.
+- **`enderecoJson` (@HiveField 13) ausente do modelo Paciente**: Documentado no AGENTS.md mas nunca implementado.
+
+### APK
+- Release: 69.2MB (era 72.3MB antes das correções)
+
 ### Resolvidos
 - ~~Segurança: zero autenticação~~ ✅ JWT backend + criptografia AES local
 - ~~State management: setState (40x)~~ ✅ 0 setState — 100% Riverpod

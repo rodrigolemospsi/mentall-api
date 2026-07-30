@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -21,9 +22,6 @@ import '../widgets/secao_campos_clinicos_widget.dart';
 import '../widgets/secao_formulario.dart';
 import '../widgets/sessao_artigos_sugeridos.dart';
 import '../widgets/sessao_audio_controls.dart';
-
-part 'sessao_form_audio.dart';
-part 'sessao_form_ia.dart';
 
 final _salvandoProvider = StateProvider<bool>((ref) => false);
 final _dataSessaoProvider = StateProvider<DateTime>((ref) => DateTime.now());
@@ -300,7 +298,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       _ultimaTranscricaoControlada = _transcricaoRelatoController.text;
       _transcricaoRelatoController.addListener(_aoAlterarTranscricaoRelato);
     } catch (e, stack) {
-      _erroInicializacao = '$e\n$stack';
+      _erroInicializacao = kDebugMode ? '$e\n$stack' : '$e';
       Log.erro(e, contexto: 'sessao_form_page:initState');
     }
   }
@@ -1484,6 +1482,15 @@ if (!mounted || confirmar != true) return;
                   icon: const Icon(Icons.file_download_outlined),
                   onPressed: _exportarSessao,
                 ),
+                if (!_modoEdicao)
+                  TextButton.icon(
+                    onPressed: () {
+                      _modoEdicao = true;
+                      _triggerRebuild();
+                    },
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: const Text('Editar'),
+                  ),
               ]
             : null,
       ),

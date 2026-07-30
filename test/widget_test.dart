@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 
 import 'package:prontuario_tcc/hive_registrar.g.dart';
+import 'package:prontuario_tcc/models/compromisso.dart';
+import 'package:prontuario_tcc/models/contrato_terapeutico.dart';
 import 'package:prontuario_tcc/models/paciente.dart';
 import 'package:prontuario_tcc/models/perfil_profissional.dart';
 import 'package:prontuario_tcc/models/sessao.dart';
@@ -17,21 +19,36 @@ void main() {
     await Hive.openBox<Paciente>('pacientes');
     await Hive.openBox<Sessao>('sessoes');
     await Hive.openBox<PerfilProfissional>('perfil_profissional');
+    await Hive.openBox<Compromisso>('compromissos');
+    await Hive.openBox<ContratoTerapeutico>('contratos');
+    await Hive.openBox('avaliacoes_iniciais');
+    await Hive.openBox('respostas_escalas');
+    await Hive.openBox('anamneses_enviadas');
   });
 
   tearDownAll(() async {
     await Hive.box<Paciente>('pacientes').close();
     await Hive.box<Sessao>('sessoes').close();
     await Hive.box<PerfilProfissional>('perfil_profissional').close();
+    await Hive.box<Compromisso>('compromissos').close();
+    await Hive.box<ContratoTerapeutico>('contratos').close();
     await Hive.deleteBoxFromDisk('pacientes');
     await Hive.deleteBoxFromDisk('sessoes');
     await Hive.deleteBoxFromDisk('perfil_profissional');
+    await Hive.deleteBoxFromDisk('compromissos');
+    await Hive.deleteBoxFromDisk('contratos');
+    await Hive.deleteBoxFromDisk('avaliacoes_iniciais');
+    await Hive.deleteBoxFromDisk('respostas_escalas');
+    await Hive.deleteBoxFromDisk('anamneses_enviadas');
   });
 
   setUp(() async {
     await Hive.box<Paciente>('pacientes').clear();
     await Hive.box<Sessao>('sessoes').clear();
     await Hive.box<PerfilProfissional>('perfil_profissional').clear();
+    try { await Hive.box('avaliacoes_iniciais').clear(); } catch (_) {}
+    try { await Hive.box('respostas_escalas').clear(); } catch (_) {}
+    try { await Hive.box('anamneses_enviadas').clear(); } catch (_) {}
   });
 
   // ===================== MODELOS =====================
@@ -183,7 +200,6 @@ void main() {
       expect(sessao.id, '1');
       expect(sessao.pacienteId, 'pac1');
       expect(sessao.numeroSessao, 1);
-      expect(sessao.humor, 5);
       expect(sessao.arquivada, false);
       expect(sessao.statusProcessamento, 'manual');
       expect(sessao.revisadoPeloProfissional, false);

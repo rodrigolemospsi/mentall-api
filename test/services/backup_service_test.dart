@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:prontuario_tcc/hive_registrar.g.dart';
+import 'package:prontuario_tcc/models/compromisso.dart';
+import 'package:prontuario_tcc/models/contrato_terapeutico.dart';
 import 'package:prontuario_tcc/models/paciente.dart';
 import 'package:prontuario_tcc/models/perfil_profissional.dart';
 import 'package:prontuario_tcc/models/sessao.dart';
@@ -24,12 +26,16 @@ void main() {
     await Hive.openBox<Paciente>('pacientes');
     await Hive.openBox<Sessao>('sessoes');
     await Hive.openBox<PerfilProfissional>('perfil_profissional');
+    await Hive.openBox<ContratoTerapeutico>('contratos');
+    await Hive.openBox<Compromisso>('compromissos');
   });
 
   tearDownAll(() async {
     await Hive.deleteBoxFromDisk('pacientes');
     await Hive.deleteBoxFromDisk('sessoes');
     await Hive.deleteBoxFromDisk('perfil_profissional');
+    await Hive.deleteBoxFromDisk('contratos');
+    await Hive.deleteBoxFromDisk('compromissos');
     await Hive.deleteBoxFromDisk('encryption_meta');
   });
 

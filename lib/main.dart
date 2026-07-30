@@ -26,16 +26,18 @@ void main() async {
 
   if (kIsWeb) {
     final port = Uri.base.port;
-    debugPrint(
-      '\u{1F310} MentAll rodando na porta $port \u{2014} '
-      'use --web-port 5000 para manter os dados entre execu\u00E7\u00F5es.',
-    );
+    if (kDebugMode) {
+      debugPrint(
+        '\u{1F310} MentAll rodando na porta $port \u{2014} '
+        'use --web-port 5000 para manter os dados entre execu\u00E7\u00F5es.',
+      );
+    }
   }
 
   await Hive.initFlutter();
-  debugPrint('[startup] initFlutter: ${sw.elapsedMilliseconds}ms');
+  if (kDebugMode) debugPrint('[startup] initFlutter: ${sw.elapsedMilliseconds}ms');
   Hive.registerAdapters();
-  debugPrint('[startup] registerAdapters: ${sw.elapsedMilliseconds}ms');
+  if (kDebugMode) debugPrint('[startup] registerAdapters: ${sw.elapsedMilliseconds}ms');
 
   await Future.wait([
     Hive.openBox<Paciente>('pacientes'),
@@ -62,6 +64,7 @@ void main() async {
   debugPrint('[startup] auth: ${sw.elapsedMilliseconds}ms');
 
   ErrorWidget.builder = (FlutterErrorDetails details) {
+    final mensagemTecnica = kDebugMode ? details.exceptionAsString() : null;
     return Material(
       child: Container(
         color: const Color(0xFFFFFFFF),
@@ -80,18 +83,20 @@ void main() async {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Ocorreu um erro ao exibir esta tela. Isso pode ser causado por dados incompatíveis de uma versão anterior do app.',
+              'Ocorreu um erro ao exibir esta tela. Tente reiniciar o aplicativo.',
               style: TextStyle(color: Color(0xFF475569), height: 1.4),
             ),
-            const SizedBox(height: 16),
-            Text(
-              details.exceptionAsString(),
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.black45,
-                fontFamily: 'monospace',
+            if (mensagemTecnica != null) ...[
+              const SizedBox(height: 16),
+              Text(
+                mensagemTecnica,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.black45,
+                  fontFamily: 'monospace',
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),

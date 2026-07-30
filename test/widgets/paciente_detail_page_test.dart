@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 
 import 'package:prontuario_tcc/hive_registrar.g.dart';
+import 'package:prontuario_tcc/models/compromisso.dart';
+import 'package:prontuario_tcc/models/contrato_terapeutico.dart';
 import 'package:prontuario_tcc/models/paciente.dart';
 import 'package:prontuario_tcc/models/perfil_profissional.dart';
 import 'package:prontuario_tcc/models/sessao.dart';
@@ -18,6 +20,12 @@ void main() {
     await Hive.openBox<Paciente>('pacientes');
     await Hive.openBox<Sessao>('sessoes');
     await Hive.openBox<PerfilProfissional>('perfil_profissional');
+    await Hive.openBox<Compromisso>('compromissos');
+    await Hive.openBox<ContratoTerapeutico>('contratos');
+    await Hive.openBox('anamneses_enviadas');
+    await Hive.openBox('avaliacoes_iniciais');
+    await Hive.openBox('respostas_escalas');
+    await Hive.openBox<String>('app_config');
   });
 
   tearDownAll(() async {
@@ -27,6 +35,12 @@ void main() {
     await Hive.deleteBoxFromDisk('pacientes');
     await Hive.deleteBoxFromDisk('sessoes');
     await Hive.deleteBoxFromDisk('perfil_profissional');
+    await Hive.deleteBoxFromDisk('compromissos');
+    await Hive.deleteBoxFromDisk('contratos');
+    await Hive.deleteBoxFromDisk('anamneses_enviadas');
+    await Hive.deleteBoxFromDisk('avaliacoes_iniciais');
+    await Hive.deleteBoxFromDisk('respostas_escalas');
+    await Hive.deleteBoxFromDisk('app_config');
   });
 
   setUp(() async {
@@ -60,7 +74,7 @@ void main() {
     await tester.pumpWidget(criarApp());
     await tester.pump();
 
-    expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.edit_outlined), findsAtLeastNWidgets(1));
     expect(find.byIcon(Icons.file_download_outlined), findsOneWidget);
     expect(find.text('Nova sessão'), findsOneWidget);
   });
@@ -76,7 +90,14 @@ void main() {
   testWidgets('deve mostrar que nao ha sessoes', (tester) async {
     await tester.pumpWidget(criarApp());
     await tester.pump();
+    await tester.pump();
+    await tester.pump();
 
+    await tester.scrollUntilVisible(
+      find.text('Nenhuma sessão ativa'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Nenhuma sessão ativa'), findsOneWidget);
   });
 
@@ -93,7 +114,14 @@ void main() {
 
     await tester.pumpWidget(criarApp());
     await tester.pump();
+    await tester.pump();
+    await tester.pump();
 
+    await tester.scrollUntilVisible(
+      find.textContaining('Sessão'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.textContaining('Sessão'), findsOneWidget);
   });
 
@@ -101,7 +129,11 @@ void main() {
     await tester.pumpWidget(criarApp());
     await tester.pump();
 
-    await tester.tap(find.byIcon(Icons.edit_outlined));
+    final editBtn = find.descendant(
+      of: find.byType(AppBar),
+      matching: find.byIcon(Icons.edit_outlined),
+    );
+    await tester.tap(editBtn);
     await tester.pump();
 
     expect(find.text('Editar paciente'), findsOneWidget);

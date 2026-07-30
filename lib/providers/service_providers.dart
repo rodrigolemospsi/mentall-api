@@ -34,11 +34,15 @@ final authServiceProvider = Provider<AuthService>((ref) {
   final pacienteService = ref.watch(pacienteServiceProvider);
   final sessaoService = ref.watch(sessaoServiceProvider);
   final perfilProfissionalService = ref.watch(perfilProfissionalServiceProvider);
+  final avaliacaoInicialService = ref.watch(avaliacaoInicialServiceProvider);
+  final escalaService = ref.watch(escalaServiceProvider);
   return AuthService(
     encryption,
     pacienteService: pacienteService,
     sessaoService: sessaoService,
     perfilProfissionalService: perfilProfissionalService,
+    avaliacaoInicialService: avaliacaoInicialService,
+    escalaService: escalaService,
   );
 });
 

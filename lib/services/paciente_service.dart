@@ -4,6 +4,9 @@ import '../models/paciente.dart';
 import '../models/sessao.dart';
 import '../models/compromisso.dart';
 import '../models/contrato_terapeutico.dart';
+import '../models/avaliacao_inicial.dart';
+import '../models/resposta_escala.dart';
+import '../models/anamnese_enviada.dart';
 import 'encryption_service.dart';
 
 class PacienteService {
@@ -128,6 +131,33 @@ class PacienteService {
         .toList();
     for (final c in contratosParaExcluir) {
       await c.delete();
+    }
+
+    final avaliacoesIniciaisBox = Hive.box('avaliacoes_iniciais');
+    final avaliacoesParaExcluir = avaliacoesIniciaisBox.values
+        .whereType<AvaliacaoInicial>()
+        .where((a) => a.pacienteId == paciente.id)
+        .toList();
+    for (final a in avaliacoesParaExcluir) {
+      await a.delete();
+    }
+
+    final respostasEscalasBox = Hive.box('respostas_escalas');
+    final respostasParaExcluir = respostasEscalasBox.values
+        .whereType<RespostaEscala>()
+        .where((r) => r.pacienteId == paciente.id)
+        .toList();
+    for (final r in respostasParaExcluir) {
+      await r.delete();
+    }
+
+    final anamnesesBox = Hive.box('anamneses_enviadas');
+    final anamnesesParaExcluir = anamnesesBox.values
+        .whereType<AnamneseEnviada>()
+        .where((a) => a.pacienteId == paciente.id)
+        .toList();
+    for (final a in anamnesesParaExcluir) {
+      await a.delete();
     }
 
     await paciente.delete();

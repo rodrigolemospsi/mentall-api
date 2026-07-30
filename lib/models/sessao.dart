@@ -19,9 +19,9 @@ class Sessao extends HiveObject {
   @HiveField(3)
   DateTime data;
 
-  /// Escala subjetiva de humor.
-  /// Sugestão de uso: 0 a 10.
+  /// DEPRECATED: Não utilizado desde 07/2026. Mantido para compatibilidade Hive.
   @HiveField(4)
+  @Deprecated('Não utilizado')
   int humor;
 
   @HiveField(5)
@@ -160,7 +160,7 @@ class Sessao extends HiveObject {
     required this.pacienteId,
     required this.numeroSessao,
     required this.data,
-    this.humor = 5,
+    this.humor = -1,
     this.temaPrincipal = '',
     this.eventosImportantes = '',
     this.pensamentosAutomaticos = '',

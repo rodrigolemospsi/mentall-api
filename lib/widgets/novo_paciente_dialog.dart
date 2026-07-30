@@ -80,6 +80,7 @@ Future<void> mostrarDialogNovoPaciente({
                     const SizedBox(height: 16),
                     TextField(
                       controller: nomeController,
+                      maxLength: 120,
                       textCapitalization: TextCapitalization.words,
                       decoration: const InputDecoration(
                         labelText: 'Nome completo',
@@ -89,6 +90,7 @@ Future<void> mostrarDialogNovoPaciente({
                     const SizedBox(height: 12),
                     TextField(
                       controller: contatoController,
+                      maxLength: 20,
                       keyboardType: TextInputType.phone,
                       decoration: const InputDecoration(
                         labelText: 'Contato',
@@ -98,6 +100,7 @@ Future<void> mostrarDialogNovoPaciente({
                     const SizedBox(height: 12),
                     TextField(
                       controller: emailController,
+                      maxLength: 120,
                       keyboardType: TextInputType.emailAddress,
                       decoration: const InputDecoration(
                         labelText: 'E-mail',

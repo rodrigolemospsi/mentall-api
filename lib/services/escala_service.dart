@@ -54,10 +54,11 @@ class EscalaService {
     return _box.watch();
   }
 
-  void removerCriptografiaExistente() {
+  Future<void> removerCriptografiaExistente() async {
     if (_encryption == null || !_encryption.configurado) return;
     for (final r in _box.values.whereType<RespostaEscala>()) {
       r.observacoes = _decrypt(r.observacoes);
+      await r.save();
     }
   }
 

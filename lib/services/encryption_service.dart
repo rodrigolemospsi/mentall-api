@@ -17,8 +17,12 @@ class EncryptionService {
   static const String _kdfVersionKey = 'kdf_version';
   static const String _recoveryPhraseHashKey = 'recovery_phrase_hash';
   static const String _recoveryEncryptedKeyKey = 'recovery_encrypted_key';
+  static const String _pinAttemptsKey = 'pin_attempts';
+  static const String _pinLockedUntilKey = 'pin_locked_until';
   static const int _kdfIterations = 10000;
+  static const int _kdfIterationsV3 = 100000;
   static const int _kdfKeyLength = 32;
+  static const int _maxPinAttempts = 5;
 
   static const List<String> _palavrasRecuperacao = [
     'abacate', 'abril', 'agua', 'alegre', 'amarelo', 'amigo', 'amor', 'anel',
@@ -91,34 +95,39 @@ class EncryptionService {
     await inicializar();
 
     final salt = _gerarSalt();
-    final derivedKey = _derivarChavePBKDF2(pin, salt);
+    final derivedKey = _derivarChavePBKDF2_V3(pin, salt);
     final newKey = encrypt.Key.fromSecureRandom(32);
     final iv = encrypt.IV.fromSecureRandom(16);
 
     final encrypter = encrypt.Encrypter(encrypt.AES(derivedKey));
     final encryptedKeyBytes = encrypter.encryptBytes(newKey.bytes, iv: iv);
-    final verificationHash = _criarVerificationHashPBKDF2(pin);
+    final verificationHash = _criarVerificationHashV3(pin);
 
     await _box.put(_encryptedKeyKey,
         '${salt}:${encryptedKeyBytes.base64}');
     await _box.put(_ivKey, iv.base64);
     await _box.put(_verificationKey, verificationHash);
-    await _box.put(_kdfVersionKey, '2');
+    await _box.put(_kdfVersionKey, '3');
 
     _key = newKey;
     _iv = iv;
-    _kdfVersion = 2;
+    _kdfVersion = 3;
   }
 
   Future<bool> desbloquear(String pin) async {
     await inicializar();
+
+    if (_estaBloqueado()) return false;
 
     final encryptedData = _box.get(_encryptedKeyKey);
     final ivBase64 = _box.get(_ivKey);
 
     if (encryptedData == null || ivBase64 == null) return false;
 
-    if (!_verificarPin(pin)) return false;
+    if (!_verificarPin(pin)) {
+      await _incrementarTentativaPin();
+      return false;
+    }
 
     try {
       final parts = encryptedData.split(':');
@@ -128,7 +137,9 @@ class EncryptionService {
       final encryptedPart = parts.sublist(1).join(':');
 
       encrypt.Key derivedKey;
-      if (_kdfVersion >= 2) {
+      if (_kdfVersion >= 3) {
+        derivedKey = _derivarChavePBKDF2_V3(pin, salt);
+      } else if (_kdfVersion == 2) {
         derivedKey = _derivarChavePBKDF2(pin, salt);
       } else {
         derivedKey = _derivarChaveLegacy(pin, salt);
@@ -142,8 +153,15 @@ class EncryptionService {
 
       _key = encrypt.Key(Uint8List.fromList(keyBytes));
       _iv = iv;
+      _resetarTentativasPin();
+      await _migrarParaV3SeNecessario(pin, encryptedData, ivBase64);
       return true;
     } catch (e) {
+      if (_kdfVersion >= 3) {
+        try {
+          return await _tentarDesbloquearV2(pin, encryptedData, ivBase64);
+        } catch (_) {}
+      }
       if (_kdfVersion >= 2) {
         try {
           return await _tentarDesbloquearLegacy(pin, encryptedData, ivBase64);
@@ -152,6 +170,30 @@ class EncryptionService {
       Log.erro(e, contexto: 'EncryptionService.desbloquear');
       return false;
     }
+  }
+
+  Future<bool> _tentarDesbloquearV2(
+      String pin, String encryptedData, String ivBase64) async {
+    final parts = encryptedData.split(':');
+    if (parts.length < 2) return false;
+
+    final salt = parts[0];
+    final encryptedPart = parts.sublist(1).join(':');
+
+    final derivedKey = _derivarChavePBKDF2(pin, salt);
+    final iv = encrypt.IV.fromBase64(ivBase64);
+
+    final encrypter = encrypt.Encrypter(encrypt.AES(derivedKey));
+    final encryptedBytes = encrypt.Encrypted.fromBase64(encryptedPart);
+    final keyBytes = encrypter.decryptBytes(encryptedBytes, iv: iv);
+
+    _key = encrypt.Key(Uint8List.fromList(keyBytes));
+    _iv = iv;
+    _resetarTentativasPin();
+
+    await _atualizarChaveProtegida(pin);
+    _kdfVersion = 3;
+    return true;
   }
 
   Future<bool> _tentarDesbloquearLegacy(
@@ -171,6 +213,7 @@ class EncryptionService {
 
     _key = encrypt.Key(Uint8List.fromList(keyBytes));
     _iv = iv;
+    _resetarTentativasPin();
 
     await _box.put(_kdfVersionKey, '2');
     await _atualizarChaveProtegida(pin);
@@ -182,18 +225,24 @@ class EncryptionService {
     if (_key == null) return;
 
     final salt = _gerarSalt();
-    final derivedKey = _derivarChavePBKDF2(pin, salt);
+    final derivedKey = _derivarChavePBKDF2_V3(pin, salt);
     final iv = _iv ?? encrypt.IV.fromSecureRandom(16);
-    final verificationHash = _criarVerificationHashPBKDF2(pin);
+    final verificationHash = _criarVerificationHashV3(pin);
 
     final encrypter = encrypt.Encrypter(encrypt.AES(derivedKey));
     final encryptedKeyBytes = encrypter.encryptBytes(_key!.bytes, iv: iv);
 
     await _box.put(_encryptedKeyKey, '$salt:${encryptedKeyBytes.base64}');
+    await _box.put(_ivKey, iv.base64);
     await _box.put(_verificationKey, verificationHash);
-    await _box.put(_kdfVersionKey, '2');
+    await _box.put(_kdfVersionKey, '3');
     _iv = iv;
-    _kdfVersion = 2;
+    _kdfVersion = 3;
+  }
+
+  Future<void> _migrarParaV3SeNecessario(String pin, String encryptedData, String ivBase64) async {
+    if (_kdfVersion >= 3) return;
+    await _atualizarChaveProtegida(pin);
   }
 
   String criptografar(String texto) {
@@ -206,7 +255,7 @@ class EncryptionService {
       return '2:${randomIv.base64}:${encrypted.base64}';
     } catch (e) {
       Log.erro(e, contexto: 'EncryptionService.criptografar');
-      return texto;
+      rethrow;
     }
   }
 
@@ -267,6 +316,14 @@ class EncryptionService {
     return encrypt.Key(Uint8List.fromList(derived));
   }
 
+  encrypt.Key _derivarChavePBKDF2_V3(String pin, String salt) {
+    final saltBytes = base64Decode(salt);
+    final derivator = KeyDerivator('SHA-256/HMAC/PBKDF2');
+    derivator.init(Pbkdf2Parameters(saltBytes, _kdfIterationsV3, _kdfKeyLength));
+    final derived = derivator.process(utf8.encode(pin));
+    return encrypt.Key(Uint8List.fromList(derived));
+  }
+
   encrypt.Key _derivarChaveLegacy(String pin, String salt) {
     final combined = utf8.encode('$pin:$salt');
     final expanded = Uint8List(32);
@@ -290,9 +347,24 @@ class EncryptionService {
     return 'v2:$salt:${hash.base64}';
   }
 
+  String _criarVerificationHashV3(String pin) {
+    final salt = _gerarSalt();
+    final hash = _derivarChavePBKDF2_V3(pin, salt);
+    return 'v3:$salt:${hash.base64}';
+  }
+
   bool _verificarPin(String pin) {
     final stored = _box.get(_verificationKey);
     if (stored == null) return false;
+
+    if (stored.startsWith('v3:')) {
+      final parts = stored.substring(3).split(':');
+      if (parts.length < 2) return false;
+      final salt = parts[0];
+      final hash = parts.sublist(1).join(':');
+      final computed = _derivarChavePBKDF2_V3(pin, salt);
+      return computed.base64 == hash;
+    }
 
     if (stored.startsWith('v2:')) {
       final parts = stored.substring(3).split(':');
@@ -321,20 +393,20 @@ class EncryptionService {
     }
 
     final salt = _gerarSalt();
-    final derivedKey = _derivarChavePBKDF2(novoPin, salt);
+    final derivedKey = _derivarChavePBKDF2_V3(novoPin, salt);
     final iv = _iv ?? encrypt.IV.fromSecureRandom(16);
 
     final encrypter = encrypt.Encrypter(encrypt.AES(derivedKey));
     final encryptedKeyBytes = encrypter.encryptBytes(_key!.bytes, iv: iv);
-    final verificationHash = _criarVerificationHashPBKDF2(novoPin);
+    final verificationHash = _criarVerificationHashV3(novoPin);
 
     await _box.put(_encryptedKeyKey, '$salt:${encryptedKeyBytes.base64}');
     await _box.put(_ivKey, iv.base64);
     await _box.put(_verificationKey, verificationHash);
-    await _box.put(_kdfVersionKey, '2');
+    await _box.put(_kdfVersionKey, '3');
 
     _iv = iv;
-    _kdfVersion = 2;
+    _kdfVersion = 3;
     return true;
   }
 
@@ -358,14 +430,14 @@ class EncryptionService {
     if (_key == null) return;
 
     final salt = _gerarSalt();
-    final recoveryKey = _derivarChavePBKDF2(frase, salt);
-    final phraseHash = sha256.convert(utf8.encode(frase)).toString();
+    final recoveryKey = _derivarChavePBKDF2_V3(frase, salt);
+    final phraseHash = _derivarChavePBKDF2_V3(frase, salt);
 
     final iv = encrypt.IV.fromSecureRandom(16);
     final encrypter = encrypt.Encrypter(encrypt.AES(recoveryKey));
     final encryptedKeyBytes = encrypter.encryptBytes(_key!.bytes, iv: iv);
 
-    await _box.put(_recoveryPhraseHashKey, phraseHash);
+    await _box.put(_recoveryPhraseHashKey, 'v2:$salt:${phraseHash.base64}');
     await _box.put(_recoveryEncryptedKeyKey,
         '$salt:${iv.base64}:${encryptedKeyBytes.base64}');
   }
@@ -377,8 +449,23 @@ class EncryptionService {
   bool verificarFraseRecuperacao(String frase) {
     final storedHash = _box.get(_recoveryPhraseHashKey);
     if (storedHash == null) return false;
-    final computedHash = sha256.convert(utf8.encode(frase)).toString();
-    return computedHash == storedHash;
+
+    if (storedHash.startsWith('v2:')) {
+      final parts = storedHash.substring(3).split(':');
+      if (parts.length < 2) return false;
+      final salt = parts[0];
+      final hashExpected = parts.sublist(1).join(':');
+      final computed = _derivarChavePBKDF2_V3(frase, salt);
+      if (computed.base64 == hashExpected) return true;
+    }
+
+    final computedLegacy = sha256.convert(utf8.encode(frase)).toString();
+    if (computedLegacy == storedHash) {
+      configurarFraseRecuperacao(frase);
+      return true;
+    }
+
+    return false;
   }
 
   Future<bool> recuperarComFrase(String frase) async {
@@ -411,5 +498,33 @@ class EncryptionService {
   Future<void> limparRecuperacao() async {
     await _box.delete(_recoveryPhraseHashKey);
     await _box.delete(_recoveryEncryptedKeyKey);
+  }
+
+  bool _estaBloqueado() {
+    final lockedUntil = _box.get(_pinLockedUntilKey);
+    if (lockedUntil == null) return false;
+    final until = int.tryParse(lockedUntil);
+    if (until == null) return false;
+    if (DateTime.now().millisecondsSinceEpoch < until) return true;
+    _box.delete(_pinLockedUntilKey);
+    return false;
+  }
+
+  Future<void> _incrementarTentativaPin() async {
+    final attempts = (int.tryParse(_box.get(_pinAttemptsKey) ?? '0') ?? 0) + 1;
+    await _box.put(_pinAttemptsKey, attempts.toString());
+
+    if (attempts >= _maxPinAttempts) {
+      final delayMs = (1000 * (1 << (attempts - _maxPinAttempts + 1))).clamp(1000, 60000);
+      await _box.put(
+        _pinLockedUntilKey,
+        (DateTime.now().millisecondsSinceEpoch + delayMs).toString(),
+      );
+    }
+  }
+
+  void _resetarTentativasPin() {
+    _box.delete(_pinAttemptsKey);
+    _box.delete(_pinLockedUntilKey);
   }
 }
