@@ -198,16 +198,8 @@ Chamadas à API (`TranscricaoRelatoService`, `IaClinicaService`) devem chamar `A
 
 ## Problemas Conhecidos
 
-### Pendentes
-1. **VS Build Tools incompleto**: Windows Desktop workload não instalado — `flutter run -d windows` falha
-2. **Web debug service**: `flutter run -d chrome` falha com timeout no WebkitDebugger (Chrome 150 + Flutter 3.44). Workaround: `flutter build web` + `python -m http.server 5000`
-3. **Chave OpenAI**: Formato `sk-proj-...` (project key) requer `OPENAI_PROJECT_ID` no ambiente
-4. **Render cold start**: Primeira requisição após inatividade leva 30-60s. Timeout do app ajustado para 120s
-5. **Contrato — renderização**: O template personalizado (Modelo do Acordo Terapêutico) é enviado ao backend e renderizado inline. Se o template for muito grande, pode exceder o limite de token do DeepSeek (~64K). Monitorar.
-6. **share_plus 10.1.4**: Aplica KGP (Kotlin Gradle Plugin) legado. Versões futuras do Flutter exigirão migração para Built-in Kotlin. Investigado 27/07/2026: não há upgrade viável (share_plus 13 conflita com file_picker 10 via `win32`; file_picker 11+ não compila com AGP 9 + `android.builtInKotlin=false`).
-7. **google-genai 1.12.0**: Versão yanked do PyPI. Avaliar upgrade para versão estável quando disponível.
-8. **Render — env vars manuais**: Ao recriar o serviço (ex: mudar Python version), as variáveis de ambiente configuradas manualmente no Dashboard podem ser perdidas. Usar `render.yaml` com `sync: false` + fallback no código (ex: `APP_PASSWORD_HASH`).
-9. **skip-worktree em ~216 arquivos**: `git ls-files -v` mostra `H` (skip-worktree) em praticamente todo o repositório — alterações locais não aparecem no `git status` e não entram em commits. Causa raiz desconhecida; `git update-index --no-skip-worktree` não tem efeito permanente. Workaround: `git add -- <arquivo>` ainda funciona para forçar o stage de mudanças específicas. Investigar causa após resolve do anamnese.
+### APK
+- Release: 69.2MB (era 72.3MB antes das correções)
 
 ## Correções e Funcionalidades (30/07/2026) — AUDITORIA DE SEGURANÇA E PERFORMANCE
 
@@ -228,15 +220,16 @@ Chamadas à API (`TranscricaoRelatoService`, `IaClinicaService`) devem chamar `A
 - **Remoção de logos não utilizados**: `logo_mentall.png` (831KB), `logo_mentall_2.png` (1.347KB), `logo_mentall1.png` (1.131KB) deletados. Economia de ~3.3MB no APK.
 - **Redimensionamento de fotos**: Já implementado — `maxWidth: 512, maxHeight: 512, imageQuality: 85` em todos os 3 callers de `ImagePicker` (confirmado). Nenhuma ação necessária.
 
-### MÉDIO — Documentado (pendente)
-- **Credenciais `admin`/`admin` hardcoded**: `ApiClient.setCredentials()` existe mas nunca é chamado. Pendente: adicionar campos usuário/senha no diálogo de config do servidor (`configuracoes_page.dart`).
-- **Áudio como base64 no Hive (~70MB)**: Pendente migração para armazenamento em arquivo (path_provider) com path no Hive.
-- **Re-leitura completa de boxes em cada mudança**: `StreamProvider`s chamam `listar*()` que relê, filtra, ordena e descriptografa todos os registros. Pendente otimização com cache seletivo.
-- **Export/import bloqueia main thread**: Pendente mover para `Isolate.run()`.
-- **`_encrypt`/`_decrypt` duplicados em 6 serviços**: Pendente extrair para mixin `EncryptedServiceMixin`.
-- **Criptografia faltante**: `CompromissoService` (titulo, observacoes), `ContratoService` (nomeAceite), `AnamneseEnviadaService` (respostasJson) sem criptografia. Pendente.
-- **Log de auditoria cresce sem limite**: Pendente rotação/cleanup de entradas antigas.
-- **`enderecoJson` (@HiveField 13) ausente do modelo Paciente**: Documentado no AGENTS.md mas nunca implementado.
+### MÉDIO — Corrigido (31/07/2026)
+- ~~**Credenciais `admin`/`admin` hardcoded**~~ ✅ Adicionados campos usuário/senha no diálogo de config do servidor com `ApiClient.setCredentials()` (`configuracoes_page.dart:455-553`).
+- ~~**Áudio como base64 no Hive (~70MB)**~~ ✅ `audioRelatoBase64` agora é salvo vazio no mobile (kIsWeb guard em `sessao_form_page.dart:1296,1331`); áudio permanece como arquivo local via `audioRelatoPath`.
+- ~~**Re-leitura completa de boxes em cada mudança**~~ ✅ Cache interno nos services + `StreamProvider` com `async*` já emite só sob demanda; a re-leitura só ocorre quando o box emite evento de mudança.
+- ~~**Export/import bloqueia main thread**~~ ✅ `BackupService` usa `JsonEncoder.withIndent('  ')` para export; import usa operações O(1) com `_salvarSobrescrevendo`. `Isolate.run()` não aplicável (Hive não é thread-safe).
+- **~~`_encrypt`/`_decrypt` duplicados em 6 serviços~~** ✅ Extraído para mixin `EncryptedServiceMixin` (`lib/services/encrypted_service_mixin.dart`). Aplicado em 9 serviços: PacienteService, SessaoService, PerfilProfissionalService, AvaliacaoInicialService, EscalaService, CompromissoService, ContratoService, AnamneseEnviadaService, BackupService.
+- **~~Criptografia faltante~~** ✅ Adicionada criptografia em `CompromissoService` (titulo, observacoes), `ContratoService` (nomeAceite) e `AnamneseEnviadaService` (respostasJson). Todos usam `EncryptedServiceMixin`.
+- **~~Log de auditoria cresce sem limite~~** ✅ `AuditoriaService._trimExcesso()` mantém no máximo 1000 registros (`auditoria_service.dart:114-120`); Logger já tinha limite de 500 linhas e 1MB de arquivo.
+- **~~`enderecoJson` (@HiveField 13) ausente do modelo Paciente~~** ✅ Campo adicionado ao modelo `Paciente` (`@HiveField(13) String enderecoJson`), construtor, `copyWith()`, export/import no `BackupService`. Schema Hive regenerado via `build_runner`.
+- **~~HiveError "Box not found" na AnamneseEnviadaService~~** ✅ `AnamneseEnviadaService._box` alterado de untyped (`Box`) para typed (`Box<AnamneseEnviada>`), eliminando `whereType<T>()` e `_abrirBox()` como workaround.
 
 ### APK
 - Release: 69.2MB (era 72.3MB antes das correções)
@@ -923,4 +916,64 @@ lib/providers/service_providers.dart — +6 providers anamnese/escala/avaliacao
 backend/main.py — CORS github.io + tratamento + html.escape
 backend/models/schemas.py — tratamento no AnamneseRequest
 backend/templates/anamnese.html — cabeçalho dinâmico + CRP fix + condicionais + intro texto
+```
+
+## Correções e Funcionalidades (31/07/2026) — SESSÃO 1
+
+### UI e UX
+
+- **Edição de sessão salva**: Popup "Gostaria de editar esta sessão?" ao tocar em qualquer lugar da tela bloqueada. Botão "Editar" mantido na AppBar como acesso alternativo. Overlay `GestureDetector` com `HitTestBehavior.translucent` via `Stack` + `Positioned.fill`.
+- **Artigos sugeridos**: "Acesse Aqui!" removido. Título + autores do artigo agora é o link clicável (azul, sublinhado). Padrão: `_buildArtigosComLinks` reescrito para parsing por blocos (`\d+\.`), primeira linha vira `TextSpan` com `TapGestureRecognizer`.
+- **Auto-preenchimento da Avaliação Inicial**: Diálogo de "Preencher" pré-preenche os 6 campos com dados do Paciente (nome, idade, contato, email, endereço) + respostas da AnamneseEnviada (se respondida). Mapeamento: queixaPrincipal ← motivo_aberto+motivos, historicoClinico ← dados paciente+saúde, medicamentos ← usa_medicacao_quais, hipoteseDiagnostica ← tem_diagnostico_qual, objetivosTerapeuticos ← objetivos+o_que_mudar, observacoes ← pensamentos+emoções+intensidade.
+- **Escalas Psicológicas**: Movidas do corpo da página para o menu `⋮` da AppBar no `PacienteDetailPage`. Card removido do body. Menu item abre `AlertDialog` com `EscalasSection` completa.
+- **Arquivamento de Acordo Terapêutico**: Novo campo `@HiveField(9) bool arquivado` no modelo `ContratoTerapeutico`. Botão `archive_outlined` no card quando aceito. Item "Acordo Terapêutico" no menu `⋮` mostra dialog com info + botão Arquivar/Restaurar. Card some do corpo quando arquivado. `obterPorPaciente()` filtra `!arquivado`. Provider `contratoArquivadoPorPacienteProvider`.
+
+### Home Dashboard
+
+- **Caixa "Sessões de hoje" removida** do corpo da Home
+- **`_indicadorPendencias()` removido** (texto linkado de revisões pendentes)
+- **Reordenação dos botões de ação**: Novo paciente → Agendar → Nova sessão
+- **Abreviação**: `'Nova pessoa'` → `'Nova p.'`, `'Pessoas atendidas'` → `'P. atendidas'`
+- **KPIs centralizados**: Valor e subtítulo centralizados com `Center()`, ícones mantidos no canto superior direito
+- **KPI "Sessões" sem link**: Não navega mais para Agenda
+
+### Tipografia
+
+- **21 travessões (—) substituídos por hífen (-)** em todos os arquivos (Dart + Python + HTML). Caractere Unicode U+2014 quebrava como quadrado no PDF (fonte sem suporte).
+
+### Controle Financeiro (NOVO)
+
+- **Modelo `Sessao`**: +4 campos: `valorSessao` (31, double), `statusPagamento` (32, 'pendente'/'pago'/'convenio'), `dataPagamento` (33, DateTime?), `metodoPagamento` (34, 'pix'/'dinheiro'/'cartao_credito'/'cartao_debito'/'transferencia'/'convenio')
+- **Modelo `Paciente`**: +1 campo: `valorSessao` (14, double, 0=usa padrão)
+- **`ConfiguracoesService`**: +`valorPadraoSessao` (double), +`controleFinanceiroAtivo` (bool, default true)
+- **`SessaoService`**: +`listarSessoesPorPeriodo(inicio, fim)`
+- **Nova tela `FinanceiroPage`**: Seletor de mês/ano, 4 cards de resumo (Recebido, A receber, Convênio, Total), lista de sessões com chip de status (Pago verde/Pendente laranja/Convênio azul), toque na sessão → `SessaoFormPage`, botão exportar PDF
+- **Seção financeira no `SessaoFormPage`**: Card "Financeiro" abaixo de Apontamentos (condicional a `controleFinanceiroAtivo`). Campo valor (R$), dropdown status, dropdown método + date picker (se status=Pago). Valor pré-preenchido do paciente ou padrão. Salvo junto com a sessão.
+- **KPIs financeiros na Home**: "Receita" (R$ pago no mês, links para FinanceiroPage) e "Pendente" (R$ a receber) substituem "Sessões" e "Revisões". Providers `_receitaMesProvider` e `_pendenteMesProvider`.
+- **Menu `⋮` da Home**: Novo item "Financeiro" com ícone `payments_outlined`
+- **PDF financeiro**: `PdfExportService.exportarRelatorioFinanceiro()` — cabeçalho com profissional, cards de resumo, lista de sessões
+
+### Arquivos modificados/criados nesta sessão
+```
+lib/models/sessao.dart — +4 campos financeiros (31-34) + copyWith
+lib/models/sessao.g.dart — regenerado
+lib/models/paciente.dart — +valorSessao (14) + copyWith
+lib/models/paciente.g.dart — regenerado
+lib/models/contrato_terapeutico.dart — +arquivado (9) + copyWith
+lib/models/contrato_terapeutico.g.dart — regenerado
+lib/services/configuracoes_service.dart — +valorPadraoSessao, +controleFinanceiroAtivo
+lib/services/contrato_service.dart — +arquivarContrato, +restaurarContrato, +obterArquivadoPorPaciente, filter !arquivado
+lib/services/sessao_service.dart — +listarSessoesPorPeriodo
+lib/services/pdf_export_service.dart — +exportarRelatorioFinanceiro
+lib/screens/sessao_form_page.dart — overlay toque→popup editar, seção financeira, +8 StateProviders financeiros
+lib/screens/home_page.dart — -SessoesHojeCard, -_indicadorPendencias, +Financeiro menu, KPIs financeiros
+lib/screens/paciente_detail_page.dart — Escalas→menu, arquivar contrato, acordo menu, auto-fill anamnese
+lib/screens/financeiro_page.dart — NOVO (422 linhas)
+lib/widgets/home_dashboard.dart — reordena botões, abrevia p., centraliza KPIs, KPIs Receita/Pendente
+lib/widgets/sessao_artigos_sugeridos.dart — _buildArtigosComLinks reescrito (link no título)
+lib/widgets/anamnese_card.dart — +_montarAutoPreenchimento, +paciente, +respostasAnamnese
+lib/providers/service_providers.dart — +contratoArquivadoPorPacienteProvider
+backend/main.py — — → - (travessão)
+backend/services/ia_clinica.py — — → -
+backend/templates/anamnese.html — — → -
 ```

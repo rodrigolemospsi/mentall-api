@@ -2,31 +2,24 @@ import 'package:hive_ce/hive.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/avaliacao_inicial.dart';
+import 'encrypted_service_mixin.dart';
 import 'encryption_service.dart';
 
-class AvaliacaoInicialService {
-  final EncryptionService? _encryption;
+class AvaliacaoInicialService with EncryptedServiceMixin {
+  @override
+  final EncryptionService? encryption;
   Box get _box => Hive.box('avaliacoes_iniciais');
 
-  AvaliacaoInicialService({EncryptionService? encryption}) : _encryption = encryption;
+  AvaliacaoInicialService({EncryptionService? encryption}) : encryption = encryption;
 
-  String _encrypt(String value) {
-    if (_encryption == null || value.isEmpty) return value;
-    return _encryption.criptografar(value);
-  }
-
-  String _decrypt(String value) {
-    if (_encryption == null || value.isEmpty) return value;
-    return _encryption.descriptografar(value);
-  }
+  String _encrypt(String value) => encrypt(value);
+  String _decrypt(String value) => decrypt(value);
 
   AvaliacaoInicial? obterPorPaciente(String pacienteId) {
-    final a = _box.values.whereType<AvaliacaoInicial>().firstWhere(
-      (b) => b.pacienteId == pacienteId,
-      orElse: () => null as AvaliacaoInicial,
-    );
-    if (a == null) return null;
-    return _decryptAvaliacao(a);
+    for (final a in _box.values.whereType<AvaliacaoInicial>()) {
+      if (a.pacienteId == pacienteId) return _decryptAvaliacao(a);
+    }
+    return null;
   }
 
   AvaliacaoInicial _decryptAvaliacao(AvaliacaoInicial a) {
@@ -64,7 +57,7 @@ class AvaliacaoInicialService {
   }
 
   Future<void> removerCriptografiaExistente() async {
-    if (_encryption == null || !_encryption.configurado) return;
+    final enc = encryption; if (enc == null || !enc.configurado) return;
     for (final a in _box.values.whereType<AvaliacaoInicial>()) {
       a.queixaPrincipal = _decrypt(a.queixaPrincipal);
       a.historicoClinico = _decrypt(a.historicoClinico);
@@ -75,5 +68,4 @@ class AvaliacaoInicialService {
       await a.save();
     }
   }
-
 }

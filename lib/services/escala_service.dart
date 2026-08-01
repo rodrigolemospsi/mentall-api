@@ -2,23 +2,18 @@ import 'package:hive_ce/hive.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/resposta_escala.dart';
+import 'encrypted_service_mixin.dart';
 import 'encryption_service.dart';
 
-class EscalaService {
-  final EncryptionService? _encryption;
+class EscalaService with EncryptedServiceMixin {
+  @override
+  final EncryptionService? encryption;
   Box get _box => Hive.box('respostas_escalas');
 
-  EscalaService({EncryptionService? encryption}) : _encryption = encryption;
+  EscalaService({EncryptionService? encryption}) : encryption = encryption;
 
-  String _encrypt(String value) {
-    if (_encryption == null || value.isEmpty) return value;
-    return _encryption.criptografar(value);
-  }
-
-  String _decrypt(String value) {
-    if (_encryption == null || value.isEmpty) return value;
-    return _encryption.descriptografar(value);
-  }
+  String _encrypt(String value) => encrypt(value);
+  String _decrypt(String value) => decrypt(value);
 
   Future<void> salvarResposta(RespostaEscala resposta) async {
     resposta.observacoes = _encrypt(resposta.observacoes);
@@ -41,9 +36,13 @@ class EscalaService {
   }
 
   List<RespostaEscala> listarPorPacienteEEscala(String pacienteId, String escalaId) {
-    return _box.values.whereType<RespostaEscala>().where((r) =>
+    final lista = _box.values.whereType<RespostaEscala>().where((r) =>
       r.pacienteId == pacienteId && r.escalaId == escalaId,
     ).toList();
+    for (final r in lista) {
+      r.observacoes = _decrypt(r.observacoes);
+    }
+    return lista;
   }
 
   Future<void> remover(String id) async {
@@ -55,136 +54,105 @@ class EscalaService {
   }
 
   Future<void> removerCriptografiaExistente() async {
-    if (_encryption == null || !_encryption.configurado) return;
+    final enc = encryption; if (enc == null || !enc.configurado) return;
     for (final r in _box.values.whereType<RespostaEscala>()) {
       r.observacoes = _decrypt(r.observacoes);
       await r.save();
     }
   }
 
-  /// --- SCALE DEFINITIONS ---
-
   static const Map<String, Map<String, dynamic>> _escalas = {
     'phq9': {
-      'nome': 'PHQ-9 — Questionário de Saúde do Paciente',
-      'descricao': 'Avalia a gravidade da depressão nas últimas 2 semanas.',
-      'instrucoes': 'Com que frequência você foi incomodado(a) por cada um dos problemas abaixo nas últimas 2 semanas?',
+      'nome': 'PHQ-9 \u2014 Question\u00e1rio de Sa\u00fade do Paciente',
+      'descricao': 'Avalia a gravidade da depress\u00e3o nas \u00faltimas 2 semanas.',
+      'instrucoes': 'Com que frequ\u00eancia voc\u00ea foi incomodado(a) por cada um dos problemas abaixo nas \u00faltimas 2 semanas?',
       'faixas': [
-        {'min': 0, 'max': 4, 'rotulo': 'Depressão mínima/ausente'},
-        {'min': 5, 'max': 9, 'rotulo': 'Depressão leve'},
-        {'min': 10, 'max': 14, 'rotulo': 'Depressão moderada'},
-        {'min': 15, 'max': 19, 'rotulo': 'Depressão moderadamente grave'},
-        {'min': 20, 'max': 27, 'rotulo': 'Depressão grave'},
+        {'min': 0, 'max': 4, 'rotulo': 'Depress\u00e3o m\u00ednima/ausente'},
+        {'min': 5, 'max': 9, 'rotulo': 'Depress\u00e3o leve'},
+        {'min': 10, 'max': 14, 'rotulo': 'Depress\u00e3o moderada'},
+        {'min': 15, 'max': 19, 'rotulo': 'Depress\u00e3o moderadamente grave'},
+        {'min': 20, 'max': 27, 'rotulo': 'Depress\u00e3o grave'},
       ],
       'questoes': [
         'Pouco interesse ou prazer em fazer as coisas',
-        'Sentir-se para baixo, deprimido(a) ou sem esperança',
+        'Sentir-se para baixo, deprimido(a) ou sem esperan\u00e7a',
         'Dificuldade para dormir ou sono excessivo',
-        'Cansaço ou pouca energia',
+        'Cansa\u00e7o ou pouca energia',
         'Falta de apetite ou comer em excesso',
-        'Sentir-se mal consigo mesmo(a) — ou achar que é um fracasso',
-        'Dificuldade de concentração',
-        'Agitação ou lentidão nos movimentos',
+        'Sentir-se mal consigo mesmo(a) \u2014 ou achar que \u00e9 um fracasso',
+        'Dificuldade de concentra\u00e7\u00e3o',
+        'Agita\u00e7\u00e3o ou lentid\u00e3o nos movimentos',
         'Pensamentos de que seria melhor estar morto(a) ou de se ferir',
       ],
-      'opcoes': ['Nenhuma vez', 'Vários dias', 'Mais da metade dos dias', 'Quase todos os dias'],
+      'opcoes': ['Nenhuma vez', 'V\u00e1rios dias', 'Mais da metade dos dias', 'Quase todos os dias'],
     },
     'gad7': {
-      'nome': 'GAD-7 — Transtorno de Ansiedade Generalizada',
-      'descricao': 'Avalia a gravidade da ansiedade nas últimas 2 semanas.',
-      'instrucoes': 'Com que frequência você foi incomodado(a) por cada um dos problemas abaixo nas últimas 2 semanas?',
+      'nome': 'GAD-7 \u2014 Transtorno de Ansiedade Generalizada',
+      'descricao': 'Avalia a gravidade da ansiedade nas \u00faltimas 2 semanas.',
+      'instrucoes': 'Com que frequ\u00eancia voc\u00ea foi incomodado(a) por cada um dos problemas abaixo nas \u00faltimas 2 semanas?',
       'faixas': [
-        {'min': 0, 'max': 4, 'rotulo': 'Ansiedade mínima'},
+        {'min': 0, 'max': 4, 'rotulo': 'Ansiedade m\u00ednima'},
         {'min': 5, 'max': 9, 'rotulo': 'Ansiedade leve'},
         {'min': 10, 'max': 14, 'rotulo': 'Ansiedade moderada'},
         {'min': 15, 'max': 21, 'rotulo': 'Ansiedade grave'},
       ],
       'questoes': [
         'Sentir-se nervoso(a), ansioso(a) ou no limite',
-        'Não conseguir parar de se preocupar ou controlar a preocupação',
+        'N\u00e3o conseguir parar de se preocupar ou controlar a preocupa\u00e7\u00e3o',
         'Preocupar-se demais com coisas diferentes',
         'Dificuldade para relaxar',
-        'Ficar tão inquieto(a) que é difícil ficar parado(a)',
+        'Ficar t\u00e3o inquieto(a) que \u00e9 dif\u00edcil ficar parado(a)',
         'Ficar facilmente irritado(a) ou aborrecido(a)',
-        'Sentir medo como se algo terrível fosse acontecer',
+        'Sentir medo como se algo terr\u00edvel fosse acontecer',
       ],
-      'opcoes': ['Nenhuma vez', 'Vários dias', 'Mais da metade dos dias', 'Quase todos os dias'],
+      'opcoes': ['Nenhuma vez', 'V\u00e1rios dias', 'Mais da metade dos dias', 'Quase todos os dias'],
     },
     'bdi': {
-      'nome': 'BDI — Inventário de Depressão de Beck',
+      'nome': 'BDI \u2014 Invent\u00e1rio de Depress\u00e3o de Beck',
       'descricao': 'Avalia a intensidade dos sintomas depressivos.',
-      'instrucoes': 'Escolha a afirmação que melhor descreve como você tem se sentido nas últimas 2 semanas, incluindo hoje.',
+      'instrucoes': 'Escolha a afirma\u00e7\u00e3o que melhor descreve como voc\u00ea tem se sentido nas \u00faltimas 2 semanas, incluindo hoje.',
       'faixas': [
-        {'min': 0, 'max': 10, 'rotulo': 'Normal (sem depressão)'},
-        {'min': 11, 'max': 19, 'rotulo': 'Depressão leve'},
-        {'min': 20, 'max': 30, 'rotulo': 'Depressão moderada'},
-        {'min': 31, 'max': 40, 'rotulo': 'Depressão grave'},
-        {'min': 41, 'max': 63, 'rotulo': 'Depressão muito grave'},
+        {'min': 0, 'max': 10, 'rotulo': 'Normal (sem depress\u00e3o)'},
+        {'min': 11, 'max': 19, 'rotulo': 'Depress\u00e3o leve'},
+        {'min': 20, 'max': 30, 'rotulo': 'Depress\u00e3o moderada'},
+        {'min': 31, 'max': 40, 'rotulo': 'Depress\u00e3o grave'},
+        {'min': 41, 'max': 63, 'rotulo': 'Depress\u00e3o muito grave'},
       ],
       'questoes': [
-        'Tristeza',
-        'Pessimismo',
-        'Sentimento de fracasso',
-        'Insatisfação',
-        'Culpa',
-        'Punição',
-        'Autoaversão',
-        'Autocrítica',
-        'Ideação suicida',
-        'Choro',
-        'Agitação',
-        'Perda de interesse',
-        'Indecisão',
-        'Desvalorização',
-        'Falta de energia',
-        'Alteração do sono',
-        'Irritabilidade',
-        'Alteração do apetite',
-        'Dificuldade de concentração',
-        'Fadiga',
-        'Perda de libido',
+        'Tristeza', 'Pessimismo', 'Sentimento de fracasso', 'Insatisfa\u00e7\u00e3o',
+        'Culpa', 'Puni\u00e7\u00e3o', 'Autoavers\u00e3o', 'Autocr\u00edtica',
+        'Idea\u00e7\u00e3o suicida', 'Choro', 'Agita\u00e7\u00e3o', 'Perda de interesse',
+        'Indecis\u00e3o', 'Desvaloriza\u00e7\u00e3o', 'Falta de energia', 'Altera\u00e7\u00e3o do sono',
+        'Irritabilidade', 'Altera\u00e7\u00e3o do apetite', 'Dificuldade de concentra\u00e7\u00e3o',
+        'Fadiga', 'Perda de libido',
       ],
       'opcoes': ['0', '1', '2', '3'],
     },
     'bai': {
-      'nome': 'BAI — Inventário de Ansiedade de Beck',
-      'descricao': 'Avalia a intensidade dos sintomas de ansiedade na última semana.',
-      'instrucoes': 'Indique o quanto cada sintoma abaixo o(a) incomodou durante a última semana, incluindo hoje.',
+      'nome': 'BAI \u2014 Invent\u00e1rio de Ansiedade de Beck',
+      'descricao': 'Avalia a intensidade dos sintomas de ansiedade na \u00faltima semana.',
+      'instrucoes': 'Indique o quanto cada sintoma abaixo o(a) incomodou durante a \u00faltima semana, incluindo hoje.',
       'faixas': [
-        {'min': 0, 'max': 7, 'rotulo': 'Ansiedade mínima'},
+        {'min': 0, 'max': 7, 'rotulo': 'Ansiedade m\u00ednima'},
         {'min': 8, 'max': 15, 'rotulo': 'Ansiedade leve'},
         {'min': 16, 'max': 25, 'rotulo': 'Ansiedade moderada'},
         {'min': 26, 'max': 63, 'rotulo': 'Ansiedade grave'},
       ],
       'questoes': [
-        'Dormência ou formigamento',
-        'Sensação de calor',
-        'Tremores nas pernas',
-        'Incapacidade de relaxar',
-        'Medo que aconteça o pior',
-        'Tontura ou atordoamento',
-        'Batidas fortes do coração',
-        'Falta de equilíbrio',
-        'Terror (sensação de pavor)',
-        'Nervosismo',
-        'Sensação de sufocamento',
-        'Tremores nas mãos',
-        'Tremores no corpo',
-        'Medo de perder o controle',
-        'Dificuldade de respirar',
-        'Medo de morrer',
-        'Assustado(a)',
-        'Indigestão ou desconforto abdominal',
-        'Sensação de desmaio',
-        'Rosto corado ou quente',
-        'Suor (não devido ao calor)',
+        'Dorm\u00eancia ou formigamento', 'Sensa\u00e7\u00e3o de calor', 'Tremores nas pernas',
+        'Incapacidade de relaxar', 'Medo que aconte\u00e7a o pior', 'Tontura ou atordoamento',
+        'Batidas fortes do cora\u00e7\u00e3o', 'Falta de equil\u00edbrio', 'Terror (sensa\u00e7\u00e3o de pavor)',
+        'Nervosismo', 'Sensa\u00e7\u00e3o de sufocamento', 'Tremores nas m\u00e3os',
+        'Tremores no corpo', 'Medo de perder o controle', 'Dificuldade de respirar',
+        'Medo de morrer', 'Assustado(a)', 'Indigest\u00e3o ou desconforto abdominal',
+        'Sensa\u00e7\u00e3o de desmaio', 'Rosto corado ou quente', 'Suor (n\u00e3o devido ao calor)',
       ],
-      'opcoes': ['Absolutamente não', 'Levemente', 'Moderadamente', 'Gravemente'],
+      'opcoes': ['Absolutamente n\u00e3o', 'Levemente', 'Moderadamente', 'Gravemente'],
     },
     'dass21': {
-      'nome': 'DASS-21 — Escala de Depressão, Ansiedade e Estresse',
-      'descricao': 'Avalia sintomas de depressão, ansiedade e estresse na última semana.',
-      'instrucoes': 'Indique o quanto cada afirmação se aplicou a você durante a última semana.',
+      'nome': 'DASS-21 \u2014 Escala de Depress\u00e3o, Ansiedade e Estresse',
+      'descricao': 'Avalia sintomas de depress\u00e3o, ansiedade e estresse na \u00faltima semana.',
+      'instrucoes': 'Indique o quanto cada afirma\u00e7\u00e3o se aplicou a voc\u00ea durante a \u00faltima semana.',
       'faixas_depressao': [
         {'min': 0, 'max': 4, 'rotulo': 'Normal'},
         {'min': 5, 'max': 6, 'rotulo': 'Leve'},
@@ -207,29 +175,29 @@ class EscalaService {
         {'min': 17, 'max': 42, 'rotulo': 'Muito grave'},
       ],
       'questoes': [
-        'Achei difícil me acalmar',
+        'Achei dif\u00edcil me acalmar',
         'Senti minha boca seca',
-        'Não consegui sentir nenhum sentimento positivo',
-        'Tive dificuldade para respirar (ex: respiração muito rápida, falta de ar sem esforço físico)',
-        'Achei difícil tomar iniciativa para fazer as coisas',
-        'Tive tendência a reagir exageradamente às situações',
-        'Senti tremores (ex: nas mãos)',
+        'N\u00e3o consegui sentir nenhum sentimento positivo',
+        'Tive dificuldade para respirar (ex: respira\u00e7\u00e3o muito r\u00e1pida, falta de ar sem esfor\u00e7o f\u00edsico)',
+        'Achei dif\u00edcil tomar iniciativa para fazer as coisas',
+        'Tive tend\u00eancia a reagir exageradamente \u00e0s situa\u00e7\u00f5es',
+        'Senti tremores (ex: nas m\u00e3os)',
         'Senti que estava sempre nervoso(a)',
-        'Preocupei-me com situações em que poderia entrar em pânico',
-        'Senti que não tinha nada a desejar',
+        'Preocupei-me com situa\u00e7\u00f5es em que poderia entrar em p\u00e2nico',
+        'Senti que n\u00e3o tinha nada a desejar',
         'Senti-me agitado(a)',
-        'Achei difícil relaxar',
-        'Senti-me depressivo(a) e sem ânimo',
+        'Achei dif\u00edcil relaxar',
+        'Senti-me depressivo(a) e sem \u00e2nimo',
         'Fui intolerante com coisas que me impediam de continuar o que estava fazendo',
-        'Senti que ia entrar em pânico',
-        'Não consegui me entusiasmar com nada',
-        'Senti que não tinha muito valor como pessoa',
+        'Senti que ia entrar em p\u00e2nico',
+        'N\u00e3o consegui me entusiasmar com nada',
+        'Senti que n\u00e3o tinha muito valor como pessoa',
         'Senti que estava muito irritado(a)',
-        'Percebi as batidas do meu coração mesmo sem esforço físico',
+        'Percebi as batidas do meu cora\u00e7\u00e3o mesmo sem esfor\u00e7o f\u00edsico',
         'Senti medo sem motivo',
-        'Senti que a vida não tinha sentido',
+        'Senti que a vida n\u00e3o tinha sentido',
       ],
-      'opcoes': ['Não se aplicou', 'Aplicou-se um pouco', 'Aplicou-se bastante', 'Aplicou-se na maior parte do tempo'],
+      'opcoes': ['N\u00e3o se aplicou', 'Aplicou-se um pouco', 'Aplicou-se bastante', 'Aplicou-se na maior parte do tempo'],
     },
   };
 

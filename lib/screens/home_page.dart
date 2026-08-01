@@ -16,10 +16,10 @@ import 'backup_restore_page.dart';
 import 'configuracoes_page.dart';
 import 'lgpd/privacidade_seguranca_page.dart';
 import 'agenda_page.dart';
-import 'paciente_detail_page.dart';
 import 'pacientes_page.dart';
 import 'perfil_profissional_form_page.dart';
 import 'sessao_form_page.dart';
+import 'financeiro_page.dart';
 
 final _saudacaoProvider = StateProvider<String>((ref) => _calcularSaudacao());
 
@@ -109,58 +109,6 @@ class _HomePageState extends ConsumerState<HomePage> {
     final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
     if (perfil == null) return '';
     return perfil.nomeExibicao;
-  }
-
-  Widget _indicadorPendencias() {
-    final sessaoService = ref.read(sessaoServiceProvider);
-    final pendentes = sessaoService.listarSessoesPendentesRevisao();
-    if (pendentes.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      child: GestureDetector(
-      onTap: () {
-        final primeira = pendentes.first;
-        final pacienteService = ref.read(pacienteServiceProvider);
-        final paciente = pacienteService.buscarPacientePorId(primeira.pacienteId);
-        if (paciente == null) return;
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => PacienteDetailPage(
-              paciente: paciente,
-              sessaoParaAbrir: primeira,
-            ),
-          ),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: context.corWarning.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.rate_review_outlined,
-                color: context.corWarning, size: 20),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                '${pendentes.length} sess${pendentes.length == 1 ? 'ão' : 'ões'} pendente${pendentes.length == 1 ? '' : 's'} de revisão',
-                style: TextStyle(
-                  color: context.corWarning,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 13,
-                ),
-              ),
-            ),
-            Icon(Icons.chevron_right,
-                color: context.corWarning, size: 20),
-          ],
-        ),
-      ),
-      ),
-    );
   }
 
   void _abrirPerfil() {
@@ -474,6 +422,12 @@ class _HomePageState extends ConsumerState<HomePage> {
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {
               switch (value) {
+                case 'financeiro':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const FinanceiroPage()),
+                  );
+                  break;
                 case 'perfil':
                   _abrirPerfil();
                   break;
@@ -504,6 +458,16 @@ class _HomePageState extends ConsumerState<HomePage> {
               }
             },
             itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: 'financeiro',
+                child: Row(
+                  children: [
+                    Icon(Icons.payments_outlined, size: 20),
+                    SizedBox(width: 10),
+                    Text('Financeiro'),
+                  ],
+                ),
+              ),
               PopupMenuItem(
                 value: 'perfil',
                 child: Row(
@@ -591,42 +555,21 @@ class _HomePageState extends ConsumerState<HomePage> {
                     MaterialPageRoute(builder: (_) => const PacientesPage()),
                   );
                 },
-                onSessoesTap: () {
+                onReceitaTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const AgendaPage()),
+                    MaterialPageRoute(builder: (_) => const FinanceiroPage()),
                   );
                 },
-                onRevisoesTap: () {
-                  final pendentes = ref
-                      .read(sessaoServiceProvider)
-                      .listarSessoesPendentesRevisao();
-                  if (pendentes.isEmpty) return;
-                  final paciente = ref
-                      .read(pacienteServiceProvider)
-                      .buscarPacientePorId(pendentes.first.pacienteId);
-                  if (paciente == null) return;
+                onPendenteTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => PacienteDetailPage(
-                        paciente: paciente,
-                        sessaoParaAbrir: pendentes.first,
-                      ),
-                    ),
+                    MaterialPageRoute(builder: (_) => const FinanceiroPage()),
                   );
                 },
               ),
             ),
           ),
-          const SliverToBoxAdapter(child: SizedBox(height: 14)),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: SessoesHojeCard(onAgendar: _novoCompromissoRapido),
-            ),
-          ),
-          SliverToBoxAdapter(child: _indicadorPendencias()),
           const SliverToBoxAdapter(child: SizedBox(height: 14)),
           SliverToBoxAdapter(
             child: Padding(

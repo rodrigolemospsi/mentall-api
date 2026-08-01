@@ -3,25 +3,22 @@ import 'dart:convert';
 import 'package:hive_ce/hive.dart';
 
 import '../models/paciente.dart';
+import '../models/pacote.dart';
 import '../models/perfil_profissional.dart';
+import '../models/progresso_sessao.dart';
 import '../models/sessao.dart';
 import '../models/contrato_terapeutico.dart';
+import 'encrypted_service_mixin.dart';
 import 'encryption_service.dart';
 
-class BackupService {
-  final EncryptionService? _encryption;
+class BackupService with EncryptedServiceMixin {
+  @override
+  final EncryptionService? encryption;
 
-  BackupService({EncryptionService? encryption}) : _encryption = encryption;
+  BackupService({EncryptionService? encryption}) : encryption = encryption;
 
-  String _encrypt(String value) {
-    if (_encryption == null || value.isEmpty) return value;
-    return _encryption.criptografar(value);
-  }
-
-  String _decrypt(String value) {
-    if (_encryption == null || value.isEmpty) return value;
-    return _encryption.descriptografar(value);
-  }
+  String _encrypt(String value) => encrypt(value);
+  String _decrypt(String value) => decrypt(value);
 
   String exportarParaJson() {
     final pacientes = Hive.box<Paciente>('pacientes');
@@ -61,6 +58,9 @@ class BackupService {
             'data_atualizacao': p.dataAtualizacao!.toIso8601String(),
           'modo_atendimento': p.modoAtendimento,
           'foto_base64': p.fotoBase64,
+          'tratamento': p.tratamento,
+          if (p.enderecoJson.isNotEmpty) 'endereco_json': _decrypt(p.enderecoJson),
+          'valor_sessao': p.valorSessao,
         };
       }).toList(),
       'sessoes': sessoes.values.map((s) {
@@ -98,6 +98,11 @@ class BackupService {
           if (incluirAudio) 'audio_relato_base64': audioB64,
           'audio_excluido_do_backup': !incluirAudio,
           'artigos_sugeridos': _decrypt(s.artigosSugeridos),
+          'valor_sessao': s.valorSessao,
+          'status_pagamento': s.statusPagamento,
+          if (s.dataPagamento != null)
+            'data_pagamento': s.dataPagamento!.toIso8601String(),
+          'metodo_pagamento': s.metodoPagamento,
         };
       }).toList(),
         'contratos': Hive.box<ContratoTerapeutico>('contratos').values.map((c) {
@@ -111,8 +116,34 @@ class BackupService {
             if (c.dataAceite != null)
               'data_aceite': c.dataAceite!.toIso8601String(),
             'status': c.status,
-            'nome_aceite': c.nomeAceite,
+            'nome_aceite': _decrypt(c.nomeAceite),
             'url': c.url,
+            'arquivado': c.arquivado,
+          };
+        }).toList(),
+        'pacotes': Hive.box<Pacote>('pacotes').values.map((p) {
+          return {
+            'id': p.id,
+            'paciente_id': p.pacienteId,
+            'total_sessoes': p.totalSessoes,
+            'sessoes_restantes': p.sessoesRestantes,
+            'valor_total': p.valorTotal,
+            'data_criacao': p.dataCriacao.toIso8601String(),
+            'ativo': p.ativo,
+            'observacoes': p.observacoes,
+          };
+        }).toList(),
+        'progresso_sessoes': Hive.box<ProgressoSessao>('progresso_sessoes').values.map((p) {
+          return {
+            'id': p.id,
+            'paciente_id': p.pacienteId,
+            'sessao_id': p.sessaoId,
+            'numero_sessao': p.numeroSessao,
+            'sintomas_json': p.sintomasJson,
+            'metas_json': p.metasJson,
+            'avaliacao_geral': p.avaliacaoGeral,
+            'tendencia': p.tendencia,
+            'data_processamento': p.dataProcessamento.toIso8601String(),
           };
         }).toList(),
     };
@@ -142,13 +173,15 @@ class BackupService {
       final dados = jsonDecode(jsonString) as Map<String, dynamic>;
 
       if (dados.containsKey('versao') == false) {
-        return 'Arquivo de backup inválido: versão não encontrada.';
+        return 'Arquivo de backup inv\u00e1lido: vers\u00e3o n\u00e3o encontrada.';
       }
 
       final pacientesBox = Hive.box<Paciente>('pacientes');
       final sessoesBox = Hive.box<Sessao>('sessoes');
       final perfilBox = Hive.box<PerfilProfissional>('perfil_profissional');
       final contratosBox = Hive.box<ContratoTerapeutico>('contratos');
+      final pacotesBox = Hive.box<Pacote>('pacotes');
+      final progressosBox = Hive.box<ProgressoSessao>('progresso_sessoes');
 
       final pacienteIdToKey = <String, dynamic>{};
       for (final entry in pacientesBox.toMap().entries) {
@@ -166,11 +199,21 @@ class BackupService {
       for (final entry in contratosBox.toMap().entries) {
         contratoIdToKey[entry.value.id] = entry.key;
       }
+      final pacoteIdToKey = <String, dynamic>{};
+      for (final entry in pacotesBox.toMap().entries) {
+        pacoteIdToKey[entry.value.id] = entry.key;
+      }
+      final progressoIdToKey = <String, dynamic>{};
+      for (final entry in progressosBox.toMap().entries) {
+        progressoIdToKey[entry.value.id] = entry.key;
+      }
 
       int pacientesImportados = 0;
       int sessoesImportadas = 0;
       int perfisImportados = 0;
       int contratosImportados = 0;
+      int pacotesImportados = 0;
+      int progressosImportados = 0;
 
       for (final item in dados['pacientes'] as List<dynamic>? ?? []) {
         final map = item as Map<String, dynamic>;
@@ -193,6 +236,9 @@ class BackupService {
               : null,
           modoAtendimento: map['modo_atendimento'] as String? ?? '',
           fotoBase64: map['foto_base64'] as String? ?? '',
+          tratamento: map['tratamento'] as String? ?? 'masculino',
+          enderecoJson: _encrypt(map['endereco_json'] as String? ?? ''),
+          valorSessao: (map['valor_sessao'] as num?)?.toDouble() ?? 0.0,
         );
 
         await _salvarSobrescrevendo<Paciente>(
@@ -253,6 +299,12 @@ class BackupService {
               _encrypt(map['audio_relato_base64'] as String? ?? ''),
           artigosSugeridos:
               _encrypt(map['artigos_sugeridos'] as String? ?? ''),
+          valorSessao: (map['valor_sessao'] as num?)?.toDouble() ?? 0.0,
+          statusPagamento: map['status_pagamento'] as String? ?? 'pendente',
+          dataPagamento: map['data_pagamento'] != null
+              ? DateTime.parse(map['data_pagamento'] as String)
+              : null,
+          metodoPagamento: map['metodo_pagamento'] as String? ?? '',
         );
 
         await _salvarSobrescrevendo<Sessao>(
@@ -313,8 +365,9 @@ class BackupService {
               ? DateTime.parse(map['data_aceite'] as String)
               : null,
           status: map['status'] as String? ?? 'pendente',
-          nomeAceite: map['nome_aceite'] as String? ?? '',
+          nomeAceite: _encrypt(map['nome_aceite'] as String? ?? ''),
           url: map['url'] as String? ?? '',
+          arquivado: map['arquivado'] as bool? ?? false,
         );
 
         await _salvarSobrescrevendo<ContratoTerapeutico>(
@@ -326,9 +379,59 @@ class BackupService {
         contratosImportados++;
       }
 
-      return 'Importação concluída: $perfisImportados perfil(is), '
-          '$pacientesImportados paciente(s), $sessoesImportadas sessão(ões), '
-          '$contratosImportados contrato(s).';
+      for (final item in dados['pacotes'] as List<dynamic>? ?? []) {
+        final map = item as Map<String, dynamic>;
+        final pacote = Pacote(
+          id: map['id'] as String,
+          pacienteId: map['paciente_id'] as String,
+          totalSessoes: map['total_sessoes'] as int? ?? 0,
+          sessoesRestantes: map['sessoes_restantes'] as int? ?? 0,
+          valorTotal: (map['valor_total'] as num?)?.toDouble() ?? 0.0,
+          dataCriacao: map['data_criacao'] != null
+              ? DateTime.parse(map['data_criacao'] as String)
+              : DateTime.now(),
+          ativo: map['ativo'] as bool? ?? true,
+          observacoes: map['observacoes'] as String? ?? '',
+        );
+
+        await _salvarSobrescrevendo<Pacote>(
+          pacotesBox,
+          pacote,
+          (existente) => existente.id == pacote.id,
+          pacoteIdToKey,
+        );
+        pacotesImportados++;
+      }
+
+      for (final item in dados['progresso_sessoes'] as List<dynamic>? ?? []) {
+        final map = item as Map<String, dynamic>;
+        final progresso = ProgressoSessao(
+          id: map['id'] as String,
+          pacienteId: map['paciente_id'] as String,
+          sessaoId: map['sessao_id'] as String,
+          numeroSessao: map['numero_sessao'] as int? ?? 0,
+          sintomasJson: map['sintomas_json'] as String? ?? '[]',
+          metasJson: map['metas_json'] as String? ?? '[]',
+          avaliacaoGeral: map['avaliacao_geral'] as String? ?? '',
+          tendencia: map['tendencia'] as String? ?? 'estavel',
+          dataProcessamento: map['data_processamento'] != null
+              ? DateTime.parse(map['data_processamento'] as String)
+              : DateTime.now(),
+        );
+
+        await _salvarSobrescrevendo<ProgressoSessao>(
+          progressosBox,
+          progresso,
+          (existente) => existente.id == progresso.id,
+          progressoIdToKey,
+        );
+        progressosImportados++;
+      }
+
+      return 'Importa\u00e7\u00e3o conclu\u00edda: $perfisImportados perfil(is), '
+          '$pacientesImportados paciente(s), $sessoesImportadas sess\u00e3o(\u00f5es), '
+          '$contratosImportados contrato(s), $pacotesImportados pacote(s), '
+          '$progressosImportados registro(s) de progresso.';
     } catch (e) {
       return 'Erro ao importar: $e';
     }

@@ -244,3 +244,98 @@ class IaClinicaService {
     }
   }
 }
+
+class ResultadoProgresso {
+  final bool sucesso;
+  final List<Map<String, dynamic>> sintomas;
+  final List<Map<String, dynamic>> metas;
+  final String avaliacaoGeral;
+  final String tendencia;
+  final String recomendacoes;
+  final String erro;
+
+  const ResultadoProgresso({
+    required this.sucesso,
+    required this.sintomas,
+    required this.metas,
+    required this.avaliacaoGeral,
+    required this.tendencia,
+    required this.recomendacoes,
+    required this.erro,
+  });
+
+  factory ResultadoProgresso.sucesso({
+    required List<dynamic> sintomas,
+    required List<dynamic> metas,
+    required String avaliacaoGeral,
+    required String tendencia,
+    String recomendacoes = '',
+  }) {
+    return ResultadoProgresso(
+      sucesso: true,
+      sintomas: sintomas.cast<Map<String, dynamic>>(),
+      metas: metas.cast<Map<String, dynamic>>(),
+      avaliacaoGeral: avaliacaoGeral,
+      tendencia: tendencia,
+      recomendacoes: recomendacoes,
+      erro: '',
+    );
+  }
+
+  factory ResultadoProgresso.falha({required String erro}) {
+    return ResultadoProgresso(
+      sucesso: false,
+      sintomas: [],
+      metas: [],
+      avaliacaoGeral: '',
+      tendencia: 'estavel',
+      recomendacoes: '',
+      erro: erro,
+    );
+  }
+}
+
+extension IaClinicaProgressoService on IaClinicaService {
+  Future<ResultadoProgresso> gerarProgresso({
+    required String pacienteId,
+    required int numeroSessao,
+    required List<Map<String, dynamic>> sessoesAnteriores,
+    required Map<String, dynamic> sessaoAtual,
+    String objetivosTerapeuticos = '',
+    String queixaPrincipal = '',
+    List<Map<String, dynamic>> escalas = const [],
+  }) async {
+    final endpoint = '${ApiClient.baseUrl}/gerar-progresso';
+
+    final body = {
+      'paciente_id': pacienteId,
+      'numero_sessao': numeroSessao,
+      'sessoes_anteriores': sessoesAnteriores,
+      'sessao_atual': sessaoAtual,
+      'objetivos_terapeuticos': objetivosTerapeuticos,
+      'queixa_principal': queixaPrincipal,
+      'escalas': escalas,
+    };
+
+    final response = await _fazerRequisicaoComRetry(
+        endpoint: endpoint, body: body, tentativa: 0);
+
+    if (response['status'] == 200) {
+      final data = response['data'] as Map<String, dynamic>;
+      if (data['sucesso'] == true) {
+        return ResultadoProgresso.sucesso(
+          sintomas: data['sintomas'] as List<dynamic>? ?? [],
+          metas: data['metas'] as List<dynamic>? ?? [],
+          avaliacaoGeral: data['avaliacao_geral'] as String? ?? '',
+          tendencia: data['tendencia'] as String? ?? 'estavel',
+          recomendacoes: data['recomendacoes'] as String? ?? '',
+        );
+      }
+      return ResultadoProgresso.falha(
+          erro: data['erro'] as String? ?? 'Erro desconhecido');
+    }
+
+    return ResultadoProgresso.falha(
+        erro: 'Erro HTTP ${response['status']}');
+  }
+}

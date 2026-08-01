@@ -118,7 +118,7 @@ class PdfArquiteturaLgpdService {
         children: [
           _campo('Produto', 'MentAll'),
           _campo('Documento', 'Arquitetura LGPD do Produto'),
-          _campo('Versao', '1.0 — documento tecnico de trabalho'),
+          _campo('Versao', '1.0 - documento tecnico de trabalho'),
           pw.SizedBox(height: 12),
           _paragrafo(
               'Este documento estrutura a base de privacidade, seguranca, '
@@ -312,7 +312,7 @@ class PdfArquiteturaLgpdService {
 
   pw.Widget _conteudoSecao11() {
     return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-      _backlog('P0 — Antes de usar com dados reais', true, [
+      _backlog('P0 - Antes de usar com dados reais', true, [
         'Limitar audio a 5 minutos',
         'Revisao profissional obrigatoria',
         'Arquivamento em vez de exclusao',
@@ -323,7 +323,7 @@ class PdfArquiteturaLgpdService {
         'Invalidacao de IA apos alteracoes',
       ]),
       pw.SizedBox(height: 14),
-      _backlog('P1 — Antes de beta externo', false, [
+      _backlog('P1 - Antes de beta externo', false, [
         'Criptografia local (AES-256-CBC)',
         'Registro de ciencia/consentimento',
         'Exportacao segura (PDF)',
@@ -332,7 +332,7 @@ class PdfArquiteturaLgpdService {
         'Politica de privacidade e termos de uso',
       ]),
       pw.SizedBox(height: 14),
-      _backlog('P2 — Antes de comercializar', false, [
+      _backlog('P2 - Antes de comercializar', false, [
         'Revisao juridica completa',
         'Acordo de tratamento de dados',
         'Backup criptografado',

@@ -96,7 +96,7 @@ class EscalasSection extends ConsumerWidget {
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Text(
-                                        '${ultimaResposta.first.pontuacao} pts — ${ultimaResposta.first.interpretacao}',
+                                        '${ultimaResposta.first.pontuacao} pts - ${ultimaResposta.first.interpretacao}',
                                         style: TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w600,
@@ -317,7 +317,7 @@ class EscalasSection extends ConsumerWidget {
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.corPrimaria),
                         ),
                         Text(
-                          ' — ${h.interpretacao}',
+                          ' - ${h.interpretacao}',
                           style: TextStyle(fontSize: 11, color: context.corTextoSecondary),
                         ),
                       ],

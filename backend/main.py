@@ -28,6 +28,8 @@ from models.schemas import (
     LembreteResponse,
     LoginRequest,
     LoginResponse,
+    ProgressoRequest,
+    ProgressoResponse,
     ResponderAnamneseRequest,
     SinteseRequest,
     SinteseResponse,
@@ -48,7 +50,7 @@ from services.contrato_service import (
     obter_contrato,
     registrar_aceite,
 )
-from services.ia_clinica import gerar_sintese
+from services.ia_clinica import gerar_sintese, gerar_progresso
 from services.lembrete_service import (
     agendar_lembrete,
     cancelar_lembrete,
@@ -116,6 +118,7 @@ def _renderizar_template_personalizado(
     texto = dados.get("template_contrato", "")
     termo = dados.get("termo_pessoa", "paciente")
     termo_cap = termo[0].upper() + termo[1:] if termo else "Paciente"
+    psicologo_ou_psicologa = "Psic\u00f3loga" if dados.get("tratamento") == "feminino" else "Psic\u00f3logo"
     aceito_msg = ""
     if aceito:
         data_fmt = aceito_em[:10].replace("-", "/") if aceito_em else ""
@@ -146,35 +149,59 @@ def _renderizar_template_personalizado(
     border-radius: 18px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.08);
     padding: 40px 28px;
+    position: relative;
   }}
-  .logo {{
-    text-align: center;
-    color: #2563EB;
+  .logo-mentall {{
+    position: absolute;
+    top: 20px;
+    right: 28px;
+    font-size: 12px;
     font-weight: 700;
-    line-height: 1.3;
+    color: #2563EB;
+    opacity: 0.45;
+    letter-spacing: 0.5px;
   }}
-  .logo .titulo {{ font-size: 18px; }}
-  .logo .nome {{ font-size: 26px; letter-spacing: 1px; }}
-  .crp {{
-    text-align: center;
-    font-size: 13px;
-    color: #475569;
-    margin: 6px 0 4px;
+  .cabecalho-profissional {{
+    margin-bottom: 6px;
   }}
-  .subtitulo {{
-    text-align: center;
-    font-size: 14px;
+  .cabecalho-profissional .profissional-nome {{
+    font-size: 15px;
+    font-weight: 500;
+    color: #1E293B;
+  }}
+  .cabecalho-profissional .profissional-crp {{
+    font-size: 15px;
     color: #64748B;
-    margin-bottom: 32px;
+    margin-top: 1px;
+  }}
+  .paciente-info {{
+    font-size: 15px;
+    color: #475569;
+    margin-bottom: 28px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #E2E8F0;
+  }}
+  .paciente-info strong {{
+    color: #1E293B;
+  }}
+  .titulo-acordo {{
+    text-align: center;
+    font-size: 20px;
+    font-weight: 700;
+    color: #2563EB;
+    margin-bottom: 0;
+    padding-bottom: 0;
+    letter-spacing: 0.5px;
   }}
   h2 {{
     font-size: 18px;
     color: #2563EB;
     margin: 28px 0 10px;
     padding-bottom: 6px;
-    border-bottom: 1px solid #E2E8F0;
+    border-bottom: 1px solid #93C5FD;
+    font-weight: 700;
   }}
-  p {{ font-size: 15px; color: #334155; margin-bottom: 6px; }}
+  p {{ font-size: 15px; color: #334155; margin-bottom: 6px; text-align: justify; }}
   .assinatura {{
     margin-top: 36px;
     padding-top: 20px;
@@ -271,12 +298,18 @@ def _renderizar_template_personalizado(
 </head>
 <body>
 <div class="container">
-  <div class="logo">
-    <div class="titulo">Psic\u00f3logo(a)</div>
-    <div class="nome">{html.escape(nome_profissional)}</div>
+  <div class="logo-mentall">MentAll</div>
+
+  <div class="cabecalho-profissional">
+    <div class="profissional-nome">{html.escape(psicologo_ou_psicologa)} {html.escape(nome_profissional)}</div>
+    <div class="profissional-crp">CRP {html.escape(registro)}</div>
   </div>
-  <div class="crp">CRP {html.escape(registro)}</div>
-  <div class="subtitulo">Acordo Terap\u00eautico</div>
+
+  <div class="paciente-info">
+    <strong>Paciente:</strong> {html.escape(nome_paciente)}
+  </div>
+
+  <div class="titulo-acordo">Acordo Terap\u00eautico</div>
   {paragrafos}
   {aceito_msg}
   {"".join(f'''<div class="secao-aceite" id="secao-aceite">
@@ -501,6 +534,46 @@ def sintese(request: SinteseRequest, _req: Request):
 
 
 @app.post(
+    "/gerar-progresso",
+    response_model=ProgressoResponse,
+    tags=["IA Clinica"],
+    dependencies=[Depends(_verificar_token)],
+)
+def progresso(request: ProgressoRequest, _req: Request):
+    ip = _req.client.host if _req.client else "unknown"
+    _rate_limit_check(ip, max_requests=30)
+
+    log.info(
+        "Solicitacao de progresso - paciente=%s sessao=%d",
+        request.paciente_id[:8],
+        request.numero_sessao,
+    )
+    resultado = gerar_progresso(
+        paciente_id=request.paciente_id,
+        numero_sessao=request.numero_sessao,
+        sessoes_anteriores=request.sessoes_anteriores,
+        sessao_atual=request.sessao_atual,
+        objetivos_terapeuticos=request.objetivos_terapeuticos,
+        queixa_principal=request.queixa_principal,
+        escalas=request.escalas,
+    )
+
+    if not resultado.get("sintomas"):
+        return ProgressoResponse(sucesso=False, erro=resultado.get("erro", "Erro ao gerar progresso"))
+
+    log.info("Progresso concluido com sucesso")
+    return ProgressoResponse(
+        sucesso=True,
+        sintomas=resultado.get("sintomas", []),
+        metas=resultado.get("metas", []),
+        avaliacao_geral=resultado.get("avaliacao_geral", ""),
+        tendencia=resultado.get("tendencia", "estavel"),
+        recomendacoes=resultado.get("recomendacoes", ""),
+        erro="",
+    )
+
+
+@app.post(
     "/enviar-sms",
     response_model=SmsResponse,
     tags=["Mensagens"],
@@ -591,6 +664,7 @@ def criar_contrato_endpoint(request: ContratoRequest, _req: Request, auth: tuple
         "registro_profissional": request.registro_profissional.strip(),
         "termo_pessoa": request.termo_pessoa.strip() or "paciente",
         "template_contrato": request.template_contrato.strip(),
+        "tratamento": request.tratamento.strip() or "masculino",
     }
 
     token = criar_contrato(dados, owner_id)
@@ -630,6 +704,7 @@ def _pagina_contrato(token: str, _req: Request):
     dados = contrato.get("dados", {})
     termo = dados.get("termo_pessoa", "paciente")
     termo_capitalizado = termo[0].upper() + termo[1:] if termo else "Paciente"
+    psicologo_ou_psicologa = "Psic\u00f3loga" if dados.get("tratamento") == "feminino" else "Psic\u00f3logo"
 
     if termo == "pessoa atendida":
         artigo = "a"
@@ -673,6 +748,7 @@ def _pagina_contrato(token: str, _req: Request):
         "{{artigo_termo}}": html.escape(artigo),
         "{{preposicao_termo}}": html.escape(preposicao),
         "{{termo_profissional}}": "do psic\u00f3logo",
+        "{{psicologo_ou_psicologa}}": html.escape(psicologo_ou_psicologa),
         "{{local_data}}": "",
         "{{url_aceitar}}": f"{base_url}/contratos/{token}/aceitar",
         "{{data_aceite}}": aceito_em[:10] if aceito_em else "-",
@@ -905,7 +981,7 @@ def pagina_anamnese(token: str, _req: Request):
             content=f"""<!DOCTYPE html>
 <html lang="pt-BR">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Anamnese — MentAll</title>
+<title>Anamnese - MentAll</title>
 <style>
 * {{ margin:0; padding:0; box-sizing:border-box; }}
 body {{ font-family:-apple-system,sans-serif; background:#F0F4FF; color:#1E293B; }}
@@ -921,7 +997,7 @@ p {{ color:#64748B; font-size:15px; }}
 <h2>Questionário já respondido</h2>
 <p>Você já enviou suas respostas em {data_fmt}.</p>
 <p>O profissional {dados.get('nome_profissional', '')} já as recebeu.</p>
-<div class="footer">MentAll — Soluções para Psicólogos</div>
+<div class="footer">MentAll - Soluções para Psicólogos</div>
 </div></body></html>""",
         )
 

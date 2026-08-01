@@ -8,7 +8,7 @@ from google import genai
 from google.genai import types
 from openai import OpenAI
 
-from prompts.abordagens import PROMPT_UNIVERSAL, obter_prompt_abordagem
+from prompts.abordagens import PROMPT_UNIVERSAL, PROMPT_PROGRESSO, obter_prompt_abordagem
 
 log = logging.getLogger("mentall.ia_clinica")
 
@@ -161,7 +161,7 @@ def _rerankear_artigos(candidatos: list, contexto_clinico: str) -> list:
         if c.get("ano"):
             cabecalho += f" ({c['ano']})"
         if c.get("autores"):
-            cabecalho += f" — {c['autores']}"
+            cabecalho += f" - {c['autores']}"
         linhas.append(cabecalho)
         if c.get("resumo"):
             linhas.append(f"   Resumo: {c['resumo'][:350]}")
@@ -176,7 +176,7 @@ ARTIGOS CANDIDATOS:
 
 Selecione até {MAX_ARTIGOS_TOTAL} artigos MAIS RELEVANTES para o contexto clínico acima.
 Critérios: relação direta com o problema clínico central da sessão, com as intervenções realizadas ou com a evolução do caso; utilidade prática para o profissional.
-Descarte artigos genéricos ou apenas tangenciais — é melhor indicar menos artigos do que artigos fora do tema.
+Descarte artigos genéricos ou apenas tangenciais - é melhor indicar menos artigos do que artigos fora do tema.
 
 Responda apenas com JSON puro (sem markdown):
 {{"selecionados": [{{"indice": 1, "justificativa": "1 frase curta explicando a relevância clínica para esta sessão"}}]}}
@@ -214,7 +214,7 @@ def _formatar_artigos(artigos: list) -> str:
 
         linha = f"{i}. {art['titulo']}{sufixo}"
         if art.get("autores"):
-            linha += f" — {art['autores']}"
+            linha += f" - {art['autores']}"
         linhas.append(linha)
         if art.get("justificativa"):
             linhas.append(f"   Relevância: {art['justificativa']}")
@@ -418,7 +418,7 @@ Critérios:
 1. O primeiro tema deve focar no problema clínico central da sessão; o segundo pode combinar outro tema relevante da sessão com a abordagem {abordagem_clinica}.
 2. Use termos consagrados na literatura científica em português, como seriam digitados em uma base de dados científica.
 3. NÃO inclua o nome do {termo} nem qualquer dado que identifique a pessoa atendida.
-4. NÃO invente títulos de artigos nem links — apenas expressões de busca.
+4. NÃO invente títulos de artigos nem links - apenas expressões de busca.
 5. Se o material clínico for insuficiente, retorne lista vazia.
 
 IMPORTANTE:
@@ -646,3 +646,133 @@ def gerar_sintese(
     except Exception as e:
         log.exception("Erro inesperado ao gerar sintese: %s", e)
         return {"sucesso": False, "erro": f"Erro ao gerar síntese clínica: {str(e)}"}
+
+
+def gerar_progresso(
+    paciente_id: str,
+    numero_sessao: int,
+    sessoes_anteriores: list,
+    sessao_atual: dict,
+    objetivos_terapeuticos: str = "",
+    queixa_principal: str = "",
+    escalas: list = None,
+) -> dict:
+    if escalas is None:
+        escalas = []
+
+    historico = ""
+    for s in sessoes_anteriores:
+        historico += f"Sessão {s.get('numero')} ({s.get('data', '')}):\n{s.get('sintese', '')}\n\n"
+
+    dados_escalas = ""
+    if escalas:
+        for e in escalas:
+            nome = e.get("nome", "")
+            dados_escalas += f"- {nome}:\n"
+            for d in e.get("datas", []):
+                dados_escalas += f"  {d.get('data', '')}: {d.get('pontuacao', '?')} pontos ({d.get('interpretacao', '')})\n"
+
+    prompt = f"""{PROMPT_PROGRESSO}
+
+DADOS DO PACIENTE:
+Queixa principal: {queixa_principal or 'Nao informada'}
+Objetivos terapeuticos: {objetivos_terapeuticos or 'Nao informados'}
+
+{"QUESTIONARIOS APLICADOS:" if escalas else ""}
+{dados_escalas}
+
+SESSOES ANTERIORES:
+{historico}
+
+SESSAO ATUAL (numero {numero_sessao}, {sessao_atual.get('data', '')}):
+{sessao_atual.get('sintese', '')}
+Relato: {sessao_atual.get('relato', '')}
+Intervencoes: {sessao_atual.get('intervencoes', '')}
+
+Retorne um JSON com o seguinte formato:
+{{
+    "sintomas": [
+        {{"nome": "...", "intensidade": 7, "tendencia": "piora", "evidencia": "..."}}
+    ],
+    "metas": [
+        {{"descricao": "...", "progresso": 0.3, "status": "inicio"}}
+    ],
+    "avaliacao_geral": "...",
+    "tendencia": "mista",
+    "recomendacoes": "..."
+}}"""
+
+    try:
+        provider = _get_provider()
+        log.info("gerar_progresso: provider=%s sessao=%d", provider, numero_sessao)
+        return _chamar_llm_json(provider, prompt, temperature=0.3)
+    except Exception as e:
+        log.exception("Erro ao gerar progresso: %s", e)
+        return {"sucesso": False, "erro": f"Erro ao gerar progresso: {str(e)}"}
+
+
+def _chamar_llm_json(provider: str, prompt: str, temperature: float = 0.3) -> dict:
+    if provider == "openai":
+        return _chamar_llm_json_openai(prompt, temperature)
+    elif provider == "deepseek":
+        return _chamar_llm_json_deepseek(prompt, temperature)
+    elif provider == "gemini":
+        return _chamar_llm_json_gemini(prompt, temperature)
+    return {"sucesso": False, "erro": f"Provedor desconhecido: {provider}"}
+
+
+def _chamar_llm_json_openai(prompt: str, temperature: float) -> dict:
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    try:
+        response = client.chat.completions.create(
+            model=_get_model_name(),
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            timeout=120,
+            temperature=temperature,
+        )
+        return json.loads(response.choices[0].message.content)
+    except Exception as e:
+        log.exception("OpenAI JSON error: %s", e)
+        return {"sucesso": False, "erro": str(e)}
+
+
+def _chamar_llm_json_deepseek(prompt: str, temperature: float) -> dict:
+    client = OpenAI(
+        api_key=os.getenv("DEEPSEEK_API_KEY"),
+        base_url="https://api.deepseek.com/v1",
+    )
+    try:
+        response = client.chat.completions.create(
+            model="deepseek-v4-flash",
+            messages=[{"role": "user", "content": prompt}],
+            timeout=120,
+            temperature=temperature,
+        )
+        content = response.choices[0].message.content.strip()
+        if content.startswith("```json"):
+            content = content[7:]
+        if content.endswith("```"):
+            content = content[:-3]
+        return json.loads(content)
+    except Exception as e:
+        log.exception("DeepSeek JSON error: %s", e)
+        return {"sucesso": False, "erro": str(e)}
+
+
+def _chamar_llm_json_gemini(prompt: str, temperature: float) -> dict:
+    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                temperature=temperature,
+                response_mime_type="application/json",
+            ),
+        )
+        return json.loads(response.text)
+    except Exception as e:
+        log.exception("Gemini JSON error: %s", e)
+        return {"sucesso": False, "erro": str(e)}
+

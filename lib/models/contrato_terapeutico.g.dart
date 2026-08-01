@@ -26,13 +26,14 @@ class ContratoTerapeuticoAdapter extends TypeAdapter<ContratoTerapeutico> {
       status: fields[6] == null ? 'pendente' : fields[6] as String,
       nomeAceite: fields[7] == null ? '' : fields[7] as String,
       url: fields[8] == null ? '' : fields[8] as String,
+      arquivado: fields[9] == null ? false : fields[9] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, ContratoTerapeutico obj) {
     writer
-      ..writeByte(9)
+      ..writeByte(10)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -50,7 +51,9 @@ class ContratoTerapeuticoAdapter extends TypeAdapter<ContratoTerapeutico> {
       ..writeByte(7)
       ..write(obj.nomeAceite)
       ..writeByte(8)
-      ..write(obj.url);
+      ..write(obj.url)
+      ..writeByte(9)
+      ..write(obj.arquivado);
   }
 
   @override

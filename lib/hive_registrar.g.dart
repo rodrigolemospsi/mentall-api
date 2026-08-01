@@ -9,7 +9,9 @@ import 'package:prontuario_tcc/models/compromisso.dart';
 import 'package:prontuario_tcc/models/contrato_terapeutico.dart';
 import 'package:prontuario_tcc/models/lgpd/registro_auditoria.dart';
 import 'package:prontuario_tcc/models/paciente.dart';
+import 'package:prontuario_tcc/models/pacote.dart';
 import 'package:prontuario_tcc/models/perfil_profissional.dart';
+import 'package:prontuario_tcc/models/progresso_sessao.dart';
 import 'package:prontuario_tcc/models/resposta_escala.dart';
 import 'package:prontuario_tcc/models/sessao.dart';
 
@@ -20,7 +22,9 @@ extension HiveRegistrar on HiveInterface {
     registerAdapter(CompromissoAdapter());
     registerAdapter(ContratoTerapeuticoAdapter());
     registerAdapter(PacienteAdapter());
+    registerAdapter(PacoteAdapter());
     registerAdapter(PerfilProfissionalAdapter());
+    registerAdapter(ProgressoSessaoAdapter());
     registerAdapter(RegistroAuditoriaAdapter());
     registerAdapter(RespostaEscalaAdapter());
     registerAdapter(SessaoAdapter());
@@ -34,7 +38,9 @@ extension IsolatedHiveRegistrar on IsolatedHiveInterface {
     registerAdapter(CompromissoAdapter());
     registerAdapter(ContratoTerapeuticoAdapter());
     registerAdapter(PacienteAdapter());
+    registerAdapter(PacoteAdapter());
     registerAdapter(PerfilProfissionalAdapter());
+    registerAdapter(ProgressoSessaoAdapter());
     registerAdapter(RegistroAuditoriaAdapter());
     registerAdapter(RespostaEscalaAdapter());
     registerAdapter(SessaoAdapter());

@@ -234,20 +234,57 @@ class _WhatsAppLogoButton extends StatelessWidget {
     return contato.replaceAll(RegExp(r'[^\d]'), '');
   }
 
-  Future<void> _abrirWhatsApp() async {
-    final numero = _numeroLimpo;
-    if (numero.isEmpty) return;
-
+  Future<void> _abrirWhatsApp(String numero) async {
     final uri = Uri.parse('https://wa.me/$numero');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
 
+  void _mostrarOpcoes(BuildContext context) {
+    final numero = _numeroLimpo;
+    if (numero.isEmpty) return;
+
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 16, bottom: 8),
+              child: Text(
+                'Abrir com...',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+              ),
+            ),
+            ListTile(
+              leading: Image.asset('assets/images/logo_whats.png', width: 28, height: 28),
+              title: const Text('WhatsApp'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _abrirWhatsApp(numero);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.business, size: 28, color: Color(0xFF0D9488)),
+              title: const Text('WhatsApp Business'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _abrirWhatsApp(numero);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: _abrirWhatsApp,
+      onTap: () => _mostrarOpcoes(context),
       child: const SizedBox(
         width: 52,
         height: 52,

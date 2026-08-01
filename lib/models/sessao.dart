@@ -155,6 +155,18 @@ class Sessao extends HiveObject {
   @HiveField(30)
   String artigosSugeridos;
 
+  @HiveField(31)
+  double valorSessao;
+
+  @HiveField(32)
+  String statusPagamento;
+
+  @HiveField(33)
+  DateTime? dataPagamento;
+
+  @HiveField(34)
+  String metodoPagamento;
+
   Sessao({
     required this.id,
     required this.pacienteId,
@@ -187,6 +199,10 @@ class Sessao extends HiveObject {
     this.origemRelato = 'manual',
     this.audioRelatoBase64 = '',
     this.artigosSugeridos = '',
+    this.valorSessao = 0.0,
+    this.statusPagamento = 'pendente',
+    this.dataPagamento,
+    this.metodoPagamento = '',
   });
 
   bool get possuiRelatoPosSessao => relatoPosSessao.trim().isNotEmpty;
@@ -354,6 +370,10 @@ class Sessao extends HiveObject {
     String? audioRelatoBase64,
     String? transcricaoRevisada,
     String? artigosSugeridos,
+    double? valorSessao,
+    String? statusPagamento,
+    DateTime? dataPagamento,
+    String? metodoPagamento,
   }) {
     return Sessao(
       id: id ?? this.id,
@@ -393,6 +413,10 @@ class Sessao extends HiveObject {
           erroProcessamentoIa ?? this.erroProcessamentoIa,
       origemRelato: origemRelato ?? this.origemRelato,
       audioRelatoBase64: audioRelatoBase64 ?? this.audioRelatoBase64,
+      valorSessao: valorSessao ?? this.valorSessao,
+      statusPagamento: statusPagamento ?? this.statusPagamento,
+      dataPagamento: dataPagamento ?? this.dataPagamento,
+      metodoPagamento: metodoPagamento ?? this.metodoPagamento,
     );
   }
 }

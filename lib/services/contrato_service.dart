@@ -7,30 +7,45 @@ import '../models/contrato_terapeutico.dart';
 import '../models/paciente.dart';
 import '../models/perfil_profissional.dart';
 import 'api_client.dart';
+import 'encrypted_service_mixin.dart';
+import 'encryption_service.dart';
 import 'logger.dart';
 
-class ContratoService {
+class ContratoService with EncryptedServiceMixin {
   final Box<ContratoTerapeutico> _box = Hive.box<ContratoTerapeutico>('contratos');
+  @override
+  final EncryptionService? encryption;
+
+  ContratoService({EncryptionService? encryption}) : encryption = encryption;
+
+  String _encrypt(String value) => encrypt(value);
+  String _decrypt(String value) => decrypt(value);
 
   ContratoTerapeutico? obterPorPaciente(String pacienteId) {
-    final match = _box.values.where((c) => c.pacienteId == pacienteId);
+    final match = _box.values.where((c) => c.pacienteId == pacienteId && !c.arquivado);
     if (match.isEmpty) return null;
     final contratos = match.toList()..sort((a, b) => b.dataCriacao.compareTo(a.dataCriacao));
-    return contratos.first;
+    final c = contratos.first;
+    _decryptContrato(c);
+    return c;
   }
 
   List<ContratoTerapeutico> listarPorPaciente(String pacienteId) {
-    return _box.values
+    final lista = _box.values
         .where((c) => c.pacienteId == pacienteId)
         .toList()
       ..sort((a, b) => b.dataCriacao.compareTo(a.dataCriacao));
+    _decryptContratos(lista);
+    return lista;
   }
 
   List<ContratoTerapeutico> listarPendentes() {
-    return _box.values
+    final lista = _box.values
         .where((c) => c.status == 'pendente' || c.status == 'enviado')
         .toList()
       ..sort((a, b) => b.dataCriacao.compareTo(a.dataCriacao));
+    _decryptContratos(lista);
+    return lista;
   }
 
   int contarPendentes() {
@@ -60,6 +75,7 @@ class ContratoService {
             'registro_profissional': perfil.registroProfissional,
             'termo_pessoa': perfil.termoSingular,
             'template_contrato': templateContrato,
+            'tratamento': perfil.tratamento,
           }),
         )
           .timeout(const Duration(seconds: 30));
@@ -77,7 +93,9 @@ class ContratoService {
           dataCriacao: DateTime.now(),
           status: 'pendente',
         );
+        _encryptContrato(contrato);
         await _box.add(contrato);
+        _decryptContrato(contrato);
         return contrato;
       }
       Log.erro('POST /contratos sucesso=false: ${response.body}', contexto: 'ContratoService');
@@ -91,7 +109,9 @@ class ContratoService {
   Future<bool> marcarComoEnviado(ContratoTerapeutico contrato) async {
     contrato.status = 'enviado';
     contrato.dataEnvio = DateTime.now();
+    _encryptContrato(contrato);
     await contrato.save();
+    _decryptContrato(contrato);
     return true;
   }
 
@@ -112,12 +132,15 @@ class ContratoService {
         if (data['sucesso'] == true) {
           final novoStatus = data['status'] as String?;
           if (novoStatus == 'aceito' && !contrato.isAceito) {
+            _decryptContrato(contrato);
             contrato.status = 'aceito';
             contrato.dataAceite = data['aceito_em'] != null
                 ? DateTime.parse(data['aceito_em'] as String).toLocal()
                 : DateTime.now();
             contrato.nomeAceite = data['nome_aceite'] as String? ?? '';
+            _encryptContrato(contrato);
             await contrato.save();
+            _decryptContrato(contrato);
             return true;
           }
         }
@@ -129,7 +152,54 @@ class ContratoService {
     }
   }
 
+  Future<void> arquivarContrato(ContratoTerapeutico contrato) async {
+    _decryptContrato(contrato);
+    contrato.arquivado = true;
+    _encryptContrato(contrato);
+    await contrato.save();
+    _decryptContrato(contrato);
+  }
+
+  Future<void> restaurarContrato(ContratoTerapeutico contrato) async {
+    _decryptContrato(contrato);
+    contrato.arquivado = false;
+    _encryptContrato(contrato);
+    await contrato.save();
+    _decryptContrato(contrato);
+  }
+
+  ContratoTerapeutico? obterArquivadoPorPaciente(String pacienteId) {
+    final match = _box.values.where((c) => c.pacienteId == pacienteId && c.arquivado);
+    if (match.isEmpty) return null;
+    final contratos = match.toList()..sort((a, b) => b.dataCriacao.compareTo(a.dataCriacao));
+    final c = contratos.first;
+    _decryptContrato(c);
+    return c;
+  }
+
+  Future<void> removerCriptografiaExistente() async {
+    final enc = encryption; if (enc == null || !enc.configurado) return;
+    for (final c in _box.values) {
+      _decryptContrato(c);
+      await c.save();
+    }
+  }
+
   Stream<BoxEvent> observar() {
     return _box.watch();
+  }
+
+  void _encryptContrato(ContratoTerapeutico c) {
+    c.nomeAceite = _encrypt(c.nomeAceite);
+  }
+
+  void _decryptContrato(ContratoTerapeutico c) {
+    c.nomeAceite = _decrypt(c.nomeAceite);
+  }
+
+  void _decryptContratos(List<ContratoTerapeutico> lista) {
+    for (final c in lista) {
+      _decryptContrato(c);
+    }
   }
 }

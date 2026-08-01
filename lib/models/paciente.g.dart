@@ -30,13 +30,15 @@ class PacienteAdapter extends TypeAdapter<Paciente> {
       dataCadastro: fields[7] as DateTime?,
       dataAtualizacao: fields[9] as DateTime?,
       tratamento: fields[12] == null ? 'masculino' : fields[12] as String,
+      enderecoJson: fields[13] == null ? '' : fields[13] as String,
+      valorSessao: fields[14] == null ? 0.0 : (fields[14] as num).toDouble(),
     );
   }
 
   @override
   void write(BinaryWriter writer, Paciente obj) {
     writer
-      ..writeByte(13)
+      ..writeByte(15)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -62,7 +64,11 @@ class PacienteAdapter extends TypeAdapter<Paciente> {
       ..writeByte(11)
       ..write(obj.fotoBase64)
       ..writeByte(12)
-      ..write(obj.tratamento);
+      ..write(obj.tratamento)
+      ..writeByte(13)
+      ..write(obj.enderecoJson)
+      ..writeByte(14)
+      ..write(obj.valorSessao);
   }
 
   @override

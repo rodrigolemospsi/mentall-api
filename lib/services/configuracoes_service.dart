@@ -11,6 +11,8 @@ class ConfiguracoesService {
   static const String _kTemaEscuro = 'tema_escuro';
   static const String _kCanalLembretePadrao = 'canal_lembrete_padrao';
   static const String _kContratoTemplate = 'contrato_template';
+  static const String _kValorPadraoSessao = 'valor_padrao_sessao';
+  static const String _kControleFinanceiroAtivo = 'controle_financeiro_ativo';
 
   static const String contratoPadrao = '''Acordo Terap\u00eautico
 
@@ -89,6 +91,22 @@ Ao preencher e aceitar este formul\u00e1rio, declaro estar ciente e de acordo co
 
   Future<void> setContratoTemplate(String texto) async {
     await _box.put(_kContratoTemplate, texto);
+  }
+
+  double get valorPadraoSessao {
+    final valor = double.tryParse(_box.get(_kValorPadraoSessao) ?? '');
+    return valor ?? 0.0;
+  }
+
+  Future<void> setValorPadraoSessao(double valor) async {
+    await _box.put(_kValorPadraoSessao, '$valor');
+  }
+
+  bool get controleFinanceiroAtivo =>
+      _box.get(_kControleFinanceiroAtivo) != 'false';
+
+  Future<void> setControleFinanceiroAtivo(bool ativado) async {
+    await _box.put(_kControleFinanceiroAtivo, '$ativado');
   }
 
   Stream<BoxEvent> observar() {

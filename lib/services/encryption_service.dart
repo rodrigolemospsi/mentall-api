@@ -265,10 +265,11 @@ class EncryptionService {
     if (_key == null) {
       if (possuiPinConfigurado && texto.length >= 16 && _pareceBase64ComMarker(texto)) {
         Log.erro(
-          'Descriptografia solicitada com PIN configurado mas chave indisponivel',
+          'Tentativa de descriptografar com PIN configurado mas chave indisponivel. '
+          'Dados mantidos em formato seguro (criptografado) ate o desbloqueio.',
           contexto: 'EncryptionService.descriptografar',
         );
-        return '';
+        return texto;
       }
       return texto;
     }
@@ -479,19 +480,29 @@ class EncryptionService {
     final ivBase64 = parts[1];
     final encryptedPart = parts.sublist(2).join(':');
 
-    final recoveryKey = _derivarChavePBKDF2(frase, salt);
     final iv = encrypt.IV.fromBase64(ivBase64);
 
     try {
-      final encrypter = encrypt.Encrypter(encrypt.AES(recoveryKey));
+      final recoveryKeyV3 = _derivarChavePBKDF2_V3(frase, salt);
+      final encrypter = encrypt.Encrypter(encrypt.AES(recoveryKeyV3));
       final encryptedBytes = encrypt.Encrypted.fromBase64(encryptedPart);
       final keyBytes = encrypter.decryptBytes(encryptedBytes, iv: iv);
       _key = encrypt.Key(Uint8List.fromList(keyBytes));
       _iv = iv;
       return true;
-    } catch (e) {
-      Log.erro(e, contexto: 'EncryptionService.recuperarComFrase');
-      return false;
+    } catch (_) {
+      try {
+        final recoveryKeyV2 = _derivarChavePBKDF2(frase, salt);
+        final encrypter = encrypt.Encrypter(encrypt.AES(recoveryKeyV2));
+        final encryptedBytes = encrypt.Encrypted.fromBase64(encryptedPart);
+        final keyBytes = encrypter.decryptBytes(encryptedBytes, iv: iv);
+        _key = encrypt.Key(Uint8List.fromList(keyBytes));
+        _iv = iv;
+        return true;
+      } catch (e) {
+        Log.erro(e, contexto: 'EncryptionService.recuperarComFrase');
+        return false;
+      }
     }
   }
 

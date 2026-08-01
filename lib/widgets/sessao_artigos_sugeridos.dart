@@ -61,40 +61,68 @@ class ArtigosSugeridosCard extends ConsumerWidget {
 
   InlineSpan _buildArtigosComLinks(BuildContext context, String texto) {
     final spans = <InlineSpan>[];
-    int lastEnd = 0;
 
-    final urlRegExp = RegExp(r'https?://[^\s\n]+', caseSensitive: false);
+    final blocos = texto.split(RegExp(r'\n(?=\d+\.\s)'));
 
-    for (final match in urlRegExp.allMatches(texto)) {
-      if (match.start > lastEnd) {
-        spans.add(TextSpan(text: texto.substring(lastEnd, match.start)));
+    for (int b = 0; b < blocos.length; b++) {
+      final bloco = blocos[b];
+      if (bloco.trim().isEmpty) continue;
+
+      final urlMatch = RegExp(r'https?://[^\s\n]+').firstMatch(bloco);
+      final url = urlMatch?.group(0);
+
+      final linhas = bloco.split(RegExp(r'\r?\n'));
+
+      for (int i = 0; i < linhas.length; i++) {
+        final linha = linhas[i];
+        final trimmed = linha.trimLeft();
+
+        final isUrlLine = RegExp(r'^https?://').hasMatch(trimmed);
+        final isPlatformUrlLine =
+            RegExp(r'^[A-Za-z]+\s*:?\s*https?://').hasMatch(trimmed);
+
+        if (isUrlLine || isPlatformUrlLine) {
+          continue;
+        }
+
+        if (trimmed.isEmpty) {
+          if (i < linhas.length - 1) {
+            spans.add(const TextSpan(text: '\n'));
+          }
+          continue;
+        }
+
+        if (i == 0 && url != null) {
+          spans.add(TextSpan(
+            text: i < linhas.length - 1 ? '$trimmed\n' : trimmed,
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.5,
+              color: context.corPrimaria,
+              fontWeight: FontWeight.w600,
+              decoration: TextDecoration.underline,
+              decorationColor: context.corPrimaria,
+            ),
+            recognizer: TapGestureRecognizer()
+              ..onTap = () async {
+                final uri = Uri.tryParse(url);
+                if (uri != null) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              },
+          ));
+        } else {
+          spans.add(TextSpan(text: i < linhas.length - 1 ? '$trimmed\n' : trimmed));
+        }
       }
-      final url = match.group(0)!;
-      spans.add(
-        TextSpan(
-          text: 'Acesse Aqui!',
-          style: TextStyle(
-            fontSize: 12,
-            height: 1.5,
-            color: context.corPrimaria,
-            fontWeight: FontWeight.w600,
-            decoration: TextDecoration.underline,
-            decorationColor: context.corPrimaria,
-          ),
-          recognizer: TapGestureRecognizer()
-            ..onTap = () async {
-              final uri = Uri.tryParse(url);
-              if (uri != null) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              }
-            },
-        ),
-      );
-      lastEnd = match.end;
+
+      if (b < blocos.length - 1) {
+        spans.add(const TextSpan(text: '\n\n'));
+      }
     }
 
-    if (lastEnd < texto.length) {
-      spans.add(TextSpan(text: texto.substring(lastEnd)));
+    if (spans.isEmpty) {
+      spans.add(TextSpan(text: texto));
     }
 
     return TextSpan(children: spans);

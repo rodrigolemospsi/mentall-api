@@ -20,41 +20,71 @@
     border-radius: 18px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.08);
     padding: 40px 28px;
+    position: relative;
   }
-  .logo {
-    text-align: center;
-    margin-bottom: 8px;
-    font-size: 26px;
+  .logo-mentall {
+    position: absolute;
+    top: 20px;
+    right: 28px;
+    font-size: 12px;
     font-weight: 700;
     color: #2563EB;
-    letter-spacing: 1px;
-  }
-  .subtitulo {
-    text-align: center;
-    font-size: 14px;
-    color: #64748B;
-    margin-bottom: 32px;
-  }
-  .crp {
-    text-align: center;
-    font-size: 13px;
-    color: #475569;
-    margin-bottom: 6px;
-    font-weight: 500;
+    opacity: 0.45;
     letter-spacing: 0.5px;
+  }
+  .cabecalho-profissional {
+    margin-bottom: 6px;
+  }
+  .cabecalho-profissional .profissional-nome {
+    font-size: 15px;
+    font-weight: 500;
+    color: #1E293B;
+  }
+  .cabecalho-profissional .profissional-crp {
+    font-size: 15px;
+    color: #64748B;
+    margin-top: 1px;
+  }
+  .paciente-info {
+    font-size: 15px;
+    color: #475569;
+    margin-bottom: 28px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #E2E8F0;
+  }
+  .paciente-info strong {
+    color: #1E293B;
+  }
+  .titulo-acordo {
+    text-align: center;
+    font-size: 20px;
+    font-weight: 700;
+    color: #2563EB;
+    margin-bottom: 0;
+    padding-bottom: 0;
+    letter-spacing: 0.5px;
+  }
+  .intro-acordo {
+    text-align: center;
+    font-size: 12px;
+    color: #64748B;
+    margin-top: 2px;
+    margin-bottom: 24px;
   }
   h2 {
     font-size: 18px;
     color: #2563EB;
     margin: 28px 0 10px;
     padding-bottom: 6px;
-    border-bottom: 1px solid #E2E8F0;
+    border-bottom: 1px solid #93C5FD;
+    font-weight: 700;
   }
   h2:first-of-type { margin-top: 0; }
   p, li {
     font-size: 15px;
     color: #334155;
     margin-bottom: 6px;
+    text-align: justify;
   }
   ul { padding-left: 22px; margin-bottom: 8px; }
   li { margin-bottom: 4px; }
@@ -162,14 +192,23 @@
 <body>
 <div class="container">
 
-  <div class="logo">Psic&oacute;logo(a)<br>{{nome_profissional}}</div>
-  <div class="crp">CRP {{registro_profissional}}</div>
-  <div class="subtitulo">Acordo Terap&ecirc;utico</div>
+  <div class="logo-mentall">MentAll</div>
 
-  <p>Este &eacute; um espa&ccedil;o de cuidado, escuta e respeito.</p>
+  <div class="cabecalho-profissional">
+    <div class="profissional-nome">{{psicologo_ou_psicologa}} {{nome_profissional}}</div>
+    <div class="profissional-crp">CRP {{registro_profissional}}</div>
+  </div>
+
+  <div class="paciente-info">
+    <strong>Paciente:</strong> {{nome_paciente}}
+  </div>
+
+  <div class="titulo-acordo">Acordo Terap&ecirc;utico</div>
+
+  <p class="intro-acordo">Este &eacute; um espa&ccedil;o de cuidado, escuta e respeito.</p>
 
   <h2>Compromissos</h2>
-  <p><strong>Psic&oacute;logo(a):</strong> ofere&ccedil;o um atendimento &eacute;tico, acolhedor e sigiloso, respeitando sua singularidade e autonomia.</p>
+  <p><strong>{{psicologo_ou_psicologa}}:</strong> ofere&ccedil;o um atendimento &eacute;tico, acolhedor e sigiloso, respeitando sua singularidade e autonomia.</p>
   <p><strong>{{termo_pessoa_capitalizado}}:</strong> comprometo-me a participar dos atendimentos com responsabilidade, pontualidade e comunica&ccedil;&atilde;o sempre que houver d&uacute;vidas, imprevistos ou necessidade de remarca&ccedil;&atilde;o.</p>
 
   <h2>Cancelamentos</h2>

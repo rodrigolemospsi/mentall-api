@@ -11,6 +11,8 @@ import 'sessao_service.dart';
 import 'perfil_profissional_service.dart';
 import 'avaliacao_inicial_service.dart';
 import 'escala_service.dart';
+import 'contrato_service.dart';
+import 'anamnese_enviada_service.dart';
 import 'package:http/http.dart' as http;
 
 class AuthService {
@@ -29,6 +31,8 @@ class AuthService {
   final PerfilProfissionalService? _perfilProfissionalService;
   final AvaliacaoInicialService? _avaliacaoInicialService;
   final EscalaService? _escalaService;
+  final ContratoService? _contratoService;
+  final AnamneseEnviadaService? _anamneseEnviadaService;
   bool _desbloqueado = false;
 
   AuthService(
@@ -38,11 +42,15 @@ class AuthService {
     PerfilProfissionalService? perfilProfissionalService,
     AvaliacaoInicialService? avaliacaoInicialService,
     EscalaService? escalaService,
+    ContratoService? contratoService,
+    AnamneseEnviadaService? anamneseEnviadaService,
   })  : _pacienteService = pacienteService,
         _sessaoService = sessaoService,
         _perfilProfissionalService = perfilProfissionalService,
         _avaliacaoInicialService = avaliacaoInicialService,
-        _escalaService = escalaService;
+        _escalaService = escalaService,
+        _contratoService = contratoService,
+        _anamneseEnviadaService = anamneseEnviadaService;
 
   bool get desbloqueado => _desbloqueado;
 
@@ -180,6 +188,8 @@ class AuthService {
     await _perfilProfissionalService?.removerCriptografiaExistente();
     await _avaliacaoInicialService?.removerCriptografiaExistente();
     await _escalaService?.removerCriptografiaExistente();
+    await _contratoService?.removerCriptografiaExistente();
+    await _anamneseEnviadaService?.removerCriptografiaExistente();
     await _encryptionService.limpar();
     _desbloqueado = false;
     ApiClient.authToken = null;

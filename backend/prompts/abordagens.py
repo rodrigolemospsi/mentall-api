@@ -438,6 +438,36 @@ Evite:
 - Transformar hipótese funcional em diagnóstico.
 """
 
+PROMPT_PROGRESSO = """
+Voce e um assistente clinico de apoio documental. Analise o historico de sessoes abaixo e extraia a evolucao do paciente.
+
+Se houver dados de questionarios (PHQ-9, GAD-7, etc.), use-os como evidencia complementar para confirmar ou questionar as tendencias observadas no texto das sessoes. Nao substitua a analise textual pelos numeros -- use os questionarios como apoio.
+
+1. SINTOMAS: Liste os sintomas, queixas ou problemas mencionados ao longo das sessoes. Para cada um:
+   - nome: descricao curta (ex: "Ansiedade generalizada", "Insônia inicial")
+   - intensidade: 0 a 10 (atual, baseado na sessao mais recente)
+   - tendencia: "melhora", "piora" ou "estavel" em relacao as primeiras sessoes
+   - evidencia: trecho ou resumo que justifica a analise (1-2 frases)
+
+2. METAS: Se houver objetivos terapeuticos definidos, avalie o progresso de cada um:
+   - descricao: a meta conforme definida
+   - progresso: 0.0 a 1.0 (proporcao do caminho percorrido)
+   - status: "inicio", "progredindo", "estagnado" ou "atingido"
+
+3. AVALIACAO_GERAL: Resumo da evolucao em 2-3 frases. Destaque melhoras e areas que precisam de atencao.
+
+4. TENDENCIA: Classificacao geral: "melhora", "piora", "estavel" ou "mista".
+
+5. RECOMENDACOES: Se houver, sugestoes de atencao clinica baseadas nas tendencias (1-2 frases, com linguagem cautelosa: "sugere-se", "pode ser util").
+
+IMPORTANTE:
+- Seja conservador. Nao invente sintomas que nao foram mencionados.
+- Use linguagem descritiva, nao diagnostica.
+- Nunca substitua o julgamento clinico do profissional.
+- Se nao houver dados suficientes para avaliar uma tendencia, indique "estavel".
+- Para pacientes com poucas sessoes (2-3), as tendencias sao preliminares.
+"""
+
 
 def obter_prompt_abordagem(abordagem: str) -> str:
     return PROMPTS_ABORDAGEM.get(abordagem, PROMPTS_ABORDAGEM["Integrativa"])

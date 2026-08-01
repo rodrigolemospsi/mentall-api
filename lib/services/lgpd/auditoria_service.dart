@@ -5,6 +5,7 @@ import '../logger.dart';
 
 class AuditoriaService {
   static const String _boxName = 'auditoria';
+  static const int _maxRegistros = 1000;
 
   AuditoriaService();
 
@@ -31,7 +32,7 @@ class AuditoriaService {
     if (registros.isEmpty) return 'Nenhum registro de atividade encontrado.';
 
     final buffer = StringBuffer();
-    buffer.writeln('RELATÓRIO DE ATIVIDADE — MENTALL');
+    buffer.writeln('RELATÓRIO DE ATIVIDADE - MENTALL');
     buffer.writeln('Gerado em: ${_formatarDataCompleta(DateTime.now())}');
     buffer.writeln('Total de eventos registrados: ${registros.length}');
     buffer.writeln('');
@@ -76,9 +77,20 @@ class AuditoriaService {
       );
 
       await _box.add(registro);
+      await _trimExcesso();
       Log.auditoria('$tipoEvento: $descricao', contexto: 'Auditoria');
     } catch (e) {
       Log.erro(e, contexto: 'AuditoriaService.registrar');
+    }
+  }
+
+  Future<void> _trimExcesso() async {
+    if (_box.length <= _maxRegistros) return;
+    final todos = _box.values.toList()
+      ..sort((a, b) => a.dataHora.compareTo(b.dataHora));
+    final excedente = todos.length - _maxRegistros;
+    for (var i = 0; i < excedente; i++) {
+      await todos[i].delete();
     }
   }
 

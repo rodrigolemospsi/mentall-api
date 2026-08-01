@@ -78,6 +78,7 @@ class ContratoRequest(BaseModel):
     registro_profissional: str = Field(max_length=30)
     termo_pessoa: str = Field(max_length=50)
     template_contrato: str = Field(default="", max_length=50_000)
+    tratamento: str = Field(default="masculino", max_length=10)
 
 
 class ContratoResponse(BaseModel):
@@ -148,4 +149,24 @@ class AnamneseStatusResponse(BaseModel):
     status: str = "pendente"
     data_resposta: str | None = None
     respostas_json: str = ""
+    erro: str = ""
+
+
+class ProgressoRequest(BaseModel):
+    paciente_id: str = Field(min_length=1, max_length=50)
+    numero_sessao: int = Field(ge=1)
+    sessoes_anteriores: list = Field(default_factory=list)
+    sessao_atual: dict = Field(default_factory=dict)
+    objetivos_terapeuticos: str = Field(default="", max_length=10_000)
+    queixa_principal: str = Field(default="", max_length=5_000)
+    escalas: list = Field(default_factory=list)
+
+
+class ProgressoResponse(BaseModel):
+    sucesso: bool
+    sintomas: list = Field(default_factory=list)
+    metas: list = Field(default_factory=list)
+    avaliacao_geral: str = ""
+    tendencia: str = "estavel"
+    recomendacoes: str = ""
     erro: str = ""

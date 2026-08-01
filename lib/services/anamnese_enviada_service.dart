@@ -4,16 +4,21 @@ import 'package:hive_ce/hive.dart';
 
 import '../models/anamnese_enviada.dart';
 import 'api_client.dart';
+import 'encrypted_service_mixin.dart';
+import 'encryption_service.dart';
 import 'logger.dart';
 
-class AnamneseEnviadaService {
+class AnamneseEnviadaService with EncryptedServiceMixin {
   static const String _boxName = 'anamneses_enviadas';
+  @override
+  final EncryptionService? encryption;
 
-  Box _abrirBox() {
-    return Hive.box(_boxName);
-  }
+  AnamneseEnviadaService({EncryptionService? encryption}) : encryption = encryption;
 
-  Box get _box => _abrirBox();
+  Box get _box => Hive.box(_boxName);
+
+  String _encrypt(String value) => encrypt(value);
+  String _decrypt(String value) => decrypt(value);
 
   AnamneseEnviada? obterPorPaciente(String pacienteId) {
     final anamneses = _box.values
@@ -21,7 +26,10 @@ class AnamneseEnviadaService {
         .where((a) => a.pacienteId == pacienteId)
         .toList()
       ..sort((a, b) => b.dataCriacao.compareTo(a.dataCriacao));
-    return anamneses.isNotEmpty ? anamneses.first : null;
+    if (anamneses.isEmpty) return null;
+    final a = anamneses.first;
+    _decryptAnamnese(a);
+    return a;
   }
 
   Future<AnamneseEnviada> criar({
@@ -64,7 +72,9 @@ class AnamneseEnviadaService {
           url: data['url'] as String,
           dataCriacao: DateTime.now(),
         );
+        _encryptAnamnese(anamnese);
         await _box.put(anamnese.id, anamnese);
+        _decryptAnamnese(anamnese);
         return anamnese;
       }
       Log.erro('Resposta inesperada do servidor: ${response.body}', contexto: 'AnamneseEnviadaService.criar');
@@ -83,6 +93,7 @@ class AnamneseEnviadaService {
       status: 'enviado',
       dataEnvio: DateTime.now(),
     );
+    _encryptAnamnese(atualizada);
     await _box.put(atualizada.id, atualizada);
   }
 
@@ -99,6 +110,7 @@ class AnamneseEnviadaService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         if (data['sucesso'] == true && data['status'] == 'respondido') {
+          _decryptAnamnese(anamnese);
           final respostas = data['respostas_json'] as String? ?? '';
           String dataRespostaStr = data['data_resposta'] as String? ?? '';
           DateTime? dataResposta;
@@ -111,6 +123,7 @@ class AnamneseEnviadaService {
             respostasJson: respostas,
             dataResposta: dataResposta,
           );
+          _encryptAnamnese(atualizada);
           await _box.put(atualizada.id, atualizada);
           return true;
         }
@@ -122,7 +135,23 @@ class AnamneseEnviadaService {
     }
   }
 
+  Future<void> removerCriptografiaExistente() async {
+    final enc = encryption; if (enc == null || !enc.configurado) return;
+    for (final a in _box.values.whereType<AnamneseEnviada>()) {
+      _decryptAnamnese(a);
+      await a.save();
+    }
+  }
+
   Stream<BoxEvent> observar() {
     return _box.watch();
+  }
+
+  void _encryptAnamnese(AnamneseEnviada a) {
+    a.respostasJson = _encrypt(a.respostasJson);
+  }
+
+  void _decryptAnamnese(AnamneseEnviada a) {
+    a.respostasJson = _decrypt(a.respostasJson);
   }
 }

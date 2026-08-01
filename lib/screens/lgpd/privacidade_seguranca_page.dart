@@ -368,7 +368,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
                 onPressed: () {
                   Share.share(
                     relatorio,
-                    subject: 'Relatório de Atividade — MentAll',
+                    subject: 'Relatório de Atividade - MentAll',
                   );
                 },
                 icon: const Icon(Icons.share_outlined, size: 18),

@@ -21,7 +21,7 @@ class SessaoAdapter extends TypeAdapter<Sessao> {
       pacienteId: fields[1] as String,
       numeroSessao: (fields[2] as num).toInt(),
       data: fields[3] as DateTime,
-      humor: fields[4] == null ? 5 : (fields[4] as num).toInt(),
+      humor: fields[4] == null ? -1 : (fields[4] as num).toInt(),
       temaPrincipal: fields[5] == null ? '' : fields[5] as String,
       eventosImportantes: fields[6] == null ? '' : fields[6] as String,
       pensamentosAutomaticos: fields[7] == null ? '' : fields[7] as String,
@@ -48,13 +48,17 @@ class SessaoAdapter extends TypeAdapter<Sessao> {
       origemRelato: fields[27] == null ? 'manual' : fields[27] as String,
       audioRelatoBase64: fields[28] == null ? '' : fields[28] as String,
       artigosSugeridos: fields[30] == null ? '' : fields[30] as String,
+      valorSessao: fields[31] == null ? 0.0 : (fields[31] as num).toDouble(),
+      statusPagamento: fields[32] == null ? 'pendente' : fields[32] as String,
+      dataPagamento: fields[33] as DateTime?,
+      metodoPagamento: fields[34] == null ? '' : fields[34] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, Sessao obj) {
     writer
-      ..writeByte(31)
+      ..writeByte(35)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -116,7 +120,15 @@ class SessaoAdapter extends TypeAdapter<Sessao> {
       ..writeByte(29)
       ..write(obj.transcricaoRevisada)
       ..writeByte(30)
-      ..write(obj.artigosSugeridos);
+      ..write(obj.artigosSugeridos)
+      ..writeByte(31)
+      ..write(obj.valorSessao)
+      ..writeByte(32)
+      ..write(obj.statusPagamento)
+      ..writeByte(33)
+      ..write(obj.dataPagamento)
+      ..writeByte(34)
+      ..write(obj.metodoPagamento);
   }
 
   @override

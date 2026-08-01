@@ -4,7 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:prontuario_tcc/hive_registrar.g.dart';
 import 'package:prontuario_tcc/models/paciente.dart';
+import 'package:prontuario_tcc/models/pacote.dart';
 import 'package:prontuario_tcc/models/perfil_profissional.dart';
+import 'package:prontuario_tcc/models/progresso_sessao.dart';
 import 'package:prontuario_tcc/models/sessao.dart';
 import 'package:prontuario_tcc/screens/sessao_form_page.dart';
 import 'package:prontuario_tcc/services/audio_relato_service.dart';
@@ -35,6 +37,8 @@ void main() {
     await Hive.openBox<Sessao>('sessoes');
     await Hive.openBox<PerfilProfissional>('perfil_profissional');
     await Hive.openBox<String>('app_config');
+    await Hive.openBox<Pacote>('pacotes');
+    await Hive.openBox<ProgressoSessao>('progresso_sessoes');
   });
 
   tearDownAll(() async {
@@ -42,10 +46,14 @@ void main() {
     await Hive.box<Sessao>('sessoes').close();
     await Hive.box<PerfilProfissional>('perfil_profissional').close();
     await Hive.box<String>('app_config').close();
+    await Hive.box<Pacote>('pacotes').close();
+    await Hive.box<ProgressoSessao>('progresso_sessoes').close();
     await Hive.deleteBoxFromDisk('pacientes');
     await Hive.deleteBoxFromDisk('sessoes');
     await Hive.deleteBoxFromDisk('perfil_profissional');
     await Hive.deleteBoxFromDisk('app_config');
+    await Hive.deleteBoxFromDisk('pacotes');
+    await Hive.deleteBoxFromDisk('progresso_sessoes');
   });
 
   setUp(() async {
@@ -83,9 +91,9 @@ void main() {
       expect(titleText.contains('sess'), isTrue);
     });
 
-    testWidgets('exibe nome do paciente', (tester) async {
+    testWidgets('exibe titulo da sessao', (tester) async {
       await _pump(tester);
-      expect(find.textContaining('SILVA'), findsWidgets);
+      expect(find.textContaining('SESSÃO'), findsWidgets);
     });
 
     testWidgets('exibe campos clinicos base', (tester) async {

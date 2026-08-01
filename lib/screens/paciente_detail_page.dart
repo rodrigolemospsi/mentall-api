@@ -723,6 +723,10 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
   }
 
   List<Widget> _appBarAcoes() {
+    final contratoAtivo = ref.watch(contratoPorPacienteProvider(widget.paciente.id)).valueOrNull;
+    final contratoArquivado = ref.watch(contratoArquivadoPorPacienteProvider(widget.paciente.id)).valueOrNull;
+    final temContratoAceito = (contratoAtivo != null && contratoAtivo.isAceito) || (contratoArquivado != null && contratoArquivado.isAceito);
+
     return [
       IconButton(
         tooltip: 'Exportar',
@@ -733,6 +737,53 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
         tooltip: 'Editar $_termoSingular',
         icon: const Icon(Icons.edit_outlined),
         onPressed: _abrirDialogEditarPaciente,
+      ),
+      PopupMenuButton<String>(
+        tooltip: 'Mais opcoes',
+        icon: const Icon(Icons.more_vert),
+        onSelected: (value) {
+          if (value == 'escalas') {
+            showDialog(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: const Text('Escalas Psicologicas'),
+                content: SizedBox(
+                  width: double.maxFinite,
+                  child: EscalasSection(pacienteId: widget.paciente.id),
+                ),
+              ),
+            );
+          } else if (value == 'acordo') {
+            _abrirDialogoAcordoArquivado(contratoAtivo, contratoArquivado);
+          }
+        },
+        itemBuilder: (_) {
+          final items = <PopupMenuItem<String>>[
+            const PopupMenuItem(
+              value: 'escalas',
+              child: Row(
+                children: [
+                  Icon(Icons.analytics_outlined, size: 20),
+                  SizedBox(width: 8),
+                  Text('Escalas Psicologicas'),
+                ],
+              ),
+            ),
+          ];
+          if (temContratoAceito) {
+            items.add(const PopupMenuItem(
+              value: 'acordo',
+              child: Row(
+                children: [
+                  Icon(Icons.description_outlined, size: 20),
+                  SizedBox(width: 8),
+                  Text('Acordo Terapeutico'),
+                ],
+              ),
+            ));
+          }
+          return items;
+        },
       ),
     ];
   }
@@ -748,7 +799,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
           anamnese.dataResposta != null
               ? 'Respondido em ${anamnese.dataResposta!.day.toString().padLeft(2, '0')}/${anamnese.dataResposta!.month.toString().padLeft(2, '0')}'
               : 'Respondido',
-          style: TextStyle(fontSize: 11, color: context.corSuccess),
+          style: TextStyle(color: context.corSuccess),
         ),
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
@@ -762,7 +813,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
       return OutlinedButton.icon(
         onPressed: () => _verificarOuReenviarAnamnese(anamnese),
         icon: Icon(Icons.hourglass_empty, color: context.corWarning, size: 20),
-        label: Text('Reenviar anamnese', style: TextStyle(fontSize: 11, color: context.corWarning)),
+        label: Text('Reenviar anamnese', style: TextStyle(color: context.corWarning)),
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
           side: BorderSide(color: context.corWarning),
@@ -773,12 +824,139 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
     return OutlinedButton.icon(
       onPressed: _criarEnviarAnamnese,
       icon: const Icon(Icons.assignment_outlined, size: 20),
-      label: const Text('Anamnese', style: TextStyle(fontSize: 11)),
+      label: const Text('Anamnese'),
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
         side: BorderSide(color: context.corPrimaria),
       ),
     );
+  }
+
+  Widget _pacoteCard() {
+    final pacotes = ref.watch(pacotesAtivosPorPacienteProvider(widget.paciente.id)).valueOrNull ?? [];
+    final totalRestantes = pacotes.fold<int>(0, (sum, p) => sum + p.sessoesRestantes);
+    final totalSessoes = pacotes.fold<int>(0, (sum, p) => sum + p.totalSessoes);
+    final qtdPacotes = pacotes.length;
+
+    if (qtdPacotes == 0) {
+      return OutlinedButton.icon(
+        onPressed: _criarPacote,
+        icon: const Icon(Icons.inventory_2_outlined, size: 20),
+        label: const Text('Criar pacote'),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+          side: BorderSide(color: context.corPrimaria),
+        ),
+      );
+    }
+
+    return Card(
+      margin: EdgeInsets.zero,
+      color: context.corCard,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.inventory_2_outlined, color: context.corPrimaria, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Pacotes ativos',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: context.corTextoHeading,
+                  ),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: _criarPacote,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Novo'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '$totalRestantes de $totalSessoes sessões restantes',
+              style: TextStyle(fontSize: 13, color: context.corTextoBody),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '${qtdPacotes} ${qtdPacotes == 1 ? 'pacote' : 'pacotes'} ativos',
+              style: TextStyle(fontSize: 12, color: context.corTextoMuted),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _criarPacote() async {
+    final totalController = TextEditingController(text: '10');
+    final valorController = TextEditingController(text: '');
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Criar Pacote de Sessões'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: totalController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Total de sessões',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: valorController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Valor total (R\$)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final total = int.tryParse(totalController.text);
+                final valor = double.tryParse(valorController.text.replaceAll(',', '.'));
+                if (total != null && total > 0 && valor != null && valor > 0) {
+                  Navigator.pop(ctx, true);
+                }
+              },
+              child: const Text('Criar Pacote'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result == true && mounted) {
+      final total = int.tryParse(totalController.text);
+      final valor = double.tryParse(valorController.text.replaceAll(',', '.'));
+      if (total != null && total > 0 && valor != null && valor > 0) {
+        ref.read(pacoteServiceProvider).criar(
+          pacienteId: widget.paciente.id,
+          totalSessoes: total,
+          valorTotal: valor,
+        );
+      }
+    }
   }
 
   Future<void> _verificarOuReenviarAnamnese(AnamneseEnviada anamnese) async {
@@ -867,7 +1045,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Anamnese — ${widget.paciente.nome}'),
+        title: Text('Anamnese - ${widget.paciente.nome}'),
         content: SizedBox(
           width: double.maxFinite,
           child: SingleChildScrollView(
@@ -1011,6 +1189,100 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
     return labels[id] ?? id;
   }
 
+  Widget _secaoEvolucao() {
+    final progressos = ref.watch(progressoPorPacienteProvider(widget.paciente.id)).valueOrNull ?? [];
+
+    if (progressos.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final ultimo = progressos.first;
+    final sintomas = _parseJsonList(ultimo.sintomasJson);
+
+    return Card(
+      margin: EdgeInsets.zero,
+      color: context.corCard,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.trending_up, color: context.corPrimaria, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Evolucao Clinica',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: context.corTextoHeading,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  'Sessao ${ultimo.numeroSessao}',
+                  style: TextStyle(fontSize: 12, color: context.corTextoMuted),
+                ),
+              ],
+            ),
+            if (sintomas.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              ...sintomas.take(3).map((s) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        Icon(
+                          s['tendencia'] == 'melhora'
+                              ? Icons.arrow_downward
+                              : s['tendencia'] == 'piora'
+                                  ? Icons.arrow_upward
+                                  : Icons.remove,
+                          size: 14,
+                          color: s['tendencia'] == 'melhora'
+                              ? context.corSuccess
+                              : s['tendencia'] == 'piora'
+                                  ? context.corError
+                                  : context.corTextoMuted,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            '${s['nome']} (${s['intensidade']}/10)',
+                            style: TextStyle(fontSize: 12, color: context.corTextoBody),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )),
+            ],
+            if (ultimo.avaliacaoGeral.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                ultimo.avaliacaoGeral,
+                style: TextStyle(fontSize: 11, color: context.corTextoMuted, fontStyle: FontStyle.italic),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Map<String, dynamic>> _parseJsonList(String json) {
+    if (json.isEmpty) return [];
+    try {
+      final decoded = jsonDecode(json);
+      if (decoded is List) {
+        return decoded.cast<Map<String, dynamic>>();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
   Widget _contratoCard() {
     final contrato = ref.watch(contratoPorPacienteProvider(widget.paciente.id)).valueOrNull;
 
@@ -1037,12 +1309,18 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                   ),
                 ),
                 const Spacer(),
-                if (contrato != null && contrato.isAceito)
+                if (contrato != null && contrato.isAceito) ...[
                   TextButton.icon(
                     onPressed: () => _verContrato(contrato),
                     icon: Icon(Icons.visibility_outlined, size: 16, color: context.corSuccess),
                     label: Text('Ver', style: TextStyle(fontSize: 13, color: context.corSuccess)),
-                  )
+                  ),
+                  IconButton(
+                    tooltip: 'Arquivar acordo',
+                    icon: Icon(Icons.archive_outlined, size: 18, color: context.corTextoMuted),
+                    onPressed: () => _arquivarContrato(contrato),
+                  ),
+                ]
                 else if (contrato != null)
                   TextButton.icon(
                     onPressed: () => _enviarContratoWhatsApp(contrato),
@@ -1228,8 +1506,105 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
     );
   }
 
+  Future<void> _arquivarContrato(ContratoTerapeutico contrato) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Arquivar acordo'),
+        content: const Text('O Acordo Terap\u00eautico ser\u00e1 removido desta tela e ficar\u00e1 dispon\u00edvel no menu.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Arquivar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmar != true) return;
+    final service = ref.read(contratoServiceProvider);
+    await service.arquivarContrato(contrato);
+    ref.invalidate(contratoPorPacienteProvider(widget.paciente.id));
+    ref.invalidate(contratoArquivadoPorPacienteProvider(widget.paciente.id));
+  }
+
+  void _abrirDialogoAcordoArquivado(ContratoTerapeutico? ativo, ContratoTerapeutico? arquivado) {
+    final contrato = arquivado ?? ativo;
+    if (contrato == null) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Acordo Terap\u00eautico'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _linhaInfo('Status', contrato.statusExibicao),
+            if (contrato.isAceito && contrato.nomeAceite.isNotEmpty)
+              _linhaInfo('Aceito por', contrato.nomeAceite),
+            if (contrato.dataAceite != null)
+              _linhaInfo('Data', contrato.dataAceiteFormatada),
+            if (contrato.dataEnvio != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Enviado em ${contrato.dataEnvio!.day.toString().padLeft(2, '0')}/${contrato.dataEnvio!.month.toString().padLeft(2, '0')}/${contrato.dataEnvio!.year}',
+                style: TextStyle(fontSize: 12, color: context.corTextoMuted),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Fechar'),
+          ),
+          if (contrato.arquivado)
+            FilledButton.icon(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                final service = ref.read(contratoServiceProvider);
+                await service.restaurarContrato(contrato);
+                ref.invalidate(contratoPorPacienteProvider(widget.paciente.id));
+                ref.invalidate(contratoArquivadoPorPacienteProvider(widget.paciente.id));
+              },
+              icon: const Icon(Icons.unarchive_outlined, size: 18),
+              label: const Text('Restaurar'),
+            )
+          else
+            FilledButton.icon(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await _arquivarContrato(contrato);
+              },
+              icon: const Icon(Icons.archive_outlined, size: 18),
+              label: const Text('Arquivar'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _linhaInfo(String label, String valor) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: RichText(
+        text: TextSpan(
+          children: [
+            TextSpan(text: '$label: ', style: TextStyle(fontWeight: FontWeight.w600, color: context.corTextoHeading, fontSize: 13)),
+            TextSpan(text: valor, style: TextStyle(color: context.corTextoBody, fontSize: 13)),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _corpoSessoes() {
     final sessaoService = ref.read(sessaoServiceProvider);
+    final anamnese = ref.watch(anamnesePorPacienteProvider(widget.paciente.id)).valueOrNull;
 
     return StreamBuilder(
       stream: sessaoService.observarSessoes(),
@@ -1282,18 +1657,21 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage> {
                         ),
                       ),
                   const SizedBox(width: 10),
-                  _botaoAnamnese(),
+                  Expanded(child: _botaoAnamnese()),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
+              _pacoteCard(),
               _contratoCard(),
+              const SizedBox(height: 14),
+              _secaoEvolucao(),
               const SizedBox(height: 14),
               AnamneseCard(
                 pacienteId: widget.paciente.id,
                 termoSingular: _termoSingular,
+                paciente: widget.paciente,
+                respostasAnamnese: anamnese != null && anamnese.isRespondido ? anamnese.respostas : null,
               ),
-              const SizedBox(height: 14),
-              EscalasSection(pacienteId: widget.paciente.id),
               const SizedBox(height: 20),
               _tabBarComListas(
                     sessoesAtivas: sessoesAtivas,

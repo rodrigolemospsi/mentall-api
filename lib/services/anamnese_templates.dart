@@ -120,7 +120,7 @@ class AnamneseTemplates {
 
   static const String _secaoEspecificaTCC = '''
     {
-      "titulo": "Bloco específico — TCC",
+      "titulo": "Bloco específico - TCC",
       "descricao": "Perguntas para entender melhor seus pensamentos, emoções e comportamentos.",
       "perguntas": [
         {"id": "situacoes_pioram",   "tipo": "textarea", "label": "Que situações costumam piorar o que você está sentindo?"},

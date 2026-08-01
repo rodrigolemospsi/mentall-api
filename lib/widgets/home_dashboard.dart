@@ -82,17 +82,17 @@ class AcoesRapidasHome extends StatelessWidget {
       children: [
         Expanded(
           child: _AcaoRapida(
-            icone: Icons.event_available_outlined,
-            label: 'Agendar',
-            onTap: onAgendar,
+            icone: Icons.person_add_alt_outlined,
+            label: termoFeminino ? 'Nova p.' : 'Novo $termoSingular',
+            onTap: onNovoPaciente,
           ),
         ),
         const SizedBox(width: 10),
         Expanded(
           child: _AcaoRapida(
-            icone: Icons.person_add_alt_outlined,
-            label: termoFeminino ? 'Nova pessoa' : 'Novo $termoSingular',
-            onTap: onNovoPaciente,
+            icone: Icons.event_available_outlined,
+            label: 'Agendar',
+            onTap: onAgendar,
           ),
         ),
         const SizedBox(width: 10),
@@ -161,16 +161,16 @@ class KpiCardsHome extends ConsumerWidget {
   final String termoPlural;
   final VoidCallback onHojeTap;
   final VoidCallback onPacientesTap;
-  final VoidCallback? onSessoesTap;
-  final VoidCallback onRevisoesTap;
+  final VoidCallback? onReceitaTap;
+  final VoidCallback? onPendenteTap;
 
   const KpiCardsHome({
     super.key,
     required this.termoPlural,
     required this.onHojeTap,
     required this.onPacientesTap,
-    this.onSessoesTap,
-    required this.onRevisoesTap,
+    this.onReceitaTap,
+    this.onPendenteTap,
   });
 
   @override
@@ -181,11 +181,15 @@ class KpiCardsHome extends ConsumerWidget {
         .where((c) => c.statusEnum != StatusCompromisso.cancelado)
         .length;
     final ativos = ref.watch(pacientesAtivosProvider).valueOrNull?.length ?? 0;
-    final kpis = ref.watch(dashboardKpisSessoesProvider).valueOrNull;
 
-    final termoCapitalizado = termoPlural.isNotEmpty
-        ? '${termoPlural[0].toUpperCase()}${termoPlural.substring(1)}'
-        : 'Pacientes';
+    final receita = ref.watch(_receitaMesProvider);
+    final pendente = ref.watch(_pendenteMesProvider);
+
+    final termoCapitalizado = termoPlural == 'pessoas atendidas'
+        ? 'P. atendidas'
+        : termoPlural.isNotEmpty
+            ? '${termoPlural[0].toUpperCase()}${termoPlural.substring(1)}'
+            : 'Pacientes';
 
     return Column(
       children: [
@@ -217,25 +221,25 @@ class KpiCardsHome extends ConsumerWidget {
         const SizedBox(height: 10),
         Row(
           children: [
-              Expanded(
+            Expanded(
               child: _KpiCard(
-                valor: '${kpis?.sessoesUltimos30Dias ?? 0}',
-                titulo: 'Sessões',
-                subtitulo: 'últimos 30 dias',
-                icone: Icons.description_outlined,
-                cor: const Color(0xFF7C3AED),
-                onTap: onSessoesTap,
+                valor: 'R\$ ${receita.toStringAsFixed(0)}',
+                titulo: 'Receita',
+                subtitulo: 'recebido no mês',
+                icone: Icons.payments_outlined,
+                cor: context.corSuccess,
+                onTap: onReceitaTap,
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: _KpiCard(
-                valor: '${kpis?.pendentesRevisao ?? 0}',
-                titulo: 'Revisões',
-                subtitulo: 'pendentes',
-                icone: Icons.rate_review_outlined,
+                valor: 'R\$ ${pendente.toStringAsFixed(0)}',
+                titulo: 'Pendente',
+                subtitulo: 'a receber',
+                icone: Icons.hourglass_bottom_outlined,
                 cor: context.corWarning,
-                onTap: onRevisoesTap,
+                onTap: onPendenteTap,
               ),
             ),
           ],
@@ -293,21 +297,25 @@ class _KpiCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            valor,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              color: cor,
-              height: 1,
+          Center(
+            child: Text(
+              valor,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: cor,
+                height: 1,
+              ),
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            subtitulo,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 11, color: context.corTextoMuted),
+          Center(
+            child: Text(
+              subtitulo,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 11, color: context.corTextoMuted),
+            ),
           ),
         ],
       ),
@@ -725,3 +733,21 @@ class _AtividadeItem extends StatelessWidget {
     return item;
   }
 }
+
+final _receitaMesProvider = Provider.autoDispose<double>((ref) {
+  final service = ref.watch(sessaoServiceProvider);
+  final now = DateTime.now();
+  final inicio = DateTime(now.year, now.month, 1);
+  final fim = DateTime(now.year, now.month + 1, 1);
+  final sessoes = service.listarSessoesPorPeriodo(inicio, fim);
+  return sessoes.where((s) => s.statusPagamento == 'pago').fold<double>(0, (sum, s) => sum + s.valorSessao);
+});
+
+final _pendenteMesProvider = Provider.autoDispose<double>((ref) {
+  final service = ref.watch(sessaoServiceProvider);
+  final now = DateTime.now();
+  final inicio = DateTime(now.year, now.month, 1);
+  final fim = DateTime(now.year, now.month + 1, 1);
+  final sessoes = service.listarSessoesPorPeriodo(inicio, fim);
+  return sessoes.where((s) => s.statusPagamento != 'pago' && s.statusPagamento != 'convenio' && s.statusPagamento != 'pacote').fold<double>(0, (sum, s) => sum + s.valorSessao);
+});

@@ -6,6 +6,8 @@ import '../models/compromisso.dart';
 import '../models/contrato_terapeutico.dart';
 import '../models/lgpd/registro_auditoria.dart';
 import '../models/paciente.dart';
+import '../models/pacote.dart';
+import '../models/progresso_sessao.dart';
 import '../models/resposta_escala.dart';
 import '../services/anamnese_enviada_service.dart';
 import '../services/audio_relato_service.dart';
@@ -21,7 +23,9 @@ import '../services/ia_clinica_service.dart';
 import '../services/lembrete_service.dart';
 import '../services/lgpd/auditoria_service.dart';
 import '../services/paciente_service.dart';
+import '../services/pacote_service.dart';
 import '../services/perfil_profissional_service.dart';
+import '../services/progresso_service.dart';
 import '../services/sessao_service.dart';
 import '../services/transcricao_relato_service.dart';
 
@@ -36,6 +40,8 @@ final authServiceProvider = Provider<AuthService>((ref) {
   final perfilProfissionalService = ref.watch(perfilProfissionalServiceProvider);
   final avaliacaoInicialService = ref.watch(avaliacaoInicialServiceProvider);
   final escalaService = ref.watch(escalaServiceProvider);
+  final contratoService = ref.watch(contratoServiceProvider);
+  final anamneseEnviadaService = ref.watch(anamneseEnviadaServiceProvider);
   return AuthService(
     encryption,
     pacienteService: pacienteService,
@@ -43,6 +49,8 @@ final authServiceProvider = Provider<AuthService>((ref) {
     perfilProfissionalService: perfilProfissionalService,
     avaliacaoInicialService: avaliacaoInicialService,
     escalaService: escalaService,
+    contratoService: contratoService,
+    anamneseEnviadaService: anamneseEnviadaService,
   );
 });
 
@@ -176,7 +184,8 @@ final dashboardKpisSessoesProvider =
 });
 
 final contratoServiceProvider = Provider<ContratoService>((ref) {
-  return ContratoService();
+  final encryption = ref.watch(encryptionServiceProvider);
+  return ContratoService(encryption: encryption);
 });
 
 final contratoPorPacienteProvider =
@@ -185,6 +194,15 @@ final contratoPorPacienteProvider =
   yield service.obterPorPaciente(pacienteId);
   await for (final _ in service.observar()) {
     yield service.obterPorPaciente(pacienteId);
+  }
+});
+
+final contratoArquivadoPorPacienteProvider =
+    StreamProvider.autoDispose.family<ContratoTerapeutico?, String>((ref, pacienteId) async* {
+  final service = ref.watch(contratoServiceProvider);
+  yield service.obterArquivadoPorPaciente(pacienteId);
+  await for (final _ in service.observar()) {
+    yield service.obterArquivadoPorPaciente(pacienteId);
   }
 });
 
@@ -217,12 +235,39 @@ final respostasEscalasPorPacienteProvider =
 });
 
 final anamneseEnviadaServiceProvider = Provider<AnamneseEnviadaService>((ref) {
-  return AnamneseEnviadaService();
+  final encryption = ref.watch(encryptionServiceProvider);
+  return AnamneseEnviadaService(encryption: encryption);
 });
 
 final anamnesePorPacienteProvider =
     StreamProvider.autoDispose.family<AnamneseEnviada?, String>((ref, pacienteId) async* {
   final service = ref.watch(anamneseEnviadaServiceProvider);
+  yield service.obterPorPaciente(pacienteId);
+  await for (final _ in service.observar()) {
+    yield service.obterPorPaciente(pacienteId);
+  }
+});
+
+final pacoteServiceProvider = Provider<PacoteService>((ref) {
+  return PacoteService();
+});
+
+final pacotesAtivosPorPacienteProvider =
+    StreamProvider.autoDispose.family<List<Pacote>, String>((ref, pacienteId) async* {
+  final service = ref.watch(pacoteServiceProvider);
+  yield service.obterPacotesAtivos(pacienteId);
+  await for (final _ in service.observar()) {
+    yield service.obterPacotesAtivos(pacienteId);
+  }
+});
+
+final progressoServiceProvider = Provider<ProgressoService>((ref) {
+  return ProgressoService();
+});
+
+final progressoPorPacienteProvider =
+    StreamProvider.autoDispose.family<List<ProgressoSessao>, String>((ref, pacienteId) async* {
+  final service = ref.watch(progressoServiceProvider);
   yield service.obterPorPaciente(pacienteId);
   await for (final _ in service.observar()) {
     yield service.obterPorPaciente(pacienteId);

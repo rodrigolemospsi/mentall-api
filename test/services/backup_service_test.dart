@@ -6,7 +6,9 @@ import 'package:prontuario_tcc/hive_registrar.g.dart';
 import 'package:prontuario_tcc/models/compromisso.dart';
 import 'package:prontuario_tcc/models/contrato_terapeutico.dart';
 import 'package:prontuario_tcc/models/paciente.dart';
+import 'package:prontuario_tcc/models/pacote.dart';
 import 'package:prontuario_tcc/models/perfil_profissional.dart';
+import 'package:prontuario_tcc/models/progresso_sessao.dart';
 import 'package:prontuario_tcc/models/sessao.dart';
 import 'package:prontuario_tcc/services/backup_service.dart';
 import 'package:prontuario_tcc/services/encryption_service.dart';
@@ -28,6 +30,8 @@ void main() {
     await Hive.openBox<PerfilProfissional>('perfil_profissional');
     await Hive.openBox<ContratoTerapeutico>('contratos');
     await Hive.openBox<Compromisso>('compromissos');
+    await Hive.openBox<Pacote>('pacotes');
+    await Hive.openBox<ProgressoSessao>('progresso_sessoes');
   });
 
   tearDownAll(() async {
@@ -36,6 +40,8 @@ void main() {
     await Hive.deleteBoxFromDisk('perfil_profissional');
     await Hive.deleteBoxFromDisk('contratos');
     await Hive.deleteBoxFromDisk('compromissos');
+    await Hive.deleteBoxFromDisk('pacotes');
+    await Hive.deleteBoxFromDisk('progresso_sessoes');
     await Hive.deleteBoxFromDisk('encryption_meta');
   });
 

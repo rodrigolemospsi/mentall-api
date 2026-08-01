@@ -31,6 +31,9 @@ class ContratoTerapeutico extends HiveObject {
   @HiveField(8)
   String url;
 
+  @HiveField(9)
+  bool arquivado;
+
   ContratoTerapeutico({
     required this.id,
     required this.pacienteId,
@@ -41,6 +44,7 @@ class ContratoTerapeutico extends HiveObject {
     this.status = 'pendente',
     this.nomeAceite = '',
     this.url = '',
+    this.arquivado = false,
   });
 
   bool get isPendente => status == 'pendente';
@@ -79,6 +83,7 @@ class ContratoTerapeutico extends HiveObject {
     String? status,
     String? nomeAceite,
     String? url,
+    bool? arquivado,
   }) {
     return ContratoTerapeutico(
       id: id ?? this.id,
@@ -90,6 +95,7 @@ class ContratoTerapeutico extends HiveObject {
       status: status ?? this.status,
       nomeAceite: nomeAceite ?? this.nomeAceite,
       url: url ?? this.url,
+      arquivado: arquivado ?? this.arquivado,
     );
   }
 }

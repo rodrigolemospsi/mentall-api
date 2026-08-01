@@ -1,14 +1,16 @@
 import 'package:hive_ce/hive.dart';
 
 import '../models/sessao.dart';
+import 'encrypted_service_mixin.dart';
 import 'encryption_service.dart';
 
-class SessaoService {
+class SessaoService with EncryptedServiceMixin {
   final Box<Sessao> _box = Hive.box<Sessao>('sessoes');
-  final EncryptionService? _encryption;
+  @override
+  final EncryptionService? encryption;
   final Map<String, int> _cacheProximoNumero = {};
 
-  SessaoService({EncryptionService? encryption}) : _encryption = encryption;
+  SessaoService({EncryptionService? encryption}) : encryption = encryption;
 
   List<Sessao> listarTodasSessoes() {
     final sessoes = _box.values.toList();
@@ -24,6 +26,27 @@ class SessaoService {
     sessoes.sort((a, b) => b.data.compareTo(a.data));
     _decryptSessoes(sessoes);
     return sessoes;
+  }
+
+  List<Sessao> listarSessoesPorPeriodo(DateTime inicio, DateTime fim) {
+    final sessoes = _box.values
+        .where((s) =>
+            !s.arquivada &&
+            s.data.isAfter(inicio.subtract(const Duration(seconds: 1))) &&
+            s.data.isBefore(fim.add(const Duration(seconds: 1))))
+        .toList();
+    sessoes.sort((a, b) => a.data.compareTo(b.data));
+    _decryptSessoes(sessoes);
+    return sessoes;
+  }
+
+  List<Sessao> listarSessoesRecentes(String pacienteId, {int limite = 5}) {
+    final sessoes = _box.values
+        .where((s) => s.pacienteId == pacienteId && !s.arquivada)
+        .toList();
+    sessoes.sort((a, b) => b.data.compareTo(a.data));
+    _decryptSessoes(sessoes);
+    return sessoes.take(limite).toList();
   }
 
   List<Sessao> listarTodasSessoesArquivadas() {
@@ -159,7 +182,7 @@ class SessaoService {
   }
 
   Future<void> removerCriptografiaExistente() async {
-    if (_encryption == null || !_encryption.configurado) return;
+    final enc = encryption; if (enc == null || !enc.configurado) return;
 
     for (final s in _box.values) {
       _decryptSessao(s);
@@ -167,15 +190,8 @@ class SessaoService {
     }
   }
 
-  String _encrypt(String value) {
-    if (_encryption == null || value.isEmpty) return value;
-    return _encryption.criptografar(value);
-  }
-
-  String _decrypt(String value) {
-    if (_encryption == null || value.isEmpty) return value;
-    return _encryption.descriptografar(value);
-  }
+  String _encrypt(String value) => encrypt(value);
+  String _decrypt(String value) => decrypt(value);
 
   void _encryptSessao(Sessao s) {
     s.temaPrincipal = _encrypt(s.temaPrincipal);

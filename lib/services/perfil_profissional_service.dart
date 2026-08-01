@@ -1,15 +1,17 @@
 import 'package:hive_ce/hive.dart';
 
 import '../models/perfil_profissional.dart';
+import 'encrypted_service_mixin.dart';
 import 'encryption_service.dart';
 
-class PerfilProfissionalService {
+class PerfilProfissionalService with EncryptedServiceMixin {
   final Box<PerfilProfissional> _box =
       Hive.box<PerfilProfissional>('perfil_profissional');
-  final EncryptionService? _encryption;
+  @override
+  final EncryptionService? encryption;
 
   PerfilProfissionalService({EncryptionService? encryption})
-      : _encryption = encryption;
+      : encryption = encryption;
 
   PerfilProfissional? obterPerfil() {
     if (_box.isEmpty) return null;
@@ -42,6 +44,9 @@ class PerfilProfissionalService {
     perfilExistente.enderecosConsultoriosJson = perfil.enderecosConsultoriosJson;
     perfilExistente.fotoBase64 = perfil.fotoBase64;
     perfilExistente.dataAtualizacao = DateTime.now();
+    if (perfil.tratamento.isNotEmpty) {
+      perfilExistente.tratamento = perfil.tratamento;
+    }
 
     _encryptPerfil(perfilExistente);
     await perfilExistente.save();
@@ -59,7 +64,7 @@ class PerfilProfissionalService {
   }
 
   Future<void> removerCriptografiaExistente() async {
-    if (_encryption == null || !_encryption.configurado) return;
+    final enc = encryption; if (enc == null || !enc.configurado) return;
 
     if (_box.isNotEmpty) {
       final p = _box.values.first;
@@ -72,15 +77,8 @@ class PerfilProfissionalService {
     return _box.watch();
   }
 
-  String _encrypt(String value) {
-    if (_encryption == null || value.isEmpty) return value;
-    return _encryption.criptografar(value);
-  }
-
-  String _decrypt(String value) {
-    if (_encryption == null || value.isEmpty) return value;
-    return _encryption.descriptografar(value);
-  }
+  String _encrypt(String value) => encrypt(value);
+  String _decrypt(String value) => decrypt(value);
 
   void _encryptPerfil(PerfilProfissional p) {
     p.nome = _encrypt(p.nome);

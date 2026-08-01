@@ -503,7 +503,7 @@ class PdfExportService {
           if (sessao.geradoComIa)
             _campoInfo(
               'IA utilizada',
-              'Sim — a IA foi utilizada como apoio à documentação clínica. '
+              'Sim - a IA foi utilizada como apoio à documentação clínica. '
                   'Todo o conteúdo foi revisado pelo profissional responsável.',
             ),
           if (sessao.dataProcessamentoIa != null)
@@ -720,7 +720,7 @@ class PdfExportService {
                     _tituloSecao('Síntese Revisada'),
                     pw.SizedBox(height: 4),
                     pw.Text(
-                      'Sessão ${sessao.numeroSessao} — ${paciente.nomeExibicao}',
+                      'Sessão ${sessao.numeroSessao} - ${paciente.nomeExibicao}',
                       style: pw.TextStyle(
                         fontSize: 16,
                         fontWeight: pw.FontWeight.bold,
@@ -945,7 +945,7 @@ class PdfExportService {
           children: [
             pw.Expanded(
               child: pw.Text(
-                'Sessão ${sessao.numeroSessao} — ${_formatarData(sessao.data)} às ${_formatarHorario(sessao.data)}',
+                'Sessão ${sessao.numeroSessao} - ${_formatarData(sessao.data)} às ${_formatarHorario(sessao.data)}',
                 style: pw.TextStyle(
                   fontSize: 12,
                   fontWeight: pw.FontWeight.bold,
@@ -962,6 +962,133 @@ class PdfExportService {
         _secaoRevisao(sessao),
         pw.SizedBox(height: 16),
       ],
+    );
+  }
+
+  Future<void> exportarRelatorioFinanceiro({
+    required DateTime mes,
+    required List<Sessao> sessoes,
+    required double recebido,
+    required double pendente,
+    required double convenio,
+    required double pacote,
+    required double total,
+    required PerfilProfissional perfil,
+    required Map<String, String> nomesPacientes,
+    bool temaEscuro = false,
+  }) async {
+    final doc = pw.Document();
+    await _carregarLogo();
+
+    final meses = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+    ];
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        build: (context) => [
+          pw.Header(
+            child: pw.Row(
+              children: [
+                if (_logoImage != null)
+                  pw.Image(_logoImage!, width: 40, height: 40),
+                pw.SizedBox(width: 8),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(perfil.nomeExibicao, style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                    pw.Text(perfil.registroProfissional, style: pw.TextStyle(fontSize: 9, color: _secundaria)),
+                  ],
+                ),
+                pw.Spacer(),
+                pw.Text('Relatório Financeiro', style: pw.TextStyle(fontSize: 12, color: _primaria)),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 16),
+          pw.Center(
+            child: pw.Text(
+              '${meses[mes.month - 1]} de ${mes.year}',
+              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+            ),
+          ),
+          pw.SizedBox(height: 16),
+          pw.Row(
+            children: [
+              _cardFinanceiroPdf('Recebido', 'R\$ ${recebido.toStringAsFixed(2)}', PdfColors.green),
+              _cardFinanceiroPdf('A receber', 'R\$ ${pendente.toStringAsFixed(2)}', PdfColors.orange),
+            ],
+          ),
+          pw.SizedBox(height: 8),
+          pw.Row(
+            children: [
+              _cardFinanceiroPdf('Convênio', 'R\$ ${convenio.toStringAsFixed(2)}', PdfColors.blue),
+              _cardFinanceiroPdf('Pacote', 'R\$ ${pacote.toStringAsFixed(2)}', PdfColors.teal),
+            ],
+          ),
+          pw.SizedBox(height: 8),
+          pw.Row(
+            children: [
+              _cardFinanceiroPdf('Total', 'R\$ ${total.toStringAsFixed(2)}', PdfColors.black),
+            ],
+          ),
+          pw.SizedBox(height: 16),
+          pw.Text('Sessões', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 8),
+          ...sessoes.map((s) {
+            final nome = nomesPacientes[s.pacienteId] ?? 'Paciente';
+            final statusTexto = s.statusPagamento == 'pago' ? 'Pago'
+                : s.statusPagamento == 'convenio' ? 'Convênio'
+                : s.statusPagamento == 'pacote' ? 'Pacote'
+                : 'Pendente';
+            final statusColor = s.statusPagamento == 'pago' ? PdfColors.green
+                : s.statusPagamento == 'convenio' ? PdfColors.blue
+                : s.statusPagamento == 'pacote' ? PdfColors.teal
+                : PdfColors.orange;
+            return pw.Padding(
+              padding: const pw.EdgeInsets.only(bottom: 4),
+              child: pw.Row(
+                children: [
+                  pw.Expanded(child: pw.Text('$nome - Sessão ${s.numeroSessao}', style: const pw.TextStyle(fontSize: 9))),
+                  pw.Text('${s.data.day.toString().padLeft(2, '0')}/${s.data.month.toString().padLeft(2, '0')}', style: const pw.TextStyle(fontSize: 9)),
+                  pw.SizedBox(width: 8),
+                  pw.Text('R\$ ${s.valorSessao.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+                  pw.SizedBox(width: 8),
+                  pw.Text(statusTexto, style: pw.TextStyle(fontSize: 8, color: statusColor)),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+
+    final pdf = await doc.save();
+    final nome = 'financeiro_${mes.year}_${mes.month.toString().padLeft(2, '0')}.pdf';
+    await _salvarOuImprimir(pdf: pdf, nomeArquivo: nome);
+  }
+
+  pw.Widget _cardFinanceiroPdf(String titulo, String valor, PdfColor cor) {
+    return pw.Expanded(
+      child: pw.Container(
+        margin: const pw.EdgeInsets.symmetric(horizontal: 4),
+        padding: const pw.EdgeInsets.all(10),
+        decoration: pw.BoxDecoration(
+          color: _fundo,
+          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+          border: pw.Border.all(color: _linha, width: 0.5),
+        ),
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Text(titulo, style: pw.TextStyle(fontSize: 8, color: _secundaria)),
+            pw.SizedBox(height: 4),
+            pw.Text(valor, style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: cor)),
+          ],
+        ),
+      ),
     );
   }
 

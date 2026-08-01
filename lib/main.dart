@@ -5,14 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 
 import 'hive_registrar.g.dart';
-import 'models/anamnese_enviada.dart';
-import 'models/avaliacao_inicial.dart';
 import 'models/compromisso.dart';
 import 'models/contrato_terapeutico.dart';
 import 'models/lgpd/registro_auditoria.dart';
 import 'models/paciente.dart';
+import 'models/pacote.dart';
 import 'models/perfil_profissional.dart';
-import 'models/resposta_escala.dart';
+import 'models/progresso_sessao.dart';
 import 'models/sessao.dart';
 import 'providers/service_providers.dart';
 import 'screens/app_start_page.dart';
@@ -54,6 +53,8 @@ void main() async {
     Hive.openBox('avaliacoes_iniciais'),
     Hive.openBox('anamneses_enviadas'),
     Hive.openBox('respostas_escalas'),
+    Hive.openBox<Pacote>('pacotes'),
+    Hive.openBox<ProgressoSessao>('progresso_sessoes'),
   ]);
   debugPrint('[startup] openBoxes: ${sw.elapsedMilliseconds}ms');
 

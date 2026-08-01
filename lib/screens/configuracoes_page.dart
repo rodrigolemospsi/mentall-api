@@ -454,6 +454,8 @@ class ConfiguracoesPage extends ConsumerWidget {
 
   void _mostrarDialogServidor(BuildContext context, WidgetRef ref) {
     final urlController = TextEditingController(text: ApiClient.baseUrl);
+    final userController = TextEditingController(text: ApiClient.username);
+    final passController = TextEditingController(text: ApiClient.password);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -470,12 +472,30 @@ class ConfiguracoesPage extends ConsumerWidget {
                 border: OutlineInputBorder(),
               ),
             ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: userController,
+              decoration: const InputDecoration(
+                labelText: 'Usu\u00e1rio',
+                hintText: 'admin',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: passController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Senha',
+                border: OutlineInputBorder(),
+              ),
+            ),
             const SizedBox(height: 8),
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Altere apenas se souber o que está fazendo. A transcrição e a '
-                'síntese com IA dependem deste endereço.',
+                'Altere apenas se souber o que est\u00e1 fazendo. A transcri\u00e7\u00e3o e a '
+                's\u00edntese com IA dependem deste endere\u00e7o.',
                 style: TextStyle(fontSize: 12, color: context.corTextoMuted),
               ),
             ),
@@ -485,8 +505,10 @@ class ConfiguracoesPage extends ConsumerWidget {
           TextButton(
             onPressed: () {
               urlController.text = ApiClient.defaultBaseUrl;
+              userController.text = 'admin';
+              passController.text = 'admin';
             },
-            child: const Text('Restaurar padrão'),
+            child: const Text('Restaurar padr\u00e3o'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -498,19 +520,28 @@ class ConfiguracoesPage extends ConsumerWidget {
               if (url.isEmpty || !url.startsWith('http')) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Informe uma URL válida começando com http.'),
+                    content: Text('Informe uma URL v\u00e1lida come\u00e7ando com http.'),
                   ),
                 );
                 return;
               }
               await ApiClient.setBaseUrl(url);
+              final username = userController.text.trim();
+              final password = passController.text.trim();
+              if (username.isNotEmpty || password.isNotEmpty) {
+                await ApiClient.setCredentials(username, password);
+              }
               if (ctx.mounted) Navigator.pop(ctx);
             },
             child: const Text('Salvar'),
           ),
         ],
       ),
-    ).then((_) => urlController.dispose());
+    ).then((_) {
+      urlController.dispose();
+      userController.dispose();
+      passController.dispose();
+    });
   }
 
   void _mostrarDialogContrato(BuildContext context, WidgetRef ref) {

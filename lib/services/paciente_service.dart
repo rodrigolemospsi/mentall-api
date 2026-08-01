@@ -7,13 +7,15 @@ import '../models/contrato_terapeutico.dart';
 import '../models/avaliacao_inicial.dart';
 import '../models/resposta_escala.dart';
 import '../models/anamnese_enviada.dart';
+import 'encrypted_service_mixin.dart';
 import 'encryption_service.dart';
 
-class PacienteService {
+class PacienteService with EncryptedServiceMixin {
   final Box<Paciente> _box = Hive.box<Paciente>('pacientes');
-  final EncryptionService? _encryption;
+  @override
+  final EncryptionService? encryption;
 
-  PacienteService({EncryptionService? encryption}) : _encryption = encryption;
+  PacienteService({EncryptionService? encryption}) : encryption = encryption;
 
   List<Paciente> listarPacientes() {
     final pacientes = _box.values.toList();
@@ -164,7 +166,7 @@ class PacienteService {
   }
 
   Future<void> removerCriptografiaExistente() async {
-    if (_encryption == null || !_encryption.configurado) return;
+    final enc = encryption; if (enc == null || !enc.configurado) return;
 
     for (final p in _box.values) {
       _decryptPaciente(p);
@@ -184,15 +186,8 @@ class PacienteService {
     });
   }
 
-  String _encrypt(String value) {
-    if (_encryption == null || value.isEmpty) return value;
-    return _encryption.criptografar(value);
-  }
-
-  String _decrypt(String value) {
-    if (_encryption == null || value.isEmpty) return value;
-    return _encryption.descriptografar(value);
-  }
+  String _encrypt(String value) { return encrypt(value); }
+  String _decrypt(String value) { return decrypt(value); }
 
   void _encryptPaciente(Paciente p) {
     p.nome = _encrypt(p.nome);
