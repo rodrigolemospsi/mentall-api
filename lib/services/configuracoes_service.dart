@@ -13,10 +13,9 @@ class ConfiguracoesService {
   static const String _kContratoTemplate = 'contrato_template';
   static const String _kValorPadraoSessao = 'valor_padrao_sessao';
   static const String _kControleFinanceiroAtivo = 'controle_financeiro_ativo';
+  static const String _kOnboardingConcluido = 'onboarding_concluido';
 
-  static const String contratoPadrao = '''Acordo Terap\u00eautico
-
-Este \u00e9 um espa\u00e7o de cuidado, escuta e respeito.
+  static const String contratoPadrao = '''Este \u00e9 um espa\u00e7o de cuidado, escuta e respeito.
 
 Compromissos
 Psic\u00f3logo(a): ofere\u00e7o um atendimento \u00e9tico, acolhedor e sigiloso, respeitando sua singularidade e autonomia.
@@ -108,6 +107,11 @@ Ao preencher e aceitar este formul\u00e1rio, declaro estar ciente e de acordo co
   Future<void> setControleFinanceiroAtivo(bool ativado) async {
     await _box.put(_kControleFinanceiroAtivo, '$ativado');
   }
+
+  bool get onboardingConcluido =>
+      _box.get(_kOnboardingConcluido, defaultValue: 'false') == 'true';
+
+  set onboardingConcluido(bool v) => _box.put(_kOnboardingConcluido, '$v');
 
   Stream<BoxEvent> observar() {
     return _box.watch();

@@ -10,6 +10,7 @@ import '../providers/service_providers.dart';
 import '../screens/agenda_page.dart';
 import '../screens/paciente_detail_page.dart';
 import '../utils/mentall_colors.dart';
+import '../utils/responsivo.dart';
 import 'compromisso_form_dialog.dart';
 
 class SaudacaoResumoHome extends ConsumerWidget {
@@ -84,6 +85,7 @@ class AcoesRapidasHome extends StatelessWidget {
           child: _AcaoRapida(
             icone: Icons.person_add_alt_outlined,
             label: termoFeminino ? 'Nova p.' : 'Novo $termoSingular',
+            semanticLabel: 'Novo paciente',
             onTap: onNovoPaciente,
           ),
         ),
@@ -92,6 +94,7 @@ class AcoesRapidasHome extends StatelessWidget {
           child: _AcaoRapida(
             icone: Icons.event_available_outlined,
             label: 'Agendar',
+            semanticLabel: 'Agendar sessão',
             onTap: onAgendar,
           ),
         ),
@@ -100,6 +103,7 @@ class AcoesRapidasHome extends StatelessWidget {
           child: _AcaoRapida(
             icone: Icons.note_add_outlined,
             label: 'Nova sessão',
+            semanticLabel: 'Nova sessão',
             onTap: onAbrirAgenda,
           ),
         ),
@@ -111,48 +115,56 @@ class AcoesRapidasHome extends StatelessWidget {
 class _AcaoRapida extends StatelessWidget {
   final IconData icone;
   final String label;
+  final String? semanticLabel;
   final VoidCallback onTap;
 
   const _AcaoRapida({
     required this.icone,
     required this.label,
+    this.semanticLabel,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final inkWell = InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          border: Border.all(color: cs.primaryContainer),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icone, size: 22, color: cs.primary),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: cs.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final wrapped = semanticLabel != null
+        ? Semantics(label: semanticLabel!, child: inkWell)
+        : inkWell;
+
     return Material(
       color: cs.primaryContainer,
       borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            border: Border.all(color: cs.primaryContainer),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icone, size: 22, color: cs.primary),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: cs.primary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      child: wrapped,
     );
   }
 }
@@ -191,60 +203,113 @@ class KpiCardsHome extends ConsumerWidget {
             ? '${termoPlural[0].toUpperCase()}${termoPlural.substring(1)}'
             : 'Pacientes';
 
-    return Column(
-      children: [
-        Row(
+    return LayoutBuilder(
+      builder: (_, constraints) {
+        if (Responsivo.isTablet(context)) {
+          return Row(
+            children: [
+              Expanded(
+                child: _KpiCard(
+                  valor: '$hoje',
+                  titulo: 'Hoje',
+                  subtitulo: hoje == 1 ? 'sessão agendada' : 'sessões agendadas',
+                  icone: Icons.today_outlined,
+                  cor: context.corPrimaria,
+                  onTap: onHojeTap,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _KpiCard(
+                  valor: '$ativos',
+                  titulo: termoCapitalizado,
+                  subtitulo: 'em acompanhamento',
+                  icone: Icons.people_outline,
+                  cor: context.corSuccess,
+                  onTap: onPacientesTap,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _KpiCard(
+                  valor: 'R\$ ${receita.toStringAsFixed(0)}',
+                  titulo: 'Receita',
+                  subtitulo: 'recebido no mês',
+                  icone: Icons.payments_outlined,
+                  cor: context.corSuccess,
+                  onTap: onReceitaTap,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _KpiCard(
+                  valor: 'R\$ ${pendente.toStringAsFixed(0)}',
+                  titulo: 'Pendente',
+                  subtitulo: 'a receber',
+                  icone: Icons.hourglass_bottom_outlined,
+                  cor: context.corWarning,
+                  onTap: onPendenteTap,
+                ),
+              ),
+            ],
+          );
+        }
+        return Column(
           children: [
-            Expanded(
-              child: _KpiCard(
-                valor: '$hoje',
-                titulo: 'Hoje',
-                subtitulo: hoje == 1 ? 'sessão agendada' : 'sessões agendadas',
-                icone: Icons.today_outlined,
-                cor: context.corPrimaria,
-                onTap: onHojeTap,
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: _KpiCard(
+                    valor: '$hoje',
+                    titulo: 'Hoje',
+                    subtitulo: hoje == 1 ? 'sessão agendada' : 'sessões agendadas',
+                    icone: Icons.today_outlined,
+                    cor: context.corPrimaria,
+                    onTap: onHojeTap,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _KpiCard(
+                    valor: '$ativos',
+                    titulo: termoCapitalizado,
+                    subtitulo: 'em acompanhamento',
+                    icone: Icons.people_outline,
+                    cor: context.corSuccess,
+                    onTap: onPacientesTap,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _KpiCard(
-                valor: '$ativos',
-                titulo: termoCapitalizado,
-                subtitulo: 'em acompanhamento',
-                icone: Icons.people_outline,
-                cor: context.corSuccess,
-                onTap: onPacientesTap,
-              ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _KpiCard(
+                    valor: 'R\$ ${receita.toStringAsFixed(0)}',
+                    titulo: 'Receita',
+                    subtitulo: 'recebido no mês',
+                    icone: Icons.payments_outlined,
+                    cor: context.corSuccess,
+                    onTap: onReceitaTap,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _KpiCard(
+                    valor: 'R\$ ${pendente.toStringAsFixed(0)}',
+                    titulo: 'Pendente',
+                    subtitulo: 'a receber',
+                    icone: Icons.hourglass_bottom_outlined,
+                    cor: context.corWarning,
+                    onTap: onPendenteTap,
+                  ),
+                ),
+              ],
             ),
           ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: _KpiCard(
-                valor: 'R\$ ${receita.toStringAsFixed(0)}',
-                titulo: 'Receita',
-                subtitulo: 'recebido no mês',
-                icone: Icons.payments_outlined,
-                cor: context.corSuccess,
-                onTap: onReceitaTap,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _KpiCard(
-                valor: 'R\$ ${pendente.toStringAsFixed(0)}',
-                titulo: 'Pendente',
-                subtitulo: 'a receber',
-                icone: Icons.hourglass_bottom_outlined,
-                cor: context.corWarning,
-                onTap: onPendenteTap,
-              ),
-            ),
-          ],
-        ),
-      ],
+        );
+      },
     );
   }
 }

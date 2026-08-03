@@ -586,7 +586,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
     return texto;
   }
 
-  Source? _criarFonteAudioPorCaminho(String caminhoAudio) {
+  Future<Source?> _criarFonteAudioPorCaminho(String caminhoAudio) async {
     final caminho = caminhoAudio.trim();
 
     if (caminho.isEmpty) {
@@ -597,7 +597,12 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       return UrlSource(caminho);
     }
 
-    return DeviceFileSource(caminho);
+    try {
+      final tempPath = await AudioRelatoService.prepararAudioParaPlayback(caminho);
+      return DeviceFileSource(tempPath);
+    } catch (_) {
+      return null;
+    }
   }
 
   Source? _criarFonteAudioBase64() {
@@ -921,7 +926,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       if (devePreferirBase64) {
         fonteAudio = _criarFonteAudioBase64();
       } else {
-        fonteAudio = _criarFonteAudioPorCaminho(caminhoAudio) ??
+        fonteAudio = await _criarFonteAudioPorCaminho(caminhoAudio) ??
             _criarFonteAudioBase64();
       }
 
@@ -940,7 +945,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       } catch (erro) {
         Log.erro(erro, contexto: 'sessao_form_page:reproduzirAudio');
         final fonteAlternativa = devePreferirBase64
-            ? _criarFonteAudioPorCaminho(caminhoAudio)
+            ? await _criarFonteAudioPorCaminho(caminhoAudio)
             : _criarFonteAudioBase64();
 
         if (fonteAlternativa == null) {
@@ -1778,16 +1783,19 @@ if (!mounted || confirmar != true) return;
         _audioInfoWidget(),
         if (_possuiAudioRelato && !_transcrevendoRelato) ...[
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _existeAcaoEmAndamento ? null : _transcreverRelato,
-              icon: const Icon(Icons.subtitles_rounded),
-              label: const Text('Transcrever com IA'),
-              style: FilledButton.styleFrom(
-                backgroundColor: context.corPrimaria,
-                foregroundColor: context.corOnPrimaria,
-                padding: const EdgeInsets.symmetric(vertical: 14),
+          Semantics(
+            label: 'Transcrever áudio',
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _existeAcaoEmAndamento ? null : _transcreverRelato,
+                icon: const Icon(Icons.subtitles_rounded),
+                label: const Text('Transcrever com IA'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: context.corPrimaria,
+                  foregroundColor: context.corOnPrimaria,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
               ),
             ),
           ),
@@ -1799,27 +1807,30 @@ if (!mounted || confirmar != true) return;
         ),
         if (_possuiTranscricaoRelato) ...[
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _existeAcaoEmAndamento ? null : _gerarSinteseComIa,
-              icon: _gerandoSinteseIa
-                  ? SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: context.corOnPrimaria,
-                      ),
-                    )
-                  : const Icon(Icons.auto_awesome_outlined),
-              label: Text(
-                _gerandoSinteseIa ? 'Gerando...' : 'Gerar síntese com IA',
-              ),
-              style: FilledButton.styleFrom(
-                backgroundColor: context.corPrimaria,
-                foregroundColor: context.corOnPrimaria,
-                padding: const EdgeInsets.symmetric(vertical: 14),
+          Semantics(
+            label: 'Gerar síntese com IA',
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _existeAcaoEmAndamento ? null : _gerarSinteseComIa,
+                icon: _gerandoSinteseIa
+                    ? SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: context.corOnPrimaria,
+                        ),
+                      )
+                    : const Icon(Icons.auto_awesome_outlined),
+                label: Text(
+                  _gerandoSinteseIa ? 'Gerando...' : 'Gerar síntese com IA',
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: context.corPrimaria,
+                  foregroundColor: context.corOnPrimaria,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
               ),
             ),
           ),
@@ -1834,16 +1845,19 @@ if (!mounted || confirmar != true) return;
         if (_estaAguardandoRevisao ||
             (!_revisadoPeloProfissional && _geradoComIa)) ...[
           const SizedBox(height: 4),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _existeAcaoEmAndamento ? null : _marcarComoRevisado,
-              icon: const Icon(Icons.verified_outlined),
-              label: const Text('Marcar como revisado'),
-              style: FilledButton.styleFrom(
-                backgroundColor: context.corPrimaria,
-                foregroundColor: context.corOnPrimaria,
-                padding: const EdgeInsets.symmetric(vertical: 14),
+          Semantics(
+            label: 'Marcar como revisado',
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _existeAcaoEmAndamento ? null : _marcarComoRevisado,
+                icon: const Icon(Icons.verified_outlined),
+                label: const Text('Marcar como revisado'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: context.corPrimaria,
+                  foregroundColor: context.corOnPrimaria,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
               ),
             ),
           ),
@@ -2269,25 +2283,28 @@ if (!mounted || confirmar != true) return;
 
   Widget _botaoSalvar() {
     final salvando = ref.watch(_salvandoProvider);
-    return FilledButton.icon(
-      onPressed: salvando ? null : _salvarSessao,
-      icon: salvando
-          ? SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: context.corOnPrimaria,
-              ),
-            )
-          : const Icon(Icons.save_outlined),
-      label: Text(salvando ? 'Salvando...' : 'Salvar sessão'),
-      style: FilledButton.styleFrom(
-        backgroundColor: context.corPrimaria,
-        foregroundColor: context.corOnPrimaria,
-        disabledBackgroundColor: context.corPrimaria.withValues(alpha: 0.6),
-        disabledForegroundColor: context.corOnPrimaria,
-        padding: const EdgeInsets.symmetric(vertical: 16),
+    return Semantics(
+      label: 'Salvar sessão',
+      child: FilledButton.icon(
+        onPressed: salvando ? null : _salvarSessao,
+        icon: salvando
+            ? SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: context.corOnPrimaria,
+                ),
+              )
+            : const Icon(Icons.save_outlined),
+        label: Text(salvando ? 'Salvando...' : 'Salvar sessão'),
+        style: FilledButton.styleFrom(
+          backgroundColor: context.corPrimaria,
+          foregroundColor: context.corOnPrimaria,
+          disabledBackgroundColor: context.corPrimaria.withValues(alpha: 0.6),
+          disabledForegroundColor: context.corOnPrimaria,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+        ),
       ),
     );
   }

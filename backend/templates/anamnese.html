@@ -8,40 +8,71 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #F0F4FF;
+  background: #F7F9FA;
   color: #1E293B;
   line-height: 1.5;
 }
 .container {
   max-width: 640px;
   margin: 0 auto;
-  padding: 32px 20px 48px;
+  padding: 24px 16px;
 }
 .card {
   background: #FFFFFF;
-  border-radius: 16px;
-  padding: 32px 24px;
+  border-radius: 18px;
+  padding: 40px 28px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  position: relative;
 }
-.logo { text-align: center; margin-bottom: 24px; }
-.logo .titulo { font-size: 13px; color: #64748B; text-transform: uppercase; letter-spacing: 1px; }
-.logo .nome { font-size: 20px; font-weight: 700; color: #1E293B; margin-top: 4px; }
-.logo .crp { font-size: 13px; color: #94A3B8; margin-top: 2px; }
-
-.bem-vindo {
-  text-align: center;
-  padding: 24px 0 8px;
-}
-.bem-vindo h1 {
-  font-size: 22px;
+.logo-mentall {
+  position: absolute;
+  top: 20px;
+  right: 28px;
+  font-size: 12px;
+  font-weight: 700;
   color: #2563EB;
-  font-weight: 600;
+  opacity: 0.45;
+  letter-spacing: 0.5px;
 }
-.bem-vindo p {
-  color: #64748B;
-  margin-top: 8px;
-  font-size: 15px;
+.cabecalho-profissional {
+  margin-bottom: 6px;
 }
+.cabecalho-profissional .profissional-nome {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1E293B;
+  }
+.cabecalho-profissional .profissional-crp {
+    font-size: 16px;
+    color: #1E293B;
+    margin-top: 1px;
+  }
+.paciente-info {
+    font-size: 16px;
+    color: #1E293B;
+    margin-bottom: 28px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #E2E8F0;
+  }
+.paciente-info strong {
+  color: #1E293B;
+}
+.titulo-acordo {
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+  color: #2563EB;
+  margin-bottom: 0;
+  padding-bottom: 0;
+  letter-spacing: 0.5px;
+}
+.intro-acordo {
+    text-align: center;
+    font-size: 12px;
+    color: #64748B;
+    margin-top: 2px;
+    margin-bottom: 36px;
+  }
 
 .secao {
   margin-top: 28px;
@@ -245,15 +276,19 @@ body {
 <body>
 <div class="container">
   <div class="card">
-    <div class="logo">
-      <div class="titulo" id="titulo-profissional"></div>
-      <div class="nome" id="nome-profissional"></div>
-      <div class="crp" id="crp-profissional"></div>
+    <div class="logo-mentall">MentAll</div>
+
+    <div class="cabecalho-profissional">
+      <div class="profissional-nome" id="nome-profissional"></div>
+      <div class="profissional-crp" id="crp-profissional"></div>
     </div>
-    <div class="bem-vindo">
-      <h1>Questionário inicial</h1>
-      <p>Cerca de 10 minutos.</p>
+
+    <div class="paciente-info">
+      <strong>Paciente:</strong> <span id="nome-paciente"></span>
     </div>
+
+    <div class="titulo-acordo">Questionário inicial</div>
+    <p class="intro-acordo">Cerca de 10 minutos.</p>
     <form id="form-anamnese"></form>
     <button class="btn-enviar" id="btn-enviar" onclick="enviar()">Enviar respostas</button>
     <div class="erro-msg" id="erro-msg"></div>
@@ -272,14 +307,16 @@ const TOKEN = "{{TOKEN}}";
 const DADOS_PROFISSIONAL = {{DADOS_PROFISSIONAL}};
 const TEMPLATE = {{TEMPLATE}};
 
-document.getElementById('titulo-profissional').textContent =
-  (DADOS_PROFISSIONAL.tratamento === 'feminino') ? 'Psicóloga' : 'Psicólogo';
 document.getElementById('nome-profissional').textContent =
+  ((DADOS_PROFISSIONAL.tratamento === 'feminino') ? 'Psicóloga ' : 'Psicólogo ') +
   (DADOS_PROFISSIONAL.nome_profissional || '').replace(/</g, '&lt;');
 var registroRaw = (DADOS_PROFISSIONAL.registro || '');
 var registroLimpo = registroRaw.replace(/^CRP\s*/i, '');
 document.getElementById('crp-profissional').textContent =
   registroLimpo ? 'CRP ' + registroLimpo.replace(/</g, '&lt;') : '';
+
+document.getElementById('nome-paciente').textContent =
+  (DADOS_PROFISSIONAL.nome_paciente || '').replace(/</g, '&lt;');
 
 var respostasYn = {};
 

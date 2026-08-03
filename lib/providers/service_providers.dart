@@ -30,7 +30,9 @@ import '../services/sessao_service.dart';
 import '../services/transcricao_relato_service.dart';
 
 final encryptionServiceProvider = Provider<EncryptionService>((ref) {
-  return EncryptionService();
+  final service = EncryptionService();
+  EncryptionService.setInstance(service);
+  return service;
 });
 
 final authServiceProvider = Provider<AuthService>((ref) {
@@ -103,7 +105,8 @@ final backupServiceProvider = Provider<BackupService>((ref) {
 });
 
 final auditoriaServiceProvider = Provider<AuditoriaService>((ref) {
-  return AuditoriaService();
+  final encryption = ref.watch(encryptionServiceProvider);
+  return AuditoriaService(encryption: encryption);
 });
 
 final compromissoServiceProvider = Provider<CompromissoService>((ref) {

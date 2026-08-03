@@ -96,7 +96,7 @@ class _FinanceiroPageState extends ConsumerState<FinanceiroPage> {
                         'Pacote',
                         'R\$ ${resumo.pacote.toStringAsFixed(2)}',
                         '${resumo.sessoesPacote} sess.',
-                        const Color(0xFF0D9488),
+                        context.corPacote,
                       ),
                     ),
                   ],
@@ -325,7 +325,7 @@ class _FinanceiroPageState extends ConsumerState<FinanceiroPage> {
       case 'convenio':
         return context.corScheduled;
       case 'pacote':
-        return const Color(0xFF0D9488);
+        return context.corPacote;
       default:
         return context.corWarning;
     }

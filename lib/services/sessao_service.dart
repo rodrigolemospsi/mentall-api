@@ -168,6 +168,16 @@ class SessaoService with EncryptedServiceMixin {
         .length;
   }
 
+  Map<String, int> contarSessoesPendentesAgrupadas() {
+    final mapa = <String, int>{};
+    for (final s in _box.values) {
+      if (!s.arquivada && s.revisaoPendente) {
+        mapa[s.pacienteId] = (mapa[s.pacienteId] ?? 0) + 1;
+      }
+    }
+    return mapa;
+  }
+
   List<Sessao> listarSessoesPendentesRevisao() {
     final pendentes = _box.values
         .where((s) => !s.arquivada && s.revisaoPendente)

@@ -28,6 +28,7 @@ extension MentAllColors on BuildContext {
   Color get corDanger => const Color(0xFFC62828);
   Color get corScheduled => const Color(0xFF1976D2);
   Color get corCancelled => const Color(0xFF757575);
+  Color get corPacote => const Color(0xFF0D9488);
 
   Color get corWhatsAppBg => const Color(0xFF25D366);
   Color get corWhatsAppText => const Color(0xFF075E54);

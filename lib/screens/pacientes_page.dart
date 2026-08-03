@@ -5,6 +5,7 @@ import '../models/paciente.dart';
 import '../providers/service_providers.dart';
 import '../services/logger.dart';
 import '../widgets/estado_vazio_pacientes.dart';
+import '../utils/responsivo.dart';
 import '../widgets/novo_paciente_dialog.dart';
 import '../widgets/paciente_card_home.dart';
 import 'paciente_detail_page.dart';
@@ -175,14 +176,15 @@ class _PacientesPageState extends ConsumerState<PacientesPage>
         ref.watch(pacientesArquivadosProvider).valueOrNull ?? [];
 
     final sessaoService = ref.watch(sessaoServiceProvider);
+    final pendentesPorPaciente = sessaoService.contarSessoesPendentesAgrupadas();
     final Map<String, int> ativosComPendentes = {};
     for (final p in pacientesAtivos) {
-      final c = sessaoService.contarSessoesPendentesPorPaciente(p.id);
+      final c = pendentesPorPaciente[p.id] ?? 0;
       if (c > 0) ativosComPendentes[p.id] = c;
     }
     final Map<String, int> arquivadosComPendentes = {};
     for (final p in pacientesArquivados) {
-      final c = sessaoService.contarSessoesPendentesPorPaciente(p.id);
+      final c = pendentesPorPaciente[p.id] ?? 0;
       if (c > 0) arquivadosComPendentes[p.id] = c;
     }
 
@@ -207,10 +209,13 @@ class _PacientesPageState extends ConsumerState<PacientesPage>
         foregroundColor: colors.primary,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            tooltip: '$_novoOuNova $_termoSingular',
-            onPressed: _abrirDialogNovoPaciente,
+          Semantics(
+            label: 'Adicionar paciente',
+            child: IconButton(
+              icon: const Icon(Icons.add),
+              tooltip: '$_novoOuNova $_termoSingular',
+              onPressed: _abrirDialogNovoPaciente,
+            ),
           ),
         ],
         bottom: PreferredSize(
@@ -390,20 +395,48 @@ class _ListaPacientes extends StatelessWidget {
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
-      itemCount: pacientes.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 0),
-      itemBuilder: (context, index) {
-        final paciente = pacientes[index];
-        return PacienteCardHome(
-          paciente: paciente,
-          termoSingular: termoSingular,
-          listaArquivada: listaArquivada,
-          sessoesPendentes: sessoesPendentesPorPaciente[paciente.id] ?? 0,
-          onTap: () => onAbrirPaciente(paciente),
-          onArquivar: () => onArquivarPaciente(paciente),
-          onRestaurar: () => onRestaurarPaciente(paciente),
+    return LayoutBuilder(
+      builder: (_, constraints) {
+        if (Responsivo.isTablet(context)) {
+          return GridView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 3.5,
+              mainAxisSpacing: 0,
+              crossAxisSpacing: 10,
+            ),
+            itemCount: pacientes.length,
+            itemBuilder: (context, index) {
+              final paciente = pacientes[index];
+              return PacienteCardHome(
+                paciente: paciente,
+                termoSingular: termoSingular,
+                listaArquivada: listaArquivada,
+                sessoesPendentes: sessoesPendentesPorPaciente[paciente.id] ?? 0,
+                onTap: () => onAbrirPaciente(paciente),
+                onArquivar: () => onArquivarPaciente(paciente),
+                onRestaurar: () => onRestaurarPaciente(paciente),
+              );
+            },
+          );
+        }
+        return ListView.separated(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
+          itemCount: pacientes.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 0),
+          itemBuilder: (context, index) {
+            final paciente = pacientes[index];
+            return PacienteCardHome(
+              paciente: paciente,
+              termoSingular: termoSingular,
+              listaArquivada: listaArquivada,
+              sessoesPendentes: sessoesPendentesPorPaciente[paciente.id] ?? 0,
+              onTap: () => onAbrirPaciente(paciente),
+              onArquivar: () => onArquivarPaciente(paciente),
+              onRestaurar: () => onRestaurarPaciente(paciente),
+            );
+          },
         );
       },
     );

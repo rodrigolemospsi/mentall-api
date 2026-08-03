@@ -217,7 +217,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFD32F2F),
+              backgroundColor: context.corDanger,
             ),
             child: const Text('Remover'),
           ),
@@ -1115,7 +1115,7 @@ class _CompromissoCard extends StatelessWidget {
                 const SizedBox(width: 4),
                 _IconAcao(
                   icone: Icons.delete_outline,
-                  cor: const Color(0xFFD32F2F),
+                  cor: context.corDanger,
                   tooltip: 'Remover',
                   onPressed: onRemover,
                 ),

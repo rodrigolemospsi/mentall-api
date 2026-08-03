@@ -295,32 +295,35 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     style: TextStyle(color: context.corError, fontSize: 13),
                   ),
                 const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed:
-                        processando ? null : (configurandoPin ? _configurarPin : _desbloquear),
-                    icon: processando
-                        ? SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: cs.onPrimary,
-                            ),
-                          )
-                        : Icon(configurandoPin
-                            ? Icons.shield_outlined
-                            : Icons.lock_open_outlined),
-                    label: Text(
-                      processando
-                          ? 'Processando...'
-                          : (configurandoPin ? 'Configurar PIN' : 'Desbloquear'),
-                    ),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: context.corPrimaria,
-                      foregroundColor: context.corOnPrimaria,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                Semantics(
+                  label: 'Desbloquear',
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed:
+                          processando ? null : (configurandoPin ? _configurarPin : _desbloquear),
+                      icon: processando
+                          ? SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: cs.onPrimary,
+                              ),
+                            )
+                          : Icon(configurandoPin
+                              ? Icons.shield_outlined
+                              : Icons.lock_open_outlined),
+                      label: Text(
+                        processando
+                            ? 'Processando...'
+                            : (configurandoPin ? 'Configurar PIN' : 'Desbloquear'),
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: context.corPrimaria,
+                        foregroundColor: context.corOnPrimaria,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
                     ),
                   ),
                 ),

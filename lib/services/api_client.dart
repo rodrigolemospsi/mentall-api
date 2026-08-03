@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:hive_ce/hive.dart';
 import 'package:http/http.dart' as http;
 
+import 'encryption_service.dart';
 import 'logger.dart';
 
 class ApiClient {
@@ -46,14 +47,17 @@ class ApiClient {
   static String get password {
     final box = Hive.box<String>('app_config');
     final stored = box.get(_passwordKey);
-    if (stored != null && stored.isNotEmpty) return stored;
+    if (stored != null && stored.isNotEmpty) {
+      return EncryptionService.tryDecrypt(stored);
+    }
     return _defaultPassword;
   }
 
   static Future<void> setCredentials(String username, String password) async {
     final box = Hive.box<String>('app_config');
     await box.put(_usernameKey, username);
-    await box.put(_passwordKey, password);
+    final encrypted = EncryptionService.tryEncrypt(password);
+    await box.put(_passwordKey, encrypted ?? password);
   }
 
   static String get _username => username;
@@ -130,7 +134,9 @@ class ApiClient {
         if (token == null || token.isEmpty) return false;
         _authToken = token;
         try {
-          await Hive.box<String>('auth_meta').put('jwt_token', _authToken!);
+          final encryptedToken = EncryptionService.tryEncrypt(token);
+          await Hive.box<String>('auth_meta')
+              .put('jwt_token', encryptedToken ?? token);
         } catch (_) {}
         return true;
       }

@@ -23,6 +23,8 @@ class LembreteService {
 
   bool _inicializado = false;
 
+  void Function(String compromissoId)? onNotificationTap;
+
   Future<void> inicializar() async {
     if (_inicializado) return;
 
@@ -42,7 +44,7 @@ class LembreteService {
 
     await _notifications.initialize(
       settings,
-      onDidReceiveNotificationResponse: _onNotificationTap,
+      onDidReceiveNotificationResponse: _onTapNotificacao,
     );
 
     if (defaultTargetPlatform == TargetPlatform.android) {
@@ -84,17 +86,12 @@ class LembreteService {
 
     final payload = jsonEncode({
       'compromissoId': compromisso.id,
-      'telefone': telefonePaciente,
-      'mensagem': mensagem,
-      'nomePaciente': nomePaciente,
       'canal': compromisso.canalLembrete,
     });
 
-    final canal = compromisso.canalLembrete == 'whatsapp' ? 'WhatsApp' : 'SMS';
-
     await _notifications.zonedSchedule(
       compromisso.id.hashCode,
-      'Lembrete $canal: $nomePaciente',
+      'Lembrete de sessao',
       'Sessao ${compromisso.horarioInicioFormatado}'
           ' (em ${compromisso.antecedenciaFormatada})',
       tz.TZDateTime.from(horario, tz.local),
@@ -205,20 +202,18 @@ class LembreteService {
     }
   }
 
-  static void _onNotificationTap(NotificationResponse response) {
+  void _onTapNotificacao(NotificationResponse response) {
     if (response.payload == null) return;
     try {
       final data = jsonDecode(response.payload!) as Map<String, dynamic>;
-      final telefone = data['telefone'] as String? ?? '';
-      final mensagem = data['mensagem'] as String? ?? '';
-      final canal = data['canal'] as String? ?? 'whatsapp';
-      if (telefone.isNotEmpty && mensagem.isNotEmpty) {
-        _enviarMensagem(telefone, mensagem, canal: canal);
+      final compromissoId = data['compromissoId'] as String?;
+      if (compromissoId != null && compromissoId.isNotEmpty) {
+        onNotificationTap?.call(compromissoId);
       }
     } catch (_) {}
   }
 
-  static Future<bool> _enviarMensagem(
+  static Future<bool> enviarMensagem(
     String telefone,
     String mensagem, {
     String canal = 'whatsapp',
@@ -245,11 +240,11 @@ class LembreteService {
       }
       Log.erro(
         'Falha ao enviar $canalNome: ${response.statusCode} ${response.body}',
-        contexto: 'LembreteService._enviarMensagem',
+        contexto: 'LembreteService.enviarMensagem',
       );
       return false;
     } catch (e) {
-      Log.erro(e, contexto: 'LembreteService._enviarMensagem');
+      Log.erro(e, contexto: 'LembreteService.enviarMensagem');
       return false;
     }
   }

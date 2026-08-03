@@ -1,13 +1,18 @@
 import 'package:hive_ce/hive.dart';
 
 import '../../models/lgpd/registro_auditoria.dart';
+import '../../services/encrypted_service_mixin.dart';
+import '../../services/encryption_service.dart';
 import '../logger.dart';
 
-class AuditoriaService {
+class AuditoriaService with EncryptedServiceMixin {
   static const String _boxName = 'auditoria';
   static const int _maxRegistros = 1000;
 
-  AuditoriaService();
+  @override
+  final EncryptionService? encryption;
+
+  AuditoriaService({this.encryption});
 
   Box<RegistroAuditoria> get _box => Hive.box<RegistroAuditoria>(_boxName);
 
@@ -71,7 +76,7 @@ class AuditoriaService {
       final registro = RegistroAuditoria(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         tipoEvento: tipoEvento,
-        descricao: descricao,
+        descricao: encrypt(descricao),
         dataHora: DateTime.now(),
         pacienteId: pacienteId,
       );
@@ -98,7 +103,11 @@ class AuditoriaService {
     final todos = _box.values.toList()
       ..sort((a, b) => b.dataHora.compareTo(a.dataHora));
 
-    return todos.take(limite).toList();
+    final resultado = todos.take(limite).toList();
+    for (final r in resultado) {
+      r.descricao = decrypt(r.descricao);
+    }
+    return resultado;
   }
 
   List<RegistroAuditoria> listarPorPaciente(String pacienteId, {int limite = 100}) {
@@ -107,7 +116,11 @@ class AuditoriaService {
         .toList()
       ..sort((a, b) => b.dataHora.compareTo(a.dataHora));
 
-    return filtrados.take(limite).toList();
+    final resultado = filtrados.take(limite).toList();
+    for (final r in resultado) {
+      r.descricao = decrypt(r.descricao);
+    }
+    return resultado;
   }
 
   Future<int> contar() async {

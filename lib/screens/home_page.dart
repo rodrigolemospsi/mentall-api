@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/service_providers.dart';
 import '../models/paciente.dart';
 import '../services/logger.dart';
+import '../services/lembrete_service.dart';
 import '../widgets/compromisso_form_dialog.dart';
 import '../widgets/home_dashboard.dart';
 import '../widgets/novo_paciente_dialog.dart';
@@ -97,6 +98,26 @@ class _HomePageState extends ConsumerState<HomePage> {
       ref.read(_saudacaoProvider.notifier).state = nova;
       }
     });
+
+    final lembreteService = ref.read(lembreteServiceProvider);
+    lembreteService.inicializar();
+    lembreteService.onNotificationTap = (compromissoId) async {
+      final compromissosService = ref.read(compromissoServiceProvider);
+      final pacienteService = ref.read(pacienteServiceProvider);
+      final compromisso = compromissosService.obterPorId(compromissoId);
+      if (compromisso == null) return;
+      final paciente = pacienteService.buscarPacientePorId(compromisso.pacienteId);
+      if (paciente == null) return;
+      final mensagem = compromisso.formatarMensagemLembrete(
+        paciente.nome,
+        _nomeProfissional(),
+      );
+      await LembreteService.enviarMensagem(
+        paciente.contato,
+        mensagem,
+        canal: compromisso.canalLembrete,
+      );
+    };
   }
 
   @override
@@ -422,12 +443,6 @@ class _HomePageState extends ConsumerState<HomePage> {
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {
               switch (value) {
-                case 'financeiro':
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const FinanceiroPage()),
-                  );
-                  break;
                 case 'perfil':
                   _abrirPerfil();
                   break;
@@ -458,16 +473,6 @@ class _HomePageState extends ConsumerState<HomePage> {
               }
             },
             itemBuilder: (context) => const [
-              PopupMenuItem(
-                value: 'financeiro',
-                child: Row(
-                  children: [
-                    Icon(Icons.payments_outlined, size: 20),
-                    SizedBox(width: 10),
-                    Text('Financeiro'),
-                  ],
-                ),
-              ),
               PopupMenuItem(
                 value: 'perfil',
                 child: Row(

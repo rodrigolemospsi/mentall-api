@@ -66,24 +66,32 @@ class AuthService {
   String get _password {
     final box = Hive.box<String>('app_config');
     final stored = box.get(_passwordKey);
-    if (stored != null && stored.isNotEmpty) return stored;
+    if (stored != null && stored.isNotEmpty) {
+      return EncryptionService.tryDecrypt(stored);
+    }
     return _defaultPassword;
   }
 
   Future<void> inicializar() async {
     final token = _box.get(_tokenKey);
     if (token != null && token.isNotEmpty) {
-      ApiClient.authToken = token;
+      ApiClient.authToken = EncryptionService.tryDecrypt(token);
     }
     await _tentarAutenticarBackend();
   }
 
   bool get possuiTokenJwt {
     final token = _box.get(_tokenKey);
-    return token != null && token.isNotEmpty;
+    if (token == null || token.isEmpty) return false;
+    final decrypted = EncryptionService.tryDecrypt(token);
+    return decrypted.isNotEmpty;
   }
 
-  String? get tokenJwt => _box.get(_tokenKey);
+  String? get tokenJwt {
+    final token = _box.get(_tokenKey);
+    if (token == null || token.isEmpty) return null;
+    return EncryptionService.tryDecrypt(token);
+  }
 
   Future<bool> autenticarBackend() async {
     try {
@@ -102,7 +110,8 @@ class AuthService {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final token = data['access_token'] as String?;
         if (token == null || token.isEmpty) return false;
-        await _box.put(_tokenKey, token);
+        final encryptedToken = EncryptionService.tryEncrypt(token);
+        await _box.put(_tokenKey, encryptedToken ?? token);
         ApiClient.authToken = token;
         return true;
       }
@@ -146,6 +155,8 @@ class AuthService {
 
   bool verificarFraseRecuperacao(String frase) =>
       _encryptionService.verificarFraseRecuperacao(frase);
+
+  bool validarPin(String pin) => _encryptionService.validarPin(pin);
 
   Future<bool> recuperarComFrase(String frase) async {
     final sucesso = await _encryptionService.recuperarComFrase(frase);

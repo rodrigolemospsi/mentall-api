@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
 import 'api_client.dart';
+import 'audio_relato_service.dart';
 
 class ResultadoTranscricaoRelato {
   final bool sucesso;
@@ -59,13 +59,7 @@ class TranscricaoRelatoService {
 
     if (!possuiAudioBase64 && possuiCaminhoAudio) {
       try {
-        final arquivo = File(caminhoLimpo);
-        if (!await arquivo.exists()) {
-          return ResultadoTranscricaoRelato.falha(
-            erro: 'Arquivo de áudio não encontrado no dispositivo.',
-          );
-        }
-        final bytes = await arquivo.readAsBytes();
+        final bytes = await AudioRelatoService.lerAudioDescriptografado(caminhoLimpo);
         base64Limpo = base64Encode(bytes);
         final ext = caminhoLimpo.split('.').last;
         if (ext.isNotEmpty && ext.length <= 5) {

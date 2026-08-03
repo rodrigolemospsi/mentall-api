@@ -1,10 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
+
+import 'encryption_service.dart';
+import 'logger.dart';
 
 class AudioRelatoService {
   final AudioRecorder _recorder = AudioRecorder();
@@ -142,6 +146,7 @@ class AudioRelatoService {
 
     if (caminhoFinal != null && caminhoFinal.trim().isNotEmpty) {
       _caminhoAudioAtual = caminhoFinal.trim();
+      await _criptografarArquivo(_caminhoAudioAtual!);
       return _caminhoAudioAtual;
     }
 
@@ -340,6 +345,61 @@ class AudioRelatoService {
     header.add(pcmBytes);
 
     return header.toBytes();
+  }
+
+  Future<void> _criptografarArquivo(String caminho) async {
+    try {
+      final file = File(caminho);
+      if (!await file.exists()) return;
+
+      final bytes = await file.readAsBytes();
+      final base64 = base64Encode(bytes);
+      final encrypted = EncryptionService.tryEncrypt(base64);
+      if (encrypted != null) {
+        await file.writeAsString(encrypted);
+      }
+    } catch (e) {
+      Log.erro(e, contexto: 'AudioRelatoService._criptografarArquivo');
+    }
+  }
+
+  static Future<Uint8List> lerAudioDescriptografado(String caminho) async {
+    final file = File(caminho);
+    if (!await file.exists()) {
+      throw Exception('Arquivo de audio nao encontrado.');
+    }
+
+    final bytes = await file.readAsBytes();
+    if (bytes.isEmpty) {
+      throw Exception('Arquivo de audio vazio.');
+    }
+
+    if (bytes.length >= 2 && bytes[0] == 0x32 && bytes[1] == 0x3A) {
+      final content = utf8.decode(bytes, allowMalformed: true);
+      final decrypted = EncryptionService.tryDecrypt(content);
+      if (decrypted.isEmpty || decrypted == content) {
+        throw Exception(
+          'Audio criptografado e app bloqueado. Desbloqueie o PIN para reproduzir.',
+        );
+      }
+      try {
+        return base64Decode(decrypted);
+      } catch (_) {
+        throw Exception('Falha ao descriptografar o arquivo de audio.');
+      }
+    }
+
+    return bytes;
+  }
+
+  static Future<String> prepararAudioParaPlayback(String caminho) async {
+    final bytes = await lerAudioDescriptografado(caminho);
+    final tempDir = await getTemporaryDirectory();
+    final tempFile = File(
+      '${tempDir.path}/mentall_playback_${DateTime.now().millisecondsSinceEpoch}.m4a',
+    );
+    await tempFile.writeAsBytes(bytes);
+    return tempFile.path;
   }
 
   List<int> _asciiBytes(String value) {

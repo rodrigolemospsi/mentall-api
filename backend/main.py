@@ -165,18 +165,18 @@ def _renderizar_template_personalizado(
     margin-bottom: 6px;
   }}
   .cabecalho-profissional .profissional-nome {{
-    font-size: 15px;
-    font-weight: 500;
+    font-size: 16px;
+    font-weight: 700;
     color: #1E293B;
   }}
   .cabecalho-profissional .profissional-crp {{
-    font-size: 15px;
-    color: #64748B;
+    font-size: 16px;
+    color: #1E293B;
     margin-top: 1px;
   }}
   .paciente-info {{
-    font-size: 15px;
-    color: #475569;
+    font-size: 16px;
+    color: #1E293B;
     margin-bottom: 28px;
     padding-bottom: 16px;
     border-bottom: 1px solid #E2E8F0;
@@ -194,14 +194,12 @@ def _renderizar_template_personalizado(
     letter-spacing: 0.5px;
   }}
   h2 {{
-    font-size: 18px;
-    color: #2563EB;
-    margin: 28px 0 10px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid #93C5FD;
+    font-size: 16px;
+    color: #1E293B;
     font-weight: 700;
+    margin: 20px 0 8px;
   }}
-  p {{ font-size: 15px; color: #334155; margin-bottom: 6px; text-align: justify; }}
+  p {{ font-size: 16px; color: #334155; margin-bottom: 6px; text-align: justify; }}
   .assinatura {{
     margin-top: 36px;
     padding-top: 20px;

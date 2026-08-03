@@ -88,7 +88,15 @@ class CompromissoService {
 
   Compromisso? buscarPorSessaoId(String sessaoId) {
     final match = _box.values.where((c) => c.sessaoId == sessaoId);
-    return match.isEmpty ? null : match.first;
+    return match.isNotEmpty ? match.first : null;
+  }
+
+  Compromisso? obterPorId(String id) {
+    try {
+      return _box.values.firstWhere((c) => c.id == id);
+    } catch (_) {
+      return null;
+    }
   }
 
   List<Compromisso> verificarConflitos(

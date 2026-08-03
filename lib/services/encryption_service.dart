@@ -60,6 +60,30 @@ class EncryptionService {
 
   EncryptionService();
 
+  static EncryptionService? _instance;
+
+  static void setInstance(EncryptionService instance) {
+    _instance = instance;
+  }
+
+  static String? tryEncrypt(String texto) {
+    if (_instance == null || texto.isEmpty || !_instance!.configurado) return null;
+    try {
+      return _instance!.criptografar(texto);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static String tryDecrypt(String texto) {
+    if (_instance == null || texto.isEmpty) return texto;
+    try {
+      return _instance!.descriptografar(texto);
+    } catch (_) {
+      return texto;
+    }
+  }
+
   bool get configurado => _inicializado && _key != null;
 
   Future<void> inicializar() async {
@@ -249,10 +273,10 @@ class EncryptionService {
     if (_key == null || texto.isEmpty) return texto;
 
     try {
-      final encrypter = encrypt.Encrypter(encrypt.AES(_key!));
-      final randomIv = encrypt.IV.fromSecureRandom(16);
-      final encrypted = encrypter.encrypt(texto, iv: randomIv);
-      return '2:${randomIv.base64}:${encrypted.base64}';
+      final encrypter = encrypt.Encrypter(encrypt.AES(_key!, mode: encrypt.AESMode.gcm));
+      final nonce = encrypt.IV.fromSecureRandom(12);
+      final encrypted = encrypter.encrypt(texto, iv: nonce);
+      return '3:${nonce.base64}:${encrypted.base64}';
     } catch (e) {
       Log.erro(e, contexto: 'EncryptionService.criptografar');
       rethrow;
@@ -275,7 +299,19 @@ class EncryptionService {
     }
 
     try {
-      final encrypter = encrypt.Encrypter(encrypt.AES(_key!));
+      final encrypterGcm = encrypt.Encrypter(encrypt.AES(_key!, mode: encrypt.AESMode.gcm));
+
+      if (texto.startsWith('3:')) {
+        final firstColon = texto.indexOf(':');
+        final secondColon = texto.indexOf(':', firstColon + 1);
+        if (secondColon == -1) return texto;
+        final nonceBase64 = texto.substring(firstColon + 1, secondColon);
+        final cipherBase64 = texto.substring(secondColon + 1);
+        final nonce = encrypt.IV.fromBase64(nonceBase64);
+        return encrypterGcm.decrypt64(cipherBase64, iv: nonce);
+      }
+
+      final encrypterCbc = encrypt.Encrypter(encrypt.AES(_key!));
 
       if (texto.startsWith('2:')) {
         final firstColon = texto.indexOf(':');
@@ -284,11 +320,11 @@ class EncryptionService {
         final ivBase64 = texto.substring(firstColon + 1, secondColon);
         final cipherBase64 = texto.substring(secondColon + 1);
         final iv = encrypt.IV.fromBase64(ivBase64);
-        return encrypter.decrypt64(cipherBase64, iv: iv);
+        return encrypterCbc.decrypt64(cipherBase64, iv: iv);
       }
 
       if (_iv != null) {
-        return encrypter.decrypt64(texto, iv: _iv!);
+        return encrypterCbc.decrypt64(texto, iv: _iv!);
       }
 
       return texto;
@@ -298,7 +334,7 @@ class EncryptionService {
   }
 
   bool _pareceBase64ComMarker(String texto) {
-    if (texto.startsWith('2:')) {
+    if (texto.startsWith('3:') || texto.startsWith('2:')) {
       final rest = texto.substring(2);
       return _pareceBase64(rest.replaceFirst(RegExp(r'^[^:]+:'), ''));
     }
@@ -381,6 +417,11 @@ class EncryptionService {
 
     final hash = _derivarChaveLegacy(pin, parts[0]);
     return hash.base64 == parts[1];
+  }
+
+  bool validarPin(String pin) {
+    if (_estaBloqueado()) return false;
+    return _verificarPin(pin);
   }
 
   Future<bool> trocarPin(String pinAtual, String novoPin) async {

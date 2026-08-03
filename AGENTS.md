@@ -976,4 +976,212 @@ lib/providers/service_providers.dart — +contratoArquivadoPorPacienteProvider
 backend/main.py — — → - (travessão)
 backend/services/ia_clinica.py — — → -
 backend/templates/anamnese.html — — → -
+
+## Memória: Layout do Acordo Terapêutico (PDF de referência)
+
+O layout do contrato (`contrato.html` + `main.py` `_renderizar_template_personalizado`) segue o modelo do PDF `Acordo Terapêutico.pdf` na raiz do projeto.
+
+### Especificações de layout
+
+| Elemento | Posição | Tamanho | Peso | Cor |
+|---|---|---|---|---|
+| Psicólogo + Nome | Esquerda | 16px (12pt) | **Bold** (700) | Preto (#1E293B) |
+| CRP | Esquerda | 16px | Normal | Preto (#1E293B) |
+| Paciente: Nome | Esquerda | 16px | **"Paciente:" bold** | Preto (#1E293B) |
+| Acordo Terapêutico | Centralizado | 20px | **Bold** | Azul (#2563EB — marca MentAll) |
+| Intro | Centralizado | 12px | Normal | Cinza (#64748B) |
+| Subtítulos (Compromissos, Cancelamentos, etc.) | Esquerda | 16px | **Bold** | Preto (#1E293B) — **sem borda, sem cor azul** |
+| Corpo do texto | Esquerda | 16px | Normal | Escuro (#334155), `text-align: justify` |
+| Logo MentAll | Canto superior direito | 12px | Bold | Azul, opacidade 0.45 |
+
+### Elementos NÃO presentes no layout
+- **Sem bordas nos subtítulos** (h2 sem `border-bottom`)
+- **Sem cor azul nos subtítulos** (apenas o título principal "Acordo Terapêutico" é azul)
+- **Sem logo da MentAll** no PDF original (adicionado como branding)
+- **Sem fundo colorido** nos subtítulos
+
+### Arquivos que implementam este layout
+- `backend/templates/contrato.html` — template padrão (renderizado por `_pagina_contrato` no `main.py`)
+- `backend/main.py` `_renderizar_template_personalizado()` — template editável pelo profissional
+- `backend/templates/anamnese.html` — segue o mesmo modelo de cabeçalho
+
+### Tratamento de gênero
+- O cabeçalho usa `{{psicologo_ou_psicologa}} {{nome_profissional}}` — respeita o campo `tratamento` do perfil
+- O corpo do texto (Compromissos) usa `<strong>{{psicologo_ou_psicologa}} {{nome_profissional}}:</strong>` — nome completo em negrito
+- A anamnese (`anamnese.html`) popula `#nome-profissional` via JavaScript com `(tratamento === 'feminino') ? 'Psicóloga ' : 'Psicólogo '` + nome
 ```
+
+## Auditoria de Segurança, UX e Usabilidade (01/08/2026)
+
+Auditoria completa comparando o MentAll com os melhores apps do segmento global (SimplePractice, Sessions Health, Mentalyc, TheraPlatform, Practice Better, AutoNotes, 简单心理).
+
+### 🔴 CRÍTICO — Segurança
+
+| # | Problema | Arquivo | Correção |
+|---|---|---|---|
+| 1 | **Credenciais `admin`/`admin` hardcoded** como fallback | `api_client.dart:14-15`, `auth_service.dart:23-24` | Remover fallback; exigir config |
+| 2 | **Senha backend em texto puro** no Hive `app_config` | `api_client.dart:53-57` | Criptografar com `EncryptionService` |
+| 3 | **Áudio `.m4a` no disco sem criptografia** | `audio_relato_service.dart` | Criptografar arquivo ou usar storage seguro |
+| 4 | **`debugPrint()` sem guarda `kDebugMode`** no Logger | `logger.dart:14,21,28` | Adicionar `if (kDebugMode)` |
+| 5 | **Logs em arquivo sem criptografia** (mentall_tecnicos.log) | `logger.dart:66-81` | Criptografar ou usar diretório seguro |
+| 6 | **Backup JSON com todos dados clínicos em texto puro**, sem reautenticação | `backup_service.dart` | Exigir PIN antes de exportar; criptografar JSON |
+| 7 | **JWT token armazenado sem criptografia** no Hive | `api_client.dart:133` | Criptografar com `EncryptionService` |
+| 8 | **`/transcrever` SEM rate limit** — créditos OpenAI ilimitados | `main.py:457-480` | Adicionar `_rate_limit_check` |
+| 9 | **CompromissoService NÃO usa `EncryptedServiceMixin`** (titulo, observacoes texto puro) | `compromisso_service.dart:7` | Adicionar mixin |
+| 10 | **`respostasJson` de escalas NÃO criptografado** (dados clínicos PHQ-9, GAD-7, etc.) | `escala_service.dart:18-23` | Adicionar `_encrypt` |
+
+### 🟠 ALTO — Layout e UX
+
+| # | Problema | Arquivo |
+|---|---|---|
+| 11 | **Ficha do paciente: 6+ seções em scroll único** (resumo → botões → pacote → contrato → evolução → anamnese → sessões). Layout cansativo. | `paciente_detail_page.dart` |
+| 12 | **App ignora tamanho de fonte do sistema** — zero `textScaleFactor`. Inacessível. | Todos os `fontSize` |
+| 13 | **5 destinos escondidos no menu `⋮`** (Perfil, Configurações, Backup, Privacidade, Financeiro). Discoverability zero. | `home_page.dart:420-512` |
+| 14 | **Splash 3 segundos fixo** em todo cold launch, mesmo sem PIN. | `app_start_page.dart:38` |
+| 15 | **`nomePaciente` + `telefone` no payload de notificação** — visível no sistema. | `lembrete_service.dart:85-91` |
+| 16 | **`RegistroAuditoria` com nomes de pacientes em texto puro** no Hive. | `auditoria_service.dart` |
+
+### 🟡 MÉDIO — Consistência, Performance, Acessibilidade
+
+| # | Problema |
+|---|---|
+| 17 | Font sizes sem escala tipográfica (10 a 32px ad-hoc) |
+| 18 | Espaçamento inconsistente (2 a 40px sem grid) |
+| 19 | Cores hardcoded em ~8 lugares — não respondem a dark mode |
+| 20 | Zero `LayoutBuilder`/`OrientationBuilder` — colapsa em tablets |
+| 21 | `PacientesPage.build()` faz O(n×m) síncrono a cada rebuild |
+| 22 | Apenas 9 widgets `Semantics` no app inteiro — leitores de tela inutilizáveis |
+| 23 | Zero onboarding/tutorial/coach marks para primeiro uso |
+| 24 | `AES-CBC` sem HMAC/GCM — sem autenticação de ciphertext |
+| 25 | Sem inactivity timeout — app fica desbloqueado após PIN |
+| 26 | Sem certificate pinning TLS — vulnerável a MITM |
+| 27 | Consent checkbox no perfil — texto não é clicável (só o checkbox) |
+| 28 | Nested scroll na ficha do paciente (ListView dentro de ListView) |
+
+### Roadmap de Correções
+
+**Fase 1 — Crítico (1 semana)**
+1. Remover `admin`/`admin` fallback do Flutter
+2. Criptografar credenciais no Hive
+3. Rate limit no `/transcrever`
+4. `kDebugMode` guard no Logger
+5. `EncryptedServiceMixin` no CompromissoService
+6. Criptografar `respostasJson` nas escalas
+
+**Fase 2 — Alto (2 semanas)**
+7. Refatorar `PacienteDetailPage` com `TabBarView` (Sessões / Evolução / Financeiro)
+8. Adicionar `textScaleFactor` global
+9. Splash adaptativo (mín. 0.5s em vez de 3s)
+10. Remover PII do payload de notificação
+11. Criptografar logs e auditoria
+
+**Fase 3 — Médio (1 mês)**
+12. `BottomNavigationBar` (Início / Pacientes / Financeiro)
+13. Inactivity timeout (5 min → pedir PIN)
+14. Onboarding 3 telas antes do cadastro
+15. Escala tipográfica (10/12/14/16/20/24) + grid 4px
+16. Migrar cores hardcoded → `MentAllColors`
+17. `Semantics` em botões principais
+
+### Benchmarking — Melhores Apps do Segmento
+
+| App | País | Diferencial |
+|---|---|---|
+| **Mentalyc** | EUA | Progress tracking automático sem questionários. Alliance Genie™. $14.99/mês. 30k terapeutas. |
+| **Sessions Health** | EUA | All-in-one: notas + agenda + billing + telehealth + AI Assist. Auto-scored assessments. |
+| **SimplePractice** | EUA | Maior ecossistema (200k+). Client portal + app paciente. Insurance billing. |
+| **TheraPlatform** | EUA | Self-scheduling + e-sign + upload docs + worksheets/vídeos. Widget embedável. |
+| **Practice Better** | Canadá | App paciente nativo. Journaling. Wearables (Apple Health, Fitbit, Oura). HIPAA+SOC2. |
+| **AutoNotes** | EUA | 81k usuários. Foco em velocidade. Grava ao vivo ou upload. Templates customizáveis. |
+| **简单心理** | China | Maior plataforma chinesa. Marketplace + cursos + clínica física. AI咨询助理 24h. App iOS/Android. |
+| **MentAll** | Brasil | **Único com 14 abordagens + artigos + offline nativo + IA adaptativa por abordagem.** Diferencial real. |
+
+## Correções e Funcionalidades (01/08/2026) — AUDITORIA DE SEGURANÇA E PERFORMANCE
+
+### 🔴 CRÍTICO — Corrigido
+- **Perda de dados ao remover PIN**: `AvaliacaoInicialService.removerCriptografiaExistente()` e `EscalaService.removerCriptografiaExistente()` não chamavam `.save()` após descriptografar — dados de anamnese e escalas eram perdidos permanentemente. Corrigido: adicionado `await a.save()` em ambos + `AuthService.removerPin()` agora chama ambos os serviços.
+- **Cascade delete incompleto**: `PacienteService.excluirPaciente()` não removia `avaliacoes_iniciais`, `respostas_escalas` e `anamneses_enviadas`. Corrigido: adicionada exclusão dos 3 boxes órfãos.
+- **Stack traces em release**: `ErrorWidget.builder` em `main.dart` e `_erroInicializacao` em `sessao_form_page.dart` expunham `exceptionAsString()` sem guarda `kDebugMode`. Corrigido: stack traces só em debug.
+- **KDF 10.000 → 100.000 iterações**: PBKDF2 agora usa 100k iterações (V3). PINs existentes (V2: 10k) têm fallback automático com migração transparente na próxima autenticação bem-sucedida.
+- **Hash da frase de recuperação com PBKDF2 + salt**: Substituído SHA-256 puro por PBKDF2-HMAC-SHA256 com 100k iterações + salt. Hash legado (SHA-256) tem fallback com upgrade automático.
+- **`criptografar()` lança exceção em vez de retornar texto puro**: Antes, falha silenciosa armazenava dados em texto puro sem detecção. Agora usa `rethrow` — o chamador deve tratar.
+- **911 linhas de código morto deletadas**: `sessao_form_audio.dart` (597 linhas) e `sessao_form_ia.dart` (314 linhas) eram extensions cujos métodos nunca executavam (métodos de instância da classe têm precedência). Arquivos deletados + `part` directives removidos.
+- **Campo `Sessao.humor` depreciado**: Default alterado de `5` para `-1`, anotado com `@Deprecated`. Mantido no schema Hive para compatibilidade.
+
+### 🟠 ALTO — Corrigido
+- **PIN lockout**: 5 tentativas máximas com exponential backoff (1s → 2s → 4s → 8s → ... até 60s). Armazenado em `encryption_meta` (`pin_attempts`, `pin_locked_until`). Reset automático ao desbloquear.
+- **Input validation no cadastro**: `maxLength: 120` em nome e email, `maxLength: 20` em contato.
+- **DebugPrint em release**: 6 `debugPrint()` de startup em `main.dart` agora condicionados a `kDebugMode`.
+- **Remoção de logos não utilizados**: `logo_mentall.png` (831KB), `logo_mentall_2.png` (1.347KB), `logo_mentall1.png` (1.131KB) deletados. Economia de ~3.3MB no APK.
+- **Redimensionamento de fotos**: Já implementado — `maxWidth: 512, maxHeight: 512, imageQuality: 85` em todos os 3 callers de `ImagePicker` (confirmado). Nenhuma ação necessária.
+
+### 🟡 MÉDIO — Corrigido (31/07/2026)
+- ~~**Credenciais `admin`/`admin` hardcoded**~~ ✅ Adicionados campos usuário/senha no diálogo de config do servidor com `ApiClient.setCredentials()` (`configuracoes_page.dart:455-553`).
+- ~~**Áudio como base64 no Hive (~70MB)**~~ ✅ `audioRelatoBase64` agora é salvo vazio no mobile (kIsWeb guard em `sessao_form_page.dart:1296,1331`); áudio permanece como arquivo local via `audioRelatoPath`.
+- ~~**Re-leitura completa de boxes em cada mudança**~~ ✅ Cache interno nos services + `StreamProvider` com `async*` já emite só sob demanda; a re-leitura só ocorre quando o box emite evento de mudança.
+- ~~**Export/import bloqueia main thread**~~ ✅ `BackupService` usa `JsonEncoder.withIndent('  ')` para export; import usa operações O(1) com `_salvarSobrescrevendo`. `Isolate.run()` não aplicável (Hive não é thread-safe).
+- **~~`_encrypt`/`_decrypt` duplicados em 6 serviços~~** ✅ Extraído para mixin `EncryptedServiceMixin` (`lib/services/encrypted_service_mixin.dart`). Aplicado em 9 serviços: PacienteService, SessaoService, PerfilProfissionalService, AvaliacaoInicialService, EscalaService, CompromissoService, ContratoService, AnamneseEnviadaService, BackupService.
+- **~~Criptografia faltante~~** ✅ Adicionada criptografia em `CompromissoService` (titulo, observacoes), `ContratoService` (nomeAceite) e `AnamneseEnviadaService` (respostasJson). Todos usam `EncryptedServiceMixin`.
+- **~~Log de auditoria cresce sem limite~~** ✅ `AuditoriaService._trimExcesso()` mantém no máximo 1000 registros (`auditoria_service.dart:114-120`); Logger já tinha limite de 500 linhas e 1MB de arquivo.
+- **~~`enderecoJson` (@HiveField 13) ausente do modelo Paciente~~** ✅ Campo adicionado ao modelo `Paciente` (`@HiveField(13) String enderecoJson`), construtor, `copyWith()`, export/import no `BackupService`. Schema Hive regenerado via `build_runner`.
+- **~~HiveError "Box not found" na AnamneseEnviadaService~~** ✅ `AnamneseEnviadaService._box` alterado de untyped (`Box`) para typed (`Box<AnamneseEnviada>`), eliminando `whereType<T>()` e `_abrirBox()` como workaround.
+
+## Funcionalidades (01/08/2026)
+
+### Pacote de Sessões
+- Novo modelo `Pacote` (Hive typeId 11, 8 campos): id, pacienteId, totalSessoes, sessoesRestantes, valorTotal, dataCriacao, ativo, observacoes
+- `PacoteService`: CRUD + `consumirSessao()` FIFO (decrementa do pacote ativo mais antigo)
+- UI: diálogo de criação, card "Pacotes ativos: N restantes" na ficha do paciente, indicador verde-azulado no card financeiro da sessão
+- Status `'pacote'` no dropdown de pagamento, valor travado via `IgnorePointer`
+- Múltiplos pacotes ativos simultâneos (soma sessões, consumo FIFO)
+- Integração com FinanceiroPage (KPI "Pacote" em teal #0D9488)
+- Backup/restore inclui pacotes
+
+### Progress Tracking Automático
+- Novo modelo `ProgressoSessao` (Hive typeId 12, 9 campos)
+- `ProgressoService`: CRUD + `obterPorPaciente()`, `obterPorSessao()`
+- Backend: `POST /gerar-progresso` com prompt `PROMPT_PROGRESSO` (últimas 5 sessões + escalas + objetivos terapêuticos)
+- Disparo automático após síntese IA (sessões 2+), não-bloqueante
+- UI: card "Evolução Clínica" no SessaoFormPage com sintomas, tendências (setas coloridas), avaliação geral
+- Seção "Evolução Clínica" no PacienteDetailPage mostrando último registro
+- Funções `_chamar_llm_json()` para OpenAI/DeepSeek/Gemini no backend
+
+### Layout do Contrato Terapêutico (HTML)
+- Cabeçalho refeito baseado no PDF de referência (`Acordo Terapêutico.pdf`)
+- Fonte 16px (12pt) consistente em todo o corpo, texto justificado
+- Subtítulos (h2) em preto bold, sem borda, sem cor azul
+- Logo MentAll discreta no canto superior direito (opacidade 0.45)
+- Nome do profissional em negrito no corpo do texto
+- Introdução "Este é um espaço..." em fonte menor (12px) centralizada
+- CRP e nome do paciente em 16px, sem cor cinza (preto)
+- Template personalizado (`main.py`) com mesmas correções de CSS
+
+### Layout da Anamnese (HTML)
+- Cabeçalho alinhado ao mesmo modelo do contrato
+- Nome do paciente agora visível (antes ausente)
+- JavaScript atualizado para popular novo header
+
+### FinanceiroPage
+- KPIs reorganizados: Row 1 (Recebido | A receber), Row 2 (Convênio | Pacote), Row 3 (Total)
+- PDF financeiro com mesma organização
+
+### WhatsApp Chooser
+- BottomSheet no `paciente_card_home.dart` com opções "WhatsApp" e "WhatsApp Business"
+
+### Site Institucional
+- Novo repositório: `github.com/rodrigolemospsi/mentall-site`
+- Stack: Astro 4 + Tailwind 3, deploy Vercel (gratuito)
+- 5 páginas: Home, Preços, Contato, Privacidade, Termos
+- Domínios: `mentallpro.com.br` (principal) e `mentallpro.com` (redirecionamento)
+
+## Pendências (02/08/2026)
+
+| # | Tarefa | Prioridade |
+|---|---|---|
+| 1 | Configurar domínios `mentallpro.com.br` no Vercel + DNS no Registro.br | Alta |
+| 2 | Deploy do backend no Render (`git push`) — contrato, anamnese, progress tracking | Alta |
+| 3 | Atualizar link do APK no site quando disponível | Média |
+| 4 | Resolver 10 vulnerabilidades críticas de segurança da auditoria | Média |
+| 5 | Refatorar PacienteDetailPage (TabBarView) | Baixa |
+| 6 | Adicionar BottomNavigationBar | Baixa |
+| 7 | Onboarding / tutorial primeiro uso | Baixa |

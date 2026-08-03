@@ -364,10 +364,11 @@ class _PerfilProfissionalFormPageState
               ),
               const SizedBox(height: 10),
               const Text('Bem-vindo ao MentAll',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               Text(
                 'Antes de cadastrar pessoas atendidas, configure seu perfil profissional e suas preferências clínicas.',
+                textAlign: TextAlign.justify,
                 style: TextStyle(color: context.corTextoSecondary, height: 1.4),
               ),
               const SizedBox(height: 22),
@@ -578,23 +579,19 @@ class _PerfilProfissionalFormPageState
             const SizedBox(height: 16),
             const Divider(height: 1),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Checkbox(
-                  value: atendeOnline,
-                  activeColor: context.corPrimaria,
-                  onChanged: (value) {
-                    ref.read(_atendeOnlineProvider.notifier).state =
-                        value ?? false;
-                  },
-                ),
-                Expanded(
-                  child: Text(
-                    'Realizo atendimento online',
-                    style: TextStyle(fontSize: 14, color: context.corTextoHeading),
-                  ),
-                ),
-              ],
+            CheckboxListTile(
+              value: atendeOnline,
+              activeColor: context.corPrimaria,
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                'Realizo atendimento online',
+                style: TextStyle(fontSize: 14, color: context.corTextoHeading),
+              ),
+              onChanged: (value) {
+                ref.read(_atendeOnlineProvider.notifier).state =
+                    value ?? false;
+              },
             ),
           ],
         ),
@@ -789,23 +786,19 @@ class _PerfilProfissionalFormPageState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Checkbox(
-                  value: aceitou,
-                  activeColor: context.corPrimaria,
-                  onChanged: (value) {
-                    ref.read(_aceitouTermosProvider.notifier).state =
-                        value ?? false;
-                  },
-                ),
-                const Expanded(
-                  child: Text(
-                    'Eu li e aceito os Termos de Uso e a Política de Privacidade.',
-                    style: TextStyle(height: 1.4),
-                  ),
-                ),
-              ],
+            CheckboxListTile(
+              value: aceitou,
+              activeColor: context.corPrimaria,
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: const Text(
+                'Eu li e aceito os Termos de Uso e a Política de Privacidade.',
+                style: TextStyle(height: 1.4),
+              ),
+              onChanged: (value) {
+                ref.read(_aceitouTermosProvider.notifier).state =
+                    value ?? false;
+              },
             ),
             Wrap(
               spacing: 4,

@@ -1,3 +1,7 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -18,8 +22,32 @@ import 'screens/app_start_page.dart';
 import 'services/api_client.dart';
 import 'services/hive_migration_service.dart';
 
+class _SecureHttpOverrides extends HttpOverrides {
+  static const _certFingerprints = <String>[];
+
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    final client = super.createHttpClient(context);
+    client.badCertificateCallback = (cert, host, port) {
+      if (host == 'localhost' || host.startsWith('192.168') || host == '127.0.0.1') {
+        return true;
+      }
+      if (_certFingerprints.isEmpty) return false;
+      try {
+        final digest = sha256.convert(utf8.encode(cert.pem));
+        final hex = digest.toString();
+        return _certFingerprints.contains(hex);
+      } catch (_) {
+        return false;
+      }
+    };
+    return client;
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  HttpOverrides.global = _SecureHttpOverrides();
 
   final sw = Stopwatch()..start();
 
@@ -129,6 +157,16 @@ class MentAllApp extends ConsumerWidget {
 
     return ThemeData(
       colorScheme: colorScheme,
+      textTheme: const TextTheme(
+        headlineLarge: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+        headlineMedium: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+        titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+        titleMedium: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        bodyLarge: TextStyle(fontSize: 16),
+        bodyMedium: TextStyle(fontSize: 14),
+        bodySmall: TextStyle(fontSize: 12),
+        labelSmall: TextStyle(fontSize: 10),
+      ),
       useMaterial3: true,
       scaffoldBackgroundColor: colorScheme.surface,
       appBarTheme: AppBarTheme(
@@ -189,6 +227,19 @@ class MentAllApp extends ConsumerWidget {
     return MaterialApp(
       title: 'MentAll',
       debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaleFactor:
+                MediaQuery.of(context).textScaleFactor.clamp(0.8, 1.5),
+          ),
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (_) => AppStartPage.onUserActivity?.call(),
+            child: child!,
+          ),
+        );
+      },
       theme: _criarTema(Brightness.light),
       darkTheme: _criarTema(Brightness.dark),
       themeMode: temaEscuro ? ThemeMode.dark : ThemeMode.light,
