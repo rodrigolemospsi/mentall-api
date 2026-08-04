@@ -33,3 +33,9 @@ services:
         sync: false
       - key: TURSO_AUTH_TOKEN
         sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: TRANSCRICAO_PROVIDER
+        sync: false
+      - key: TRANSCRICAO_MODEL
+        sync: false
