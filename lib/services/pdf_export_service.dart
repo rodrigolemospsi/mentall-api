@@ -229,9 +229,11 @@ class PdfExportService {
       ),
     ];
     if (perfil.possuiRegistroProfissional) {
+      final registroLimpo = perfil.registroProfissional
+          .replaceFirst(RegExp(r'^CRP\s*', caseSensitive: false), '');
       infoProfissional.add(
         pw.Text(
-          'CRP ${perfil.registroProfissional}',
+          'CRP $registroLimpo',
           style: pw.TextStyle(
             fontSize: 7,
             color: _secundaria,

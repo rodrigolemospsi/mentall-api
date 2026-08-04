@@ -429,7 +429,7 @@ class _PerfilProfissionalFormPageState
               textCapitalization: TextCapitalization.characters,
               decoration: const InputDecoration(
                 labelText: 'Registro profissional',
-                hintText: 'Ex.: CRP 00/00000',
+                hintText: 'Ex.: 00/00000',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.badge_outlined),
               ),

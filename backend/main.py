@@ -104,6 +104,12 @@ log.info("APP_USER_ID: %s", APP_USER_ID[:8])
 security = HTTPBearer()
 
 
+def _limpar_crp(valor: str) -> str:
+    """Remove prefixo 'CRP' ou 'crp' do registro profissional para evitar duplicacao."""
+    import re
+    return re.sub(r"^CRP\s*", "", valor.strip(), flags=re.IGNORECASE)
+
+
 def _detectar_titulo(linha: str) -> bool:
     """Detecta se uma linha de texto eh um titulo de secao (subtitulo)."""
     texto = linha.strip()
@@ -141,7 +147,7 @@ def _renderizar_template_personalizado(
 ) -> HTMLResponse:
     nome_paciente = dados.get("nome_paciente", "")
     nome_profissional = dados.get("nome_profissional", "")
-    registro = dados.get("registro_profissional", "")
+    registro = _limpar_crp(dados.get("registro_profissional", ""))
     texto = dados.get("template_contrato", "")
     termo = dados.get("termo_pessoa", "paciente")
     termo_cap = termo[0].upper() + termo[1:] if termo else "Paciente"
@@ -777,7 +783,7 @@ def _pagina_contrato(token: str, _req: Request):
     substituicoes = {
         "{{nome_paciente}}": html.escape(dados.get("nome_paciente", "")),
         "{{nome_profissional}}": html.escape(dados.get("nome_profissional", "")),
-        "{{registro_profissional}}": html.escape(dados.get("registro_profissional", "N\u00e3o informado")),
+        "{{registro_profissional}}": html.escape(_limpar_crp(dados.get("registro_profissional", "N\u00e3o informado"))),
         "{{termo_pessoa}}": html.escape(termo),
         "{{termo_pessoa_capitalizado}}": html.escape(termo_capitalizado),
         "{{artigo_termo}}": html.escape(artigo),
