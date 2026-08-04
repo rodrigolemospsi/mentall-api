@@ -460,7 +460,10 @@ def login(request: LoginRequest, _req: Request):
     tags=["Transcricao"],
     dependencies=[Depends(_verificar_token)],
 )
-def transcrever(request: TranscricaoRequest, req: Request):
+async def transcrever(request: TranscricaoRequest, req: Request):
+    ip = req.client.host if req.client else "unknown"
+    _rate_limit_check(ip, max_requests=10)
+
     content_length = req.headers.get("content-length")
     max_body = 35 * 1024 * 1024  # 35MB (25MB audio + base64 overhead + JSON)
     if content_length and int(content_length) > max_body:
@@ -470,7 +473,10 @@ def transcrever(request: TranscricaoRequest, req: Request):
         raise HTTPException(status_code=400, detail="Nenhum audio informado.")
 
     log.info("Solicitacao de transcricao recebida (formato: %s)", request.formato)
-    resultado = transcrever_audio(request.audio_base64, request.formato)
+    loop = asyncio.get_running_loop()
+    resultado = await loop.run_in_executor(
+        None, transcrever_audio, request.audio_base64, request.formato,
+    )
 
     if not resultado["sucesso"]:
         log.error("Falha na transcricao: %s", resultado["erro"])
@@ -486,7 +492,7 @@ def transcrever(request: TranscricaoRequest, req: Request):
     tags=["IA Clinica"],
     dependencies=[Depends(_verificar_token)],
 )
-def sintese(request: SinteseRequest, _req: Request):
+async def sintese(request: SinteseRequest, _req: Request):
     ip = _req.client.host if _req.client else "unknown"
     _rate_limit_check(ip, max_requests=30)
 
@@ -496,15 +502,18 @@ def sintese(request: SinteseRequest, _req: Request):
         request.numero_sessao,
         request.abordagem_clinica,
     )
-    resultado = gerar_sintese(
-        sessao_id=request.sessao_id,
-        numero_sessao=request.numero_sessao,
-        nome_pessoa_atendida=request.nome_pessoa_atendida,
-        termo_pessoa_atendida=request.termo_pessoa_atendida,
-        abordagem_clinica=request.abordagem_clinica,
-        transcricao_relato=request.transcricao_relato,
-        relato_manual=request.relato_manual,
-        tema_principal=request.tema_principal,
+    loop = asyncio.get_running_loop()
+    resultado = await loop.run_in_executor(
+        None,
+        gerar_sintese,
+        request.sessao_id,
+        request.numero_sessao,
+        request.nome_pessoa_atendida,
+        request.termo_pessoa_atendida,
+        request.abordagem_clinica,
+        request.transcricao_relato,
+        request.relato_manual,
+        request.tema_principal,
     )
 
     if not resultado["sucesso"]:
@@ -537,7 +546,7 @@ def sintese(request: SinteseRequest, _req: Request):
     tags=["IA Clinica"],
     dependencies=[Depends(_verificar_token)],
 )
-def progresso(request: ProgressoRequest, _req: Request):
+async def progresso(request: ProgressoRequest, _req: Request):
     ip = _req.client.host if _req.client else "unknown"
     _rate_limit_check(ip, max_requests=30)
 
@@ -546,14 +555,17 @@ def progresso(request: ProgressoRequest, _req: Request):
         request.paciente_id[:8],
         request.numero_sessao,
     )
-    resultado = gerar_progresso(
-        paciente_id=request.paciente_id,
-        numero_sessao=request.numero_sessao,
-        sessoes_anteriores=request.sessoes_anteriores,
-        sessao_atual=request.sessao_atual,
-        objetivos_terapeuticos=request.objetivos_terapeuticos,
-        queixa_principal=request.queixa_principal,
-        escalas=request.escalas,
+    loop = asyncio.get_running_loop()
+    resultado = await loop.run_in_executor(
+        None,
+        gerar_progresso,
+        request.paciente_id,
+        request.numero_sessao,
+        request.sessoes_anteriores,
+        request.sessao_atual,
+        request.objetivos_terapeuticos,
+        request.queixa_principal,
+        request.escalas,
     )
 
     if not resultado.get("sintomas"):

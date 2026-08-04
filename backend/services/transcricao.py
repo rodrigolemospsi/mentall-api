@@ -14,7 +14,7 @@ def _client():
     project_id = os.getenv("OPENAI_PROJECT_ID")
     if not api_key:
         raise Exception("OPENAI_API_KEY not set")
-    kwargs = {"api_key": api_key}
+    kwargs = {"api_key": api_key, "timeout": 120.0}
     if project_id:
         kwargs["project"] = project_id
     return OpenAI(**kwargs)

@@ -182,7 +182,7 @@ Responda apenas com JSON puro (sem markdown):
 {{"selecionados": [{{"indice": 1, "justificativa": "1 frase curta explicando a relevância clínica para esta sessão"}}]}}
 Se nenhum candidato for relevante, retorne {{"selecionados": []}}."""
 
-    resultado = _chamar_llm_json(prompt)
+    resultado = _chamar_llm_json(_get_provider(), prompt, temperature=0.1)
     if not isinstance(resultado, dict) or "selecionados" not in resultado:
         return sem_justificativa
 
@@ -283,7 +283,10 @@ def _gemini_client():
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         return None
-    return genai.Client(api_key=api_key)
+    return genai.Client(
+        api_key=api_key,
+        http_options=types.HttpOptions(timeout=120000),
+    )
 
 
 def _openai_client():
@@ -296,70 +299,7 @@ def _openai_client():
     )
 
 
-def _chamar_llm_json(prompt: str) -> dict | None:
-    system = "Você é um assistente de pesquisa clínica em psicologia. IMPORTANTE: Responda APENAS com JSON puro e válido, sem markdown, sem texto antes ou depois das chaves. Nenhum outro formato é aceito."
-    provider = _get_provider()
-    try:
-        if provider == "deepseek":
-            api_key = os.getenv("DEEPSEEK_API_KEY")
-            if not api_key:
-                return None
-            resp = requests.post(
-                "https://api.deepseek.com/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": _get_model_name(),
-                    "messages": [
-                        {"role": "system", "content": system},
-                        {"role": "user", "content": prompt},
-                    ],
-                    "temperature": 0.1,
-                },
-                timeout=60,
-            )
-            if resp.status_code != 200:
-                log.warning("DeepSeek _chamar_llm_json retornou %d: %s", resp.status_code, resp.text[:300])
-                return None
-            log.info("DeepSeek _chamar_llm_json concluido com sucesso")
-            return json.loads(resp.json()["choices"][0]["message"]["content"])
 
-        if provider == "openai":
-            client = _openai_client()
-            if not client:
-                return None
-            response = client.chat.completions.create(
-                model=_get_model_name(),
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": prompt},
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.1,
-                timeout=120,
-            )
-            log.info("OpenAI _chamar_llm_json concluido com sucesso")
-            return json.loads(response.choices[0].message.content or "")
-
-        if provider == "gemini":
-            client = _gemini_client()
-            if not client:
-                return None
-            response = client.models.generate_content(
-                model=_get_model_name(),
-                contents=f"{system}\n\n{prompt}",
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                ),
-            )
-            log.info("Gemini _chamar_llm_json concluido com sucesso")
-            return json.loads(response.text or "")
-
-    except Exception as e:
-        log.error("Erro em _chamar_llm_json (provider=%s): %s", provider, e)
-        return None
 
 
 def _montar_prompt_sintese(
@@ -438,6 +378,15 @@ def _parse_resultado_sucesso(resultado_raw: dict) -> dict:
         ]
         if texto
     )
+    try:
+        artigos_sugeridos = _montar_artigos(
+            resultado_raw.get("temas_pesquisa", []),
+            contexto_clinico,
+        )
+    except Exception as e:
+        log.warning("Falha ao buscar artigos (nao-critico): %s", e)
+        artigos_sugeridos = ""
+
     return {
         "sucesso": True,
         "relato_clinico_organizado": resultado_raw.get("relato_clinico_organizado", ""),
@@ -452,10 +401,7 @@ def _parse_resultado_sucesso(resultado_raw: dict) -> dict:
         "tecnicas": resultado_raw.get("tecnicas", ""),
         "tarefa_casa": resultado_raw.get("tarefa_casa", ""),
         "plano_proxima_sessao": resultado_raw.get("plano_proxima_sessao", ""),
-        "artigos_sugeridos": _montar_artigos(
-            resultado_raw.get("temas_pesquisa", []),
-            contexto_clinico,
-        ),
+        "artigos_sugeridos": artigos_sugeridos,
         "erro": "",
     }
 
@@ -761,7 +707,10 @@ def _chamar_llm_json_deepseek(prompt: str, temperature: float) -> dict:
 
 
 def _chamar_llm_json_gemini(prompt: str, temperature: float) -> dict:
-    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    client = genai.Client(
+        api_key=os.getenv("GEMINI_API_KEY"),
+        http_options=types.HttpOptions(timeout=120000),
+    )
     try:
         response = client.models.generate_content(
             model="gemini-2.0-flash",

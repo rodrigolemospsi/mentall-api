@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'encryption_service.dart';
 import 'logger.dart';
@@ -93,6 +94,10 @@ class AudioRelatoService {
       path: caminhoArquivo,
     );
 
+    try {
+      await WakelockPlus.enable();
+    } catch (_) {}
+
     _caminhoAudioAtual = caminhoArquivo;
 
     return caminhoArquivo;
@@ -120,6 +125,10 @@ class AudioRelatoService {
   Future<String?> pararGravacao() async {
     if (!_inicializado) return null;
 
+    try {
+      await WakelockPlus.disable();
+    } catch (_) {}
+
     if (kIsWeb) {
       final caminhoAntesDeParar = _caminhoAudioAtual;
 
@@ -146,6 +155,18 @@ class AudioRelatoService {
 
     if (caminhoFinal != null && caminhoFinal.trim().isNotEmpty) {
       _caminhoAudioAtual = caminhoFinal.trim();
+
+      final file = File(_caminhoAudioAtual!);
+      if (!await file.exists()) {
+        Log.erro('Arquivo de audio nao encontrado apos gravacao: $_caminhoAudioAtual');
+        return _caminhoAudioAtual;
+      }
+      final fileSize = await file.length();
+      if (fileSize == 0) {
+        Log.erro('Arquivo de audio vazio apos gravacao: $_caminhoAudioAtual');
+        return _caminhoAudioAtual;
+      }
+
       await _criptografarArquivo(_caminhoAudioAtual!);
       return _caminhoAudioAtual;
     }
@@ -199,6 +220,10 @@ class AudioRelatoService {
   /// controlado pelo serviço.
   Future<void> cancelarGravacao() async {
     if (!_inicializado) return;
+
+    try {
+      await WakelockPlus.disable();
+    } catch (_) {}
 
     await _recorder.cancel();
     await _webAudioStreamSubscription?.cancel();
@@ -257,6 +282,10 @@ class AudioRelatoService {
   Future<void> dispose() async {
     if (!_inicializado) return;
 
+    try {
+      await WakelockPlus.disable();
+    } catch (_) {}
+
     await _webAudioStreamSubscription?.cancel();
     await _recorder.dispose();
 
@@ -288,7 +317,7 @@ class AudioRelatoService {
   RecordConfig _gerarConfiguracaoGravacaoArquivo() {
     return const RecordConfig(
       encoder: AudioEncoder.aacLc,
-      bitRate: 128000,
+      bitRate: 96000,
       sampleRate: 44100,
       numChannels: 1,
       autoGain: true,
@@ -353,13 +382,17 @@ class AudioRelatoService {
       if (!await file.exists()) return;
 
       final bytes = await file.readAsBytes();
+      if (bytes.isEmpty) return;
+
       final base64 = base64Encode(bytes);
       final encrypted = EncryptionService.tryEncrypt(base64);
       if (encrypted != null) {
         await file.writeAsString(encrypted);
+      } else {
+        Log.info('PIN nao configurado - audio mantido sem criptografia em: $caminho');
       }
     } catch (e) {
-      Log.erro(e, contexto: 'AudioRelatoService._criptografarArquivo');
+      Log.erro(e, contexto: 'AudioRelatoService._criptografarArquivo - audio mantido sem criptografia');
     }
   }
 

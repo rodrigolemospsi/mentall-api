@@ -91,14 +91,17 @@ class TranscricaoRelatoService {
 
     while (tentativa < maxTentativas) {
       tentativa++;
-      final autenticado = await ApiClient.ensureAuthenticated();
+
+      final autenticado = tentativa == 1
+          ? await ApiClient.ensureAuthenticated()
+          : await ApiClient.forceReauthenticate();
       if (!autenticado) {
         if (tentativa < maxTentativas) {
           await Future.delayed(Duration(seconds: tentativa * 2));
           continue;
         }
         return ResultadoTranscricaoRelato.falha(
-          erro: 'Não foi possível autenticar com o servidor.',
+          erro: 'Nao foi possivel autenticar com o servidor.',
         );
       }
 
@@ -112,7 +115,7 @@ class TranscricaoRelatoService {
                 'formato': formato,
               }),
             )
-            .timeout(ApiClient.timeout);
+            .timeout(const Duration(seconds: 90));
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -142,8 +145,13 @@ class TranscricaoRelatoService {
           continue;
         }
 
+        if (response.statusCode == 429 && tentativa < maxTentativas) {
+          await Future.delayed(Duration(seconds: tentativa * 5));
+          continue;
+        }
+
         return ResultadoTranscricaoRelato.falha(
-          erro: 'Servidor retornou código ${response.statusCode}.',
+          erro: 'Servidor retornou codigo ${response.statusCode}.',
         );
       } on TimeoutException {
         if (tentativa < maxTentativas) {
@@ -159,13 +167,13 @@ class TranscricaoRelatoService {
           continue;
         }
         return ResultadoTranscricaoRelato.falha(
-          erro: 'Erro de conexão. Verifique sua internet.',
+          erro: 'Erro de conexao. Verifique sua internet.',
         );
       }
     }
 
     return ResultadoTranscricaoRelato.falha(
-      erro: 'Não foi possível transcrever o relato após várias tentativas.',
+      erro: 'Nao foi possivel transcrever o relato apos varias tentativas.',
     );
   }
 
