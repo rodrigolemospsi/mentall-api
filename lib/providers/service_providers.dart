@@ -17,6 +17,7 @@ import '../services/backup_service.dart';
 import '../services/compromisso_service.dart';
 import '../services/configuracoes_service.dart';
 import '../services/contrato_service.dart';
+import '../services/crp_service.dart';
 import '../services/encryption_service.dart';
 import '../services/escala_service.dart';
 import '../services/ia_clinica_service.dart';
@@ -152,6 +153,10 @@ final atividadeRecenteProvider = StreamProvider<List<RegistroAuditoria>>((ref) a
   await for (final _ in service.observar()) {
     yield service.listar(limite: 5);
   }
+});
+
+final crpServiceProvider = Provider<CrpService>((ref) {
+  return CrpService();
 });
 
 class DashboardKpisSessoes {

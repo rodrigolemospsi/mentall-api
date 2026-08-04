@@ -76,6 +76,7 @@ class ContratoService with EncryptedServiceMixin {
             'termo_pessoa': perfil.termoSingular,
             'template_contrato': templateContrato,
             'tratamento': perfil.tratamento,
+            'crp_verificado': perfil.crpVerificado,
           }),
         )
           .timeout(const Duration(seconds: 30));

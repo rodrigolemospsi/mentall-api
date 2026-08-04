@@ -37,6 +37,8 @@ from models.schemas import (
     SmsResponse,
     TranscricaoRequest,
     TranscricaoResponse,
+    VerificarCrpRequest,
+    VerificarCrpResponse,
     WhatsAppRequest,
     WhatsAppResponse,
 )
@@ -50,6 +52,7 @@ from services.contrato_service import (
     obter_contrato,
     registrar_aceite,
 )
+from services.crp_service import verificar_crp_online
 from services.ia_clinica import gerar_sintese, gerar_progresso
 from services.lembrete_service import (
     agendar_lembrete,
@@ -104,6 +107,15 @@ log.info("APP_USER_ID: %s", APP_USER_ID[:8])
 security = HTTPBearer()
 
 
+def _formatar_data_br(valor: str) -> str:
+    """Converte data ISO para formato brasileiro dd/mm/aaaa."""
+    try:
+        dt = datetime.strptime(valor[:10], "%Y-%m-%d")
+        return dt.strftime("%d/%m/%Y")
+    except Exception:
+        return valor[:10].replace("-", "/")
+
+
 def _limpar_crp(valor: str) -> str:
     """Remove prefixo 'CRP' ou 'crp' do registro profissional para evitar duplicacao."""
     import re
@@ -152,9 +164,11 @@ def _renderizar_template_personalizado(
     termo = dados.get("termo_pessoa", "paciente")
     termo_cap = termo[0].upper() + termo[1:] if termo else "Paciente"
     psicologo_ou_psicologa = "Psic\u00f3loga" if dados.get("tratamento") == "feminino" else "Psic\u00f3logo"
+    crp_verificado = dados.get("crp_verificado", False)
+    selo_crp = ' <span style="color:#2E7D32; font-size:12px;">&#10003; Verificado</span>' if crp_verificado else ''
     aceito_msg = ""
     if aceito:
-        data_fmt = aceito_em[:10].replace("-", "/") if aceito_em else ""
+        data_fmt = _formatar_data_br(aceito_em) if aceito_em else ""
         nome_aceite_val = nome_aceite
         aceito_msg = f'<div class="ja-aceito">&#10003; Aceito por {html.escape(nome_aceite_val)} em {data_fmt}</div>'
 
@@ -331,7 +345,7 @@ def _renderizar_template_personalizado(
 
   <div class="cabecalho-profissional">
     <div class="profissional-nome">{html.escape(psicologo_ou_psicologa)} {html.escape(nome_profissional)}</div>
-    <div class="profissional-crp">CRP {html.escape(registro)}</div>
+    <div class="profissional-crp">CRP {html.escape(registro)}{selo_crp}</div>
   </div>
 
   <div class="paciente-info">
@@ -483,6 +497,28 @@ def login(request: LoginRequest, _req: Request):
     log.info("Login bem-sucedido para usuario '%s' (IP: %s)", request.username, ip)
     token = _criar_token_jwt(request.username)
     return LoginResponse(access_token=token)
+
+
+@app.post(
+    "/verificar-crp",
+    response_model=VerificarCrpResponse,
+    tags=["CRP"],
+    dependencies=[Depends(_verificar_token)],
+)
+def verificar_crp(request: VerificarCrpRequest, _req: Request):
+    ip = _req.client.host if _req.client else "unknown"
+    _rate_limit_check(ip, max_requests=5)
+
+    log.info("Verificacao de CRP solicitada: %s", request.registro[:8])
+    resultado = verificar_crp_online(request.registro)
+
+    return VerificarCrpResponse(
+        sucesso=True,
+        ativo=resultado["ativo"],
+        nome_oficial=resultado.get("nome_oficial", ""),
+        data_inscricao=resultado.get("data_inscricao", ""),
+        erro=resultado.get("erro", ""),
+    )
 
 
 @app.post(
@@ -706,6 +742,7 @@ def criar_contrato_endpoint(request: ContratoRequest, _req: Request, auth: tuple
         "termo_pessoa": request.termo_pessoa.strip() or "paciente",
         "template_contrato": request.template_contrato.strip(),
         "tratamento": request.tratamento.strip() or "masculino",
+        "crp_verificado": request.crp_verificado,
     }
 
     token = criar_contrato(dados, owner_id)
@@ -792,9 +829,10 @@ def _pagina_contrato(token: str, _req: Request):
         "{{psicologo_ou_psicologa}}": html.escape(psicologo_ou_psicologa),
         "{{local_data}}": "",
         "{{url_aceitar}}": f"{base_url}/contratos/{token}/aceitar",
-        "{{data_aceite}}": aceito_em[:10] if aceito_em else "-",
+        "{{data_aceite}}": _formatar_data_br(aceito_em) if aceito_em else "-",
         "{{data_aceite_iso}}": aceito_em or "",
         "{{nome_aceite}}": html.escape(contrato.get("nome_aceite", "")),
+        "{{crp_selo}}": ' <span style="color:#2E7D32; font-size:12px;">&#10003; Verificado</span>' if dados.get("crp_verificado") else "",
         "{% if not aceito %}": "" if aceito else "<!--",
         "{% endif %}": "<!--" if not aceito else "",
     }
@@ -985,6 +1023,7 @@ def criar_anamnese_endpoint(request: AnamneseRequest, auth: tuple = Depends(_ver
         "registro": html.escape(request.registro.strip()),
         "abordagem": request.abordagem.strip(),
         "tratamento": request.tratamento.strip() or "masculino",
+        "crp_verificado": request.crp_verificado,
     }
 
     token = criar_anamnese(request.template_json, owner_id, dados_extra)

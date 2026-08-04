@@ -234,6 +234,8 @@ class _PerfilProfissionalFormPageState
 
       await ref.read(perfilProfissionalServiceProvider).salvarPerfil(perfil);
 
+      _verificarCrpEmBackground(registro, perfil.id);
+
       if (!mounted) return;
 
       if (_perfilExistente && Navigator.canPop(context)) {
@@ -259,6 +261,29 @@ class _PerfilProfissionalFormPageState
       );
     } finally {
       if (mounted) ref.read(_salvandoProvider.notifier).state = false;
+    }
+  }
+
+  Future<void> _verificarCrpEmBackground(String registro, String perfilId) async {
+    if (registro.trim().isEmpty) return;
+
+    try {
+      final crpService = ref.read(crpServiceProvider);
+      final resultado = await crpService.verificarCrp(registro.trim());
+
+      if (!mounted) return;
+
+      final perfilService = ref.read(perfilProfissionalServiceProvider);
+      final perfilAtual = perfilService.obterPerfil();
+      if (perfilAtual == null) return;
+
+      final atualizado = perfilAtual.copyWith(
+        crpVerificado: resultado['ativo'] == true,
+        crpDataVerificacao: resultado['ativo'] == true ? DateTime.now() : null,
+      );
+      await perfilService.salvarPerfil(atualizado);
+    } catch (e) {
+      Log.erro(e, contexto: 'PerfilProfissionalForm._verificarCrpEmBackground');
     }
   }
 

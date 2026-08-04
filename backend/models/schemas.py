@@ -79,6 +79,7 @@ class ContratoRequest(BaseModel):
     termo_pessoa: str = Field(max_length=50)
     template_contrato: str = Field(default="", max_length=50_000)
     tratamento: str = Field(default="masculino", max_length=10)
+    crp_verificado: bool = False
 
 
 class ContratoResponse(BaseModel):
@@ -132,6 +133,7 @@ class AnamneseRequest(BaseModel):
     nome_profissional: str = Field(min_length=1, max_length=120)
     registro: str = Field(default="", max_length=30)
     tratamento: str = Field(default="masculino", max_length=10)
+    crp_verificado: bool = False
 
 
 class AnamneseResponse(BaseModel):
@@ -169,4 +171,16 @@ class ProgressoResponse(BaseModel):
     avaliacao_geral: str = ""
     tendencia: str = "estavel"
     recomendacoes: str = ""
+    erro: str = ""
+
+
+class VerificarCrpRequest(BaseModel):
+    registro: str = Field(min_length=3, max_length=20)
+
+
+class VerificarCrpResponse(BaseModel):
+    sucesso: bool
+    ativo: bool = False
+    nome_oficial: str = ""
+    data_inscricao: str = ""
     erro: str = ""

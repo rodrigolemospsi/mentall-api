@@ -40,6 +40,7 @@ class AnamneseEnviadaService with EncryptedServiceMixin {
     required String nomeProfissional,
     required String registro,
     String tratamento = 'masculino',
+    bool crpVerificado = false,
   }) async {
     final autenticado = await ApiClient.ensureAuthenticated();
     if (!autenticado) {
@@ -56,6 +57,7 @@ class AnamneseEnviadaService with EncryptedServiceMixin {
         'nome_profissional': nomeProfissional,
         'registro': registro,
         'tratamento': tratamento,
+        'crp_verificado': crpVerificado,
       },
       customTimeout: const Duration(seconds: 30),
     );

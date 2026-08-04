@@ -231,9 +231,12 @@ class PdfExportService {
     if (perfil.possuiRegistroProfissional) {
       final registroLimpo = perfil.registroProfissional
           .replaceFirst(RegExp(r'^CRP\s*', caseSensitive: false), '');
+      final textoCrp = perfil.crpVerificado
+          ? 'CRP $registroLimpo \u2713 Verificado'
+          : 'CRP $registroLimpo';
       infoProfissional.add(
         pw.Text(
-          'CRP $registroLimpo',
+          textoCrp,
           style: pw.TextStyle(
             fontSize: 7,
             color: _secundaria,

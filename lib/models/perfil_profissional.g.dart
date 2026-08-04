@@ -30,13 +30,15 @@ class PerfilProfissionalAdapter extends TypeAdapter<PerfilProfissional> {
       enderecosConsultoriosJson: fields[8] == null ? '[]' : fields[8] as String,
       fotoBase64: fields[9] == null ? '' : fields[9] as String,
       tratamento: fields[10] == null ? 'masculino' : fields[10] as String,
+      crpVerificado: fields[11] == null ? false : fields[11] as bool,
+      crpDataVerificacao: fields[12] as DateTime?,
     );
   }
 
   @override
   void write(BinaryWriter writer, PerfilProfissional obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -58,7 +60,11 @@ class PerfilProfissionalAdapter extends TypeAdapter<PerfilProfissional> {
       ..writeByte(9)
       ..write(obj.fotoBase64)
       ..writeByte(10)
-      ..write(obj.tratamento);
+      ..write(obj.tratamento)
+      ..writeByte(11)
+      ..write(obj.crpVerificado)
+      ..writeByte(12)
+      ..write(obj.crpDataVerificacao);
   }
 
   @override

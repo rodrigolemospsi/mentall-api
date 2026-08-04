@@ -42,6 +42,12 @@ class PerfilProfissional extends HiveObject {
   @HiveField(10)
   String tratamento;
 
+  @HiveField(11)
+  bool crpVerificado;
+
+  @HiveField(12)
+  DateTime? crpDataVerificacao;
+
   PerfilProfissional({
     required this.id,
     required this.nome,
@@ -54,6 +60,8 @@ class PerfilProfissional extends HiveObject {
     this.enderecosConsultoriosJson = '[]',
     this.fotoBase64 = '',
     this.tratamento = 'masculino',
+    this.crpVerificado = false,
+    this.crpDataVerificacao,
   }) : dataCriacao = dataCriacao ?? DateTime.now();
 
   static const String abordagemClinicaPadrao = 'Integrativa';
@@ -270,6 +278,8 @@ class PerfilProfissional extends HiveObject {
     String? enderecosConsultoriosJson,
     String? fotoBase64,
     String? tratamento,
+    bool? crpVerificado,
+    DateTime? crpDataVerificacao,
   }) {
     return PerfilProfissional(
       id: id ?? this.id,
@@ -285,6 +295,8 @@ class PerfilProfissional extends HiveObject {
           enderecosConsultoriosJson ?? this.enderecosConsultoriosJson,
       fotoBase64: fotoBase64 ?? this.fotoBase64,
       tratamento: tratamento ?? this.tratamento,
+      crpVerificado: crpVerificado ?? this.crpVerificado,
+      crpDataVerificacao: crpDataVerificacao ?? this.crpDataVerificacao,
     );
   }
 

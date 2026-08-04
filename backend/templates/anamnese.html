@@ -312,8 +312,9 @@ document.getElementById('nome-profissional').textContent =
   (DADOS_PROFISSIONAL.nome_profissional || '').replace(/</g, '&lt;');
 var registroRaw = (DADOS_PROFISSIONAL.registro || '');
 var registroLimpo = registroRaw.replace(/^CRP\s*/i, '');
-document.getElementById('crp-profissional').textContent =
-  registroLimpo ? 'CRP ' + registroLimpo.replace(/</g, '&lt;') : '';
+document.getElementById('crp-profissional').innerHTML =
+  (registroLimpo ? 'CRP ' + registroLimpo.replace(/</g, '&lt;') : '') +
+  (DADOS_PROFISSIONAL.crp_verificado ? ' <span style="color:#2E7D32; font-size:12px;">&#10003; Verificado</span>' : '');
 
 document.getElementById('nome-paciente').textContent =
   (DADOS_PROFISSIONAL.nome_paciente || '').replace(/</g, '&lt;');

@@ -94,6 +94,7 @@ Future<void> _criarEnviarAnamnese({
       nomeProfissional: perfil.nomeExibicao,
       registro: perfil.registroProfissional,
       tratamento: perfil.tratamento,
+      crpVerificado: perfil.crpVerificado,
     );
 
     if (context.mounted) {
