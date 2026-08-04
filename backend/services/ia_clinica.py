@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from urllib.parse import quote_plus
 
 import requests
@@ -273,7 +274,7 @@ def _get_provider() -> str:
 def _get_model_name() -> str:
     provider = _get_provider()
     if provider == "openai":
-        return os.getenv("IA_MODEL", "gpt-4.1")
+        return os.getenv("IA_MODEL", "gpt-4o-mini")
     if provider == "deepseek":
         return "deepseek-v4-flash"
     return os.getenv("IA_MODEL", "gemini-2.0-flash")
@@ -378,14 +379,18 @@ def _parse_resultado_sucesso(resultado_raw: dict) -> dict:
         ]
         if texto
     )
-    try:
-        artigos_sugeridos = _montar_artigos(
-            resultado_raw.get("temas_pesquisa", []),
-            contexto_clinico,
-        )
-    except Exception as e:
-        log.warning("Falha ao buscar artigos (nao-critico): %s", e)
-        artigos_sugeridos = ""
+    temas_pesquisa = resultado_raw.get("temas_pesquisa", [])
+    artigos_sugeridos = ""
+
+    if temas_pesquisa:
+        try:
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_montar_artigos, temas_pesquisa, contexto_clinico)
+                artigos_sugeridos = future.result(timeout=8)
+        except FutureTimeoutError:
+            log.warning("Busca de artigos excedeu timeout (8s) - retornando sem artigos")
+        except Exception as e:
+            log.warning("Falha ao buscar artigos (nao-critico): %s", e)
 
     return {
         "sucesso": True,
@@ -529,7 +534,7 @@ def _gerar_sintese_openai_compat(client, prompt: str) -> dict:
             ],
             response_format={"type": "json_object"},
             temperature=0.3,
-            timeout=120,
+            timeout=60,
         )
 
         conteudo = response.choices[0].message.content
