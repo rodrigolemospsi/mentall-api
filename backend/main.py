@@ -1056,7 +1056,11 @@ p {{ color:#64748B; font-size:15px; }}
 
     html = html_base.replace("{{TOKEN}}", token)
     html = html.replace("{{DADOS_PROFISSIONAL}}", json.dumps(dados, ensure_ascii=False))
-    html = html.replace("{{TEMPLATE}}", anamnese["template_json"])
+    template_json = (anamnese.get("template_json") or "{}").strip()
+    if not template_json or not template_json.startswith("{"):
+        template_json = "{}"
+    template_json = template_json.replace("</", "<\\/")
+    html = html.replace("{{TEMPLATE}}", template_json)
 
     return HTMLResponse(content=html)
 
