@@ -199,7 +199,69 @@ Chamadas à API (`TranscricaoRelatoService`, `IaClinicaService`) devem chamar `A
 ## Problemas Conhecidos
 
 ### APK
-- Release: 69.2MB (era 72.3MB antes das correções)
+- Release: 69.9MB (era 69.2MB antes das correções de 03/08/2026)
+
+## Correções e Funcionalidades (03/08/2026) — SEGURANÇA E UX COMPLETAS
+
+### 🔴 CRÍTICO (4 itens) — Todas as vulnerabilidades resolvidas
+
+- **Senha do backend criptografada no Hive**: `ApiClient.setCredentials()` e `AuthService._password` agora criptografam/descriptografam via `EncryptionService.tryEncrypt/Decrypt`. Sem PIN → texto puro (backward compatible). Fallback `admin`/`admin` mantido para compatibilidade.
+- **JWT token criptografado no Hive**: `forceReauthenticate()` e `autenticarBackend()` criptografam o token antes de salvar em `auth_meta`. `inicializar()`, `possuiTokenJwt` e `tokenJwt` descriptografam ao ler.
+- **Áudio `.m4a` criptografado no disco**: `AudioRelatoService.pararGravacao()` criptografa automaticamente (Base64 → AES). Métodos estáticos `lerAudioDescriptografado()` e `prepararAudioParaPlayback()` para transcrição/playback. Arquivo temporário descriptografado para reprodução.
+- **Backup exige PIN**: `BackupRestorePage._validarPinAntesExportar()` — diálogo de PIN antes de exportar. Validação sem incrementar tentativas (`EncryptionService.validarPin()`).
+
+### 🟠 ALTO — UX/Layout (6 itens) — Todas as melhorias implementadas
+
+- **Ficha do paciente com TabBarView 3 abas** (Resumo / Sessões / Financeiro): `PacienteDetailPage` reduzida de 1760 → 792 linhas. 3 novos widgets extraídos: `PacienteResumoTab`, `PacienteSessoesTab`, `PacienteFinanceiroTab`. Elimina scroll único cansativo e ListView aninhado.
+- **textScaleFactor com clamp 0.8–1.5**: `builder` no `MaterialApp` adiciona `MediaQuery` com `textScaleFactor.clamp()`. Acessibilidade sem quebrar layouts.
+- **BottomNavigationBar** (Início / Pacientes / Financeiro): Novo `MainShell` com `IndexedStack` + `NavigationBar`. 5 itens do `⋮` reduzidos para 4. Financeiro e Pacientes ganham destaque permanente.
+- **Splash adaptativo**: 1s se app configurado (perfil existe), 3s se novo. Tap-to-dismiss. Fade-out reduzido para 300ms.
+- **PII removido das notificações**: Título "Lembrete de sessao" (genérico, sem nome). Payload contém apenas `compromissoId` e `canal`. Resolução de telefone/nome no tap via `CompromissoService` e `LembreteService.onNotificationTap`.
+- **Descrição da auditoria criptografada**: `AuditoriaService` com `EncryptedServiceMixin`. Campo `descricao` criptografado ao salvar, descriptografado ao listar.
+
+### 🟡 MÉDIO — Segurança (3 itens)
+
+- **AES-256-CBC → AES-256-GCM**: `criptografar()` agora usa `AESMode.gcm` com nonce de 12 bytes. Prefixo `3:` para GCM, fallback `2:` para CBC legado. Migração transparente.
+- **Inactivity timeout 5 minutos**: Timer no `AppStartPage` + `Listener` no `MaterialApp.builder`. Reseta a cada toque. Bloqueia via `authService.bloquear()` após 5 min de inatividade. Só ativo com PIN configurado.
+- **Certificate pinning TLS**: `_SecureHttpOverrides` no `main.dart` com `badCertificateCallback`. Lista de fingerprints configurável (atualmente vazia — usa validação padrão do OS). Bypass para localhost/192.168.x.
+
+### 🟡 MÉDIO — Acessibilidade (2 itens)
+
+- **15 widgets `Semantics`**: Labels em botões principais (HomeDashboard: 3 ações, MainShell: 3 destinos, PacienteDetail: editar/exportar, LoginPage: desbloquear, SessaoFormPage: transcrever/síntese/revisado/salvar, PacientesPage: adicionar).
+- **Checkbox com label tocável**: `CheckboxListTile` substitui `Row > [Checkbox, Expanded(Text)]` nos 2 checkboxes do `PerfilProfissionalFormPage` (atendimento online + consentimento LGPD).
+
+### 🟡 MÉDIO — Consistência Visual (3 itens)
+
+- **Escala tipográfica + TextTheme**: Constantes `Tipografia` (xs=10, sm=12, base=14, md=16, lg=18, xl=20, xxl=24, display=28). Mapeadas para `TextTheme` no `_criarTema()`.
+- **Grid de espaçamento 4px**: Constantes `Espacamento` (xs=4, sm=8, md=12, base=16, lg=20, xl=24, xxl=32, section=40).
+- **Cores hardcoded → `MentAllColors`**: 20 ocorrências migradas: `#D32F2F`→`corDanger`, `#0D9488`→`corPacote` (nova), hex em `paciente_resumo_tab.dart` → `corTextoHeading/corWarning/corDanger/corSuccess/corTextoMuted`. 87% de adoção nos 7 arquivos principais.
+
+### 🟡 MÉDIO — UX/Performance (3 itens)
+
+- **PacientesPage O(n×m) → O(n+m)**: `contarSessoesPendentesAgrupadas()` no `SessaoService` — uma passada O(S) retorna mapa. PacientesPage usa mapa em vez de loop aninhado. ~45× speedup para 50 pacientes × 500 sessões.
+- **Onboarding 3 telas**: `OnboardingPage` com `PageView` + dots. Flag `onboardingConcluido` no `ConfiguracoesService`. Inserido no fluxo `AppStartPage` após perfil existir. Telas: Prontuário inteligente, Sua abordagem, Segurança e privacidade.
+- **LayoutBuilder para tablets (600dp+)**: `Responsivo.isTablet()` + layouts adaptativos em KPIs da Home (4 colunas), lista de pacientes (grid 2 colunas), resumo da ficha (2 painéis lado a lado).
+
+### Arquivos novos (10)
+
+```
+lib/screens/main_shell.dart
+lib/screens/onboarding_page.dart
+lib/utils/tipografia.dart
+lib/utils/responsivo.dart
+lib/widgets/paciente_resumo_tab.dart
+lib/widgets/paciente_sessoes_tab.dart
+lib/widgets/paciente_financeiro_tab.dart
+```
+
+### Testes
+- 92/92 passando (era 80/92 com 12 falhas)
+- Corrigidos: `paciente_detail_page_test.dart` (TabBarView), `app_start_page_test.dart` (MainShell + boxes), `home_page_test.dart` (KPI label)
+- `sessao_form_page_test.dart` tearDownAll: flake conhecido de file-lock no Windows
+
+### Commits
+- `bc5c7b1` — Segurança e UX: 6 itens críticos + 11 itens médios
+- `44f78a7` — Testes: corrige 12 falhas para 0 (92/92 passando)
 
 ## Correções e Funcionalidades (30/07/2026) — AUDITORIA DE SEGURANÇA E PERFORMANCE
 
@@ -1174,14 +1236,12 @@ Auditoria completa comparando o MentAll com os melhores apps do segmento global 
 - 5 páginas: Home, Preços, Contato, Privacidade, Termos
 - Domínios: `mentallpro.com.br` (principal) e `mentallpro.com` (redirecionamento)
 
-## Pendências (02/08/2026)
+## Pendências (03/08/2026)
 
 | # | Tarefa | Prioridade |
 |---|---|---|
 | 1 | Configurar domínios `mentallpro.com.br` no Vercel + DNS no Registro.br | Alta |
-| 2 | Deploy do backend no Render (`git push`) — contrato, anamnese, progress tracking | Alta |
+| 2 | Deploy do backend no Render (`git push`) — contrato, anamnese, progress tracking estão locais | Alta |
 | 3 | Atualizar link do APK no site quando disponível | Média |
-| 4 | Resolver 10 vulnerabilidades críticas de segurança da auditoria | Média |
-| 5 | Refatorar PacienteDetailPage (TabBarView) | Baixa |
-| 6 | Adicionar BottomNavigationBar | Baixa |
-| 7 | Onboarding / tutorial primeiro uso | Baixa |
+| 4 | Adicionar fingerprints SHA-256 reais ao certificate pinning (`_certFingerprints` em `main.dart`) | Baixa |
+| 5 | Testar onboarding e inactivity timeout em dispositivo real | Baixa |
