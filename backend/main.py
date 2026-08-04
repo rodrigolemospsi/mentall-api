@@ -125,7 +125,31 @@ def _renderizar_template_personalizado(
         nome_aceite_val = nome_aceite
         aceito_msg = f'<div class="ja-aceito">&#10003; Aceito por {html.escape(nome_aceite_val)} em {data_fmt}</div>'
 
-    paragrafos = "".join(f"<p>{html.escape(p)}</p>" for p in texto.split("\n") if p.strip())
+def _detectar_titulo(linha: str) -> bool:
+    """Detecta se uma linha de texto eh um titulo de secao (subtitulo)."""
+    texto = linha.strip()
+    if len(texto) > 60:
+        return False
+    terminadores = ('.', '?', '!', ';', ',', ':')
+    if texto.endswith(terminadores):
+        return False
+    return '\n' not in texto
+
+
+def _renderizar_paragrafos_personalizados(texto_bruto: str) -> str:
+    """Converte o texto bruto do template personalizado em HTML.
+    Linhas curtas sem pontuacao final viram <h2> (subtitulos em negrito).
+    Demais linhas viram <p> (corpo do texto)."""
+    linhas = [l.strip() for l in texto_bruto.split("\n")]
+    blocos = []
+    for linha in linhas:
+        if not linha:
+            continue
+        if _detectar_titulo(linha):
+            blocos.append(f"<h2>{html.escape(linha)}</h2>")
+        else:
+            blocos.append(f"<p>{html.escape(linha)}</p>")
+    return "".join(blocos)
 
     page_html = f"""<!DOCTYPE html>
 <html lang="pt-BR">
@@ -197,7 +221,7 @@ def _renderizar_template_personalizado(
     font-size: 16px;
     color: #1E293B;
     font-weight: 700;
-    margin: 20px 0 8px;
+    margin: 28px 0 12px;
   }}
   p {{ font-size: 16px; color: #334155; margin-bottom: 6px; text-align: justify; }}
   .assinatura {{
@@ -308,7 +332,7 @@ def _renderizar_template_personalizado(
   </div>
 
   <div class="titulo-acordo">Acordo Terap\u00eautico</div>
-  {paragrafos}
+  {_renderizar_paragrafos_personalizados(texto)}
   {aceito_msg}
   {"".join(f'''<div class="secao-aceite" id="secao-aceite">
     <label for="nome-confirmacao">Digite seu nome completo para confirmar:</label>
