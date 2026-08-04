@@ -30,6 +30,9 @@ void main() {
     await Hive.openBox<String>('app_config');
     await Hive.openBox<Pacote>('pacotes');
     await Hive.openBox<ProgressoSessao>('progresso_sessoes');
+    await Hive.openBox<String>('auth_meta');
+    await Hive.openBox<String>('encryption_meta');
+    await Hive.openBox('auditoria');
   });
 
   tearDownAll(() async {
@@ -49,6 +52,11 @@ void main() {
     await Hive.deleteBoxFromDisk('pacotes');
     await Hive.box<ProgressoSessao>('progresso_sessoes').close();
     await Hive.deleteBoxFromDisk('progresso_sessoes');
+    await Hive.box<String>('auth_meta').close();
+    await Hive.deleteBoxFromDisk('auth_meta');
+    await Hive.box<String>('encryption_meta').close();
+    await Hive.deleteBoxFromDisk('encryption_meta');
+    await Hive.deleteBoxFromDisk('auditoria');
   });
 
   setUp(() async {
@@ -66,7 +74,10 @@ void main() {
   Widget criarApp() {
     return ProviderScope(
       child: MaterialApp(
-        home: PacienteDetailPage(paciente: paciente),
+        home: MediaQuery(
+          data: const MediaQueryData(size: Size(400, 800)),
+          child: PacienteDetailPage(paciente: paciente),
+        ),
       ),
     );
   }
@@ -101,11 +112,11 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    await tester.scrollUntilVisible(
-      find.text('Nenhuma sessão ativa'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await tester.tap(find.text('Sessões'));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500));
+
     expect(find.text('Nenhuma sessão ativa'), findsOneWidget);
   });
 
@@ -125,23 +136,20 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    await tester.scrollUntilVisible(
-      find.textContaining('Sessão'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.textContaining('Sessão'), findsOneWidget);
+    await tester.tap(find.text('Sessões'));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.textContaining('Sessão 1'), findsOneWidget);
   });
 
   testWidgets('deve abrir dialog de edicao ao tocar em editar', (tester) async {
     await tester.pumpWidget(criarApp());
     await tester.pump();
 
-    final editBtn = find.descendant(
-      of: find.byType(AppBar),
-      matching: find.byIcon(Icons.edit_outlined),
-    );
-    await tester.tap(editBtn);
+    await tester.tap(find.byIcon(Icons.edit_outlined));
+    await tester.pump();
     await tester.pump();
 
     expect(find.text('Editar paciente'), findsOneWidget);

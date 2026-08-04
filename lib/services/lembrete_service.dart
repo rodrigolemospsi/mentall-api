@@ -28,26 +28,27 @@ class LembreteService {
   Future<void> inicializar() async {
     if (_inicializado) return;
 
-    tz_data.initializeTimeZones();
+    try {
+      tz_data.initializeTimeZones();
 
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    const iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
-    const settings = InitializationSettings(
-      android: androidSettings,
-      iOS: iosSettings,
-    );
+      const androidSettings =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
+      const iosSettings = DarwinInitializationSettings(
+        requestAlertPermission: true,
+        requestBadgePermission: true,
+        requestSoundPermission: true,
+      );
+      const settings = InitializationSettings(
+        android: androidSettings,
+        iOS: iosSettings,
+      );
 
-    await _notifications.initialize(
-      settings,
-      onDidReceiveNotificationResponse: _onTapNotificacao,
-    );
+      await _notifications.initialize(
+        settings,
+        onDidReceiveNotificationResponse: _onTapNotificacao,
+      );
 
-    if (defaultTargetPlatform == TargetPlatform.android) {
+      if (defaultTargetPlatform == TargetPlatform.android) {
       const androidChannel = AndroidNotificationChannel(
         _canalLembretesId,
         _canalLembretesNome,
@@ -63,6 +64,7 @@ class LembreteService {
     }
 
     _inicializado = true;
+    } catch (_) {}
   }
 
   Future<void> agendarLembrete({

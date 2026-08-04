@@ -123,14 +123,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    await tester.drag(
-      find.byType(CustomScrollView),
-      const Offset(0, -800),
-    );
-    await tester.pump();
-    await tester.pump();
-
-    expect(find.textContaining('pendente'), findsWidgets);
+    expect(find.text('Pendente'), findsOneWidget);
     addTearDown(() {
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();

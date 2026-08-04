@@ -5,8 +5,11 @@ import 'package:hive_ce/hive.dart';
 
 import 'package:prontuario_tcc/hive_registrar.g.dart';
 import 'package:prontuario_tcc/models/compromisso.dart';
+import 'package:prontuario_tcc/models/contrato_terapeutico.dart';
 import 'package:prontuario_tcc/models/paciente.dart';
+import 'package:prontuario_tcc/models/pacote.dart';
 import 'package:prontuario_tcc/models/perfil_profissional.dart';
+import 'package:prontuario_tcc/models/progresso_sessao.dart';
 import 'package:prontuario_tcc/models/sessao.dart';
 import 'package:prontuario_tcc/providers/service_providers.dart';
 import 'package:prontuario_tcc/screens/app_start_page.dart';
@@ -19,6 +22,16 @@ void main() {
     await Hive.openBox<Paciente>('pacientes');
     await Hive.openBox<Sessao>('sessoes');
     await Hive.openBox<Compromisso>('compromissos');
+    await Hive.openBox<ContratoTerapeutico>('contratos');
+    await Hive.openBox<Pacote>('pacotes');
+    await Hive.openBox<ProgressoSessao>('progresso_sessoes');
+    await Hive.openBox<String>('app_config');
+    await Hive.openBox<String>('auth_meta');
+    await Hive.openBox<String>('encryption_meta');
+    await Hive.openBox('auditoria');
+    await Hive.openBox('anamneses_enviadas');
+    await Hive.openBox('avaliacoes_iniciais');
+    await Hive.openBox('respostas_escalas');
   });
 
   tearDownAll(() async {
@@ -30,6 +43,16 @@ void main() {
     await Hive.deleteBoxFromDisk('pacientes');
     await Hive.deleteBoxFromDisk('sessoes');
     await Hive.deleteBoxFromDisk('compromissos');
+    await Hive.deleteBoxFromDisk('contratos');
+    await Hive.deleteBoxFromDisk('pacotes');
+    await Hive.deleteBoxFromDisk('progresso_sessoes');
+    await Hive.deleteBoxFromDisk('app_config');
+    await Hive.deleteBoxFromDisk('auth_meta');
+    await Hive.deleteBoxFromDisk('encryption_meta');
+    await Hive.deleteBoxFromDisk('auditoria');
+    await Hive.deleteBoxFromDisk('anamneses_enviadas');
+    await Hive.deleteBoxFromDisk('avaliacoes_iniciais');
+    await Hive.deleteBoxFromDisk('respostas_escalas');
   });
 
   setUp(() async {
@@ -37,6 +60,7 @@ void main() {
     await Hive.box<Paciente>('pacientes').clear();
     await Hive.box<Sessao>('sessoes').clear();
     await Hive.box<Compromisso>('compromissos').clear();
+    await Hive.box<String>('app_config').put('onboarding_concluido', 'true');
   });
 
   testWidgets('sem perfil mostra configuracao', (tester) async {
