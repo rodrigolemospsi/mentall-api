@@ -104,27 +104,6 @@ log.info("APP_USER_ID: %s", APP_USER_ID[:8])
 security = HTTPBearer()
 
 
-def _renderizar_template_personalizado(
-    token: str,
-    dados: dict,
-    aceito: bool,
-    aceito_em: str,
-    base_url: str,
-    nome_aceite: str = "",
-) -> HTMLResponse:
-    nome_paciente = dados.get("nome_paciente", "")
-    nome_profissional = dados.get("nome_profissional", "")
-    registro = dados.get("registro_profissional", "")
-    texto = dados.get("template_contrato", "")
-    termo = dados.get("termo_pessoa", "paciente")
-    termo_cap = termo[0].upper() + termo[1:] if termo else "Paciente"
-    psicologo_ou_psicologa = "Psic\u00f3loga" if dados.get("tratamento") == "feminino" else "Psic\u00f3logo"
-    aceito_msg = ""
-    if aceito:
-        data_fmt = aceito_em[:10].replace("-", "/") if aceito_em else ""
-        nome_aceite_val = nome_aceite
-        aceito_msg = f'<div class="ja-aceito">&#10003; Aceito por {html.escape(nome_aceite_val)} em {data_fmt}</div>'
-
 def _detectar_titulo(linha: str) -> bool:
     """Detecta se uma linha de texto eh um titulo de secao (subtitulo)."""
     texto = linha.strip()
@@ -150,6 +129,28 @@ def _renderizar_paragrafos_personalizados(texto_bruto: str) -> str:
         else:
             blocos.append(f"<p>{html.escape(linha)}</p>")
     return "".join(blocos)
+
+
+def _renderizar_template_personalizado(
+    token: str,
+    dados: dict,
+    aceito: bool,
+    aceito_em: str,
+    base_url: str,
+    nome_aceite: str = "",
+) -> HTMLResponse:
+    nome_paciente = dados.get("nome_paciente", "")
+    nome_profissional = dados.get("nome_profissional", "")
+    registro = dados.get("registro_profissional", "")
+    texto = dados.get("template_contrato", "")
+    termo = dados.get("termo_pessoa", "paciente")
+    termo_cap = termo[0].upper() + termo[1:] if termo else "Paciente"
+    psicologo_ou_psicologa = "Psic\u00f3loga" if dados.get("tratamento") == "feminino" else "Psic\u00f3logo"
+    aceito_msg = ""
+    if aceito:
+        data_fmt = aceito_em[:10].replace("-", "/") if aceito_em else ""
+        nome_aceite_val = nome_aceite
+        aceito_msg = f'<div class="ja-aceito">&#10003; Aceito por {html.escape(nome_aceite_val)} em {data_fmt}</div>'
 
     page_html = f"""<!DOCTYPE html>
 <html lang="pt-BR">
