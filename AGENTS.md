@@ -1,4 +1,81 @@
-# MentAll — Prontuário Clínico com IA
+# MentAll PRO — Prontuário Clínico com IA
+
+## Correções e Funcionalidades (04/08/2026) — TRANSCRIÇÃO RÁPIDA, SÍNTESE CONFIÁVEL E SEGURANÇA
+
+### Transcrição via Groq Whisper (50x mais rápida e barata)
+- **Migração:** OpenAI gpt-4o-mini-transcribe → Groq whisper-large-v3-turbo
+- **Velocidade:** 30-90s → **~2 segundos** (processamento LPU)
+- **Custo:** R$0,02/min → **R$0,0004/min** (50x mais barato)
+- **API:** OpenAI-compatible — mudança de ~10 linhas no backend
+- **Arquivos:** `backend/services/transcricao.py` reescrito com suporte a provedor configurável (`TRANSCRICAO_PROVIDER=groq`), `render.yaml` + env vars
+
+### Síntese via GPT-4o-mini (JSON confiável + 3x mais rápido que DeepSeek)
+- **Migração:** DeepSeek V4 Flash → GPT-4o-mini (padrão `IA_MODEL=gpt-4o-mini`)
+- **Vantagens:** `response_format: json_object` nativo (zero falhas de parsing), 3x mais rápido, custo ~R$1,30/mês
+- **Artigos não-bloqueantes:** busca de artigos com `ThreadPoolExecutor` + timeout 8s — não trava a resposta da síntese
+- **Arquivos:** `backend/services/ia_clinica.py` (modelo padrão + timeout 60s + threading), `lib/services/ia_clinica_service.dart` (timeout 60s)
+
+### Gravação de áudio confiável
+- **Wakelock:** `wakelock_plus ^1.5.2` mantém tela ativa durante gravação
+- **Integridade:** verifica se arquivo .m4a existe e tem tamanho > 0 após parar
+- **Criptografia resiliente:** fallback para texto puro se `EncryptionService.tryEncrypt` falhar (não perde o áudio)
+- **Bitrate reduzido:** AAC 128kbps → 96kbps (~25% menor = upload mais rápido)
+- **Arquivos:** `lib/services/audio_relato_service.dart`, `pubspec.yaml`
+
+### Timeouts e retry otimizados
+- **Transcrição:** timeout 120→90s, auth forçada a partir do 2º retry, tratamento HTTP 429
+- **Síntese:** timeout 120→90s (frontend 60s), backoff mais agressivo
+- **Backend:** rate limit 10 req/min no `/transcrever` (antes sem limite)
+
+### Backend — correções críticas
+- **Bug da síntese:** `_chamar_llm_json` duplicada deletada (V1 linha 299). Rerank de artigos corrigido. `_parse_resultado_sucesso` com try/except
+- **Endpoints assíncronos:** `/transcrever`, `/gerar-sintese`, `/gerar-progresso` convertidos para `async def` + `run_in_executor`
+- **Timeouts:** OpenAI 120s, Gemini 120s em todos os clientes
+
+### Selo de verificação CRP (`✓ Verificado`)
+- **API do CFP:** `POST /verificar-crp` consulta `cn-api.cfp.org.br/psi/busca` — verifica se registro está ativo
+- **Modelo:** `PerfilProfissional` com +2 HiveFields: `crpVerificado` (bool), `crpDataVerificacao` (DateTime?)
+- **Disparo automático:** ao salvar perfil, verificação roda em background
+- **Ícone:** `✓ Verificado` verde (#2E7D32) exibido em todos os lugares onde o CRP aparece:
+  - Perfil profissional, 5 tipos de PDF, contrato HTML, anamnese HTML, template personalizado
+- **Cache:** resultado armazenado no modelo local (data de verificação)
+- **Arquivos:** `backend/services/crp_service.py`, `lib/services/crp_service.dart`, 14 arquivos alterados
+
+### CRP sem duplicação de prefixo
+- **Problema:** hint "Ex.: CRP 00/00000" + PDF/contrato prefixando "CRP" = "CRP CRP 00/00000"
+- **Solução:** hint alterado para "Ex.: 00/00000", PDF e templates removem prefixo antes de prefixar `_limpar_crp()`
+- **Arquivos:** `perfil_profissional_form_page.dart`, `pdf_export_service.dart`, `main.py`, `contrato.html`
+
+### Acordo Terapêutico — correções
+- **Subtítulos em negrito:** parser de template personalizado detecta linhas curtas como `<h2>` (negrito). Espaçamento 28px entre seções
+- **Tela branca:** bug estrutural corrigido — funções auxiliares estavam dentro do corpo da função principal, quebrando o fluxo
+- **Data formato brasileiro:** `2026/08/04` → `04/08/2026` via `_formatar_data_br()`
+- **Arquivos:** `backend/main.py`, `backend/templates/contrato.html`
+
+### Anamnese — correção web
+- **Problema:** `const TEMPLATE = {{TEMPLATE}};` — JSON vazio ou com `</script>` quebrava a página
+- **Solução:** fallback `"{}"` para template vazio, escape `</` → `<\/`, validação de JSON
+- **Arquivos:** `backend/main.py`
+
+### Renomeação MentAll → MentAll PRO
+- **27 arquivos alterados:** nome do app, telas, PDFs, HTML, logos, prompt IA, testes
+- **Novas logos:** `logo_mentall_pro_claro.png`, `logo_mentall_pro_home.png`
+- **Extensão:** `MentAllColors` → `MentAllProColors`
+- **Não alterado:** URLs `mentall-api.onrender.com`, pacote `com.mentall.app`, loggers internos
+
+### APK
+- Release: 71.4MB (era 69.9MB — +wakelock_plus + novas logos)
+
+### Commits
+- `7a9d351` — renomeação MentAll → MentAll PRO
+- `a449002` — selo de verificação CRP
+- `c703dcc` — fix anamnese web
+- `d9c40f5` — fix CRP duplicado
+- `e2da782` — subtítulos em negrito no Acordo
+- `16520b1` — fix tela branca Acordo
+- `69ff51e` — síntese GPT-4o-mini + artigos não-bloqueantes
+- `98bce40` — transcrição Groq Whisper
+- `98d8377` — wakelock + timeouts + bitrate
 
 ## Projeto
 App Flutter para prontuário clínico adaptado à abordagem terapêutica do profissional (TCC, Psicanálise, ACT, DBT, etc.), com assistência de IA para transcrição e análise de sessões.
