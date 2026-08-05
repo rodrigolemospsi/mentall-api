@@ -239,7 +239,7 @@ class AudioRelatoService {
   /// Este método é usado pela tela da sessão quando o profissional decide
   /// remover o áudio do relato pós-sessão.
   ///
-  /// Nesta fase do MentAll, este método:
+  /// Nesta fase do MentAll PRO, este método:
   /// - cancela qualquer gravação em andamento;
   /// - limpa a referência interna ao áudio atual;
   /// - não tenta excluir fisicamente arquivos do dispositivo.

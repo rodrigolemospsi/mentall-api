@@ -159,7 +159,7 @@ class _AppStartPageState extends ConsumerState<AppStartPage>
             child: Image.asset(
               isDark
                   ? 'assets/images/logo_mentall_escuro.png'
-                  : 'assets/images/logo_mentall_claro.png',
+                  : 'assets/images/logo_mentall_pro_claro.png',
               height: 160,
             ),
           ),

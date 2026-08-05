@@ -27,6 +27,6 @@ Future<void> exportarJson(String conteudo, String nomeArquivo) async {
   await arquivo.writeAsString(conteudo);
   await Share.shareXFiles(
     [XFile(arquivo.path, mimeType: 'application/json')],
-    subject: 'Backup MentAll',
+    subject: 'Backup MentAll PRO',
   );
 }

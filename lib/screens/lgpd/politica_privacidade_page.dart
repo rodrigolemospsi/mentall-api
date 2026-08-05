@@ -20,7 +20,7 @@ class PoliticaPrivacidadePage extends StatelessWidget {
           _Secao(
             titulo: '1. Introdução',
             texto:
-                'O MentAll é um aplicativo de prontuário psicológico inteligente, '
+                'O MentAll PRO é um aplicativo de prontuário psicológico inteligente, '
                 'desenvolvido para apoiar psicólogos clínicos na documentação de '
                 'atendimentos. Esta Política de Privacidade descreve como tratamos '
                 'os dados pessoais e clínicos no uso do aplicativo.',
@@ -28,7 +28,7 @@ class PoliticaPrivacidadePage extends StatelessWidget {
           _Secao(
             titulo: '2. Dados Coletados',
             texto:
-                'O MentAll coleta apenas os dados necessários para o funcionamento '
+                'O MentAll PRO coleta apenas os dados necessários para o funcionamento '
                 'do prontuário clínico:\n\n'
                 '• Dados do profissional: nome, registro profissional, abordagem '
                 'clínica, preferências de termo.\n'
@@ -54,7 +54,7 @@ class PoliticaPrivacidadePage extends StatelessWidget {
             titulo: '4. Armazenamento e Segurança',
             texto:
                 'Os dados são armazenados localmente no dispositivo do profissional. '
-                'O MentAll utiliza:\n\n'
+                'O MentAll PRO utiliza:\n\n'
                 '• Criptografia AES-256 para proteção dos dados em repouso.\n'
                 '• Bloqueio por PIN para controle de acesso ao aplicativo.\n'
                 '• Autenticação JWT para comunicação com serviços de IA.\n'
@@ -67,18 +67,18 @@ class PoliticaPrivacidadePage extends StatelessWidget {
           _Secao(
             titulo: '5. Compartilhamento de Dados',
             texto:
-                'O MentAll não compartilha dados com terceiros, exceto:\n\n'
+                'O MentAll PRO não compartilha dados com terceiros, exceto:\n\n'
                 '• Serviços de IA (OpenAI ou Google Gemini) exclusivamente para '
                 'processamento de transcrição e síntese, mediante ação do profissional.\n'
                 '• Futuros serviços de nuvem e sincronização, apenas com consentimento '
                 'explícito do profissional e mediante contrato de tratamento de dados.\n\n'
-                'O profissional é o controlador dos dados clínicos. O MentAll atua '
+                'O profissional é o controlador dos dados clínicos. O MentAll PRO atua '
                 'como operador tecnológico.',
           ),
           _Secao(
             titulo: '6. Retenção e Exclusão',
             texto:
-                'O MentAll adota a regra de arquivamento em vez de exclusão. '
+                'O MentAll PRO adota a regra de arquivamento em vez de exclusão. '
                 'Pessoas atendidas e sessões arquivadas permanecem preservadas no '
                 'prontuário, podendo ser restauradas. A exclusão definitiva, quando '
                 'disponível, será protegida por confirmação múltipla e registrada '
@@ -98,7 +98,7 @@ class PoliticaPrivacidadePage extends StatelessWidget {
           _Secao(
             titulo: '8. Uso de Inteligência Artificial',
             texto:
-                'A IA do MentAll atua exclusivamente como apoio documental. '
+                'A IA do MentAll PRO atua exclusivamente como apoio documental. '
                 'Todo conteúdo gerado deve ser revisado e validado pelo profissional. '
                 'A IA não toma decisões clínicas, não emite diagnósticos e não '
                 'substitui o julgamento profissional. Os dados enviados para '
@@ -117,7 +117,7 @@ class PoliticaPrivacidadePage extends StatelessWidget {
             titulo: '10. Contato',
             texto:
                 'Para dúvidas sobre privacidade ou tratamento de dados, entre em '
-                'contato com o desenvolvedor do MentAll.\n\n'
+                'contato com o desenvolvedor do MentAll PRO.\n\n'
                 'Última atualização: Julho de 2026.',
           ),
           const SizedBox(height: 40),

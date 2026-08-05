@@ -393,7 +393,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         final sair = await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Sair do MentAll?'),
+            title: const Text('Sair do MentAll PRO?'),
             content: const Text('Deseja realmente sair do aplicativo?'),
             actions: [
               TextButton(
@@ -418,7 +418,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         title: Image.asset(
           Theme.of(context).brightness == Brightness.dark
               ? 'assets/images/logo_mentall_escuro.png'
-              : 'assets/images/logo_mentall_home.png',
+              : 'assets/images/logo_mentall_pro_home.png',
           height: 98,
         ),
         centerTitle: false,

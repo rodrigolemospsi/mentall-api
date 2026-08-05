@@ -253,9 +253,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 Image.asset(
                   Theme.of(context).brightness == Brightness.dark
                       ? 'assets/images/logo_mentall_escuro.png'
-                      : 'assets/images/logo_mentall_claro.png',
+                      : 'assets/images/logo_mentall_pro_claro.png',
                   height: 144,
-                  semanticLabel: 'Logo MentAll',
+                  semanticLabel: 'Logo MentAll PRO',
                 ),
                 const SizedBox(height: 24),
                 Text(

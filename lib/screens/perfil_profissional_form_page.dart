@@ -373,7 +373,7 @@ class _PerfilProfissionalFormPageState
                 child: Image.asset(
                   Theme.of(context).brightness == Brightness.dark
                       ? 'assets/images/logo_mentall_escuro.png'
-                      : 'assets/images/logo_mentall_claro.png',
+                      : 'assets/images/logo_mentall_pro_claro.png',
                   height: 56,
                 ),
               ),
@@ -383,12 +383,12 @@ class _PerfilProfissionalFormPageState
                 child: Image.asset(
                   Theme.of(context).brightness == Brightness.dark
                       ? 'assets/images/logo_mentall_escuro.png'
-                      : 'assets/images/logo_mentall_claro.png',
+                      : 'assets/images/logo_mentall_pro_claro.png',
                   height: 160,
                 ),
               ),
               const SizedBox(height: 10),
-              const Text('Bem-vindo ao MentAll',
+              const Text('Bem-vindo ao MentAll PRO',
                   style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               Text(

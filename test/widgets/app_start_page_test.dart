@@ -73,7 +73,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pump();
 
-    expect(find.text('Bem-vindo ao MentAll'), findsOneWidget);
+    expect(find.text('Bem-vindo ao MentAll PRO'), findsOneWidget);
   });
 
   testWidgets('com perfil mostra HomePage', (tester) async {
@@ -99,7 +99,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pump();
 
-    expect(find.text('Bem-vindo ao MentAll'), findsNothing);
+    expect(find.text('Bem-vindo ao MentAll PRO'), findsNothing);
     expect(find.textContaining('Dr. Teste'), findsOneWidget);
   });
 }

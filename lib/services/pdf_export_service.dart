@@ -23,7 +23,7 @@ class PdfExportService {
   static Future<void> _carregarLogo() async {
     if (_logoBytes != null) return;
     try {
-      _logoBytes = (await rootBundle.load('assets/images/logo_mentall_claro.png'))
+      _logoBytes = (await rootBundle.load('assets/images/logo_mentall_pro_claro.png'))
           .buffer
           .asUint8List();
       _logoImage = pw.MemoryImage(_logoBytes!);
@@ -261,7 +261,7 @@ class PdfExportService {
             pw.Image(_logoImage!, height: 44)
           else
             pw.Text(
-              'MentAll',
+              'MentAll PRO',
               style: pw.TextStyle(
                 fontSize: 13,
                 fontWeight: pw.FontWeight.bold,
@@ -528,7 +528,7 @@ class PdfExportService {
     return pw.Container(
       padding: const pw.EdgeInsets.symmetric(vertical: 6),
       child: pw.Text(
-        'Documento exportado do MentAll em '
+        'Documento exportado do MentAll PRO em '
         '${_formatarData(agora)} às ${_formatarHorario(agora)}. '
         'Documento clínico para uso profissional.',
         style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey400),

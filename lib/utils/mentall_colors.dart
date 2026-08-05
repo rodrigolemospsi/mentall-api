@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-extension MentAllColors on BuildContext {
+extension MentAllProColors on BuildContext {
   ColorScheme get cs => Theme.of(this).colorScheme;
 
   Color get corPrimaria => cs.primary;

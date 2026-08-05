@@ -1,11 +1,11 @@
 {
-    "name": "MentAll",
-    "short_name": "MentAll",
+    "name": "MentAll PRO",
+    "short_name": "MentAll PRO",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#2563EB",
     "theme_color": "#2563EB",
-    "description": "Prontu\u00e1rio cl\u00ednico com IA - MentAll",
+    "description": "Prontu\u00e1rio cl\u00ednico com IA - MentAll PRO",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

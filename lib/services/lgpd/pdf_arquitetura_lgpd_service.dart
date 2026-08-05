@@ -17,8 +17,8 @@ class PdfArquiteturaLgpdService {
 
   Future<void> exportar() async {
     final pdf = pw.Document(
-      title: 'Arquitetura LGPD - MentAll',
-      author: 'MentAll',
+      title: 'Arquitetura LGPD - MentAll PRO',
+      author: 'MentAll PRO',
     );
 
     _addSecao(pdf, '1. Identificacao do documento', _conteudoSecao1());
@@ -26,7 +26,7 @@ class PdfArquiteturaLgpdService {
     _addSecao(pdf, '3. Principios LGPD aplicados', _conteudoSecao3());
     _addSecao(pdf, '4. Classificacao dos dados', _conteudoSecao4());
     _addSecao(pdf, '5. Regra do audio pos-sessao', _conteudoSecao5());
-    _addSecao(pdf, '6. Papeis LGPD no MentAll', _conteudoSecao6());
+    _addSecao(pdf, '6. Papeis LGPD no MentAll PRO', _conteudoSecao6());
     _addSecao(pdf, '7. Modulos LGPD dentro do app', _conteudoSecao7());
     _addSecao(pdf, '8. IA, privacidade e responsabilidade clinica',
         _conteudoSecao8());
@@ -41,7 +41,7 @@ class PdfArquiteturaLgpdService {
 
     await Printing.sharePdf(
       bytes: await pdf.save(),
-      filename: 'Arquitetura_LGPD_MentAll.pdf',
+      filename: 'Arquitetura_LGPD_MentAll PRO.pdf',
     );
   }
 
@@ -77,7 +77,7 @@ class PdfArquiteturaLgpdService {
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
-          pw.Text('MentAll',
+          pw.Text('MentAll PRO',
               style: pw.TextStyle(
                   fontSize: 10,
                   fontWeight: pw.FontWeight.bold,
@@ -116,14 +116,14 @@ class PdfArquiteturaLgpdService {
     return pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          _campo('Produto', 'MentAll'),
+          _campo('Produto', 'MentAll PRO'),
           _campo('Documento', 'Arquitetura LGPD do Produto'),
           _campo('Versao', '1.0 - documento tecnico de trabalho'),
           pw.SizedBox(height: 12),
           _paragrafo(
               'Este documento estrutura a base de privacidade, seguranca, '
               'responsabilidade clinica, uso de IA, audio pos-sessao, '
-              'retencao, auditoria e tratamento de dados sensiveis no MentAll.'),
+              'retencao, auditoria e tratamento de dados sensiveis no MentAll PRO.'),
         ]);
   }
 
@@ -137,7 +137,7 @@ class PdfArquiteturaLgpdService {
           border: pw.Border.all(color: _azulClaro),
         ),
         child: pw.Text(
-          'O MentAll deve ser desenvolvido como um prontuario psicologico '
+          'O MentAll PRO deve ser desenvolvido como um prontuario psicologico '
           'inteligente com privacidade desde a concepcao.',
           style: pw.TextStyle(
               fontSize: 13,
@@ -220,7 +220,7 @@ class PdfArquiteturaLgpdService {
   pw.Widget _conteudoSecao6() {
     return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
       _subTitulo('6.1 Psicologo autonomo'),
-      _paragrafo('Psicologo: Controlador dos dados. MentAll: Operador tecnologico.'),
+      _paragrafo('Psicologo: Controlador dos dados. MentAll PRO: Operador tecnologico.'),
       pw.SizedBox(height: 10),
       _subTitulo('6.2 Clinica ou equipe'),
       _paragrafo('Clinica: Controladora. Profissionais: Usuarios autorizados.'),
@@ -345,7 +345,7 @@ class PdfArquiteturaLgpdService {
 
   pw.Widget _conteudoSecao12() {
     return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-      _check('1. Arquitetura LGPD do MentAll (este documento)', true),
+      _check('1. Arquitetura LGPD do MentAll PRO (este documento)', true),
       _check('2. Politica de Privacidade', true),
       _check('3. Termos de Uso', true),
       _check('4. Acordo de Tratamento de Dados', false),
@@ -363,7 +363,7 @@ class PdfArquiteturaLgpdService {
         padding: const pw.EdgeInsets.all(16),
         decoration: pw.BoxDecoration(color: _azulBg, borderRadius: pw.BorderRadius.circular(8), border: pw.Border.all(color: _azulClaro)),
         child: pw.Text(
-          'O MentAll e um prontuario psicologico inteligente com privacidade desde '
+          'O MentAll PRO e um prontuario psicologico inteligente com privacidade desde '
           'a concepcao, protecao reforcada de dados clinicos sensiveis, IA apenas '
           'como apoio documental e revisao humana obrigatoria pelo profissional.',
           style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: _azul),
@@ -376,7 +376,7 @@ class PdfArquiteturaLgpdService {
 
   pw.Widget _conteudoSecao14() {
     return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-      _paragrafo('A estrutura LGPD do MentAll se apoia em sete pilares:'),
+      _paragrafo('A estrutura LGPD do MentAll PRO se apoia em sete pilares:'),
       pw.SizedBox(height: 16),
       _pilar('1', 'Dados minimos', 'Coleta apenas do necessario para uso clinico.'),
       _pilar('2', 'Protecao reforcada', 'Criptografia AES-256-CBC, controle via PIN.'),

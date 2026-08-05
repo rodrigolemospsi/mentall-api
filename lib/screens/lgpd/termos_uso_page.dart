@@ -20,13 +20,13 @@ class TermosUsoPage extends StatelessWidget {
           _Termo(
             titulo: '1. Aceitação dos Termos',
             texto:
-                'Ao utilizar o MentAll, você concorda com estes Termos de Uso. '
+                'Ao utilizar o MentAll PRO, você concorda com estes Termos de Uso. '
                 'Se não concordar, não utilize o aplicativo.',
           ),
           _Termo(
             titulo: '2. Descrição do Serviço',
             texto:
-                'O MentAll é um aplicativo de prontuário psicológico inteligente '
+                'O MentAll PRO é um aplicativo de prontuário psicológico inteligente '
                 'que oferece:\n\n'
                 '• Cadastro e gestão de pessoas atendidas.\n'
                 '• Registro de sessões clínicas.\n'
@@ -40,7 +40,7 @@ class TermosUsoPage extends StatelessWidget {
           _Termo(
             titulo: '3. Responsabilidade Profissional',
             texto:
-                'O MentAll é uma ferramenta de apoio documental. A responsabilidade '
+                'O MentAll PRO é uma ferramenta de apoio documental. A responsabilidade '
                 'clínica é inteiramente do profissional de psicologia. A IA não '
                 'substitui o julgamento profissional, não emite diagnósticos e não '
                 'toma decisões terapêuticas. Todo conteúdo gerado por IA deve ser '
@@ -59,7 +59,7 @@ class TermosUsoPage extends StatelessWidget {
           _Termo(
             titulo: '5. Dados e Privacidade',
             texto:
-                'O tratamento de dados pessoais e clínicos pelo MentAll está '
+                'O tratamento de dados pessoais e clínicos pelo MentAll PRO está '
                 'descrito na Política de Privacidade, que é parte integrante '
                 'destes Termos de Uso. O profissional é o controlador dos dados '
                 'clínicos de suas pessoas atendidas.',
@@ -67,7 +67,7 @@ class TermosUsoPage extends StatelessWidget {
           _Termo(
             titulo: '6. Limitação de Responsabilidade',
             texto:
-                'O MentAll é fornecido "como está", sem garantias expressas ou '
+                'O MentAll PRO é fornecido "como está", sem garantias expressas ou '
                 'implícitas. O desenvolvedor não se responsabiliza por:\n\n'
                 '• Decisões clínicas tomadas com base no conteúdo gerado por IA.\n'
                 '• Perda de dados por falha no dispositivo ou armazenamento.\n'
@@ -77,7 +77,7 @@ class TermosUsoPage extends StatelessWidget {
           _Termo(
             titulo: '7. Licença de Uso',
             texto:
-                'O MentAll concede ao profissional uma licença limitada, não '
+                'O MentAll PRO concede ao profissional uma licença limitada, não '
                 'exclusiva e não transferível para uso do aplicativo conforme '
                 'sua finalidade. É proibido:\n\n'
                 '• Copiar, modificar ou distribuir o aplicativo.\n'

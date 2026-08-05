@@ -177,7 +177,7 @@ def _renderizar_template_personalizado(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Acordo Terap\u00eautico - MentAll</title>
+<title>Acordo Terap\u00eautico - MentAll PRO</title>
 <style>
   * {{ margin: 0; padding: 0; box-sizing: border-box; }}
   body {{
@@ -341,7 +341,7 @@ def _renderizar_template_personalizado(
 </head>
 <body>
 <div class="container">
-  <div class="logo-mentall">MentAll</div>
+  <div class="logo-mentall">MentAll PRO</div>
 
   <div class="cabecalho-profissional">
     <div class="profissional-nome">{html.escape(psicologo_ou_psicologa)} {html.escape(nome_profissional)}</div>
@@ -363,7 +363,7 @@ def _renderizar_template_personalizado(
     <div class="confirmacao">Ao marcar "Li e aceito", {html.escape(termo)} declara que leu, compreendeu e concorda com os termos deste acordo.</div>
   </div>
   <div id="sucesso-msg" class="sucesso" style="display:none;">Obrigado! Seu aceite foi registrado. O profissional ser\u00e1 notificado.</div>''' if not aceito else "")}
-  <div class="footer">MentAll \u2014 Solu\u00e7\u00f5es para Psic\u00f3logos</div>
+  <div class="footer">MentAll PRO \u2014 Solu\u00e7\u00f5es para Psic\u00f3logos</div>
 </div>
 <script>
 function formatarDataLocal(d) {{
@@ -447,8 +447,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="MentAll API",
-    description="Backend de IA para o prontuario clinico MentAll",
+    title="MentAll PRO API",
+    description="Backend de IA para o prontuario clinico MentAll PRO",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -1061,7 +1061,7 @@ def pagina_anamnese(token: str, _req: Request):
             content=f"""<!DOCTYPE html>
 <html lang="pt-BR">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Anamnese - MentAll</title>
+<title>Anamnese - MentAll PRO</title>
 <style>
 * {{ margin:0; padding:0; box-sizing:border-box; }}
 body {{ font-family:-apple-system,sans-serif; background:#F0F4FF; color:#1E293B; }}
@@ -1077,7 +1077,7 @@ p {{ color:#64748B; font-size:15px; }}
 <h2>Questionário já respondido</h2>
 <p>Você já enviou suas respostas em {data_fmt}.</p>
 <p>O profissional {dados.get('nome_profissional', '')} já as recebeu.</p>
-<div class="footer">MentAll - Soluções para Psicólogos</div>
+<div class="footer">MentAll PRO - Soluções para Psicólogos</div>
 </div></body></html>""",
         )
 

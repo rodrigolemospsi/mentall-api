@@ -225,7 +225,7 @@ class MentAllApp extends ConsumerWidget {
     final temaEscuro = config.temaEscuro;
 
     return MaterialApp(
-      title: 'MentAll',
+      title: 'MentAll PRO',
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
         return MediaQuery(

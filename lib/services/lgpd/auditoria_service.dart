@@ -42,7 +42,7 @@ class AuditoriaService with EncryptedServiceMixin {
     buffer.writeln('Total de eventos registrados: ${registros.length}');
     buffer.writeln('');
     buffer.writeln('Este relatório descreve, em linguagem simples, todas as ações');
-    buffer.writeln('realizadas no aplicativo MentAll que envolvem o prontuário.');
+    buffer.writeln('realizadas no aplicativo MentAll PRO que envolvem o prontuário.');
     buffer.writeln('');
 
     for (final r in registros) {

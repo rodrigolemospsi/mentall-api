@@ -95,7 +95,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
                 leading: Icon(Icons.mic_outlined, color: context.corPrimaria),
                 title: const Text('Finalidade do áudio'),
                 subtitle: Text(
-                  'O áudio no MentAll foi projetado para registrar um relato '
+                  'O áudio no MentAll PRO foi projetado para registrar um relato '
                   'clínico breve feito pelo profissional após o atendimento. '
                   'O limite máximo é de 5 minutos por registro. Esse áudio '
                   'pode apoiar a transcrição e a documentação clínica, '
@@ -113,7 +113,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
                 leading: Icon(Icons.auto_awesome_outlined, color: context.corPrimaria),
                 title: const Text('Apoio documental'),
                 subtitle: Text(
-                  'A IA do MentAll atua apenas como apoio documental. '
+                  'A IA do MentAll PRO atua apenas como apoio documental. '
                   'Todo conteúdo gerado deve ser revisado e validado '
                   'pelo profissional antes de integrar o prontuário. '
                   'A IA não fornece diagnóstico nem substitui o julgamento clínico.',
@@ -130,7 +130,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
                 leading: Icon(Icons.archive_outlined, color: context.corPrimaria),
                 title: const Text('Arquivamento em vez de exclusão'),
                 subtitle: const Text(
-                  'O MentAll mantém a regra de arquivar em vez de excluir. '
+                  'O MentAll PRO mantém a regra de arquivar em vez de excluir. '
                   'Pessoas atendidas e sessões arquivadas continuam preservadas '
                   'no prontuário, podendo ser restauradas a qualquer momento.',
                 ),
@@ -156,7 +156,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
                 leading: Icon(Icons.history_outlined, color: context.corPrimaria),
                 title: const Text('Registro de eventos'),
                 subtitle: const Text(
-                  'O MentAll registra eventos relevantes para fins de auditoria, '
+                  'O MentAll PRO registra eventos relevantes para fins de auditoria, '
                   'como criação de registros, alterações clínicas, uso de IA, '
                   'e exportações. Esses registros não contêm dados clínicos.',
                 ),
@@ -368,7 +368,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
                 onPressed: () {
                   Share.share(
                     relatorio,
-                    subject: 'Relatório de Atividade - MentAll',
+                    subject: 'Relatório de Atividade - MentAll PRO',
                   );
                 },
                 icon: const Icon(Icons.share_outlined, size: 18),
