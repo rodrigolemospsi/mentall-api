@@ -78,6 +78,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       TextEditingController();
   final TextEditingController _apontamentosController =
       TextEditingController();
+  final TextEditingController _valorController = TextEditingController();
 
   late String _sessaoId;
   late int _numeroSessao;
@@ -334,6 +335,9 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
           ref.read(_statusPagamentoProvider.notifier).state = sessao.statusPagamento;
           ref.read(_dataPagamentoProvider.notifier).state = sessao.dataPagamento;
           ref.read(_metodoPagamentoProvider.notifier).state = sessao.metodoPagamento;
+          _valorController.text = sessao.valorSessao > 0
+              ? sessao.valorSessao.toStringAsFixed(2).replaceAll('.', ',')
+              : '';
           _triggerRebuild();
         });
       } else {
@@ -364,6 +368,9 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
           }
           ref.read(_dataPagamentoProvider.notifier).state = null;
           ref.read(_metodoPagamentoProvider.notifier).state = '';
+          _valorController.text = ref.read(_valorSessaoProvider) > 0
+              ? ref.read(_valorSessaoProvider).toStringAsFixed(2).replaceAll('.', ',')
+              : '';
 
           _triggerRebuild();
         });
@@ -387,6 +394,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
     _formulacaoController.dispose();
     _intervencoesController.dispose();
     _apontamentosController.dispose();
+    _valorController.dispose();
 
     _timerGravacao?.cancel();
     _audioPlayerCompleteSubscription?.cancel();
@@ -423,8 +431,10 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
+          duration: Duration(seconds: 4),
           content: Text(
-            'A transcrição foi alterada. A síntese por IA e a revisão profissional foram invalidadas.',
+            'A transcrição foi alterada. A síntese e a revisão foram invalidadas. '
+            'Os campos clínicos foram preservados — gere nova síntese se necessário.',
           ),
         ),
       );
@@ -432,8 +442,6 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   }
 
   void _invalidarIaERevisaoPorAlteracaoDaTranscricao() {
-    final haviaConteudoGeradoComIa = _geradoComIa;
-
     _geradoComIa = false;
     _revisadoPeloProfissional = false;
     _dataProcessamentoIa = null;
@@ -449,10 +457,6 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
     } else {
       _statusProcessamento = 'manual';
       _origemRelato = 'manual';
-    }
-
-    if (haviaConteudoGeradoComIa) {
-      _limparCamposGeradosPelaIa();
     }
   }
 
@@ -1183,6 +1187,33 @@ if (!mounted || confirmar != true) return;
       return;
     }
 
+    if (_geradoComIa || _sinteseController.text.isNotEmpty ||
+        _formulacaoController.text.isNotEmpty ||
+        _intervencoesController.text.isNotEmpty ||
+        _apontamentosController.text.isNotEmpty) {
+      final confirmar = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Sobrescrever conteúdo?'),
+          content: const Text(
+            'Os campos clínicos já possuem conteúdo. '
+            'A síntese com IA substituirá o que foi escrito. Continuar?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Continuar'),
+            ),
+          ],
+        ),
+      );
+      if (confirmar != true) return;
+    }
+
     try {
       if (_reproduzindoAudio) {
         await _audioPlayer.stop();
@@ -1573,6 +1604,15 @@ if (!mounted || confirmar != true) return;
         foregroundColor: context.corOnPrimaria,
         actions: _editando
             ? [
+                if (_modoEdicao)
+                  Semantics(
+                    label: 'Salvar sessão',
+                    child: IconButton(
+                      tooltip: 'Salvar',
+                      icon: const Icon(Icons.check),
+                      onPressed: _salvarSessao,
+                    ),
+                  ),
                 IconButton(
                   tooltip: 'Exportar PDF',
                   icon: const Icon(Icons.file_download_outlined),
@@ -1601,13 +1641,13 @@ if (!mounted || confirmar != true) return;
                 ignoring: _editando && !_modoEdicao,
                 child: AnimatedOpacity(
                   duration: const Duration(milliseconds: 250),
-                  opacity: (_editando && !_modoEdicao) ? 0.65 : 1.0,
+                  opacity: (_editando && !_modoEdicao) ? 0.85 : 1.0,
                   child: Column(
                   children: [
                     _cardInformacoesGerais(),
                     const SizedBox(height: 16),
                     _secaoRelatoIa(),
-                    if (_geradoComIa) ...[
+                    if (_editando || _geradoComIa) ...[
                       const SizedBox(height: 16),
                       SecaoCamposClinicosWidget(
                         configuracao: configuracao,
@@ -1616,14 +1656,16 @@ if (!mounted || confirmar != true) return;
                         intervencoesController: _intervencoesController,
                         apontamentosController: _apontamentosController,
                       ),
-                      if (_artigosSugeridos.trim().isNotEmpty) ...[
-                        const SizedBox(height: 16),
-                        const ArtigosSugeridosCard(),
-                      ],
-                      if (_controleFinanceiroAtivo) ...[
-                        const SizedBox(height: 16),
-                        _secaoFinanceira(),
-                      ],
+                    ],
+                    if (_artigosSugeridos.trim().isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      const ArtigosSugeridosCard(),
+                    ],
+                    if (_controleFinanceiroAtivo) ...[
+                      const SizedBox(height: 16),
+                      _secaoFinanceira(),
+                    ],
+                    if (_geradoComIa && _numeroSessao >= 2) ...[
                       const SizedBox(height: 16),
                       _secaoProgresso(),
                     ],
@@ -1640,9 +1682,13 @@ if (!mounted || confirmar != true) return;
           ),
           if (_editando && !_modoEdicao)
             Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onTap: _mostrarDialogoEditar,
+              child: Semantics(
+                button: true,
+                label: 'Toque duas vezes para editar esta sessão',
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: _mostrarDialogoEditar,
+                ),
               ),
             ),
         ],
@@ -1655,8 +1701,9 @@ if (!mounted || confirmar != true) return;
     final editar = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Sessao bloqueada'),
-        content: const Text('Gostaria de editar esta sessao?'),
+        title: const Text('Sessão bloqueada'),
+        content: const Text('Esta sessão está em modo de visualização. '
+            'Deseja habilitar a edição? Ao editar, a síntese por IA e a revisão poderão ser invalidadas.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -1808,7 +1855,7 @@ if (!mounted || confirmar != true) return;
         if (_possuiTranscricaoRelato) ...[
           const SizedBox(height: 12),
           Semantics(
-            label: 'Gerar síntese com IA',
+            label: 'Gerar síntese',
             child: SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
@@ -1824,7 +1871,7 @@ if (!mounted || confirmar != true) return;
                       )
                     : const Icon(Icons.auto_awesome_outlined),
                 label: Text(
-                  _gerandoSinteseIa ? 'Gerando...' : 'Gerar síntese com IA',
+                  _gerandoSinteseIa ? 'Gerando...' : 'Gerar síntese',
                 ),
                 style: FilledButton.styleFrom(
                   backgroundColor: context.corPrimaria,
@@ -1870,24 +1917,22 @@ if (!mounted || confirmar != true) return;
     if (!_possuiAudioRelato) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: 12),
-      child: Row(
-        children: [
-          Text(
-            'Manter áudio salvo',
-            style: TextStyle(color: context.corTextoSecondary, fontSize: 13),
-          ),
-          Switch(
-            value: _audioMantido,
-            activeTrackColor: context.corPrimaria.withValues(alpha: 0.4),
-            activeThumbColor: context.corPrimaria,
-            onChanged: _existeAcaoEmAndamento
-                ? null
-                : (value) {
-                    _audioMantido = value;
-                    _triggerRebuild();
-                  },
-          ),
-        ],
+      child: SwitchListTile(
+        title: Text(
+          'Manter áudio salvo',
+          style: TextStyle(color: context.corTextoSecondary, fontSize: 13),
+        ),
+        value: _audioMantido,
+        activeTrackColor: context.corPrimaria.withValues(alpha: 0.4),
+        activeThumbColor: context.corPrimaria,
+        contentPadding: EdgeInsets.zero,
+        dense: true,
+        onChanged: _existeAcaoEmAndamento
+            ? null
+            : (value) {
+                _audioMantido = value;
+                _triggerRebuild();
+              },
       ),
     );
   }
@@ -2150,17 +2195,17 @@ if (!mounted || confirmar != true) return;
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0D9488).withAlpha(20),
+                  color: context.corPacote.withAlpha(20),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFF0D9488).withAlpha(60)),
+                  border: Border.all(color: context.corPacote.withAlpha(60)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.inventory_2_outlined, size: 16, color: Color(0xFF0D9488)),
+                    Icon(Icons.inventory_2_outlined, size: 16, color: context.corPacote),
                     const SizedBox(width: 8),
                     Text(
                       'Pacote ativo: $sessoesRestantes ${sessoesRestantes == 1 ? 'sessão restante' : 'sessões restantes'}',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0D9488)),
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.corPacote),
                     ),
                   ],
                 ),
@@ -2176,7 +2221,7 @@ if (!mounted || confirmar != true) return;
                   border: OutlineInputBorder(),
                   contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
-                controller: TextEditingController(text: _valorSessao > 0 ? _valorSessao.toStringAsFixed(2).replaceAll('.', ',') : ''),
+                controller: _valorController,
                 onChanged: (v) {
                   final parsed = double.tryParse(v.replaceAll(',', '.'));
                   if (parsed != null) {

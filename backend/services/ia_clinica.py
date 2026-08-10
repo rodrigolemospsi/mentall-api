@@ -286,7 +286,7 @@ def _gemini_client():
         return None
     return genai.Client(
         api_key=api_key,
-        http_options=types.HttpOptions(timeout=120000),
+        http_options=types.HttpOptions(timeout=60000),
     )
 
 
@@ -385,19 +385,17 @@ def _parse_resultado_sucesso(resultado_raw: dict) -> dict:
         artigos_sugeridos = ""
 
         if temas_pesquisa:
+            executor = ThreadPoolExecutor(max_workers=1)
+            future = executor.submit(_montar_artigos, temas_pesquisa, contexto_clinico)
             try:
-                with ThreadPoolExecutor(max_workers=1) as executor:
-                    future = executor.submit(_montar_artigos, temas_pesquisa, contexto_clinico)
-                    try:
-                        artigos_sugeridos = future.result(timeout=10)
-                    except FutureTimeoutError:
-                        future.cancel()
-                        executor.shutdown(wait=False)
-                        log.warning("Busca de artigos excedeu timeout (10s) - retornando sem artigos")
+                artigos_sugeridos = future.result(timeout=10)
             except FutureTimeoutError:
+                future.cancel()
                 log.warning("Busca de artigos excedeu timeout (10s) - retornando sem artigos")
             except Exception as e:
                 log.warning("Falha ao buscar artigos (nao-critico): %s", e)
+            finally:
+                executor.shutdown(wait=False)
 
         return {
             "sucesso": True,
@@ -506,7 +504,7 @@ def _gerar_sintese_deepseek(prompt: str) -> dict:
                 ],
                 "temperature": 0.3,
             },
-            timeout=120,
+            timeout=60,
         )
 
         if resp.status_code != 200:
