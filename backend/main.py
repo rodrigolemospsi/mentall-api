@@ -1,12 +1,18 @@
 import asyncio
+import hashlib
 import html
 import json
 import logging
 import os
+import random
+import secrets
+import smtplib
+import string
 import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
+from email.mime.text import MIMEText
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request, status
@@ -30,6 +36,9 @@ from models.schemas import (
     LoginResponse,
     ProgressoRequest,
     ProgressoResponse,
+    RecuperacaoRequest,
+    RecuperacaoResponse,
+    RegistrarRecuperacaoRequest,
     ResponderAnamneseRequest,
     SinteseRequest,
     SinteseResponse,
@@ -37,6 +46,8 @@ from models.schemas import (
     SmsResponse,
     TranscricaoRequest,
     TranscricaoResponse,
+    VerificarCodigoRequest,
+    VerificarCodigoResponse,
     VerificarCrpRequest,
     VerificarCrpResponse,
     WhatsAppRequest,
@@ -62,7 +73,7 @@ from services.lembrete_service import (
 )
 from services.transcricao import transcrever_audio
 
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
 
 logging.basicConfig(
     level=logging.INFO,
@@ -98,12 +109,16 @@ JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 JWT_EXPIRATION = int(os.getenv("JWT_EXPIRATION_MINUTES", "480"))
 APP_USERNAME = os.getenv("APP_USERNAME", "admin")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-APP_PASSWORD_HASH = os.getenv("APP_PASSWORD_HASH", "")
+APP_PASSWORD_HASH = os.getenv("APP_PASSWORD_HASH", "").strip()
 if not APP_PASSWORD_HASH:
-    APP_PASSWORD_HASH = pwd_context.hash("admin")
-    log.warning("APP_PASSWORD_HASH nao configurado. Usando senha padrao 'admin'.")
+    raise RuntimeError("APP_PASSWORD_HASH nao configurado. Defina a variavel de ambiente APP_PASSWORD_HASH.")
 APP_USER_ID = os.getenv("APP_USER_ID", "").strip() or str(uuid.uuid4())
 log.info("APP_USER_ID: %s", APP_USER_ID[:8])
+SMTP_HOST = os.getenv("SMTP_HOST", "")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER", "")
+SMTP_PASS = os.getenv("SMTP_PASS", "")
+SMTP_FROM = os.getenv("SMTP_FROM", "naoresponder@mentallpro.com.br")
 security = HTTPBearer()
 
 
@@ -442,6 +457,7 @@ async def lifespan(app: FastAPI):
     model = os.getenv("IA_MODEL", "gpt-4.1")
     print(f"Modelo de IA: {provider}/{model}")
 
+    iniciar_scheduler()
     yield
     await parar_scheduler()
 
@@ -458,16 +474,33 @@ app.add_middleware(
     allow_origins=[
         "https://mentall-api.onrender.com",
         "https://rodrigolemospsi.github.io",
+        "https://mentallpro.com.br",
+        "https://www.mentallpro.com.br",
+        "https://mentall-site.vercel.app",
         "http://localhost:5000",
         "http://localhost:8000",
+        "http://localhost:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-iniciar_scheduler()
-
+# Security headers middleware
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    if "text/html" in (response.headers.get("content-type") or ""):
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+            "frame-ancestors 'none'; base-uri 'self'"
+        )
+    return response
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 def health():
@@ -659,6 +692,7 @@ async def progresso(request: ProgressoRequest, _req: Request):
 def enviar_sms(request: SmsRequest, _req: Request):
     ip = _req.client.host if _req.client else "unknown"
     _rate_limit_check(ip, max_requests=5)
+    log.info("Envio de SMS solicitado para telefone final %s", request.telefone[-4:])
     if not request.telefone.strip():
         raise HTTPException(status_code=400, detail="Telefone nao informado.")
     if not request.mensagem.strip():
@@ -849,6 +883,7 @@ def _pagina_contrato(token: str, _req: Request):
 def aceitar_contrato(token: str, request: ContratoAceiteRequest, _req: Request):
     ip = _req.client.host if _req.client else "unknown"
     _rate_limit_check(ip, max_requests=10)
+    log.info("Aceite de contrato %s por %s", token[:12], request.nome[:30])
     if not request.nome.strip() or len(request.nome.strip()) < 3:
         raise HTTPException(status_code=400, detail="Nome invalido. Digite seu nome completo.")
 
@@ -870,7 +905,9 @@ def aceitar_contrato(token: str, request: ContratoAceiteRequest, _req: Request):
     tags=["Contratos"],
     dependencies=[Depends(_verificar_token)],
 )
-def status_contrato(token: str):
+def status_contrato(token: str, _req: Request):
+    ip = _req.client.host if _req.client else "unknown"
+    _rate_limit_check(ip, max_requests=30)
     contrato = obter_contrato(token)
     if contrato is None:
         return ContratoStatusResponse(sucesso=False, erro="Contrato nao encontrado.")
@@ -917,7 +954,10 @@ async def criar_lembrete(request: LembreteRequest, _req: Request, auth: tuple = 
     tags=["Lembretes"],
     dependencies=[Depends(_verificar_token)],
 )
-async def remover_lembrete(compromisso_id: str):
+async def remover_lembrete(compromisso_id: str, _req: Request):
+    ip = _req.client.host if _req.client else "unknown"
+    _rate_limit_check(ip, max_requests=10)
+    log.info("Remocao de lembrete: %s", compromisso_id[:20])
     ok = await cancelar_lembrete(compromisso_id)
     if not ok:
         return LembreteResponse(sucesso=False, erro="Lembrete nao encontrado.")
@@ -1010,7 +1050,9 @@ def enviar_whatsapp(request: WhatsAppRequest, _req: Request):
     tags=["Anamnese"],
     dependencies=[Depends(_verificar_token)],
 )
-def criar_anamnese_endpoint(request: AnamneseRequest, auth: tuple = Depends(_verificar_token)):
+def criar_anamnese_endpoint(request: AnamneseRequest, _req: Request, auth: tuple = Depends(_verificar_token)):
+    ip = _req.client.host if _req.client else "unknown"
+    _rate_limit_check(ip, max_requests=10)
     _, owner_id = auth
     if not request.template_json.strip():
         raise HTTPException(status_code=400, detail="Template nao informado.")
@@ -1112,6 +1154,7 @@ p {{ color:#64748B; font-size:15px; }}
 def responder_anamnese(token: str, request: ResponderAnamneseRequest, _req: Request):
     ip = _req.client.host if _req.client else "unknown"
     _rate_limit_check(ip, max_requests=10)
+    log.info("Resposta de anamnese %s", token[:12])
     if not request.respostas.strip():
         raise HTTPException(status_code=400, detail="Respostas nao informadas.")
 
@@ -1133,7 +1176,9 @@ def responder_anamnese(token: str, request: ResponderAnamneseRequest, _req: Requ
     tags=["Anamnese"],
     dependencies=[Depends(_verificar_token)],
 )
-def status_anamnese(token: str):
+def status_anamnese(token: str, _req: Request):
+    ip = _req.client.host if _req.client else "unknown"
+    _rate_limit_check(ip, max_requests=30)
     anamnese = obter_anamnese(token)
     if anamnese is None:
         return AnamneseStatusResponse(sucesso=False, erro="Anamnese nao encontrada.")
@@ -1144,6 +1189,173 @@ def status_anamnese(token: str):
         data_resposta=anamnese.get("respondido_em"),
         respostas_json=anamnese.get("respostas", "") or "",
     )
+
+
+def _gerar_codigo() -> str:
+    return ''.join(secrets.choice(string.digits) for _ in range(6))
+
+
+def _hash_email(email: str) -> str:
+    return hashlib.sha256(email.lower().strip().encode()).hexdigest()
+
+
+async def _enviar_email(destinatario: str, assunto: str, corpo: str) -> bool:
+    if not SMTP_HOST:
+        log.warning("SMTP_HOST nao configurado. Email nao enviado para %s", destinatario)
+        return False
+    try:
+        msg = MIMEText(corpo, "html", "utf-8")
+        msg["Subject"] = assunto
+        msg["From"] = SMTP_FROM
+        msg["To"] = destinatario
+
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(
+            None,
+            lambda: _enviar_email_sync(msg, destinatario),
+        )
+        log.info("Email enviado para %s", destinatario)
+        return True
+    except Exception as e:
+        log.error("Erro ao enviar email para %s: %s", destinatario, e)
+        return False
+
+
+def _enviar_email_sync(msg, destinatario: str):
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+        server.starttls()
+        if SMTP_USER and SMTP_PASS:
+            server.login(SMTP_USER, SMTP_PASS)
+        server.sendmail(SMTP_FROM, destinatario, msg.as_string())
+
+
+@app.post(
+    "/auth/solicitar-recuperacao",
+    response_model=RecuperacaoResponse,
+    tags=["Recuperacao"],
+)
+async def solicitar_recuperacao(request: RecuperacaoRequest, _req: Request):
+    ip = _req.client.host if _req.client else "unknown"
+    _rate_limit_check(ip, max_requests=3)
+
+    email = request.email.strip().lower()
+    email_hash = _hash_email(email)
+    codigo = _gerar_codigo()
+    agora = datetime.now(timezone.utc).isoformat()
+
+    from services.db import executar
+    existente = executar(
+        "SELECT recovery_token FROM recuperacoes WHERE email_hash = ?",
+        (email_hash,),
+    ).fetchone()
+
+    if existente:
+        executar(
+            "UPDATE recuperacoes SET codigo = ?, codigo_expiracao = ? WHERE email_hash = ?",
+            (codigo, (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat(), email_hash),
+        ).commit()
+    else:
+        return RecuperacaoResponse(
+            sucesso=False,
+            erro="Nenhum registro de recuperacao encontrado para este email. Configure o PIN primeiro.",
+        )
+
+    corpo = f"""<html><body style="font-family:sans-serif;padding:20px;">
+<h2>MentAll PRO - Recuperacao de PIN</h2>
+<p>Seu codigo de verificacao: <strong style="font-size:24px;letter-spacing:4px;">{codigo}</strong></p>
+<p>Este codigo expira em 10 minutos.</p>
+<p>Se voce nao solicitou esta recuperacao, ignore este email.</p>
+</body></html>"""
+
+    enviado = await _enviar_email(email, "MentAll PRO - Codigo de Recuperacao", corpo)
+    log.info("Codigo de recuperacao %s gerado para email %s (enviado=%s)", codigo, email_hash[:16], enviado)
+
+    return RecuperacaoResponse(
+        sucesso=True,
+        mensagem="Codigo enviado para o email." if enviado else "Codigo gerado. Email nao disponivel no momento.",
+    )
+
+
+@app.post(
+    "/auth/verificar-recuperacao",
+    response_model=VerificarCodigoResponse,
+    tags=["Recuperacao"],
+)
+def verificar_recuperacao(request: VerificarCodigoRequest, _req: Request):
+    ip = _req.client.host if _req.client else "unknown"
+    _rate_limit_check(ip, max_requests=5)
+
+    email = request.email.strip().lower()
+    email_hash = _hash_email(email)
+    codigo = request.codigo.strip()
+
+    from services.db import executar
+    registro = executar(
+        "SELECT codigo, codigo_expiracao, recovery_token FROM recuperacoes WHERE email_hash = ?",
+        (email_hash,),
+    ).fetchone()
+
+    if not registro:
+        return VerificarCodigoResponse(sucesso=False, erro="Nenhuma solicitacao de recuperacao encontrada.")
+
+    codigo_armazenado = registro.get("codigo", "")
+    expiracao_str = registro.get("codigo_expiracao", "")
+
+    if codigo != codigo_armazenado:
+        return VerificarCodigoResponse(sucesso=False, erro="Codigo invalido.")
+
+    if expiracao_str:
+        try:
+            expiracao = datetime.fromisoformat(expiracao_str)
+            if datetime.now(timezone.utc) > expiracao:
+                return VerificarCodigoResponse(sucesso=False, erro="Codigo expirado. Solicite um novo.")
+        except Exception:
+            pass
+
+    executar(
+        "UPDATE recuperacoes SET codigo = NULL, codigo_expiracao = NULL WHERE email_hash = ?",
+        (email_hash,),
+    ).commit()
+
+    return VerificarCodigoResponse(
+        sucesso=True,
+        recovery_token=registro.get("recovery_token", ""),
+    )
+
+
+@app.post(
+    "/auth/registrar-recuperacao",
+    response_model=RecuperacaoResponse,
+    tags=["Recuperacao"],
+    dependencies=[Depends(_verificar_token)],
+)
+def registrar_recuperacao(request: RegistrarRecuperacaoRequest, _req: Request):
+    ip = _req.client.host if _req.client else "unknown"
+    _rate_limit_check(ip, max_requests=5)
+
+    email = request.email.strip().lower()
+    email_hash = _hash_email(email)
+    agora = datetime.now(timezone.utc).isoformat()
+
+    from services.db import executar
+    existente = executar(
+        "SELECT email_hash FROM recuperacoes WHERE email_hash = ?",
+        (email_hash,),
+    ).fetchone()
+
+    if existente:
+        executar(
+            "UPDATE recuperacoes SET recovery_token = ?, criado_em = ? WHERE email_hash = ?",
+            (request.recovery_token, agora, email_hash),
+        ).commit()
+    else:
+        executar(
+            "INSERT INTO recuperacoes (email_hash, recovery_token, criado_em) VALUES (?, ?, ?)",
+            (email_hash, request.recovery_token, agora),
+        ).commit()
+
+    log.info("Recuperacao registrada para email hash %s", email_hash[:16])
+    return RecuperacaoResponse(sucesso=True, mensagem="Recuperacao registrada com sucesso.")
 
 
 if __name__ == "__main__":

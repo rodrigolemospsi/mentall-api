@@ -297,6 +297,7 @@ def _openai_client():
     return OpenAI(
         api_key=api_key,
         project=os.getenv("OPENAI_PROJECT_ID"),
+        timeout=120.0,
     )
 
 
@@ -371,44 +372,56 @@ IMPORTANTE:
 
 
 def _parse_resultado_sucesso(resultado_raw: dict) -> dict:
-    contexto_clinico = " ".join(
-        texto
-        for texto in [
-            resultado_raw.get("relato_clinico_organizado", ""),
-            resultado_raw.get("eventos_importantes", ""),
-        ]
-        if texto
-    )
-    temas_pesquisa = resultado_raw.get("temas_pesquisa", [])
-    artigos_sugeridos = ""
+    try:
+        contexto_clinico = " ".join(
+            texto
+            for texto in [
+                resultado_raw.get("relato_clinico_organizado", ""),
+                resultado_raw.get("eventos_importantes", ""),
+            ]
+            if texto
+        )
+        temas_pesquisa = resultado_raw.get("temas_pesquisa", [])
+        artigos_sugeridos = ""
 
-    if temas_pesquisa:
-        try:
-            with ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(_montar_artigos, temas_pesquisa, contexto_clinico)
-                artigos_sugeridos = future.result(timeout=8)
-        except FutureTimeoutError:
-            log.warning("Busca de artigos excedeu timeout (8s) - retornando sem artigos")
-        except Exception as e:
-            log.warning("Falha ao buscar artigos (nao-critico): %s", e)
+        if temas_pesquisa:
+            try:
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(_montar_artigos, temas_pesquisa, contexto_clinico)
+                    try:
+                        artigos_sugeridos = future.result(timeout=10)
+                    except FutureTimeoutError:
+                        future.cancel()
+                        executor.shutdown(wait=False)
+                        log.warning("Busca de artigos excedeu timeout (10s) - retornando sem artigos")
+            except FutureTimeoutError:
+                log.warning("Busca de artigos excedeu timeout (10s) - retornando sem artigos")
+            except Exception as e:
+                log.warning("Falha ao buscar artigos (nao-critico): %s", e)
 
-    return {
-        "sucesso": True,
-        "relato_clinico_organizado": resultado_raw.get("relato_clinico_organizado", ""),
-        "apontamentos_copiloto": resultado_raw.get("apontamentos_copiloto", ""),
-        "eventos_importantes": resultado_raw.get("eventos_importantes", ""),
-        "evolucao_clinica": resultado_raw.get("evolucao_clinica", ""),
-        "observacoes": resultado_raw.get("observacoes", ""),
-        "pensamentos_automaticos": resultado_raw.get("pensamentos_automaticos", ""),
-        "emocoes": resultado_raw.get("emocoes", ""),
-        "comportamentos": resultado_raw.get("comportamentos", ""),
-        "intervencoes": resultado_raw.get("intervencoes", ""),
-        "tecnicas": resultado_raw.get("tecnicas", ""),
-        "tarefa_casa": resultado_raw.get("tarefa_casa", ""),
-        "plano_proxima_sessao": resultado_raw.get("plano_proxima_sessao", ""),
-        "artigos_sugeridos": artigos_sugeridos,
-        "erro": "",
-    }
+        return {
+            "sucesso": True,
+            "relato_clinico_organizado": resultado_raw.get("relato_clinico_organizado", ""),
+            "apontamentos_copiloto": resultado_raw.get("apontamentos_copiloto", ""),
+            "eventos_importantes": resultado_raw.get("eventos_importantes", ""),
+            "evolucao_clinica": resultado_raw.get("evolucao_clinica", ""),
+            "observacoes": resultado_raw.get("observacoes", ""),
+            "pensamentos_automaticos": resultado_raw.get("pensamentos_automaticos", ""),
+            "emocoes": resultado_raw.get("emocoes", ""),
+            "comportamentos": resultado_raw.get("comportamentos", ""),
+            "intervencoes": resultado_raw.get("intervencoes", ""),
+            "tecnicas": resultado_raw.get("tecnicas", ""),
+            "tarefa_casa": resultado_raw.get("tarefa_casa", ""),
+            "plano_proxima_sessao": resultado_raw.get("plano_proxima_sessao", ""),
+            "artigos_sugeridos": artigos_sugeridos,
+            "erro": "",
+        }
+    except Exception as e:
+        log.exception("Erro ao parsear resultado da sintese: %s", e)
+        return {
+            "sucesso": False,
+            "erro": "Falha ao processar resultado da IA.",
+        }
 
 
 def _chamar_provider_sintese(provider_name: str, prompt: str) -> dict:
@@ -612,8 +625,10 @@ def gerar_progresso(
         escalas = []
 
     historico = ""
-    for s in sessoes_anteriores:
-        historico += f"Sessão {s.get('numero')} ({s.get('data', '')}):\n{s.get('sintese', '')}\n\n"
+    max_sessoes = 10
+    for s in sessoes_anteriores[-max_sessoes:]:
+        sintese = _sanitizar_prompt(str(s.get('sintese', '')))
+        historico += f"Sessão {s.get('numero')} ({s.get('data', '')}):\n{sintese}\n\n"
 
     dados_escalas = ""
     if escalas:
@@ -626,8 +641,8 @@ def gerar_progresso(
     prompt = f"""{PROMPT_PROGRESSO}
 
 DADOS DO PACIENTE:
-Queixa principal: {queixa_principal or 'Nao informada'}
-Objetivos terapeuticos: {objetivos_terapeuticos or 'Nao informados'}
+Queixa principal: {_sanitizar_prompt(queixa_principal) or 'Nao informada'}
+Objetivos terapeuticos: {_sanitizar_prompt(objetivos_terapeuticos) or 'Nao informados'}
 
 {"QUESTIONARIOS APLICADOS:" if escalas else ""}
 {dados_escalas}
