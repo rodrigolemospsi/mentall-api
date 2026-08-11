@@ -9,8 +9,29 @@ import 'login_page.dart';
 
 final _pinRevisaoProvider = StateProvider<int>((ref) => 0);
 
-class ConfiguracoesPage extends ConsumerWidget {
+class ConfiguracoesPage extends ConsumerStatefulWidget {
   const ConfiguracoesPage({super.key});
+
+  @override
+  ConsumerState<ConfiguracoesPage> createState() => _ConfiguracoesPageState();
+}
+
+class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
+  bool _biometriaDisponivel = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _verificarBiometria();
+  }
+
+  Future<void> _verificarBiometria() async {
+    final authService = ref.read(authServiceProvider);
+    final disponivel = await authService.dispositivoPossuiBiometria;
+    if (mounted) {
+      setState(() => _biometriaDisponivel = disponivel);
+    }
+  }
 
   String _labelMinutos(int minutos) {
     if (minutos < 60) return '$minutos minutos';
@@ -22,7 +43,8 @@ class ConfiguracoesPage extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    final ref = this.ref;
     ref.watch(configuracoesRevisaoProvider);
     ref.watch(_pinRevisaoProvider);
 
@@ -95,6 +117,21 @@ class ConfiguracoesPage extends ConsumerWidget {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => _mostrarDialogTrocarPin(context, ref),
                 ),
+                if (_biometriaDisponivel) ...[
+                  const Divider(indent: 16),
+                  SwitchListTile(
+                    secondary: Icon(Icons.fingerprint, color: context.corPrimaria),
+                    title: const Text('Desbloquear com digital / face'),
+                    subtitle: Text(
+                      config.biometriaAtivada
+                          ? 'Biometria ativada para desbloqueio rápido.'
+                          : 'Toque para ativar o desbloqueio por biometria.',
+                    ),
+                    value: config.biometriaAtivada,
+                    activeThumbColor: context.corPrimaria,
+                    onChanged: (v) => config.setBiometriaAtivada(v),
+                  ),
+                ],
                 const Divider(indent: 16),
                 ListTile(
                   leading: Icon(Icons.lock_outlined, color: context.corPrimaria),
@@ -268,15 +305,28 @@ class ConfiguracoesPage extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Configurar PIN'),
-        content: TextField(
-          controller: pinController,
-          obscureText: true,
-          maxLength: 16,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'Novo PIN (mínimo 4 caracteres)',
-            border: OutlineInputBorder(),
-          ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: pinController,
+              obscureText: true,
+              maxLength: 4,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 24, letterSpacing: 12),
+              decoration: const InputDecoration(
+                labelText: 'PIN de 4 digitos',
+                border: OutlineInputBorder(),
+                counterText: '',
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Voce podera recuperar o PIN pelo seu email profissional.',
+              style: TextStyle(fontSize: 12, color: context.corTextoMuted),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -286,25 +336,27 @@ class ConfiguracoesPage extends ConsumerWidget {
           FilledButton(
             onPressed: () async {
               final pin = pinController.text.trim();
-              if (pin.length < 4) {
+              if (pin.length != 4 || !RegExp(r'^\d{4}$').hasMatch(pin)) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('O PIN deve ter no mínimo 4 caracteres.'),
+                    content: Text('O PIN deve ter exatamente 4 digitos.'),
                   ),
                 );
                 return;
               }
               try {
-                final frase = await ref.read(authServiceProvider).configurarPinComFraseRecuperacao(pin);
+                await ref.read(authServiceProvider).configurarPin(pin, email: null);
                 _notificarPinAlterado(ref);
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (!context.mounted) return;
-                _mostrarFraseRecuperacao(context, frase);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('PIN configurado com sucesso.')),
+                );
               } catch (e) {
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Não foi possível configurar o PIN. Tente novamente.'),
+                    content: Text('Nao foi possivel configurar o PIN. Tente novamente.'),
                   ),
                 );
               }
@@ -330,33 +382,42 @@ class ConfiguracoesPage extends ConsumerWidget {
             TextField(
               controller: atualController,
               obscureText: true,
-              maxLength: 16,
+              maxLength: 4,
               keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 24, letterSpacing: 12),
               decoration: const InputDecoration(
-                labelText: 'PIN atual',
+                labelText: 'PIN atual (4 digitos)',
                 border: OutlineInputBorder(),
+                counterText: '',
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: novoController,
               obscureText: true,
-              maxLength: 16,
+              maxLength: 4,
               keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 24, letterSpacing: 12),
               decoration: const InputDecoration(
-                labelText: 'Novo PIN (mínimo 4 caracteres)',
+                labelText: 'Novo PIN (4 digitos)',
                 border: OutlineInputBorder(),
+                counterText: '',
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: confirmarController,
               obscureText: true,
-              maxLength: 16,
+              maxLength: 4,
               keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 24, letterSpacing: 12),
               decoration: const InputDecoration(
                 labelText: 'Confirmar novo PIN',
                 border: OutlineInputBorder(),
+                counterText: '',
               ),
             ),
           ],
@@ -373,10 +434,10 @@ class ConfiguracoesPage extends ConsumerWidget {
               final confirmar = confirmarController.text.trim();
 
               String? erro;
-              if (novo.length < 4) {
-                erro = 'O novo PIN deve ter no mínimo 4 caracteres.';
+              if (!RegExp(r'^\d{4}$').hasMatch(novo)) {
+                erro = 'O novo PIN deve ter exatamente 4 digitos.';
               } else if (novo != confirmar) {
-                erro = 'A confirmação não confere com o novo PIN.';
+                erro = 'A confirmacao nao confere com o novo PIN.';
               }
 
               if (erro != null) {
@@ -406,7 +467,7 @@ class ConfiguracoesPage extends ConsumerWidget {
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Não foi possível trocar o PIN: $e'),
+                    content: Text('Nao foi possivel trocar o PIN: $e'),
                   ),
                 );
               }
@@ -505,8 +566,8 @@ class ConfiguracoesPage extends ConsumerWidget {
           TextButton(
             onPressed: () {
               urlController.text = ApiClient.defaultBaseUrl;
-              userController.text = 'admin';
-              passController.text = 'admin';
+              userController.text = '';
+              passController.text = '';
             },
             child: const Text('Restaurar padr\u00e3o'),
           ),
@@ -525,9 +586,21 @@ class ConfiguracoesPage extends ConsumerWidget {
                 );
                 return;
               }
-              await ApiClient.setBaseUrl(url);
               final username = userController.text.trim();
               final password = passController.text.trim();
+              if (username.isNotEmpty || password.isNotEmpty) {
+                final possuiPin = ref.read(authServiceProvider).encryption.possuiPinConfigurado;
+                if (!possuiPin) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Configure um PIN antes de salvar as credenciais do servidor.'),
+                      duration: Duration(seconds: 4),
+                    ),
+                  );
+                  return;
+                }
+              }
+              await ApiClient.setBaseUrl(url);
               if (username.isNotEmpty || password.isNotEmpty) {
                 await ApiClient.setCredentials(username, password);
               }
@@ -590,63 +663,5 @@ class ConfiguracoesPage extends ConsumerWidget {
         ],
       ),
     ).then((_) => controller.dispose());
-  }
-
-  void _mostrarFraseRecuperacao(BuildContext context, String frase) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Frase de recuperação'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Guarde esta frase em local seguro. Sem ela, seus dados serão permanentemente inacessíveis se você esquecer o PIN.',
-              style: TextStyle(fontSize: 13),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Theme.of(ctx).colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: SelectableText(
-                frase,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(ctx).colorScheme.onPrimaryContainer,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Copie ou anote estas 12 palavras na ordem exata.',
-              style: TextStyle(fontSize: 12, color: Colors.orange),
-            ),
-          ],
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('PIN configurado com sucesso. Guarde a frase de recuperação.'),
-                ),
-              );
-            },
-            child: const Text('Eu anotei. OK'),
-          ),
-        ],
-      ),
-    );
   }
 }

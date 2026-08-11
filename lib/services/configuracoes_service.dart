@@ -14,6 +14,8 @@ class ConfiguracoesService {
   static const String _kValorPadraoSessao = 'valor_padrao_sessao';
   static const String _kControleFinanceiroAtivo = 'controle_financeiro_ativo';
   static const String _kOnboardingConcluido = 'onboarding_concluido';
+  static const String _kDemoCriado = 'demo_criado';
+  static const String _kBiometriaAtivada = 'biometria_ativada';
 
   static const String contratoPadrao = '''Este \u00e9 um espa\u00e7o de cuidado, escuta e respeito.
 
@@ -112,6 +114,17 @@ Ao preencher e aceitar este formul\u00e1rio, declaro estar ciente e de acordo co
       _box.get(_kOnboardingConcluido, defaultValue: 'false') == 'true';
 
   set onboardingConcluido(bool v) => _box.put(_kOnboardingConcluido, '$v');
+
+  bool get demoCriado => _box.get(_kDemoCriado, defaultValue: 'false') == 'true';
+
+  set demoCriado(bool v) => _box.put(_kDemoCriado, '$v');
+
+  bool get biometriaAtivada =>
+      _box.get(_kBiometriaAtivada, defaultValue: 'true') == 'true';
+
+  Future<void> setBiometriaAtivada(bool ativado) async {
+    await _box.put(_kBiometriaAtivada, '$ativado');
+  }
 
   Stream<BoxEvent> observar() {
     return _box.watch();

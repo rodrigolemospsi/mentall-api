@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
+import 'package:flutter/services.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:local_auth/local_auth.dart';
 
 import 'logger.dart';
 import 'api_client.dart';
@@ -13,6 +16,8 @@ import 'avaliacao_inicial_service.dart';
 import 'escala_service.dart';
 import 'contrato_service.dart';
 import 'anamnese_enviada_service.dart';
+import 'compromisso_service.dart';
+import 'progresso_service.dart';
 import 'package:http/http.dart' as http;
 
 class AuthService {
@@ -20,10 +25,9 @@ class AuthService {
   static const String _tokenKey = 'jwt_token';
   static const String _usernameKey = 'auth_username';
   static const String _passwordKey = 'auth_password';
-  static const String _defaultUsername = 'admin';
-  static const String _defaultPassword = 'admin';
 
   late final Box<String> _box = Hive.box<String>(_authBoxName);
+  final LocalAuthentication _localAuth = LocalAuthentication();
 
   final EncryptionService _encryptionService;
   final PacienteService? _pacienteService;
@@ -33,6 +37,8 @@ class AuthService {
   final EscalaService? _escalaService;
   final ContratoService? _contratoService;
   final AnamneseEnviadaService? _anamneseEnviadaService;
+  final CompromissoService? _compromissoService;
+  final ProgressoService? _progressoService;
   bool _desbloqueado = false;
 
   AuthService(
@@ -44,13 +50,17 @@ class AuthService {
     EscalaService? escalaService,
     ContratoService? contratoService,
     AnamneseEnviadaService? anamneseEnviadaService,
+    CompromissoService? compromissoService,
+    ProgressoService? progressoService,
   })  : _pacienteService = pacienteService,
         _sessaoService = sessaoService,
         _perfilProfissionalService = perfilProfissionalService,
         _avaliacaoInicialService = avaliacaoInicialService,
         _escalaService = escalaService,
         _contratoService = contratoService,
-        _anamneseEnviadaService = anamneseEnviadaService;
+        _anamneseEnviadaService = anamneseEnviadaService,
+        _compromissoService = compromissoService,
+        _progressoService = progressoService;
 
   bool get desbloqueado => _desbloqueado;
 
@@ -60,7 +70,7 @@ class AuthService {
     final box = Hive.box<String>('app_config');
     final stored = box.get(_usernameKey);
     if (stored != null && stored.isNotEmpty) return stored;
-    return _defaultUsername;
+    return '';
   }
 
   String get _password {
@@ -69,7 +79,7 @@ class AuthService {
     if (stored != null && stored.isNotEmpty) {
       return EncryptionService.tryDecrypt(stored);
     }
-    return _defaultPassword;
+    return '';
   }
 
   Future<void> inicializar() async {
@@ -77,7 +87,7 @@ class AuthService {
     if (token != null && token.isNotEmpty) {
       ApiClient.authToken = EncryptionService.tryDecrypt(token);
     }
-    await _tentarAutenticarBackend();
+    unawaited(_tentarAutenticarBackend());
   }
 
   bool get possuiTokenJwt {
@@ -95,13 +105,24 @@ class AuthService {
 
   Future<bool> autenticarBackend() async {
     try {
+      final username = _username;
+      final password = _password;
+      if (username.isEmpty || password.isEmpty) {
+        await ApiClient.setCredentials('admin', 'admin');
+      }
+      final user = _username;
+      final pass = _password;
+      if (user.isEmpty || pass.isEmpty) {
+        Log.erro('Credenciais do backend nao configuradas.', contexto: 'AuthService.autenticarBackend');
+        return false;
+      }
       final response = await http
           .post(
             Uri.parse('${ApiClient.baseUrl}/auth/login'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
-              'username': _username,
-              'password': _password,
+              'username': user,
+              'password': pass,
             }),
           )
           .timeout(const Duration(seconds: 15));
@@ -128,43 +149,110 @@ class AuthService {
     return {'Authorization': 'Bearer $token'};
   }
 
-  Future<void> desbloquearComPin(String pin) async {
+  Future<bool> desbloquearComPin(String pin) async {
     final sucesso = await _encryptionService.desbloquear(pin);
     if (sucesso) {
       _desbloqueado = true;
+      unawaited(_encryptionService.salvarChaveNoSecureStorage());
       unawaited(_tentarAutenticarBackend());
     }
-  }
-
-  Future<void> configurarPin(String pin) async {
-    await _encryptionService.configurarPin(pin);
-    _desbloqueado = true;
-    unawaited(_tentarAutenticarBackend());
-  }
-
-  Future<String> configurarPinComFraseRecuperacao(String pin) async {
-    await _encryptionService.configurarPin(pin);
-    final frase = _encryptionService.gerarFraseRecuperacao();
-    await _encryptionService.configurarFraseRecuperacao(frase);
-    _desbloqueado = true;
-    unawaited(_tentarAutenticarBackend());
-    return frase;
-  }
-
-  bool get possuiFraseRecuperacao => _encryptionService.possuiFraseRecuperacao;
-
-  bool verificarFraseRecuperacao(String frase) =>
-      _encryptionService.verificarFraseRecuperacao(frase);
-
-  bool validarPin(String pin) => _encryptionService.validarPin(pin);
-
-  Future<bool> recuperarComFrase(String frase) async {
-    final sucesso = await _encryptionService.recuperarComFrase(frase);
-    if (sucesso) {
-      _desbloqueado = true;
-      await _encryptionService.limparRecuperacao();
-    }
     return sucesso;
+  }
+
+  Future<void> configurarPin(String pin, {String? email}) async {
+    await _encryptionService.configurarPin(pin);
+    _desbloqueado = true;
+    unawaited(_encryptionService.salvarChaveNoSecureStorage());
+    if (email != null && email.isNotEmpty) {
+      await _configurarRecuperacao(email);
+    }
+    unawaited(_tentarAutenticarBackend());
+  }
+
+  Future<void> _configurarRecuperacao(String email) async {
+    final recoveryToken = _gerarRecoveryToken();
+    await _encryptionService.configurarRecuperacaoEmail(recoveryToken);
+    await ApiClient.registrarRecuperacao(email, recoveryToken);
+  }
+
+  String _gerarRecoveryToken() {
+    final random = Random.secure();
+    final bytes = List<int>.generate(32, (_) => random.nextInt(256));
+    return base64UrlEncode(bytes);
+  }
+
+  bool get possuiRecuperacaoConfigurada =>
+      _encryptionService.possuiRecuperacaoConfigurada;
+
+  Future<bool> validarPin(String pin) => _encryptionService.validarPin(pin);
+
+  int get tentativasRestantes => _encryptionService.tentativasRestantes;
+
+  Future<bool> solicitarCodigoRecuperacao(String email) async {
+    return ApiClient.solicitarCodigoRecuperacao(email);
+  }
+
+  Future<String?> verificarCodigoRecuperacao(String email, String codigo) async {
+    return ApiClient.verificarCodigoRecuperacao(email, codigo);
+  }
+
+  Future<bool> redefinirPinComRecuperacao(String recoveryToken, String novoPin) async {
+    final sucesso = await _encryptionService.recuperarComToken(recoveryToken);
+    if (!sucesso) return false;
+
+    await _encryptionService.reprotegerChaveComNovoPin(novoPin);
+    _desbloqueado = true;
+    await _encryptionService.salvarChaveNoSecureStorage();
+    return true;
+  }
+
+  Future<bool> autenticarComBiometria() async {
+    try {
+      final podeAutenticar = await _localAuth.canCheckBiometrics;
+      if (!podeAutenticar) return false;
+
+      final autenticado = await _localAuth.authenticate(
+        localizedReason: 'Autentique-se para acessar o prontuario',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: true,
+        ),
+      );
+
+      if (!autenticado) return false;
+
+      final sucesso = await _encryptionService.recuperarChaveDoSecureStorage();
+      if (sucesso) {
+        _desbloqueado = true;
+        unawaited(_tentarAutenticarBackend());
+      }
+      return sucesso;
+    } on PlatformException catch (e) {
+      if (e.code == 'NotAvailable') return false;
+      Log.erro(e, contexto: 'AuthService.autenticarComBiometria');
+      return false;
+    } catch (e) {
+      Log.erro(e, contexto: 'AuthService.autenticarComBiometria');
+      return false;
+    }
+  }
+
+  Future<bool> get dispositivoPossuiBiometria async {
+    try {
+      final isSupported = await _localAuth.isDeviceSupported();
+      if (!isSupported) return false;
+      return await _localAuth.canCheckBiometrics;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<List<BiometricType>> get tiposBiometriaDisponiveis async {
+    try {
+      return await _localAuth.getAvailableBiometrics();
+    } catch (_) {
+      return <BiometricType>[];
+    }
   }
 
   Future<void> _tentarAutenticarBackend() async {
@@ -189,6 +277,7 @@ class AuthService {
     final sucesso = await _encryptionService.trocarPin(pinAtual, novoPin);
     if (sucesso) {
       _desbloqueado = true;
+      await _encryptionService.salvarChaveNoSecureStorage();
     }
     return sucesso;
   }
@@ -201,6 +290,8 @@ class AuthService {
     await _escalaService?.removerCriptografiaExistente();
     await _contratoService?.removerCriptografiaExistente();
     await _anamneseEnviadaService?.removerCriptografiaExistente();
+    await _compromissoService?.removerCriptografiaExistente();
+    await _progressoService?.removerCriptografiaExistente();
     await _encryptionService.limpar();
     _desbloqueado = false;
     ApiClient.authToken = null;

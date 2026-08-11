@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/service_providers.dart';
+import '../services/auth_service.dart';
 import 'login_page.dart';
 import 'main_shell.dart';
 import 'onboarding_page.dart';
@@ -25,6 +26,7 @@ class _AppStartPageState extends ConsumerState<AppStartPage>
   bool _bloqueadoPeloCicloDeVida = false;
   bool _mostrarSplash = true;
   bool _splashPodePular = false;
+  bool _tentouBiometria = false;
   Timer? _splashTimer;
   Timer? _inactivityTimer;
   late final AnimationController _fadeController;
@@ -74,7 +76,10 @@ class _AppStartPageState extends ConsumerState<AppStartPage>
     final authService = ref.read(authServiceProvider);
     if (authService.desbloqueado && authService.requerPin) {
       authService.bloquear();
-      setState(() {});
+      _tentouBiometria = false;
+      if (mounted) {
+        setState(() {});
+      }
     }
   }
 
@@ -107,9 +112,12 @@ class _AppStartPageState extends ConsumerState<AppStartPage>
         _bloqueadoPeloCicloDeVida = true;
       }
     } else if (state == AppLifecycleState.resumed) {
+      _tentouBiometria = false;
       if (_bloqueadoPeloCicloDeVida) {
         _bloqueadoPeloCicloDeVida = false;
-        setState(() {});
+        if (mounted) {
+          setState(() {});
+        }
       }
     }
   }
@@ -123,21 +131,36 @@ class _AppStartPageState extends ConsumerState<AppStartPage>
     final authService = ref.read(authServiceProvider);
 
     if (!authService.desbloqueado && authService.requerPin) {
+      if (!_tentouBiometria) {
+        _tentouBiometria = true;
+        Future.microtask(() => _tentarBiometriaNoStart(authService));
+      }
       return const LoginPage();
     }
 
     final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
+    final config = ref.read(configuracoesServiceProvider);
+
+    if (!config.onboardingConcluido) {
+      return const OnboardingPage();
+    }
 
     if (perfil == null) {
       return const PerfilProfissionalFormPage();
     }
 
-    final config = ref.read(configuracoesServiceProvider);
-    if (!config.onboardingConcluido) {
-      return const OnboardingPage();
-    }
-
     return const MainShell();
+  }
+
+  Future<void> _tentarBiometriaNoStart(AuthService authService) async {
+    try {
+      final config = ref.read(configuracoesServiceProvider);
+      if (!config.biometriaAtivada) return;
+      final sucesso = await authService.autenticarComBiometria();
+      if (sucesso && mounted) {
+        setState(() {});
+      }
+    } catch (_) {}
   }
 
   Widget _buildSplash(BuildContext context) {
@@ -156,12 +179,14 @@ class _AppStartPageState extends ConsumerState<AppStartPage>
         child: Scaffold(
           backgroundColor: Theme.of(context).colorScheme.surface,
           body: Center(
-            child: Image.asset(
-              isDark
-                  ? 'assets/images/logo_mentall_escuro.png'
-                  : 'assets/images/logo_mentall_pro_claro.png',
-              height: 160,
-            ),
+              child: Image.asset(
+                isDark
+                    ? 'assets/images/logo_mentall_escuro.png'
+                    : 'assets/images/logo_mentall_pro_claro.png',
+                height: 160,
+                cacheHeight: 320,
+                semanticLabel: 'Logo MentAll PRO',
+              ),
           ),
         ),
       ),
