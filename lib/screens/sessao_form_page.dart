@@ -78,6 +78,8 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       TextEditingController();
   final TextEditingController _apontamentosController =
       TextEditingController();
+  final TextEditingController _planoProximaSessaoController =
+      TextEditingController();
   final TextEditingController _valorController = TextEditingController();
 
   late String _sessaoId;
@@ -316,6 +318,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
         _formulacaoController.text = _concatenarFormulacao(sessao);
         _intervencoesController.text = sessao.intervencoes;
         _apontamentosController.text = sessao.apontamentosCopiloto;
+        _planoProximaSessaoController.text = sessao.planoProximaSessao;
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
@@ -394,6 +397,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
     _formulacaoController.dispose();
     _intervencoesController.dispose();
     _apontamentosController.dispose();
+    _planoProximaSessaoController.dispose();
     _valorController.dispose();
 
     _timerGravacao?.cancel();
@@ -1246,29 +1250,29 @@ if (!mounted || confirmar != true) return;
           texto: resultado.relatoClinicoOrganizado,
         );
 
-        final sintese = [
-          if (resultado.eventosImportantes.isNotEmpty) resultado.eventosImportantes,
-          if (resultado.evolucaoClinica.isNotEmpty) resultado.evolucaoClinica,
-          if (resultado.observacoes.isNotEmpty) resultado.observacoes,
-        ].join('\n\n');
-        _preencherController(controller: _sinteseController, texto: sintese);
+        _preencherController(
+          controller: _sinteseController,
+          texto: resultado.sinteseClinica,
+        );
 
-        final formulacao = [
-          if (resultado.pensamentosAutomaticos.isNotEmpty) resultado.pensamentosAutomaticos,
-          if (resultado.emocoes.isNotEmpty) resultado.emocoes,
-          if (resultado.comportamentos.isNotEmpty) resultado.comportamentos,
-        ].join('\n\n');
-        _preencherController(controller: _formulacaoController, texto: formulacao);
+        _preencherController(
+          controller: _formulacaoController,
+          texto: resultado.formulacaoClinica,
+        );
 
-        final intervencoes = [
-          if (resultado.intervencoes.isNotEmpty) resultado.intervencoes,
-          if (resultado.tecnicas.isNotEmpty) resultado.tecnicas,
-        ].join('\n\n');
-        _preencherController(controller: _intervencoesController, texto: intervencoes);
+        _preencherController(
+          controller: _intervencoesController,
+          texto: resultado.intervencoes,
+        );
 
         _preencherController(
           controller: _apontamentosController,
           texto: resultado.apontamentosCopiloto,
+        );
+
+        _preencherController(
+          controller: _planoProximaSessaoController,
+          texto: resultado.planoProximaSessao,
         );
 
         _artigosSugeridos = ref.read(configuracoesServiceProvider).sugerirArtigos
@@ -1403,7 +1407,7 @@ if (!mounted || confirmar != true) return;
         sessao.intervencoes = _intervencoesController.text.trim();
         sessao.tecnicasTcc = '';
         sessao.tarefaCasa = '';
-        sessao.planoProximaSessao = '';
+        sessao.planoProximaSessao = _planoProximaSessaoController.text.trim();
         sessao.apontamentosCopiloto = _apontamentosController.text.trim();
 
         sessao.audioRelatoPath = _audioRelatoPath;
@@ -1446,7 +1450,7 @@ if (!mounted || confirmar != true) return;
           intervencoes: _intervencoesController.text.trim(),
           tecnicasTcc: '',
           tarefaCasa: '',
-          planoProximaSessao: '',
+          planoProximaSessao: _planoProximaSessaoController.text.trim(),
           apontamentosCopiloto: _apontamentosController.text.trim(),
           audioRelatoPath: _audioRelatoPath,
           audioRelatoBase64: kIsWeb ? _audioRelatoBase64 : '',
@@ -1655,6 +1659,7 @@ if (!mounted || confirmar != true) return;
                         formulacaoController: _formulacaoController,
                         intervencoesController: _intervencoesController,
                         apontamentosController: _apontamentosController,
+                        planoProximaSessaoController: _planoProximaSessaoController,
                       ),
                     ],
                     if (_artigosSugeridos.trim().isNotEmpty) ...[

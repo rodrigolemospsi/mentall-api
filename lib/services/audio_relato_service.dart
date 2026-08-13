@@ -407,7 +407,7 @@ class AudioRelatoService {
       throw Exception('Arquivo de audio vazio.');
     }
 
-    if (bytes.length >= 2 && bytes[0] == 0x32 && bytes[1] == 0x3A) {
+    if (bytes.length >= 2 && bytes[1] == 0x3A && (bytes[0] == 0x33 || bytes[0] == 0x32)) {
       final content = utf8.decode(bytes, allowMalformed: true);
       final decrypted = EncryptionService.tryDecrypt(content);
       if (decrypted.isEmpty || decrypted == content) {

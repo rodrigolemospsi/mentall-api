@@ -117,7 +117,7 @@ Ao preencher e aceitar este formul\u00e1rio, declaro estar ciente e de acordo co
 
   bool get demoCriado => _box.get(_kDemoCriado, defaultValue: 'false') == 'true';
 
-  set demoCriado(bool v) => _box.put(_kDemoCriado, '$v');
+  Future<void> setDemoCriado(bool v) => _box.put(_kDemoCriado, '$v');
 
   bool get biometriaAtivada =>
       _box.get(_kBiometriaAtivada, defaultValue: 'true') == 'true';

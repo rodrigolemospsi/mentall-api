@@ -5,9 +5,12 @@ import 'package:hive_ce/hive.dart';
 
 import 'package:prontuario_tcc/hive_registrar.g.dart';
 import 'package:prontuario_tcc/models/compromisso.dart';
+import 'package:prontuario_tcc/models/contrato_terapeutico.dart';
 import 'package:prontuario_tcc/models/lgpd/registro_auditoria.dart';
 import 'package:prontuario_tcc/models/paciente.dart';
+import 'package:prontuario_tcc/models/pacote.dart';
 import 'package:prontuario_tcc/models/perfil_profissional.dart';
+import 'package:prontuario_tcc/models/progresso_sessao.dart';
 import 'package:prontuario_tcc/models/sessao.dart';
 import 'package:prontuario_tcc/providers/service_providers.dart';
 import 'package:prontuario_tcc/screens/home_page.dart';
@@ -24,6 +27,12 @@ void main() {
     await Hive.openBox<String>('app_config');
     await Hive.openBox<String>('encryption_meta');
     await Hive.openBox<RegistroAuditoria>('auditoria');
+    await Hive.openBox<ContratoTerapeutico>('contratos');
+    await Hive.openBox<Pacote>('pacotes');
+    await Hive.openBox<ProgressoSessao>('progresso_sessoes');
+    await Hive.openBox('avaliacoes_iniciais');
+    await Hive.openBox('anamneses_enviadas');
+    await Hive.openBox('respostas_escalas');
   });
 
   tearDownAll(() async {
@@ -32,6 +41,12 @@ void main() {
     await Hive.box<PerfilProfissional>('perfil_profissional').close();
     await Hive.box<Compromisso>('compromissos').close();
     await Hive.box<RegistroAuditoria>('auditoria').close();
+    await Hive.box<ContratoTerapeutico>('contratos').close();
+    await Hive.box<Pacote>('pacotes').close();
+    await Hive.box<ProgressoSessao>('progresso_sessoes').close();
+    await Hive.box('avaliacoes_iniciais').close();
+    await Hive.box('anamneses_enviadas').close();
+    await Hive.box('respostas_escalas').close();
     await Hive.deleteBoxFromDisk('pacientes');
     await Hive.deleteBoxFromDisk('sessoes');
     await Hive.deleteBoxFromDisk('perfil_profissional');
@@ -40,6 +55,12 @@ void main() {
     await Hive.deleteBoxFromDisk('auth_meta');
     await Hive.deleteBoxFromDisk('app_config');
     await Hive.deleteBoxFromDisk('auditoria');
+    await Hive.deleteBoxFromDisk('contratos');
+    await Hive.deleteBoxFromDisk('pacotes');
+    await Hive.deleteBoxFromDisk('progresso_sessoes');
+    await Hive.deleteBoxFromDisk('avaliacoes_iniciais');
+    await Hive.deleteBoxFromDisk('anamneses_enviadas');
+    await Hive.deleteBoxFromDisk('respostas_escalas');
   });
 
   setUp(() async {

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/service_providers.dart';
-import '../services/auth_service.dart';
 import 'login_page.dart';
 import 'main_shell.dart';
 import 'onboarding_page.dart';
@@ -13,22 +12,16 @@ import 'perfil_profissional_form_page.dart';
 class AppStartPage extends ConsumerStatefulWidget {
   const AppStartPage({super.key});
 
-  static void Function()? onUserActivity;
-
   @override
   ConsumerState<AppStartPage> createState() => _AppStartPageState();
 }
 
 class _AppStartPageState extends ConsumerState<AppStartPage>
     with WidgetsBindingObserver, TickerProviderStateMixin {
-  static const int _inactivityTimeoutMinutos = 5;
-
   bool _bloqueadoPeloCicloDeVida = false;
   bool _mostrarSplash = true;
   bool _splashPodePular = false;
-  bool _tentouBiometria = false;
   Timer? _splashTimer;
-  Timer? _inactivityTimer;
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
 
@@ -57,30 +50,6 @@ class _AppStartPageState extends ConsumerState<AppStartPage>
         }
       });
     });
-
-    AppStartPage.onUserActivity = _resetarInactivityTimer;
-    _resetarInactivityTimer();
-  }
-
-  void _resetarInactivityTimer() {
-    _inactivityTimer?.cancel();
-    final authService = ref.read(authServiceProvider);
-    if (!authService.requerPin || !authService.desbloqueado) return;
-    _inactivityTimer = Timer(
-      const Duration(minutes: _inactivityTimeoutMinutos),
-      _bloquearPorInatividade,
-    );
-  }
-
-  void _bloquearPorInatividade() {
-    final authService = ref.read(authServiceProvider);
-    if (authService.desbloqueado && authService.requerPin) {
-      authService.bloquear();
-      _tentouBiometria = false;
-      if (mounted) {
-        setState(() {});
-      }
-    }
   }
 
   void _pularSplash() {
@@ -96,8 +65,6 @@ class _AppStartPageState extends ConsumerState<AppStartPage>
   @override
   void dispose() {
     _splashTimer?.cancel();
-    _inactivityTimer?.cancel();
-    AppStartPage.onUserActivity = null;
     _fadeController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -107,12 +74,11 @@ class _AppStartPageState extends ConsumerState<AppStartPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
       final authService = ref.read(authServiceProvider);
-      if (authService.desbloqueado && authService.requerPin) {
+      if (authService.desbloqueado && authService.requerAutenticacao) {
         authService.bloquear();
         _bloqueadoPeloCicloDeVida = true;
       }
     } else if (state == AppLifecycleState.resumed) {
-      _tentouBiometria = false;
       if (_bloqueadoPeloCicloDeVida) {
         _bloqueadoPeloCicloDeVida = false;
         if (mounted) {
@@ -130,11 +96,7 @@ class _AppStartPageState extends ConsumerState<AppStartPage>
 
     final authService = ref.read(authServiceProvider);
 
-    if (!authService.desbloqueado && authService.requerPin) {
-      if (!_tentouBiometria) {
-        _tentouBiometria = true;
-        Future.microtask(() => _tentarBiometriaNoStart(authService));
-      }
+    if (!authService.desbloqueado && authService.requerAutenticacao) {
       return const LoginPage();
     }
 
@@ -150,17 +112,6 @@ class _AppStartPageState extends ConsumerState<AppStartPage>
     }
 
     return const MainShell();
-  }
-
-  Future<void> _tentarBiometriaNoStart(AuthService authService) async {
-    try {
-      final config = ref.read(configuracoesServiceProvider);
-      if (!config.biometriaAtivada) return;
-      final sucesso = await authService.autenticarComBiometria();
-      if (sucesso && mounted) {
-        setState(() {});
-      }
-    } catch (_) {}
   }
 
   Widget _buildSplash(BuildContext context) {

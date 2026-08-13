@@ -10,6 +10,7 @@ class SecaoCamposClinicosWidget extends StatelessWidget {
   final TextEditingController formulacaoController;
   final TextEditingController intervencoesController;
   final TextEditingController apontamentosController;
+  final TextEditingController planoProximaSessaoController;
 
   const SecaoCamposClinicosWidget({
     super.key,
@@ -18,6 +19,7 @@ class SecaoCamposClinicosWidget extends StatelessWidget {
     required this.formulacaoController,
     required this.intervencoesController,
     required this.apontamentosController,
+    required this.planoProximaSessaoController,
   });
 
   @override
@@ -31,6 +33,8 @@ class SecaoCamposClinicosWidget extends StatelessWidget {
         _secaoIntervencoes(),
         const SizedBox(height: 16),
         _secaoApontamentos(),
+        const SizedBox(height: 16),
+        _secaoPlanoProximaSessao(),
       ],
     );
   }
@@ -74,6 +78,17 @@ class SecaoCamposClinicosWidget extends StatelessWidget {
         CampoTextoWidget(
           controller: apontamentosController,
           label: 'Apontamentos',
+        ),
+      ],
+    );
+  }
+
+  Widget _secaoPlanoProximaSessao() {
+    return SecaoFormulario(
+      children: [
+        CampoTextoWidget(
+          controller: planoProximaSessaoController,
+          label: 'Plano para a próxima sessão',
         ),
       ],
     );

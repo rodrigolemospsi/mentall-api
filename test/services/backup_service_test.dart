@@ -52,7 +52,7 @@ void main() {
     await Hive.box<PerfilProfissional>('perfil_profissional').clear();
     encryption = EncryptionService();
     await encryption.inicializar();
-    await encryption.configurarPin('1234');
+    await encryption.gerarChave();
     backup = BackupService(encryption: encryption);
     pacienteService = PacienteService(encryption: encryption);
     sessaoService = SessaoService(encryption: encryption);

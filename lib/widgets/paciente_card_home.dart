@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/paciente.dart';
 import '../utils/mentall_colors.dart';
+import 'demo_badge.dart';
 
 class PacienteCardHome extends StatelessWidget {
   final Paciente paciente;
@@ -108,6 +109,10 @@ class PacienteCardHome extends StatelessWidget {
                       Row(
                         children: [
                           _StatusPacienteChip(ativo: paciente.ativo),
+                          if (paciente.ehDemo) ...[
+                            const SizedBox(width: 8),
+                            const DemoBadge(),
+                          ],
                           if (sessoesPendentes > 0) ...[
                             const SizedBox(width: 8),
                             _PendenciasBadge(pendentes: sessoesPendentes),

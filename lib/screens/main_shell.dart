@@ -15,17 +15,24 @@ class MainShell extends ConsumerStatefulWidget {
 }
 
 class _MainShellState extends ConsumerState<MainShell> {
+  final Set<int> _tabsConstruidas = {0};
+
   @override
   Widget build(BuildContext context) {
     final tabIndex = ref.watch(_tabIndexProvider);
+    _tabsConstruidas.add(tabIndex);
 
     return Scaffold(
       body: IndexedStack(
         index: tabIndex,
-        children: const [
-          HomePage(),
-          PacientesPage(),
-          FinanceiroPage(),
+        children: [
+          const HomePage(),
+          _tabsConstruidas.contains(1)
+              ? const PacientesPage()
+              : const SizedBox.shrink(),
+          _tabsConstruidas.contains(2)
+              ? const FinanceiroPage()
+              : const SizedBox.shrink(),
         ],
       ),
       bottomNavigationBar: NavigationBar(

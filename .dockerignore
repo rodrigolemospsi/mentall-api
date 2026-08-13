@@ -1,0 +1,28 @@
+# Segredos locais (nunca vão para a imagem)
+backend/.env
+**/.env
+
+# Artefatos locais
+backend/__pycache__/
+**/__pycache__/
+**/*.pyc
+backend/server.log
+backend/data/
+
+# App Flutter (o backend não precisa disso na imagem)
+.dart_tool/
+build/
+android/
+ios/
+linux/
+macos/
+windows/
+web/
+assets/
+test/
+docs/
+tools/
+.git/
+.github/
+*.pdf
+*.md

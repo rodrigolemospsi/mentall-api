@@ -336,16 +336,10 @@ Com base no material acima, gere um JSON válido com a seguinte estrutura (sem m
 {{
     "relato_clinico_organizado": "Síntese clínica organizada em texto corrido, com estilo profissional, pronta para compor o prontuário. Deve incluir: contexto trazido pelo {termo}, temas trabalhados, intervenções realizadas, evolução observada e encaminhamentos/foco. Escreva de forma coesa, como se fosse um relato clínico completo.",
     "apontamentos_copiloto": "Apontamentos do Copiloto para revisão profissional. Tópicos com observações clínicas, hipóteses a investigar, padrões identificados e sugestões de foco. Use marcas de atenção como 'Pode indicar...', 'Sugere-se investigar...', 'Hipótese clínica...'",
-    "eventos_importantes": "Eventos, conteúdos ou temas centrais trazidos na sessão que merecem destaque clínico.",
-    "evolucao_clinica": "Avaliação da evolução do {termo} em relação a sessões anteriores, se aplicável. Mudanças percebidas, continuidade de temas, respostas a intervenções.",
-    "observacoes": "Observações relevantes para o prontuário: dados contextuais, cuidados éticos, riscos, potencialidades ou encaminhamentos.",
-    "pensamentos_automaticos": "Conteúdo compatível com o campo específico da abordagem {abordagem_clinica}: pensamentos, significados, crenças, interpretações ou cognições relevantes.",
-    "emocoes": "Emoções, afetos, sentimentos ou estados subjetivos relevantes mencionados ou observados.",
-    "comportamentos": "Comportamentos, padrões de resposta, estratégias de enfrentamento, ações ou mudanças observadas.",
-    "intervencoes": "Intervenções realizadas pelo profissional durante a sessão: perguntas, devolutivas, psicoeducação, validações, confrontações, exercícios, etc.",
-    "tecnicas": "Técnicas ou recursos clínicos utilizados, compatíveis com a abordagem {abordagem_clinica}.",
-    "tarefa_casa": "Tarefa, reflexão, exercício ou observação combinada com o {termo} para o período entre sessões. Se não houver, deixe vazio.",
-    "plano_proxima_sessao": "Foco, temas pendentes ou objetivos para a próxima sessão.",
+    "sintese_clinica": "Síntese clínica combinada: eventos ou conteúdos centrais trazidos na sessão, avaliação da evolução do {termo} em relação a sessões anteriores (se aplicável) e observações relevantes para o prontuário (dados contextuais, cuidados éticos, riscos, potencialidades).",
+    "formulacao_clinica": "Formulação clínica combinada, compatível com a abordagem {abordagem_clinica}: pensamentos ou cognições, emoções ou afetos e comportamentos relevantes mencionados ou observados.",
+    "intervencoes": "Intervenções realizadas pelo profissional e técnicas ou recursos clínicos utilizados, compatíveis com a abordagem {abordagem_clinica}.",
+    "plano_proxima_sessao": "Foco, temas pendentes ou objetivos para a próxima sessão. Se não houver, deixe vazio.",
     "temas_pesquisa": [
         {{"especifico": "expressão de busca específica", "amplo": "expressão de busca ampla"}},
         {{"especifico": "expressão de busca específica", "amplo": "expressão de busca ampla"}}
@@ -377,7 +371,7 @@ def _parse_resultado_sucesso(resultado_raw: dict) -> dict:
             texto
             for texto in [
                 resultado_raw.get("relato_clinico_organizado", ""),
-                resultado_raw.get("eventos_importantes", ""),
+                resultado_raw.get("sintese_clinica", ""),
             ]
             if texto
         )
@@ -401,15 +395,9 @@ def _parse_resultado_sucesso(resultado_raw: dict) -> dict:
             "sucesso": True,
             "relato_clinico_organizado": resultado_raw.get("relato_clinico_organizado", ""),
             "apontamentos_copiloto": resultado_raw.get("apontamentos_copiloto", ""),
-            "eventos_importantes": resultado_raw.get("eventos_importantes", ""),
-            "evolucao_clinica": resultado_raw.get("evolucao_clinica", ""),
-            "observacoes": resultado_raw.get("observacoes", ""),
-            "pensamentos_automaticos": resultado_raw.get("pensamentos_automaticos", ""),
-            "emocoes": resultado_raw.get("emocoes", ""),
-            "comportamentos": resultado_raw.get("comportamentos", ""),
+            "sintese_clinica": resultado_raw.get("sintese_clinica", ""),
+            "formulacao_clinica": resultado_raw.get("formulacao_clinica", ""),
             "intervencoes": resultado_raw.get("intervencoes", ""),
-            "tecnicas": resultado_raw.get("tecnicas", ""),
-            "tarefa_casa": resultado_raw.get("tarefa_casa", ""),
             "plano_proxima_sessao": resultado_raw.get("plano_proxima_sessao", ""),
             "artigos_sugeridos": artigos_sugeridos,
             "erro": "",

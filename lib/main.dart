@@ -19,7 +19,9 @@ import 'models/progresso_sessao.dart';
 import 'models/sessao.dart';
 import 'providers/service_providers.dart';
 import 'screens/app_start_page.dart';
-import 'services/api_client.dart';
+import 'services/auth_service.dart';
+import 'services/demo_data_service.dart';
+import 'services/encryption_service.dart';
 import 'services/hive_migration_service.dart';
 
 class _SecureHttpOverrides extends HttpOverrides {
@@ -89,8 +91,19 @@ void main() async {
   await HiveMigrationService().executar();
   debugPrint('[startup] migration: ${sw.elapsedMilliseconds}ms');
 
-  _inicializarBackendAuth();
+  final encryption = EncryptionService();
+  EncryptionService.setInstance(encryption);
+  await encryption.inicializar();
+
+  final auth = AuthService(encryption);
+  await auth.inicializar();
+  if (!encryption.possuiChaveProtegida) {
+    await auth.gerarChave();
+  }
   debugPrint('[startup] auth: ${sw.elapsedMilliseconds}ms');
+
+  await DemoDataService(encryption: encryption).semearSeNecessario();
+  debugPrint('[startup] demo: ${sw.elapsedMilliseconds}ms');
 
   ErrorWidget.builder = (FlutterErrorDetails details) {
     final mensagemTecnica = kDebugMode ? details.exceptionAsString() : null;
@@ -132,16 +145,15 @@ void main() async {
     );
   };
 
-  runApp(const ProviderScope(child: MentAllApp()));
-}
-
-void _inicializarBackendAuth() {
-  try {
-    final token = Hive.box<String>('auth_meta').get('jwt_token');
-    if (token != null && token.isNotEmpty) {
-      ApiClient.authToken = token;
-    }
-  } catch (_) {}
+  runApp(
+    ProviderScope(
+      overrides: [
+        encryptionServiceProvider.overrideWithValue(encryption),
+        authServiceProvider.overrideWithValue(auth),
+      ],
+      child: const MentAllApp(),
+    ),
+  );
 }
 
 class MentAllApp extends ConsumerWidget {
@@ -233,11 +245,7 @@ class MentAllApp extends ConsumerWidget {
             textScaleFactor:
                 MediaQuery.of(context).textScaleFactor.clamp(0.8, 1.5),
           ),
-          child: Listener(
-            behavior: HitTestBehavior.translucent,
-            onPointerDown: (_) => AppStartPage.onUserActivity?.call(),
-            child: child!,
-          ),
+          child: child!,
         );
       },
       theme: _criarTema(Brightness.light),

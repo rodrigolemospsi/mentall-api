@@ -1,10 +1,7 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/service_providers.dart';
-import '../services/auth_service.dart';
 import '../utils/mentall_colors.dart';
 import 'backup_restore_page_io.dart'
     if (dart.library.html) 'backup_restore_page_web.dart';
@@ -20,99 +17,23 @@ class BackupRestorePage extends ConsumerStatefulWidget {
 }
 
 class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
-  Future<bool> _validarPinAntesExportar() async {
+  Future<bool> _validarBiometriaAntesExportar() async {
     final authService = ref.read(authServiceProvider);
-    if (!authService.requerPin) return true;
+    if (authService.desbloqueado) return true;
+    if (!authService.requerAutenticacao) return true;
 
-    final controller = TextEditingController();
-    final completer = Completer<bool>();
-
-    if (!mounted) return false;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        String? erro;
-        return StatefulBuilder(
-          builder: (ctx, setDialogState) {
-            return AlertDialog(
-              title: const Text('Verificar identidade'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'Para exportar dados sensiveis, confirme seu PIN.',
-                    style: TextStyle(fontSize: 14),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: controller,
-                    obscureText: true,
-                    keyboardType: TextInputType.number,
-                    autofocus: true,
-                    decoration: InputDecoration(
-                      labelText: 'PIN',
-                      errorText: erro,
-                      border: const OutlineInputBorder(),
-                    ),
-                    onSubmitted: (_) => _confirmarPin(
-                      ctx, setDialogState, authService, controller, completer,
-                      (msg) => erro = msg,
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    completer.complete(false);
-                    Navigator.of(ctx).pop();
-                  },
-                  child: const Text('Cancelar'),
-                ),
-                FilledButton(
-                  onPressed: () => _confirmarPin(
-                    ctx, setDialogState, authService, controller, completer,
-                    (msg) => erro = msg,
-                  ),
-                  child: const Text('Confirmar'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    return completer.future;
-  }
-
-  void _confirmarPin(
-    BuildContext ctx,
-    StateSetter setDialogState,
-    AuthService authService,
-    TextEditingController controller,
-    Completer<bool> completer,
-    void Function(String?) onError,
-  ) {
-    final pin = controller.text.trim();
-    if (pin.isEmpty) return;
-
-    if (authService.validarPin(pin)) {
-      completer.complete(true);
-      Navigator.of(ctx).pop();
-    } else {
-      setDialogState(() {
-        onError('PIN incorreto');
-        controller.clear();
-      });
-    }
+    final sucesso = await authService.desbloquearComBiometria();
+    return sucesso;
   }
 
   Future<void> _exportar() async {
-    final autorizado = await _validarPinAntesExportar();
-    if (!autorizado) return;
+    final autorizado = await _validarBiometriaAntesExportar();
+    if (!autorizado) {
+      if (mounted) {
+        _mostrarSnackBar('Autenticacao necessaria para exportar.', context.corError);
+      }
+      return;
+    }
     if (!mounted) return;
 
     ref.read(_exportandoProvider.notifier).state = true;

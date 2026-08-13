@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/contrato_terapeutico.dart';
 import '../models/paciente.dart';
 import '../utils/mentall_colors.dart';
+import 'demo_badge.dart';
 import 'info_linha.dart';
 import 'status_paciente_chip.dart';
 
@@ -99,6 +100,10 @@ class PacienteResumoCard extends StatelessWidget {
                         _tipoAtendimentoExibicao,
                         style: TextStyle(color: context.corTextoSecondary),
                       ),
+                      if (paciente.ehDemo) ...[
+                        const SizedBox(height: 6),
+                        const DemoBadge(),
+                      ],
                     ],
                   ),
                 ),

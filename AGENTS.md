@@ -1,5 +1,7 @@
 # MentAll PRO — Prontuário Clínico com IA
 
+> **Regra de trabalho (obrigatória):** sempre invocar as skills relevantes de `.opencode/skills/` (via `skill` tool) **antes** de planejar e executar qualquer tarefa. Ex.: `planning-and-task-breakdown`, `test-driven-development`, `debugging-and-error-recovery`, `frontend-ui-engineering`, etc.
+
 ## Correções e Funcionalidades (04/08/2026) — TRANSCRIÇÃO RÁPIDA, SÍNTESE CONFIÁVEL E SEGURANÇA
 
 ### Transcrição via Groq Whisper (50x mais rápida e barata)

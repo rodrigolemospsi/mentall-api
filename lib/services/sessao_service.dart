@@ -1,3 +1,4 @@
+import 'package:flutter/scheduler.dart';
 import 'package:hive_ce/hive.dart';
 
 import '../models/sessao.dart';
@@ -9,6 +10,9 @@ class SessaoService with EncryptedServiceMixin {
   @override
   final EncryptionService? encryption;
   final Map<String, int> _cacheProximoNumero = {};
+
+  int? _cacheFrameHash;
+  List<Sessao>? _cacheSessoes;
 
   SessaoService({EncryptionService? encryption}) : encryption = encryption;
 
@@ -29,6 +33,17 @@ class SessaoService with EncryptedServiceMixin {
   }
 
   List<Sessao> listarSessoesPorPeriodo(DateTime inicio, DateTime fim) {
+    final cacheKey = Object.hash(
+      inicio.millisecondsSinceEpoch,
+      fim.millisecondsSinceEpoch,
+      inicio.hour,
+      fim.hour,
+    );
+
+    if (_cacheFrameHash == cacheKey && _cacheSessoes != null) {
+      return _cacheSessoes!;
+    }
+
     final sessoes = _box.values
         .where((s) =>
             !s.arquivada &&
@@ -37,6 +52,17 @@ class SessaoService with EncryptedServiceMixin {
         .toList();
     sessoes.sort((a, b) => a.data.compareTo(b.data));
     _decryptSessoes(sessoes);
+
+    _cacheFrameHash = cacheKey;
+    _cacheSessoes = sessoes;
+
+    try {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        _cacheFrameHash = null;
+        _cacheSessoes = null;
+      });
+    } catch (_) {}
+
     return sessoes;
   }
 

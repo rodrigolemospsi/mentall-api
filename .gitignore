@@ -3,6 +3,18 @@
 backend/.env
 backend/data/
 
+# Configuracao da ferramenta opencode (nao faz parte do app)
+.opencode/
+
+# Relatorios internos de auditoria/seguranca (nao devem ir para repo publico)
+auditoria/
+
+# Memoria interna (lembrete pessoal, nao publicar)
+MEMORIA_PIX.md
+
+# PDFs (nao publicar)
+*.pdf
+
 # Miscellaneous
 *.class
 *.log

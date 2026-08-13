@@ -194,8 +194,9 @@ class KpiCardsHome extends ConsumerWidget {
         .length;
     final ativos = ref.watch(pacientesAtivosProvider).valueOrNull?.length ?? 0;
 
-    final receita = ref.watch(_receitaMesProvider);
-    final pendente = ref.watch(_pendenteMesProvider);
+    final financeiro = ref.watch(_sessoesDoMesHomeProvider);
+    final receita = financeiro.receita;
+    final pendente = financeiro.pendente;
 
     final termoCapitalizado = termoPlural == 'pessoas atendidas'
         ? 'P. atendidas'
@@ -799,20 +800,20 @@ class _AtividadeItem extends StatelessWidget {
   }
 }
 
-final _receitaMesProvider = Provider.autoDispose<double>((ref) {
+final _sessoesDoMesHomeProvider = Provider.autoDispose<({double receita, double pendente})>((ref) {
   final service = ref.watch(sessaoServiceProvider);
   final now = DateTime.now();
   final inicio = DateTime(now.year, now.month, 1);
   final fim = DateTime(now.year, now.month + 1, 1);
   final sessoes = service.listarSessoesPorPeriodo(inicio, fim);
-  return sessoes.where((s) => s.statusPagamento == 'pago').fold<double>(0, (sum, s) => sum + s.valorSessao);
-});
-
-final _pendenteMesProvider = Provider.autoDispose<double>((ref) {
-  final service = ref.watch(sessaoServiceProvider);
-  final now = DateTime.now();
-  final inicio = DateTime(now.year, now.month, 1);
-  final fim = DateTime(now.year, now.month + 1, 1);
-  final sessoes = service.listarSessoesPorPeriodo(inicio, fim);
-  return sessoes.where((s) => s.statusPagamento != 'pago' && s.statusPagamento != 'convenio' && s.statusPagamento != 'pacote').fold<double>(0, (sum, s) => sum + s.valorSessao);
+  double receita = 0;
+  double pendente = 0;
+  for (final s in sessoes) {
+    if (s.statusPagamento == 'pago') {
+      receita += s.valorSessao;
+    } else if (s.statusPagamento != 'convenio' && s.statusPagamento != 'pacote') {
+      pendente += s.valorSessao;
+    }
+  }
+  return (receita: receita, pendente: pendente);
 });

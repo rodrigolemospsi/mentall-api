@@ -38,23 +38,7 @@ final encryptionServiceProvider = Provider<EncryptionService>((ref) {
 
 final authServiceProvider = Provider<AuthService>((ref) {
   final encryption = ref.watch(encryptionServiceProvider);
-  final pacienteService = ref.watch(pacienteServiceProvider);
-  final sessaoService = ref.watch(sessaoServiceProvider);
-  final perfilProfissionalService = ref.watch(perfilProfissionalServiceProvider);
-  final avaliacaoInicialService = ref.watch(avaliacaoInicialServiceProvider);
-  final escalaService = ref.watch(escalaServiceProvider);
-  final contratoService = ref.watch(contratoServiceProvider);
-  final anamneseEnviadaService = ref.watch(anamneseEnviadaServiceProvider);
-  return AuthService(
-    encryption,
-    pacienteService: pacienteService,
-    sessaoService: sessaoService,
-    perfilProfissionalService: perfilProfissionalService,
-    avaliacaoInicialService: avaliacaoInicialService,
-    escalaService: escalaService,
-    contratoService: contratoService,
-    anamneseEnviadaService: anamneseEnviadaService,
-  );
+  return AuthService(encryption);
 });
 
 final pacienteServiceProvider = Provider<PacienteService>((ref) {

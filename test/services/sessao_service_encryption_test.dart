@@ -26,7 +26,7 @@ void main() {
     await Hive.box<Sessao>('sessoes').clear();
     encryption = EncryptionService();
     await encryption.inicializar();
-    await encryption.configurarPin('1234');
+    await encryption.gerarChave();
     service = SessaoService(encryption: encryption);
   });
 

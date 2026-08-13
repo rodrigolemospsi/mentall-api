@@ -240,4 +240,6 @@ class CompromissoService {
   Stream<BoxEvent> observar() {
     return _box.watch();
   }
+
+  Future<void> removerCriptografiaExistente() async {}
 }

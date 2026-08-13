@@ -169,4 +169,36 @@ class ApiClient {
         )
         .timeout(customTimeout ?? timeout);
   }
+
+  static Future<void> registrarRecuperacao(String email, String recoveryToken) async {
+    await post('/recuperacao/registrar', body: {
+      'email': email,
+      'recovery_token': recoveryToken,
+    });
+  }
+
+  static Future<bool> solicitarCodigoRecuperacao(String email) async {
+    try {
+      final res = await post('/recuperacao/solicitar-codigo', body: {'email': email});
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<String?> verificarCodigoRecuperacao(String email, String codigo) async {
+    try {
+      final res = await post('/recuperacao/verificar-codigo', body: {
+        'email': email,
+        'codigo': codigo,
+      });
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        return data['recovery_token'] as String?;
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
 }

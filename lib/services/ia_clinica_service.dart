@@ -10,17 +10,10 @@ class ResultadoIaClinica {
   final String relatoClinicoOrganizado;
   final String apontamentosCopiloto;
 
-  final String eventosImportantes;
-  final String evolucaoClinica;
-  final String observacoes;
-
-  final String pensamentosAutomaticos;
-  final String emocoes;
-  final String comportamentos;
+  final String sinteseClinica;
+  final String formulacaoClinica;
 
   final String intervencoes;
-  final String tecnicas;
-  final String tarefaCasa;
   final String planoProximaSessao;
   final String artigosSugeridos;
 
@@ -30,15 +23,9 @@ class ResultadoIaClinica {
     required this.sucesso,
     required this.relatoClinicoOrganizado,
     required this.apontamentosCopiloto,
-    required this.eventosImportantes,
-    required this.evolucaoClinica,
-    required this.observacoes,
-    required this.pensamentosAutomaticos,
-    required this.emocoes,
-    required this.comportamentos,
+    required this.sinteseClinica,
+    required this.formulacaoClinica,
     required this.intervencoes,
-    required this.tecnicas,
-    required this.tarefaCasa,
     required this.planoProximaSessao,
     required this.artigosSugeridos,
     required this.erro,
@@ -47,15 +34,9 @@ class ResultadoIaClinica {
   factory ResultadoIaClinica.sucesso({
     required String relatoClinicoOrganizado,
     required String apontamentosCopiloto,
-    required String eventosImportantes,
-    required String evolucaoClinica,
-    required String observacoes,
-    required String pensamentosAutomaticos,
-    required String emocoes,
-    required String comportamentos,
+    required String sinteseClinica,
+    required String formulacaoClinica,
     required String intervencoes,
-    required String tecnicas,
-    required String tarefaCasa,
     required String planoProximaSessao,
     required String artigosSugeridos,
   }) {
@@ -63,15 +44,9 @@ class ResultadoIaClinica {
       sucesso: true,
       relatoClinicoOrganizado: relatoClinicoOrganizado,
       apontamentosCopiloto: apontamentosCopiloto,
-      eventosImportantes: eventosImportantes,
-      evolucaoClinica: evolucaoClinica,
-      observacoes: observacoes,
-      pensamentosAutomaticos: pensamentosAutomaticos,
-      emocoes: emocoes,
-      comportamentos: comportamentos,
+      sinteseClinica: sinteseClinica,
+      formulacaoClinica: formulacaoClinica,
       intervencoes: intervencoes,
-      tecnicas: tecnicas,
-      tarefaCasa: tarefaCasa,
       planoProximaSessao: planoProximaSessao,
       artigosSugeridos: artigosSugeridos,
       erro: '',
@@ -85,15 +60,9 @@ class ResultadoIaClinica {
       sucesso: false,
       relatoClinicoOrganizado: '',
       apontamentosCopiloto: '',
-      eventosImportantes: '',
-      evolucaoClinica: '',
-      observacoes: '',
-      pensamentosAutomaticos: '',
-      emocoes: '',
-      comportamentos: '',
+      sinteseClinica: '',
+      formulacaoClinica: '',
       intervencoes: '',
-      tecnicas: '',
-      tarefaCasa: '',
       planoProximaSessao: '',
       artigosSugeridos: '',
       erro: erro,
@@ -155,15 +124,9 @@ class IaClinicaService {
           return ResultadoIaClinica.sucesso(
             relatoClinicoOrganizado: data['relato_clinico_organizado'] as String? ?? '',
             apontamentosCopiloto: data['apontamentos_copiloto'] as String? ?? '',
-            eventosImportantes: data['eventos_importantes'] as String? ?? '',
-            evolucaoClinica: data['evolucao_clinica'] as String? ?? '',
-            observacoes: data['observacoes'] as String? ?? '',
-            pensamentosAutomaticos: data['pensamentos_automaticos'] as String? ?? '',
-            emocoes: data['emocoes'] as String? ?? '',
-            comportamentos: data['comportamentos'] as String? ?? '',
+            sinteseClinica: data['sintese_clinica'] as String? ?? '',
+            formulacaoClinica: data['formulacao_clinica'] as String? ?? '',
             intervencoes: data['intervencoes'] as String? ?? '',
-            tecnicas: data['tecnicas'] as String? ?? '',
-            tarefaCasa: data['tarefa_casa'] as String? ?? '',
             planoProximaSessao: data['plano_proxima_sessao'] as String? ?? '',
             artigosSugeridos: data['artigos_sugeridos'] as String? ?? '',
           );
