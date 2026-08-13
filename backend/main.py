@@ -25,6 +25,8 @@ from models.schemas import (
     AnamneseRequest,
     AnamneseResponse,
     AnamneseStatusResponse,
+    ArtigosRequest,
+    ArtigosResponse,
     ContratoAceiteRequest,
     ContratoRequest,
     ContratoResponse,
@@ -64,7 +66,7 @@ from services.contrato_service import (
     registrar_aceite,
 )
 from services.crp_service import verificar_crp_online
-from services.ia_clinica import gerar_sintese, gerar_progresso
+from services.ia_clinica import _get_model_name, gerar_artigos, gerar_progresso, gerar_sintese
 from services.lembrete_service import (
     agendar_lembrete,
     cancelar_lembrete,
@@ -454,7 +456,7 @@ async def lifespan(app: FastAPI):
     if not api_key or api_key.startswith("sua_chave"):
         print(f"ATENCAO: chave de API para {provider} nao configurada.")
 
-    model = os.getenv("IA_MODEL", "gpt-4.1")
+    model = _get_model_name(provider)
     print(f"Modelo de IA: {provider}/{model}")
 
     iniciar_scheduler()
@@ -629,8 +631,42 @@ async def sintese(request: SinteseRequest, _req: Request):
         formulacao_clinica=resultado["formulacao_clinica"],
         intervencoes=resultado["intervencoes"],
         plano_proxima_sessao=resultado["plano_proxima_sessao"],
-        artigos_sugeridos=resultado["artigos_sugeridos"],
+        temas_pesquisa=resultado.get("temas_pesquisa", []),
+        artigos_sugeridos=resultado.get("artigos_sugeridos", ""),
         erro="",
+    )
+
+
+@app.post(
+    "/gerar-artigos",
+    response_model=ArtigosResponse,
+    tags=["IA Clinica"],
+    dependencies=[Depends(_verificar_token)],
+)
+async def artigos(request: ArtigosRequest, _req: Request):
+    ip = _req.client.host if _req.client else "unknown"
+    _rate_limit_check(ip, max_requests=30)
+
+    if not request.temas_pesquisa:
+        return ArtigosResponse(
+            sucesso=False,
+            artigos_sugeridos="",
+            erro="Nenhum tema de pesquisa informado.",
+        )
+
+    log.info("Solicitacao de artigos - temas=%d", len(request.temas_pesquisa))
+    loop = asyncio.get_running_loop()
+    resultado = await loop.run_in_executor(
+        None,
+        gerar_artigos,
+        request.temas_pesquisa,
+        request.contexto_clinico,
+    )
+
+    return ArtigosResponse(
+        sucesso=resultado.get("sucesso", False),
+        artigos_sugeridos=resultado.get("artigos_sugeridos", ""),
+        erro=resultado.get("erro", ""),
     )
 
 

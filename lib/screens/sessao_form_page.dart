@@ -43,6 +43,7 @@ final _progressoMetasProvider = StateProvider<List<Map<String, dynamic>>>((ref) 
 final _progressoGeralProvider = StateProvider<String>((ref) => '');
 final _progressoTendenciaProvider = StateProvider<String>((ref) => 'estavel');
 final _progressoGerandoProvider = StateProvider<bool>((ref) => false);
+final _buscandoArtigosProvider = StateProvider<bool>((ref) => false);
 
 class SessaoFormPage extends ConsumerStatefulWidget {
   final Paciente paciente;
@@ -121,6 +122,9 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
   String get _artigosSugeridos => ref.read(artigosSugeridosProvider);
   set _artigosSugeridos(String v) => ref.read(artigosSugeridosProvider.notifier).state = v;
+
+  bool get _buscandoArtigos => ref.read(_buscandoArtigosProvider);
+  set _buscandoArtigos(bool v) => ref.read(_buscandoArtigosProvider.notifier).state = v;
 
   bool get _modoEdicao => ref.read(_modoEdicaoProvider);
   set _modoEdicao(bool v) => ref.read(_modoEdicaoProvider.notifier).state = v;
@@ -1275,9 +1279,7 @@ if (!mounted || confirmar != true) return;
           texto: resultado.planoProximaSessao,
         );
 
-        _artigosSugeridos = ref.read(configuracoesServiceProvider).sugerirArtigos
-            ? resultado.artigosSugeridos
-            : '';
+        _artigosSugeridos = '';
 
         _gerandoSinteseIa = false;
         _geradoComIa = true;
@@ -1297,6 +1299,15 @@ if (!mounted || confirmar != true) return;
             ),
           ),
         );
+
+        final sugerirArtigos = ref.read(configuracoesServiceProvider).sugerirArtigos;
+        if (sugerirArtigos && resultado.temasPesquisa.isNotEmpty) {
+          _buscarArtigosEmBackground(
+            resultado.temasPesquisa,
+            resultado.relatoClinicoOrganizado,
+            resultado.sinteseClinica,
+          );
+        }
 
         if (_numeroSessao > 1) {
           _gerarProgressoAutomatico();
@@ -1662,7 +1673,10 @@ if (!mounted || confirmar != true) return;
                         planoProximaSessaoController: _planoProximaSessaoController,
                       ),
                     ],
-                    if (_artigosSugeridos.trim().isNotEmpty) ...[
+                    if (_buscandoArtigos) ...[
+                      const SizedBox(height: 16),
+                      _cardBuscandoArtigos(),
+                    ] else if (_artigosSugeridos.trim().isNotEmpty) ...[
                       const SizedBox(height: 16),
                       const ArtigosSugeridosCard(),
                     ],
@@ -1938,6 +1952,66 @@ if (!mounted || confirmar != true) return;
                 _audioMantido = value;
                 _triggerRebuild();
               },
+      ),
+    );
+  }
+
+  Future<void> _buscarArtigosEmBackground(
+    List<dynamic> temasPesquisa,
+    String relatoClinico,
+    String sinteseClinica,
+  ) async {
+    _buscandoArtigos = true;
+    _triggerRebuild();
+
+    final contexto = [relatoClinico, sinteseClinica]
+        .where((t) => t.trim().isNotEmpty)
+        .join(' ');
+
+    final artigos = await _iaClinicaService.gerarArtigos(
+      temasPesquisa: temasPesquisa,
+      contextoClinico: contexto,
+    );
+
+    if (!mounted) return;
+    _buscandoArtigos = false;
+    if (artigos != null && artigos.trim().isNotEmpty) {
+      _artigosSugeridos = artigos;
+    }
+    _triggerRebuild();
+  }
+
+  Widget _cardBuscandoArtigos() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: context.corContainerPrimario,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.cs.primaryContainer, width: 0.5),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: context.corPrimaria,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Buscando artigos científicos...',
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.5,
+                color: context.corTextoBody,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

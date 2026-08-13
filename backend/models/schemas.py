@@ -35,6 +35,18 @@ class SinteseResponse(BaseModel):
     formulacao_clinica: str = ""
     intervencoes: str = ""
     plano_proxima_sessao: str = ""
+    temas_pesquisa: list = Field(default_factory=list)
+    artigos_sugeridos: str = ""
+    erro: str = ""
+
+
+class ArtigosRequest(BaseModel):
+    temas_pesquisa: list = Field(default_factory=list)
+    contexto_clinico: str = Field(default="", max_length=100_000)
+
+
+class ArtigosResponse(BaseModel):
+    sucesso: bool
     artigos_sugeridos: str = ""
     erro: str = ""
 

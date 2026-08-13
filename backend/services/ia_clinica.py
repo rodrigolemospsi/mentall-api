@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from urllib.parse import quote_plus
 
 import requests
@@ -271,13 +270,13 @@ def _get_provider() -> str:
     return os.getenv("IA_MODEL_PROVIDER", "openai").strip().lower()
 
 
-def _get_model_name() -> str:
-    provider = _get_provider()
+def _get_model_name(provider: str | None = None) -> str:
+    provider = (provider or _get_provider()).strip().lower()
     if provider == "openai":
         return os.getenv("IA_MODEL", "gpt-4o-mini")
     if provider == "deepseek":
         return "deepseek-v4-flash"
-    return os.getenv("IA_MODEL", "gemini-2.0-flash")
+    return "gemini-3.7-flash"
 
 
 def _gemini_client():
@@ -367,29 +366,7 @@ IMPORTANTE:
 
 def _parse_resultado_sucesso(resultado_raw: dict) -> dict:
     try:
-        contexto_clinico = " ".join(
-            texto
-            for texto in [
-                resultado_raw.get("relato_clinico_organizado", ""),
-                resultado_raw.get("sintese_clinica", ""),
-            ]
-            if texto
-        )
-        temas_pesquisa = resultado_raw.get("temas_pesquisa", [])
-        artigos_sugeridos = ""
-
-        if temas_pesquisa:
-            executor = ThreadPoolExecutor(max_workers=1)
-            future = executor.submit(_montar_artigos, temas_pesquisa, contexto_clinico)
-            try:
-                artigos_sugeridos = future.result(timeout=10)
-            except FutureTimeoutError:
-                future.cancel()
-                log.warning("Busca de artigos excedeu timeout (10s) - retornando sem artigos")
-            except Exception as e:
-                log.warning("Falha ao buscar artigos (nao-critico): %s", e)
-            finally:
-                executor.shutdown(wait=False)
+        temas_pesquisa = resultado_raw.get("temas_pesquisa", []) or []
 
         return {
             "sucesso": True,
@@ -399,7 +376,8 @@ def _parse_resultado_sucesso(resultado_raw: dict) -> dict:
             "formulacao_clinica": resultado_raw.get("formulacao_clinica", ""),
             "intervencoes": resultado_raw.get("intervencoes", ""),
             "plano_proxima_sessao": resultado_raw.get("plano_proxima_sessao", ""),
-            "artigos_sugeridos": artigos_sugeridos,
+            "temas_pesquisa": temas_pesquisa,
+            "artigos_sugeridos": "",
             "erro": "",
         }
     except Exception as e:
@@ -408,6 +386,20 @@ def _parse_resultado_sucesso(resultado_raw: dict) -> dict:
             "sucesso": False,
             "erro": "Falha ao processar resultado da IA.",
         }
+
+
+def gerar_artigos(temas_pesquisa: list, contexto_clinico: str) -> dict:
+    """Busca e formata artigos cientificos a partir dos temas de pesquisa.
+
+    Chamada em um segundo passo (apos a sintese ja ter sido retornada),
+    para nao bloquear a resposta principal da sintese.
+    """
+    try:
+        artigos = _montar_artigos(temas_pesquisa or [], contexto_clinico or "")
+        return {"sucesso": True, "artigos_sugeridos": artigos, "erro": ""}
+    except Exception as e:
+        log.exception("Erro ao buscar artigos: %s", e)
+        return {"sucesso": False, "artigos_sugeridos": "", "erro": str(e)}
 
 
 def _chamar_provider_sintese(provider_name: str, prompt: str) -> dict:
@@ -434,7 +426,7 @@ def _gerar_sintese_gemini(prompt: str) -> dict:
         )
 
         response = client.models.generate_content(
-            model=_get_model_name(),
+            model=_get_model_name("gemini"),
             contents=prompt,
             config=config,
         )
@@ -469,7 +461,7 @@ def _gerar_sintese_deepseek(prompt: str) -> dict:
         log.warning("DeepSeek nao configurado para sintese")
         return {"sucesso": False, "erro": "DEEPSEEK_API_KEY não configurada."}
 
-    model = _get_model_name()
+    model = _get_model_name("deepseek")
 
     if len(prompt) > 200000:
         return {"sucesso": False, "erro": "Material clínico muito extenso para o provedor DeepSeek (limite ~64K tokens). Tente com OpenAI ou reduza o relato."}
@@ -523,7 +515,7 @@ def _gerar_sintese_deepseek(prompt: str) -> dict:
 def _gerar_sintese_openai_compat(client, prompt: str) -> dict:
     try:
         response = client.chat.completions.create(
-            model=_get_model_name(),
+            model=_get_model_name("openai"),
             messages=[
                 {
                     "role": "system",
@@ -677,7 +669,7 @@ def _chamar_llm_json_openai(prompt: str, temperature: float) -> dict:
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     try:
         response = client.chat.completions.create(
-            model=_get_model_name(),
+            model=_get_model_name("openai"),
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
             timeout=120,
@@ -719,7 +711,7 @@ def _chamar_llm_json_gemini(prompt: str, temperature: float) -> dict:
     )
     try:
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-3.7-flash",
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=temperature,

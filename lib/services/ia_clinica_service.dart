@@ -16,6 +16,7 @@ class ResultadoIaClinica {
   final String intervencoes;
   final String planoProximaSessao;
   final String artigosSugeridos;
+  final List<dynamic> temasPesquisa;
 
   final String erro;
 
@@ -28,6 +29,7 @@ class ResultadoIaClinica {
     required this.intervencoes,
     required this.planoProximaSessao,
     required this.artigosSugeridos,
+    required this.temasPesquisa,
     required this.erro,
   });
 
@@ -39,6 +41,7 @@ class ResultadoIaClinica {
     required String intervencoes,
     required String planoProximaSessao,
     required String artigosSugeridos,
+    List<dynamic> temasPesquisa = const [],
   }) {
     return ResultadoIaClinica(
       sucesso: true,
@@ -49,6 +52,7 @@ class ResultadoIaClinica {
       intervencoes: intervencoes,
       planoProximaSessao: planoProximaSessao,
       artigosSugeridos: artigosSugeridos,
+      temasPesquisa: temasPesquisa,
       erro: '',
     );
   }
@@ -65,6 +69,7 @@ class ResultadoIaClinica {
       intervencoes: '',
       planoProximaSessao: '',
       artigosSugeridos: '',
+      temasPesquisa: const [],
       erro: erro,
     );
   }
@@ -129,6 +134,7 @@ class IaClinicaService {
             intervencoes: data['intervencoes'] as String? ?? '',
             planoProximaSessao: data['plano_proxima_sessao'] as String? ?? '',
             artigosSugeridos: data['artigos_sugeridos'] as String? ?? '',
+            temasPesquisa: data['temas_pesquisa'] as List<dynamic>? ?? const [],
           );
         }
         return ResultadoIaClinica.falha(erro: data['erro'] as String? ?? 'Erro do servidor.');
@@ -141,6 +147,31 @@ class IaClinicaService {
       return ResultadoIaClinica.falha(
         erro: 'Não foi possível gerar a síntese clínica. Detalhes: $erro',
       );
+    }
+  }
+
+  Future<String?> gerarArtigos({
+    required List<dynamic> temasPesquisa,
+    required String contextoClinico,
+  }) async {
+    try {
+      final resultado = await _fazerRequisicaoComRetry(
+        endpoint: '/gerar-artigos',
+        body: {
+          'temas_pesquisa': temasPesquisa,
+          'contexto_clinico': contextoClinico,
+        },
+      );
+
+      if (resultado['status'] == 200) {
+        final data = resultado['data'] as Map<String, dynamic>?;
+        if (data != null && data['sucesso'] == true) {
+          return data['artigos_sugeridos'] as String? ?? '';
+        }
+      }
+      return null;
+    } catch (_) {
+      return null;
     }
   }
 
