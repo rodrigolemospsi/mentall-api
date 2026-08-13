@@ -2,6 +2,44 @@
 
 > **Regra de trabalho (obrigatória):** sempre invocar as skills relevantes de `.opencode/skills/` (via `skill` tool) **antes** de planejar e executar qualquer tarefa. Ex.: `planning-and-task-breakdown`, `test-driven-development`, `debugging-and-error-recovery`, `frontend-ui-engineering`, etc.
 
+## Correções e Funcionalidades (13/08/2026) — MIGRAÇÃO FLY.IO + SÍNTESE GEMINI + ARTIGOS DESACOPLADOS
+
+### Migração Render → Fly.io (migração completa)
+- **Backend oficial:** `https://mentall-api.fly.dev` (app `mentall-api`, região `gru` São Paulo)
+- **Sempre ligada:** 1 máquina `shared-cpu-1x` 512mb, `min_machines_running=1` + `auto_stop_machines="off"` (sem cold start). O Fly criou 2 máquinas por HA; reduzido com `flyctl scale count 1`
+- **Deploy:** `flyctl deploy` local + GitHub Actions (`.github/workflows/deploy.yml`, secret `FLY_API_TOKEN`). Dockerfile python:3.12-slim, imagem 74MB
+- **Secrets (25):** JWT_SECRET, APP_PASSWORD_HASH, `APP_USER_ID` fixo (antes UUID por boot quebrava isolamento owner_id), OPENAI/GROQ/GEMINI/DEEPSEEK keys, OPENALEX, TURSO_DATABASE_URL+AUTH_TOKEN, SMTP, API_BASE_URL
+- **Turso conectado** (`/health` → `database=turso`)
+- **URL padrão do app** atualizada em `api_client.dart`, hint em `configuracoes_page.dart`, `API_BASE_URL` em `main.py` (3x)
+- **Arquivos:** `fly.toml`, `Dockerfile`, `.dockerignore`, `.github/workflows/deploy.yml`, `backend/.env.example` (+APP_USER_ID, +API_BASE_URL)
+
+### Backend — bugs críticos descobertos na migração
+- **Boot crashava:** `main.py` importava `RecuperacaoRequest/Response`, `RegistrarRecuperacaoRequest`, `VerificarCodigoRequest/Response` que não existiam em `schemas.py` → adicionadas 5 classes
+- **Recuperação de PIN 500-ava:** tabela `recuperacoes` não existia em `db.py` (só contratos/anamneses/lembretes) → adicionada
+- **Rotas divergentes:** Flutter chamava `/recuperacao/*`, backend expõe `/auth/*-recuperacao` → alinhado o Flutter (registrar/solicitar-codigo/verificar-codigo → /auth/registrar-recuperacao, /auth/solicitar-recuperacao, /auth/verificar-recuperacao)
+
+### Síntese: artigos desacoplados (resposta mais rápida)
+- `/gerar-sintese` agora devolve a síntese **na hora** + `temas_pesquisa` (sem esperar artigos). Novo endpoint `/gerar-artigos` busca os artigos separadamente
+- Frontend: síntese renderiza imediatamente; card "Artigos sugeridos" mostra **"Buscando artigos científicos..."** e preenche quando chega (busca em background, `_buscandoArtigosProvider`)
+- `ia_clinica.py`: `_parse_resultado_sucesso` não roda mais `_montar_artigos` inline; nova função `gerar_artigos()`
+- **Arquivos:** `backend/services/ia_clinica.py`, `backend/main.py`, `backend/models/schemas.py` (+ArtigosRequest/Response, +temas_pesquisa), `lib/services/ia_clinica_service.dart` (+gerarArtigos, +temasPesquisa), `lib/screens/sessao_form_page.dart`
+
+### Síntese: OpenAI gpt-4.1 → Gemini 3.7 Flash
+- **A/B test real (mesmo relato TCC/ansiedade social):** gpt-4.1 = 14,9s vs gemini-3.7-flash = 6,4s (~2,3x mais rápido), qualidade equivalente ou melhor (Gemini acrescentou avaliação de risco e formulação mais rica, usa bullets `•`)
+- **Conta OpenAI NÃO tem gpt-4o-mini** (só `gpt-4.1` chat + `gpt-4o-mini-transcribe`); erro 403 `Project does not have access to model gpt-4o-mini`
+- **Modelos Gemini descontinuados:** `gemini-2.0-flash` e `gemini-2.5-flash` retornam 404 "no longer available"; família atual é `gemini-3.x` (validados: 3.5/3.6/3.7-flash)
+- **Bug corrigido:** `_get_model_name()` lia o `IA_MODEL_PROVIDER` global (caminho Gemini mandava "gpt-4.1") → agora recebe o provider como parâmetro
+- **Ativação:** `IA_MODEL_PROVIDER=gemini` (secret Fly + `.env`); `_get_model_name("gemini")` = `gemini-3.7-flash`
+- **Arquivos:** `backend/services/ia_clinica.py`, `backend/main.py` (log de boot usa `_get_model_name`), `backend/.env`, `backend/.env.example`
+
+### APK
+- Release gerado: 73,35 MB (`build/app/outputs/flutter-apk/app-release.apk`) — aponta para fly.dev
+
+### Commits
+- `86cc6ba` — feat: migra backend e app para o Fly.io
+- `5887550` — fix: recuperacao de PIN quebrada (schemas, tabela recuperacoes e rotas)
+- *(não commitado ainda: desacoplamento de artigos + troca para Gemini)*
+
 ## Correções e Funcionalidades (04/08/2026) — TRANSCRIÇÃO RÁPIDA, SÍNTESE CONFIÁVEL E SEGURANÇA
 
 ### Transcrição via Groq Whisper (50x mais rápida e barata)
