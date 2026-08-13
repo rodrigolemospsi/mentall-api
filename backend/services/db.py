@@ -149,6 +149,13 @@ _tabelas = [
         criado_em TEXT NOT NULL,
         enviado_em TEXT
     )""",
+    """CREATE TABLE IF NOT EXISTS recuperacoes (
+        email_hash TEXT PRIMARY KEY,
+        recovery_token TEXT NOT NULL DEFAULT '',
+        codigo TEXT,
+        codigo_expiracao TEXT,
+        criado_em TEXT NOT NULL
+    )""",
 ]
 
 _indices = [

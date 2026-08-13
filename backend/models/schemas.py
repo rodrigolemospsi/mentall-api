@@ -178,3 +178,29 @@ class VerificarCrpResponse(BaseModel):
     nome_oficial: str = ""
     data_inscricao: str = ""
     erro: str = ""
+
+
+class RecuperacaoRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=200)
+
+
+class RecuperacaoResponse(BaseModel):
+    sucesso: bool
+    mensagem: str = ""
+    erro: str = ""
+
+
+class RegistrarRecuperacaoRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=200)
+    recovery_token: str = Field(min_length=8, max_length=500)
+
+
+class VerificarCodigoRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=200)
+    codigo: str = Field(min_length=6, max_length=6)
+
+
+class VerificarCodigoResponse(BaseModel):
+    sucesso: bool
+    recovery_token: str = ""
+    erro: str = ""

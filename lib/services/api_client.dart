@@ -9,7 +9,7 @@ import 'logger.dart';
 
 class ApiClient {
   static const String _baseUrlKey = 'backend_url';
-  static const String _defaultBaseUrl = 'https://mentall-api.onrender.com';
+  static const String _defaultBaseUrl = 'https://mentall-api.fly.dev';
   static const String _usernameKey = 'auth_username';
   static const String _passwordKey = 'auth_password';
   static const String _defaultUsername = 'admin';
@@ -171,7 +171,7 @@ class ApiClient {
   }
 
   static Future<void> registrarRecuperacao(String email, String recoveryToken) async {
-    await post('/recuperacao/registrar', body: {
+    await post('/auth/registrar-recuperacao', body: {
       'email': email,
       'recovery_token': recoveryToken,
     });
@@ -179,7 +179,7 @@ class ApiClient {
 
   static Future<bool> solicitarCodigoRecuperacao(String email) async {
     try {
-      final res = await post('/recuperacao/solicitar-codigo', body: {'email': email});
+      final res = await post('/auth/solicitar-recuperacao', body: {'email': email});
       return res.statusCode == 200;
     } catch (_) {
       return false;
@@ -188,7 +188,7 @@ class ApiClient {
 
   static Future<String?> verificarCodigoRecuperacao(String email, String codigo) async {
     try {
-      final res = await post('/recuperacao/verificar-codigo', body: {
+      final res = await post('/auth/verificar-recuperacao', body: {
         'email': email,
         'codigo': codigo,
       });
