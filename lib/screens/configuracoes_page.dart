@@ -278,7 +278,7 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
               keyboardType: TextInputType.url,
               decoration: const InputDecoration(
                 labelText: 'URL do servidor',
-                hintText: 'https://mentall-api.onrender.com',
+                hintText: 'https://mentall-api.fly.dev',
                 border: OutlineInputBorder(),
               ),
             ),

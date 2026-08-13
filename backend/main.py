@@ -774,7 +774,7 @@ def criar_contrato_endpoint(request: ContratoRequest, _req: Request, auth: tuple
     }
 
     token = criar_contrato(dados, owner_id)
-    base_url = os.getenv("API_BASE_URL", "https://mentall-api.onrender.com")
+    base_url = os.getenv("API_BASE_URL", "https://mentall-api.fly.dev")
     url = f"{base_url}/contratos/{token}"
 
     log.info("Contrato criado via API: token=%s paciente=%s", token[:8], request.nome_paciente[:20])
@@ -823,7 +823,7 @@ def _pagina_contrato(token: str, _req: Request):
         preposicao = "do"
 
     aceito = contrato["status"] == "aceito"
-    base_url = os.getenv("API_BASE_URL", "https://mentall-api.onrender.com")
+    base_url = os.getenv("API_BASE_URL", "https://mentall-api.fly.dev")
     aceito_em = contrato.get("aceito_em") or ""
     template_personalizado = dados.get("template_contrato", "")
 
@@ -1063,7 +1063,7 @@ def criar_anamnese_endpoint(request: AnamneseRequest, _req: Request, auth: tuple
     }
 
     token = criar_anamnese(request.template_json, owner_id, dados_extra)
-    base_url = os.getenv("API_BASE_URL", "https://mentall-api.onrender.com")
+    base_url = os.getenv("API_BASE_URL", "https://mentall-api.fly.dev")
     url = f"{base_url}/anamneses/{token}"
 
     log.info("Anamnese criada via API: token=%s paciente=%s abordagem=%s",
