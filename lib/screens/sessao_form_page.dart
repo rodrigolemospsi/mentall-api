@@ -2122,8 +2122,6 @@ if (!mounted || confirmar != true) return;
     const nomes = {
       'phq9': 'PHQ-9 (Depressão)',
       'gad7': 'GAD-7 (Ansiedade)',
-      'bdi': 'BDI (Depressão de Beck)',
-      'bai': 'BAI (Ansiedade de Beck)',
       'dass21': 'DASS-21',
     };
     return nomes[id] ?? id;

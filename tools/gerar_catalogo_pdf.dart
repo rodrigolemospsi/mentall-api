@@ -185,7 +185,7 @@ void main() async {
       _servico('ContratoService', 'Acordos terapêuticos — criar, enviar, verificar aceite, arquivar'),
       _servico('ConfiguracoesService', 'Preferências: tema, duração, lembretes, IA, financeiro, contrato template'),
       _servico('AvaliacaoInicialService', 'Anamnese — 6 campos clínicos criptografados'),
-      _servico('EscalaService', '5 escalas psicológicas (PHQ-9, GAD-7, BDI, BAI, DASS-21) com scoring automático'),
+      _servico('EscalaService', '3 escalas psicológicas gratuitas (PHQ-9, GAD-7, DASS-21) com scoring automático'),
       _servico('AnamneseEnviadaService', 'Questionários remotos enviados a pacientes via backend'),
       _servico('ProgressoService', 'Evolução clínica automática (sintomas, metas, avaliação, tendência)'),
       _servico('PacoteService', 'Pacotes de sessões — criar, consumir FIFO, consultar saldo'),
@@ -306,13 +306,11 @@ void main() async {
       // 6. ESCALAS PSICOLÓGICAS
       // ============================================================
       espaco(16),
-      pw.Text('6. Escalas Psicológicas (5)', style: tituloSecao(1)),
+      pw.Text('6. Escalas Psicológicas (3)', style: tituloSecao(1)),
       espaco(10),
 
       _escala('PHQ-9', 'Questionário de Saúde do Paciente', '9', '0-27', 'Depressão (5 faixas: mínima a grave)'),
       _escala('GAD-7', 'Transtorno de Ansiedade Generalizada', '7', '0-21', 'Ansiedade (4 faixas: mínima a grave)'),
-      _escala('BDI', 'Inventário de Depressão de Beck', '21', '0-63', 'Depressão (5 faixas: normal a muito grave)'),
-      _escala('BAI', 'Inventário de Ansiedade de Beck', '21', '0-63', 'Ansiedade (4 faixas: mínima a grave)'),
       _escala('DASS-21', 'Escala de Depressão, Ansiedade e Estresse', '21', '0-42/sub', '3 subescalas independentes'),
 
       // ============================================================
