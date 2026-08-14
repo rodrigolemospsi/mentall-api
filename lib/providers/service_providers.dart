@@ -175,6 +175,20 @@ final dashboardKpisSessoesProvider =
   }
 });
 
+final sessoesRealizadasPorPacienteProvider =
+    StreamProvider.family<int, String>((ref, pacienteId) async* {
+  final service = ref.watch(sessaoServiceProvider);
+
+  int calcular() =>
+      service.contarSessoesDoPaciente(pacienteId) +
+      service.contarSessoesArquivadasDoPaciente(pacienteId);
+
+  yield calcular();
+  await for (final _ in service.observarSessoes()) {
+    yield calcular();
+  }
+});
+
 final contratoServiceProvider = Provider<ContratoService>((ref) {
   final encryption = ref.watch(encryptionServiceProvider);
   return ContratoService(encryption: encryption);

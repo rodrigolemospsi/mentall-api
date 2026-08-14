@@ -100,6 +100,11 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
   Widget build(BuildContext context) {
     ref.watch(_refreshProvider);
 
+    final totalSessoes = ref
+            .watch(sessoesRealizadasPorPacienteProvider(widget.paciente.id))
+            .valueOrNull ??
+        0;
+
     return Scaffold(
       backgroundColor: context.corFundo,
       appBar: AppBar(
@@ -111,10 +116,10 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
           labelColor: context.corOnPrimaria,
           unselectedLabelColor: context.corOnPrimaria.withValues(alpha: 0.6),
           indicatorColor: context.corOnPrimaria,
-          tabs: const [
-            Tab(icon: Icon(Icons.person_outline), text: 'Resumo'),
-            Tab(icon: Icon(Icons.history_outlined), text: 'Sessões'),
-            Tab(icon: Icon(Icons.payments_outlined), text: 'Financeiro'),
+          tabs: [
+            const Tab(icon: Icon(Icons.person_outline), text: 'Resumo'),
+            Tab(icon: const Icon(Icons.history_outlined), text: 'Sessões ($totalSessoes)'),
+            const Tab(icon: Icon(Icons.payments_outlined), text: 'Financeiro'),
           ],
         ),
         actions: _appBarAcoes(),
