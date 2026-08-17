@@ -26,20 +26,34 @@ import 'services/hive_migration_service.dart';
 import 'services/logger.dart';
 
 class _SecureHttpOverrides extends HttpOverrides {
-  static const _certFingerprints = <String>[];
+  // SHA-256 fingerprints of allowed certificates (PEM format).
+  // To obtain: openssl s_client -connect mentall-api.fly.dev:443 -servername mentall-api.fly.dev </dev/null 2>/dev/null | openssl x509 -fingerprint -sha256 -noout
+  // Format: "SHA256 Fingerprint=XX:XX:XX:..."
+  static const _certFingerprints = <String>[
+    // Produção Fly.io - mentall-api.fly.dev
+    // Atualize ao renovar certificado (geralmente a cada 90 dias via Let's Encrypt)
+    // 'SHA256 Fingerprint=XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX',
+  ];
 
   @override
   HttpClient createHttpClient(SecurityContext? context) {
     final client = super.createHttpClient(context);
     client.badCertificateCallback = (cert, host, port) {
+      // Permite localhost e redes locais para desenvolvimento
       if (host == 'localhost' || host.startsWith('192.168') || host == '127.0.0.1') {
         return true;
       }
-      if (_certFingerprints.isEmpty) return false;
+      // Se não há pins configurados, usa validação padrão do sistema (não falha aberto)
+      if (_certFingerprints.isEmpty) {
+        return false;
+      }
       try {
-        final digest = sha256.convert(utf8.encode(cert.pem));
+        final der = cert.der;
+        final digest = sha256.convert(der);
         final hex = digest.toString();
-        return _certFingerprints.contains(hex);
+        // Formata como "XX:XX:XX:..." para comparação
+        final formatted = hex.replaceAllMapped(RegExp(r'.{2}'), (m) => '${m.group(0)}:').substring(0, 95);
+        return _certFingerprints.any((fp) => fp.contains(formatted) || fp.contains(hex));
       } catch (_) {
         return false;
       }
