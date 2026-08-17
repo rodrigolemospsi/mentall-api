@@ -4,9 +4,16 @@ import 'package:flutter/foundation.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'encryption_service.dart';
+
 class Log {
   static const String _boxName = 'logs_tecnicos';
   static const int _maxLogLines = 500;
+  static EncryptionService? _encryptionService;
+
+  static void setEncryptionService(EncryptionService service) {
+    _encryptionService = service;
+  }
 
   static Future<void> erro(Object erro, {String? contexto}) async {
     final prefixo = contexto != null ? '[$contexto]' : '';
@@ -68,16 +75,25 @@ class Log {
       final dir = await getApplicationDocumentsDirectory();
       final arquivo = File('${dir.path}/mentall_tecnicos.log');
       final existe = await arquivo.exists();
+
+      String linhaParaEscrever = linha;
+      if (_encryptionService != null && _encryptionService!.configurado) {
+        final encrypted = _encryptionService!.criptografar(linha);
+        if (encrypted != null && encrypted != linha) {
+          linhaParaEscrever = encrypted;
+        }
+      }
+
       if (!existe) {
-        await arquivo.writeAsString('$linha\n');
+        await arquivo.writeAsString('$linhaParaEscrever\n');
         return;
       }
       final tamanho = await arquivo.length();
       if (tamanho > 1024 * 1024) {
-        await arquivo.writeAsString('$linha\n');
+        await arquivo.writeAsString('$linhaParaEscrever\n');
         return;
       }
-      await arquivo.writeAsString('$linha\n', mode: FileMode.append);
+      await arquivo.writeAsString('$linhaParaEscrever\n', mode: FileMode.append);
     } catch (_) {}
   }
 

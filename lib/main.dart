@@ -23,6 +23,7 @@ import 'services/auth_service.dart';
 import 'services/demo_data_service.dart';
 import 'services/encryption_service.dart';
 import 'services/hive_migration_service.dart';
+import 'services/logger.dart';
 
 class _SecureHttpOverrides extends HttpOverrides {
   static const _certFingerprints = <String>[];
@@ -94,6 +95,7 @@ void main() async {
   final encryption = EncryptionService();
   EncryptionService.setInstance(encryption);
   await encryption.inicializar();
+  Log.setEncryptionService(encryption);
 
   final auth = AuthService(encryption);
   await auth.inicializar();
@@ -159,7 +161,7 @@ void main() async {
 class MentAllApp extends ConsumerWidget {
   const MentAllApp({super.key});
 
-  static const Color _corPrimaria = Color(0xFF2563EB);
+  static const Color _corPrimaria = Color(0xFF2066FF);
 
   ThemeData _criarTema(Brightness brightness) {
     final colorScheme = ColorScheme.fromSeed(
