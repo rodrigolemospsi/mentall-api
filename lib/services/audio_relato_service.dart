@@ -162,6 +162,7 @@ class AudioRelatoService {
         return _caminhoAudioAtual;
       }
       final fileSize = await file.length();
+      Log.info('Gravacao finalizada: caminho=$_caminhoAudioAtual tamanho=$fileSize bytes');
       if (fileSize == 0) {
         Log.erro('Arquivo de audio vazio apos gravacao: $_caminhoAudioAtual');
         return _caminhoAudioAtual;
@@ -231,6 +232,9 @@ class AudioRelatoService {
     _webAudioStreamSubscription = null;
     _webAudioBytes.clear();
     _webAudioBase64Atual = '';
+    if (_caminhoAudioAtual != null) {
+      _cacheAudioDescriptografado.remove(_caminhoAudioAtual);
+    }
     _caminhoAudioAtual = null;
   }
 
@@ -265,6 +269,9 @@ class AudioRelatoService {
     _webAudioStreamSubscription = null;
     _webAudioBytes.clear();
     _webAudioBase64Atual = '';
+    if (_caminhoAudioAtual != null) {
+      _cacheAudioDescriptografado.remove(_caminhoAudioAtual);
+    }
     _caminhoAudioAtual = null;
   }
 
@@ -377,36 +384,69 @@ class AudioRelatoService {
   }
 
   Future<void> _criptografarArquivo(String caminho) async {
-    try {
-      final file = File(caminho);
-      if (!await file.exists()) return;
+    final file = File(caminho);
+    if (!await file.exists()) return;
 
-      final bytes = await file.readAsBytes();
-      if (bytes.isEmpty) return;
+    final bytes = await file.readAsBytes();
+    if (bytes.isEmpty) return;
+    Log.info('Criptografando audio: $caminho (${bytes.length} bytes)');
 
-      final base64 = base64Encode(bytes);
-      final encrypted = EncryptionService.tryEncrypt(base64);
-      if (encrypted != null) {
-        await file.writeAsString(encrypted);
-      } else {
-        Log.info('PIN nao configurado - audio mantido sem criptografia em: $caminho');
-      }
-    } catch (e) {
-      Log.erro(e, contexto: 'AudioRelatoService._criptografarArquivo - audio mantido sem criptografia');
+    final sw = Stopwatch()..start();
+    final encrypted = await EncryptionService.criptografarBytes(bytes);
+    sw.stop();
+    Log.info('Criptografia concluida em ${sw.elapsedMilliseconds}ms');
+
+    if (encrypted == null) {
+      throw Exception('PIN não configurado. Configure o PIN nas Configurações > Segurança para gravar áudio.');
     }
+    await file.writeAsBytes(encrypted);
+    Log.info('Audio criptografado com sucesso: $caminho');
+  }
+
+  static final Map<String, Uint8List> _cacheAudioDescriptografado = {};
+
+  static bool _ehFormatoBinario(Uint8List bytes) {
+    return bytes.length >= 4 &&
+        bytes[0] == 0x4D &&
+        bytes[1] == 0x41 &&
+        bytes[2] == 0x56 &&
+        bytes[3] == 0x31;
   }
 
   static Future<Uint8List> lerAudioDescriptografado(String caminho) async {
+    final cacheado = _cacheAudioDescriptografado[caminho];
+    if (cacheado != null) {
+      Log.info('Audio recuperado do cache: $caminho');
+      return cacheado;
+    }
+
     final file = File(caminho);
     if (!await file.exists()) {
-      throw Exception('Arquivo de audio nao encontrado.');
+      throw Exception('Arquivo de audio nao encontrado: $caminho');
     }
 
     final bytes = await file.readAsBytes();
     if (bytes.isEmpty) {
       throw Exception('Arquivo de audio vazio.');
     }
+    Log.info('Lendo audio: $caminho (${bytes.length} bytes, primeiro byte=0x${bytes[0].toRadixString(16)})');
 
+    // 1) Novo formato binario "MAV1"
+    if (_ehFormatoBinario(bytes)) {
+      final sw = Stopwatch()..start();
+      final decrypted = await EncryptionService.descriptografarBytes(bytes);
+      sw.stop();
+      Log.info('Audio descriptografado (binario) em ${sw.elapsedMilliseconds}ms');
+      if (decrypted == null || decrypted.isEmpty) {
+        throw Exception(
+          'Audio criptografado e app bloqueado. Desbloqueie o PIN para reproduzir.',
+        );
+      }
+      _cacheAudioDescriptografado[caminho] = decrypted;
+      return decrypted;
+    }
+
+    // 2) Formato antigo base64 "3:"/"2:"
     if (bytes.length >= 2 && bytes[1] == 0x3A && (bytes[0] == 0x33 || bytes[0] == 0x32)) {
       final content = utf8.decode(bytes, allowMalformed: true);
       final decrypted = EncryptionService.tryDecrypt(content);
@@ -416,12 +456,18 @@ class AudioRelatoService {
         );
       }
       try {
-        return base64Decode(decrypted);
+        final resultado = base64Decode(decrypted);
+        Log.info('Audio descriptografado (legado): ${resultado.length} bytes');
+        _cacheAudioDescriptografado[caminho] = resultado;
+        return resultado;
       } catch (_) {
         throw Exception('Falha ao descriptografar o arquivo de audio.');
       }
     }
 
+    // 3) Arquivo nao criptografado
+    Log.info('Audio nao criptografado (bytes brutos): ${bytes.length} bytes');
+    _cacheAudioDescriptografado[caminho] = bytes;
     return bytes;
   }
 
