@@ -31,9 +31,13 @@ class EncryptionService {
   static const String _encryptedKeyKey = 'encrypted_key';
   static const String _ivKey = 'iv_base64';
   static const String _chaveGeradaKey = 'chave_gerada';
+  static const String _pinAttemptsKey = 'pin_attempts';
+  static const String _pinLockedUntilKey = 'pin_locked_until';
   static const int _kdfIterations = 10000;
   static const int _kdfIterationsV3 = 100000;
   static const int _kdfKeyLength = 32;
+  static const int _maxPinAttempts = 5;
+  static const List<int> _backoffSeconds = [1, 2, 4, 8, 16, 32, 60];
 
   static const _secureStorageBiometria = FlutterSecureStorage(
     aOptions: AndroidOptions.biometric(
@@ -231,6 +235,7 @@ class EncryptionService {
       final keyBase64 = await _secureStoragePin.read(key: _secureKeyName);
       if (keyBase64 == null || keyBase64.isEmpty) return false;
       _setKey(encrypt.Key.fromBase64(keyBase64));
+      _resetarTentativas();
       return true;
     } catch (_) {
       return false;
@@ -239,6 +244,7 @@ class EncryptionService {
 
   Future<bool> migrarChaveDoPinLegado(String pin) async {
     await inicializar();
+    _verificarLockoutOuLancar();
 
     if (_key != null) return true;
 
@@ -276,8 +282,10 @@ class EncryptionService {
       await _secureStoragePin.write(key: _secureKeyName, value: _key!.base64);
       await _box.clear();
       await _box.put(_chaveGeradaKey, 'true');
+      _resetarTentativas();
       return true;
     } catch (e) {
+      _registrarTentativaFalha();
       Log.erro(e, contexto: 'EncryptionService.migrarChaveDoPinLegado');
       return false;
     }
@@ -287,6 +295,7 @@ class EncryptionService {
   /// Retorna true se o PIN estiver correto e a chave puder ser derivada.
   Future<bool> validarPin(String pin) async {
     await inicializar();
+    _verificarLockoutOuLancar();
 
     if (_key != null) return true;
 
@@ -321,7 +330,52 @@ class EncryptionService {
 
       return true;
     } catch (_) {
+      _registrarTentativaFalha();
       return false;
+    }
+  }
+
+  /// Verifica se o PIN está bloqueado por excesso de tentativas.
+  /// Retorna (bloqueado, segundosRestantes) ou (false, 0) se não bloqueado.
+  (bool, int) get _pinLockStatus {
+    final lockedUntilStr = _box.get(_pinLockedUntilKey);
+    if (lockedUntilStr == null) return (false, 0);
+    final lockedUntil = DateTime.tryParse(lockedUntilStr);
+    if (lockedUntil == null) return (false, 0);
+    final agora = DateTime.now();
+    if (agora.isBefore(lockedUntil)) {
+      return (true, lockedUntil.difference(agora).inSeconds + 1);
+    }
+    return (false, 0);
+  }
+
+  /// Incrementa contador de tentativas falhas e aplica backoff exponencial.
+  void _registrarTentativaFalha() {
+    int attempts = int.tryParse(_box.get(_pinAttemptsKey) ?? '0') ?? 0;
+    attempts += 1;
+    _box.put(_pinAttemptsKey, attempts.toString());
+
+    if (attempts >= _maxPinAttempts) {
+      final backoffIndex = (attempts - _maxPinAttempts).clamp(0, _backoffSeconds.length - 1);
+      final segundos = _backoffSeconds[backoffIndex];
+      final lockedUntil = DateTime.now().add(Duration(seconds: segundos)).toIso8601String();
+      _box.put(_pinLockedUntilKey, lockedUntil);
+      Log.info('PIN bloqueado por $segundos segundos (tentativa $attempts)');
+    }
+  }
+
+  /// Reseta contador de tentativas falhas (chamado no desbloqueio bem-sucedido).
+  void _resetarTentativas() {
+    _box.delete(_pinAttemptsKey);
+    _box.delete(_pinLockedUntilKey);
+  }
+
+  /// Verifica lockout antes de tentar validar PIN.
+  /// Lança exceção se bloqueado.
+  void _verificarLockoutOuLancar() {
+    final (bloqueado, segundos) = _pinLockStatus;
+    if (bloqueado) {
+      throw Exception('PIN bloqueado por $segundos segundos. Tente novamente mais tarde.');
     }
   }
 

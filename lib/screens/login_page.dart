@@ -53,9 +53,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         _navegarParaHome();
       } else {
         ref.read(_erroProvider.notifier).state =
-            'Nao foi possivel autenticar. Tente novamente.';
+            'Não foi possível autenticar. Tente novamente.';
         _jaTentouAuto = false;
       }
+    } on Exception catch (e) {
+      if (!mounted) return;
+      ref.read(_erroProvider.notifier).state = e.toString().replaceFirst('Exception: ', '');
+      _jaTentouAuto = false;
     } finally {
       if (mounted) {
         ref.read(_processandoProvider.notifier).state = false;
@@ -107,10 +111,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               children: [
                 Image.asset(
                   Theme.of(context).brightness == Brightness.dark
-                      ? 'assets/images/logo_mentall_escuro.png'
-                      : 'assets/images/logo_mentall_pro_claro.png',
-                  height: 120,
-                  cacheHeight: 240,
+                      ? 'assets/images/logo_mentallpro_fundoescuro1.png'
+                      : 'assets/images/logo_mentallpro_fundoclaro1.png',
+                  height: 96,
+                  cacheHeight: 192,
                   semanticLabel: 'Logo MentAll PRO',
                 ),
                 const SizedBox(height: 20),
@@ -208,16 +212,25 @@ class _DialogoMigracaoPinState extends ConsumerState<_DialogoMigracaoPin> {
       _erro = null;
     });
 
-    final sucesso =
-        await ref.read(authServiceProvider).migrarChaveDoPinLegado(pin);
-    if (!mounted) return;
+    try {
+      final sucesso =
+          await ref.read(authServiceProvider).migrarChaveDoPinLegado(pin);
+      if (!mounted) return;
 
-    if (sucesso) {
-      Navigator.of(context).pop();
-    } else {
+      if (sucesso) {
+        Navigator.of(context).pop();
+      } else {
+        setState(() {
+          _processando = false;
+          _erro = 'PIN incorreto. Tente novamente.';
+          _pinController.clear();
+        });
+      }
+    } on Exception catch (e) {
+      if (!mounted) return;
       setState(() {
         _processando = false;
-        _erro = 'PIN incorreto. Tente novamente.';
+        _erro = e.toString().replaceFirst('Exception: ', '');
         _pinController.clear();
       });
     }
