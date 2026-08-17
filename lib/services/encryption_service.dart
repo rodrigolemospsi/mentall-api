@@ -104,7 +104,68 @@ class EncryptionService {
     }
   }
 
+  /// Cabeçalho mágico do formato binário de áudio criptografado ("MAV1").
+  static const List<int> _magicAudio = [0x4D, 0x41, 0x56, 0x31];
+
+  static bool _ehFormatoBinario(Uint8List bytes) {
+    if (bytes.length < 4) return false;
+    return bytes[0] == _magicAudio[0] &&
+        bytes[1] == _magicAudio[1] &&
+        bytes[2] == _magicAudio[2] &&
+        bytes[3] == _magicAudio[3];
+  }
+
+  /// Criptografa bytes crus (sem base64) com AES-GCM em isolate.
+  ///
+  /// Retorna `[MAV1][nonce 12 bytes][ciphertext]` ou `null` se a chave não
+  /// estiver configurada (sem PIN).
+  static Future<Uint8List?> criptografarBytes(Uint8List dados) async {
+    final instance = _instance;
+    if (instance == null || !instance.configurado || dados.isEmpty) return null;
+    final chave = instance.chaveBytes;
+    if (chave == null) return null;
+    final nonce = encrypt.IV.fromSecureRandom(12);
+    final nonceBytes = Uint8List.fromList(nonce.bytes);
+    try {
+      final cifrado = await Isolate.run(
+        () => _criptografarBytesGcm(chave, nonceBytes, dados),
+      );
+      final builder = BytesBuilder();
+      builder.add(_magicAudio);
+      builder.add(nonceBytes);
+      builder.add(cifrado);
+      return builder.toBytes();
+    } catch (e) {
+      Log.erro(e, contexto: 'EncryptionService.criptografarBytes');
+      return null;
+    }
+  }
+
+  /// Descriptografa bytes no formato `[MAV1][nonce][ciphertext]` em isolate.
+  ///
+  /// Retorna os bytes originais ou `null` se a chave não estiver configurada
+  /// ou o formato for inválido.
+  static Future<Uint8List?> descriptografarBytes(Uint8List arquivo) async {
+    final instance = _instance;
+    if (instance == null || !instance.configurado) return null;
+    final chave = instance.chaveBytes;
+    if (chave == null) return null;
+    if (!_ehFormatoBinario(arquivo) || arquivo.length < 16) return null;
+    final nonceBytes = arquivo.sublist(4, 16);
+    final cifrado = arquivo.sublist(16);
+    try {
+      return await Isolate.run(
+        () => _descriptografarBytesGcm(chave, nonceBytes, cifrado),
+      );
+    } catch (e) {
+      Log.erro(e, contexto: 'EncryptionService.descriptografarBytes');
+      return null;
+    }
+  }
+
   bool get configurado => _inicializado && _key != null;
+
+  Uint8List? get chaveBytes => _key?.bytes;
 
   Future<void> inicializar() async {
     if (_inicializado) return;
@@ -222,6 +283,48 @@ class EncryptionService {
     }
   }
 
+  /// Valida o PIN sem modificar estado (não incrementa tentativas, não desbloqueia).
+  /// Retorna true se o PIN estiver correto e a chave puder ser derivada.
+  Future<bool> validarPin(String pin) async {
+    await inicializar();
+
+    if (_key != null) return true;
+
+    final encryptedData = _box.get(_encryptedKeyKey);
+    final ivBase64 = _box.get(_ivKey);
+
+    if (encryptedData == null || ivBase64 == null) return false;
+
+    final keyParts = encryptedData.split(':');
+    if (keyParts.length < 2) return false;
+
+    final keySalt = keyParts[0];
+    final encryptedPart = keyParts.sublist(1).join(':');
+
+    final kdfVersion = int.tryParse(_box.get('kdf_version') ?? '1') ?? 1;
+    final iterations = kdfVersion >= 3 ? _kdfIterationsV3 : _kdfIterations;
+
+    try {
+      final derivedKeyBytes = await _executarPbkdf2Isolate(
+        pin,
+        keySalt,
+        iterations,
+        _kdfKeyLength,
+      );
+
+      final ivBytes = base64Decode(ivBase64);
+      final iv = encrypt.IV(Uint8List.fromList(ivBytes));
+      final derivedKey = encrypt.Key(derivedKeyBytes);
+      final encrypter = encrypt.Encrypter(encrypt.AES(derivedKey));
+      final encryptedBytes = encrypt.Encrypted.fromBase64(encryptedPart);
+      encrypter.decryptBytes(encryptedBytes, iv: iv);
+
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   String criptografar(String texto) {
     if (_key == null || texto.isEmpty) return texto;
 
@@ -295,4 +398,21 @@ class EncryptionService {
     await _secureStoragePin.delete(key: _secureKeyName);
     await _box.clear();
   }
+}
+
+Uint8List _criptografarBytesGcm(Uint8List chave, Uint8List nonce, Uint8List dados) {
+  final key = encrypt.Key(chave);
+  final encrypter = encrypt.Encrypter(encrypt.AES(key, mode: encrypt.AESMode.gcm));
+  final resultado = encrypter.encryptBytes(dados, iv: encrypt.IV(nonce));
+  return Uint8List.fromList(resultado.bytes);
+}
+
+Uint8List _descriptografarBytesGcm(Uint8List chave, Uint8List nonce, Uint8List cifrado) {
+  final key = encrypt.Key(chave);
+  final encrypter = encrypt.Encrypter(encrypt.AES(key, mode: encrypt.AESMode.gcm));
+  final resultado = encrypter.decryptBytes(
+    encrypt.Encrypted(cifrado),
+    iv: encrypt.IV(nonce),
+  );
+  return Uint8List.fromList(resultado);
 }

@@ -17,20 +17,72 @@ class BackupRestorePage extends ConsumerStatefulWidget {
 }
 
 class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
-  Future<bool> _validarBiometriaAntesExportar() async {
+  Future<bool> _validarAutenticacaoAntesExportar() async {
     final authService = ref.read(authServiceProvider);
     if (authService.desbloqueado) return true;
     if (!authService.requerAutenticacao) return true;
 
-    final sucesso = await authService.desbloquearComBiometria();
-    return sucesso;
+    // Tenta biometria primeiro
+    final biometriaOk = await authService.desbloquearComBiometria();
+    if (biometriaOk) return true;
+
+    // Fallback: solicita PIN via dialog
+    return _solicitarPinDialog();
+  }
+
+  Future<bool> _solicitarPinDialog() async {
+    final controller = TextEditingController();
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Autenticação necessária'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Digite seu PIN para autorizar a exportação do backup:'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              obscureText: true,
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+              decoration: const InputDecoration(
+                labelText: 'PIN',
+                border: OutlineInputBorder(),
+                counterText: '',
+              ),
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+    if (result != true) return false;
+
+    final pin = controller.text.trim();
+    controller.dispose();
+    if (pin.isEmpty) return false;
+
+    final authService = ref.read(authServiceProvider);
+    return authService.validarPin(pin);
   }
 
   Future<void> _exportar() async {
-    final autorizado = await _validarBiometriaAntesExportar();
+    final autorizado = await _validarAutenticacaoAntesExportar();
     if (!autorizado) {
       if (mounted) {
-        _mostrarSnackBar('Autenticacao necessaria para exportar.', context.corError);
+        _mostrarSnackBar('Autenticação necessária para exportar.', context.corError);
       }
       return;
     }

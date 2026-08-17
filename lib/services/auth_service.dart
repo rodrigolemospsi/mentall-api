@@ -166,4 +166,10 @@ class AuthService {
       await Hive.box<String>('auth_meta').delete('jwt_token');
     } catch (_) {}
   }
+
+  /// Valida o PIN sem desbloquear o app nem incrementar tentativas.
+  /// Usado para operações sensíveis (ex: exportar backup) que exigem reautenticação.
+  Future<bool> validarPin(String pin) async {
+    return _encryptionService.validarPin(pin);
+  }
 }
