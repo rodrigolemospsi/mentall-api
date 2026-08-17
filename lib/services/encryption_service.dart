@@ -398,6 +398,33 @@ class EncryptionService {
     await _secureStoragePin.delete(key: _secureKeyName);
     await _box.clear();
   }
+
+  /// Re-criptografa um texto do formato legado (2:CBC) para o formato atual (3:GCM).
+  /// Retorna o texto re-criptografado ou o original se já estiver no formato atual.
+  String migrarParaGcm(String texto) {
+    if (_key == null || texto.isEmpty) return texto;
+
+    if (texto.startsWith('3:')) {
+      return texto;
+    }
+
+    if (texto.startsWith('2:')) {
+      try {
+        final firstColon = texto.indexOf(':');
+        final secondColon = texto.indexOf(':', firstColon + 1);
+        if (secondColon == -1) return texto;
+        final ivBase64 = texto.substring(firstColon + 1, secondColon);
+        final cipherBase64 = texto.substring(secondColon + 1);
+        final iv = encrypt.IV.fromBase64(ivBase64);
+        final decrypted = _cbc.decrypt64(cipherBase64, iv: iv);
+        return criptografar(decrypted);
+      } catch (_) {
+        return texto;
+      }
+    }
+
+    return texto;
+  }
 }
 
 Uint8List _criptografarBytesGcm(Uint8List chave, Uint8List nonce, Uint8List dados) {
