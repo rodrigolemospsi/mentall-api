@@ -265,7 +265,7 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
   void _mostrarDialogServidor(BuildContext context, WidgetRef ref) {
     final urlController = TextEditingController(text: ApiClient.baseUrl);
     final userController = TextEditingController(text: ApiClient.username);
-    final passController = TextEditingController(text: ApiClient.password);
+    final passController = TextEditingController(text: '');
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -287,7 +287,7 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
               controller: userController,
               decoration: const InputDecoration(
                 labelText: 'Usu\u00e1rio',
-                hintText: 'admin',
+                hintText: 'Obrigat\u00f3rio',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -297,6 +297,7 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
               obscureText: true,
               decoration: const InputDecoration(
                 labelText: 'Senha',
+                hintText: 'Obrigat\u00f3ria',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -304,8 +305,7 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Altere apenas se souber o que est\u00e1 fazendo. A transcri\u00e7\u00e3o e a '
-                's\u00edntese com IA dependem deste endere\u00e7o.',
+                'Credenciais s\u00e3o obrigat\u00f3rias para transcri\u00e7\u00e3o e s\u00edntese com IA.',
                 style: TextStyle(fontSize: 12, color: context.corTextoMuted),
               ),
             ),
@@ -318,7 +318,7 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
               userController.text = '';
               passController.text = '';
             },
-            child: const Text('Restaurar padr\u00e3o'),
+            child: const Text('Restaurar URL padr\u00e3o'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -337,10 +337,16 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
               }
               final username = userController.text.trim();
               final password = passController.text.trim();
-              await ApiClient.setBaseUrl(url);
-              if (username.isNotEmpty || password.isNotEmpty) {
-                await ApiClient.setCredentials(username, password);
+              if (username.isEmpty || password.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Usu\u00e1rio e senha s\u00e3o obrigat\u00f3rios.'),
+                  ),
+                );
+                return;
               }
+              await ApiClient.setBaseUrl(url);
+              await ApiClient.setCredentials(username, password);
               if (ctx.mounted) Navigator.pop(ctx);
             },
             child: const Text('Salvar'),

@@ -65,11 +65,6 @@ class AuthService {
 
   Future<bool> autenticarBackend() async {
     try {
-      final username = _username;
-      final password = _password;
-      if (username.isEmpty || password.isEmpty) {
-        await ApiClient.setCredentials('admin', 'admin');
-      }
       final user = _username;
       final pass = _password;
       if (user.isEmpty || pass.isEmpty) {

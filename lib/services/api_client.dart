@@ -12,8 +12,7 @@ class ApiClient {
   static const String _defaultBaseUrl = 'https://mentall-api.fly.dev';
   static const String _usernameKey = 'auth_username';
   static const String _passwordKey = 'auth_password';
-  static const String _defaultUsername = 'admin';
-  static const String _defaultPassword = 'admin';
+  static const String _accountEmailKey = 'account_email';
 
   static String get defaultBaseUrl => _defaultBaseUrl;
 
@@ -40,8 +39,7 @@ class ApiClient {
   static String get username {
     final box = Hive.box<String>('app_config');
     final stored = box.get(_usernameKey);
-    if (stored != null && stored.isNotEmpty) return stored;
-    return _defaultUsername;
+    return (stored != null && stored.isNotEmpty) ? stored : '';
   }
 
   static String get password {
@@ -50,7 +48,7 @@ class ApiClient {
     if (stored != null && stored.isNotEmpty) {
       return EncryptionService.tryDecrypt(stored);
     }
-    return _defaultPassword;
+    return '';
   }
 
   static Future<void> setCredentials(String username, String password) async {
@@ -145,6 +143,91 @@ class ApiClient {
     }
 
     return false;
+  }
+
+  static String? get accountEmail {
+    final box = Hive.box<String>('auth_meta');
+    final valor = box.get(_accountEmailKey);
+    return (valor != null && valor.isNotEmpty) ? valor : null;
+  }
+
+  static bool get possuiConta => accountEmail != null;
+
+  static Future<void> salvarConta(String email) async {
+    await Hive.box<String>('auth_meta')
+        .put(_accountEmailKey, email.trim().toLowerCase());
+  }
+
+  static Future<Map<String, dynamic>> registrarConta({
+    required String email,
+    required String senha,
+    String nome = '',
+  }) async {
+    try {
+      final response = await post(
+        '/auth/registrar',
+        body: {'email': email.trim(), 'senha': senha, 'nome': nome.trim()},
+        customTimeout: const Duration(seconds: 30),
+      );
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200) {
+        return {
+          'sucesso': data['sucesso'] == true,
+          'mensagem': data['mensagem'] ?? '',
+          'erro': data['erro'] ?? '',
+        };
+      }
+      return {
+        'sucesso': false,
+        'erro': _extrairDetalhe(data) ?? 'Falha ao criar conta.',
+      };
+    } catch (_) {
+      return {'sucesso': false, 'erro': 'Erro de conexao. Verifique a internet.'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> entrarComEmailSenha({
+    required String email,
+    required String senha,
+  }) async {
+    try {
+      final response = await post(
+        '/auth/login',
+        body: {'username': email.trim(), 'password': senha},
+        customTimeout: const Duration(seconds: 30),
+      );
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode != 200) {
+        return {
+          'sucesso': false,
+          'erro': _extrairDetalhe(data) ?? 'Email ou senha invalidos.',
+        };
+      }
+      final token = data['access_token'] as String?;
+      if (token == null || token.isEmpty) {
+        return {'sucesso': false, 'erro': 'Resposta invalida do servidor.'};
+      }
+      _authToken = token;
+      final encryptedToken = EncryptionService.tryEncrypt(token);
+      await Hive.box<String>('auth_meta')
+          .put('jwt_token', encryptedToken ?? token);
+      await salvarConta(email);
+      return {'sucesso': true};
+    } catch (_) {
+      return {'sucesso': false, 'erro': 'Erro de conexao. Verifique a internet.'};
+    }
+  }
+
+  static String? _extrairDetalhe(Map<String, dynamic> data) {
+    final detalhe = data['detail'];
+    if (detalhe is String && detalhe.isNotEmpty) return detalhe;
+    if (detalhe is List && detalhe.isNotEmpty) {
+      final primeiro = detalhe.first;
+      if (primeiro is Map && primeiro['msg'] is String) {
+        return primeiro['msg'] as String;
+      }
+    }
+    return null;
   }
 
   static Future<http.Response> post(
