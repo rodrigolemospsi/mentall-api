@@ -148,7 +148,10 @@ void main() {
     await tester.pumpWidget(criarApp());
     await tester.pump();
 
-    await tester.tap(find.byIcon(Icons.edit_outlined));
+    await tester.tap(find.descendant(
+      of: find.byType(AppBar),
+      matching: find.byIcon(Icons.edit_outlined),
+    ));
     await tester.pump();
     await tester.pump();
 

@@ -9,7 +9,7 @@ void main() async {
     author: 'MentAll PRO',
   );
 
-  const primaria = PdfColor.fromInt(0xFF2563EB);
+  const primaria = PdfColor.fromInt(0xFF2066FF);
   const cinza = PdfColor.fromInt(0xFF64748B);
   const heading = PdfColor.fromInt(0xFF1E293B);
   const body = PdfColor.fromInt(0xFF334155);
@@ -437,7 +437,7 @@ pw.Widget _widget(String nome, String desc) {
     child: pw.RichText(
       text: pw.TextSpan(
         children: [
-          pw.TextSpan(text: '$nome', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF2563EB))),
+          pw.TextSpan(text: '$nome', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF2066FF))),
           pw.TextSpan(text: ' — $desc', style: _bodyStyle),
         ],
       ),
@@ -451,7 +451,7 @@ pw.Widget _endpoint(String method, String path, String desc, bool auth) {
     child: pw.RichText(
       text: pw.TextSpan(
         children: [
-          pw.TextSpan(text: '$method ', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF2563EB))),
+          pw.TextSpan(text: '$method ', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF2066FF))),
           pw.TextSpan(text: path, style: pw.TextStyle(fontSize: 9, color: const PdfColor.fromInt(0xFF1E293B))),
           pw.TextSpan(text: ' ${auth ? "🔒" : "🌐"} ', style: const pw.TextStyle(fontSize: 9)),
           pw.TextSpan(text: '— $desc', style: pw.TextStyle(fontSize: 9, color: const PdfColor.fromInt(0xFF64748B))),

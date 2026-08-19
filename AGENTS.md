@@ -2,6 +2,95 @@
 
 > **Regra de trabalho (obrigatória):** sempre invocar as skills relevantes de `.opencode/skills/` (via `skill` tool) **antes** de planejar e executar qualquer tarefa. Ex.: `planning-and-task-breakdown`, `test-driven-development`, `debugging-and-error-recovery`, `frontend-ui-engineering`, etc.
 
+## Correções e Funcionalidades (15/08/2026) — LOGIN FIX + PERFORMANCE ÁUDIO + LOGOS
+
+### Fix crítico: login dava "Credenciais inválidas" (bcrypt)
+- Causa raiz: `passlib==1.7.4` + `bcrypt>=4.1` (removeu `bcrypt.__about__`) → a verificação de senha falha no Linux/Docker (em produção), mesmo com a conta confirmada. No Windows local "funcionava por sorte do fallback".
+- Fix: `backend/requirements.txt` → `bcrypt==4.0.1` + redeploy. Contas de teste quebradas (`rodrigolemosba@gmail.com`, `mentall.brasil@gmail.com`) apagadas do Turso via `flyctl ssh console`.
+- Verificado em produção: hash `$2b$`, `verify` True/False corretos, round-trip de `autenticar` True. Fluxo conta → e-mail → login **funcionando**.
+
+### SMTP Gmail configurado (produção)
+- Fly secrets: `SMTP_USER`/`SMTP_FROM`=rodrigolemosba@gmail.com, `SMTP_PASS`=senha de app, `SMTP_HOST=smtp.gmail.com:587`. (O `SMTP_USER` estava **faltando** nos secrets.)
+
+### Performance: playback de áudio travava ~10s
+- Causa: descriptografia AES-GCM em Dart puro (pointycastle/`encrypt`) na thread principal, sobre ~4,3 MB (base64 da gravação).
+- Fix (2 fases):
+  - `encryption_service.dart`: novos `criptografarBytes`/`descriptografarBytes` rodam AES-GCM em **`Isolate.run`**; novo formato **binário "MAV1"** (`[MAV1][nonce 12][cipher]`), criptografa bytes crus (sem dupla base64).
+  - `audio_relato_service.dart`: **cache em memória** (`_cacheAudioDescriptografado`, some ao fechar o app); `lerAudioDescriptografado` detecta 3 formatos (novo "MAV1" / legado "3:"/"2:" base64 / arquivo puro).
+  - `sessao_audio_controls.dart` + `sessao_form_page.dart`: novo `preparandoAudioProvider` + spinner "Preparando áudio..." no botão Ouvir; `_existeAcaoEmAndamento` inclui `preparando`.
+- Backward compat: arquivos antigos ("3:") continuam funcionando (caminho legado).
+- Testes: 96/96 (2 novos em `audio_relato_service_test.dart`: round-trip binário MAV1 + formato inválido→null).
+
+### Troca de logos (15/08)
+- Novas logos (dono redimensionou p/ performance): `logo_mentallpro_fundoclaro1.png` (claro), `logo_mentallpro_fundoescuro1.png` (escuro), `logo_mentallpro_sem_nome.png` (ícone sem nome).
+- Mapeamento nas telas: `logo_mentall_escuro.png` → `logo_mentallpro_fundoescuro1.png`; `logo_mentall_pro_claro.png` e `logo_mentall_pro_home.png` (claro) → `logo_mentallpro_fundoclaro1.png`. Arquivos: `app_start_page`, `login_page`, `conta_page`, `perfil_profissional_form_page`, `home_page`, `pdf_export_service`.
+- Ícone do app: `pubspec.yaml` `flutter_launcher_icons` → `logo_mentallpro_sem_nome.png` (Android via `dart run flutter_launcher_icons`). Ícones web (favicon + Icon-192/512/maskable) via Pillow. iOS fica para depois (`ios: false`).
+- 6 logos antigas apagadas (~6-7 MB no APK).
+
+### Ajustes finos (15/08) — ícone, tamanho e paleta
+- **Ícone +40%**: a logo `sem_nome` é retangular (577×433); regerada com `bounding box` + escala p/ ocupar ~78% da altura (`logo_mentallpro_sem_nome_quadrado.png` via Pillow).
+- **Logos das páginas −20%** (×0,8): `app_start` 160/320→128/256 · `login` 120/240→96/192 · `conta` idem · `perfil` 160→128 e 56→45 · `home` 98→78 · `pdf` 44→35 e 40×40→32×32.
+- **Paleta azul da logo** (primário `#2563EB` → **`#2066FF`** azul elétrico):
+  - `main.dart` seed, `pdf_export_service`, `pdf_arquitetura_lgpd`, `tools/gerar_catalogo_pdf`, `gerar_apresentacao_pdf` (0xFF2066FF).
+  - Backend `contrato.html`/`anamnese.html` + `main.py` (HTML inline) → `#2066FF` (+ rgba 32,102,255); tint `#EFF6FF` → `#E8F1FF`.
+  - `web/manifest.json` → `#2066FF`; splash Android claro `#2066FF` e escuro `#061A7A` (marinho).
+- **Cards "sombreado" (tema-consciente)**: cards de paciente (`paciente_card_home`), Home (KPI + Sessões de hoje + Atividade recente), Financeiro (resumo) e perfil (endereço) usam os getters `corCardSombra` (sombra no tema claro) e `corCardBorda` (borda fina `outlineVariant` no tema escuro). Campos de texto continuam `OutlineInputBorder`.
+
+### Ajustes finos (15/08) — sessão 2: WhatsApp, ícones e cabeçalho
+- **Escolha de WhatsApp**: novo `lib/services/whatsapp_service.dart` com seletor "WhatsApp / WhatsApp Business". Android usa `android_intent_plus` (pacotes `com.whatsapp` / `com.whatsapp.w4b`); iOS/Web abrem o WhatsApp único. Ligado em `paciente_card_home.dart` (botão do card) e `paciente_resumo_tab.dart` (envio de anamnese e acordo terapêutico). Logos no seletor: `logo_whats_grande.png` + `logo_whats_business.png`.
+- **Sugestão no contato da demo** (`demo_data_service.dart`): "Linda M. Tester" agora tem `contato: (11) 99999-9999` + nota nas observações para o dono substituir pelo próprio número e testar o WhatsApp.
+- **Ícone do menu `⋮`** (`paciente_detail_page.dart`): "Escalas Psicologicas" e "Acordo Terapeutico" com `color: corPrimaria` (fix do ícone invisível no tema claro).
+- **Cabeçalho de Pacientes** (`pacientes_page.dart`): fundo azul (`primary`) + título/ícone "+" brancos; controle segmentado (Ativos/Arquivados) adaptado ao fundo azul. **Home permanece branca** com a logo (decisão do dono).
+
+### Google Sign-In (STANDBY)
+- Plano documentado: `POST /auth/google` (verifica id_token via `google-auth`) + `google_sign_in` no app. Pendente: projeto Google Cloud + client IDs (Web/Android/iOS).
+
+### Pendências
+- Bug do áudio "duração errada ao reabrir" (instrumentado; aguarda reprodução do dono + logs).
+- Fase 2+ (telemetria, painel admin, cobrança) — `tasks/plan.md`.
+- (Opcional) ferramentas avaliadas e **não** instaladas: Jerico (orquestrador multi-agente, só macOS) e Strix (AI pentest, exige Docker + chave LLM).
+
+## Correções e Funcionalidades (14/08/2026) — UI + PLANO DE VENDA RECORRENTE (FASE 1: CONTAS)
+
+### UI — abas da área de pacientes
+- **`pacientes_page.dart`**: `_PillTab` (pills desproporcionais) → `_SegmentedControl` de largura total (segmentos `Expanded` iguais em trilho arredondado), com listener no `TabController` para sincronizar com swipe.
+- **`paciente_detail_page.dart` + `paciente_sessoes_tab.dart`**: abas **só texto** (removidos ícones), `indicatorWeight: 3`.
+- **`responsivo.dart`**: breakpoints em 3 níveis (`TamanhoTela compacto/medio/expandido`, `breakpointTablet=600`, `breakpointDesktop=1024`) — `isTablet` mantido para compatibilidade.
+- **`pacientes_page.dart` grid tablet**: `SliverGridDelegateWithFixedCrossAxisCount(childAspectRatio: 3.5)` → `SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 420, mainAxisExtent: 92)`.
+- Tokens: hex `Color(0x...)` → `MentAllProColors`; raios de card unificados (resumo tab 14→18).
+- Teste corrigido: `paciente_detail_page_test.dart` usa `find.descendant(of: AppBar, matching: byIcon(edit_outlined))` (ambiguidade com o botão Editar do `AnamneseCard`).
+
+### Barra inferior segue o termo do perfil
+- `perfil_profissional.dart`: novo getter `termoPluralNavbar` (Pacientes/Clientes/P. Atendidas).
+- `service_providers.dart`: novo `perfilTermoPluralProvider` (StreamProvider reativo via `observarPerfil()`).
+- `main_shell.dart`: aba "Pacientes" usa o termo dinâmico no `NavigationDestination` + `Semantics`.
+
+### Plano de negócio: venda recorrente + painel de controle (NÃO implementado ainda)
+- **Objetivo (confirmado com o dono):** vender o MentAll por assinatura mensal p/ outros psicólogos + painel web (site no PC, só do dono) com online/offline, tipos de acesso (plano grátis/pago + aparelho Android/iPhone/navegador), receita e uso.
+- **Decisões confirmadas:** 7 dias grátis de teste; cobrança via Google Play + App Store (celular) e Pix/cartão (navegador); online = app aberto agora, offline = tem app mas não usa.
+- **Plano salvo em `tasks/plan.md` + `tasks/todo.md`** (6 fases). Recomendação técnica: RevenueCat (lojas) + Stripe (web).
+
+### FASE 1 (implementada + verificada) — Contas de psicólogos com link mágico
+- **Backend:**
+  - `db.py`: tabela `usuarios` (id, email único, password_hash, nome, plano, status='pendente', criado_em, ultimo_acesso_em, email_verificacao_token_hash, email_verificacao_expiracao). Helper de migração `_garantir_coluna()` (PRAGMA table_info + ALTER TABLE).
+  - `services/usuarios.py` (novo): hash/verify senha (bcrypt), `criar_usuario_pendente`, `regenerar_token`, `confirmar_email`, `autenticar`, `registrar_acesso`, `_hash_token` (sha256).
+  - `main.py`: `POST /auth/registrar` (pendente + envia link mágico), `GET /auth/confirmar-email?token=` (HTML ativa conta), `POST /auth/login` (bloqueia pendente 403 + fallback admin legado preserva `APP_USER_ID`).
+- **Frontend:**
+  - `conta_page.dart` (novo): login/cadastro + passo "Confirme seu e-mail" (link enviado / "Já confirmei" / "Reenviar link").
+  - `api_client.dart`: `accountEmail`/`possuiConta`/`salvarConta`, `registrarConta` (sem auto-login), `entrarComEmailSenha`, `_extrairDetalhe`.
+  - `app_start_page.dart`: gate de conta antes do PIN (`if (!ApiClient.possuiConta) return ContaPage()`) + `ref.watch(contaRevisaoProvider)`.
+  - `app_start_page_test.dart`: seed `auth_meta['account_email']` no setUp.
+- **Segurança (skill security-and-hardening):** código de recuperação de PIN agora **não é logado** e é guardado **como hash** (`recuperacoes.codigo_hash`, sha256). Token do link mágico guardado só como hash.
+- **SMTP Gmail** em `.env`/`.env.example`: `smtp.gmail.com:587`, `SMTP_USER=SMTP_FROM=rodrigolemosba@gmail.com`.
+
+### ⚠️ PENDÊNCIA do dono (bloqueia envio real de e-mail)
+- Gmail exige **"Senha de app"** (16 chars, não a senha normal). Dono deve gerar em myaccount.google.com/apppasswords e colar em `backend/.env` na linha `SMTP_PASS` (hoje placeholder `sua_senha_de_app_gmail_aqui`).
+
+### Próximos passos (quando recomeçar)
+1. **Fase 2 — telemetria**: tabelas `dispositivos`/`eventos`, endpoints `/telemetria/heartbeat` + `/telemetria/evento`, `telemetria_service.dart` no app (online/offline por heartbeat). Sem dado clínico (LGPD).
+2. Fase 3 painel admin web, Fase 4 cobrança (RevenueCat/Stripe), Fase 5 app conta+assinatura+gating IA, Fase 6 segurança/monitoramento.
+3. Ainda definir com o dono: valor da mensalidade, endereço do painel, gating de limites Free vs Pro.
+
 ## Correções e Funcionalidades (13/08/2026) — MIGRAÇÃO FLY.IO + SÍNTESE GEMINI + ARTIGOS DESACOPLADOS
 
 ### Migração Render → Fly.io (migração completa)
@@ -38,7 +127,30 @@
 ### Commits
 - `86cc6ba` — feat: migra backend e app para o Fly.io
 - `5887550` — fix: recuperacao de PIN quebrada (schemas, tabela recuperacoes e rotas)
-- *(não commitado ainda: desacoplamento de artigos + troca para Gemini)*
+- `132af52` — feat: sintese via Gemini 3.7 Flash + artigos desacoplados da resposta
+- `46963d0` — docs: memoria das correcoes de 13/08/2026
+
+## Correções e Funcionalidades (13/08/2026) — SESSÃO 2 — CONTADOR DE SESSÕES + REMOÇÃO BDI/BAI
+
+### Contador de sessões realizadas na aba "Sessões" da ficha do paciente
+- A aba externa "Sessões" (`paciente_detail_page.dart`) agora mostra `Sessões (N)`, com **total = ativas + arquivadas**
+- Novo provider reativo `sessoesRealizadasPorPacienteProvider` (`StreamProvider.family` + `async*`, mesmo padrão do `dashboardKpisSessoesProvider`) — atualiza sozinho ao adicionar/arquivar/restaurar sessão
+- Testes atualizados: `find.text('Sessões')` → `find.textContaining('Sessões (')` (match exato quebraria)
+- **Arquivos:** `lib/providers/service_providers.dart`, `lib/screens/paciente_detail_page.dart`, `test/widgets/paciente_detail_page_test.dart`
+
+### Escalas BDI e BAI removidas (copyright Pearson)
+- **Pesquisa de direitos autorais:** BDI (Inventário de Depressão de Beck) e BAI (Inventário de Ansiedade de Beck) são **protegidos por copyright (Pearson / The Psychological Corporation)** — "a fee must be paid for each copy used". PHQ-9, GAD-7 e DASS-21 são de **domínio público**
+- **Remoção:** blocos `bdi` e `bai` apagados de `escala_service.dart` (`_escalas`) e do `_nomeEscala` em `sessao_form_page.dart`. Restam PHQ-9, GAD-7 e DASS-21
+- `tools/gerar_catalogo_pdf.dart` atualizado: "5 escalas" → "3 escalas"
+- **Arquivos:** `lib/services/escala_service.dart`, `lib/screens/sessao_form_page.dart`, `tools/gerar_catalogo_pdf.dart`
+
+### APK + infra
+- APK release 73,35 MB gerado (inclui Gemini, artigos desacoplados, contador de sessões e remoção BDI/BAI)
+- **⚠️ Disco C: cheio** (0 GB livre) — build falhou na 1ª tentativa; limpei `build/` do projeto (~1,7 GB) e Gradle transforms (`~/.gradle/caches/9.1.0`, ~4,2 GB) para liberar espaço. Recomendo liberar espaço no C: antes do próximo build
+
+### Commits
+- `6550708` — feat: contador de sessoes realizadas na aba Sessoes da ficha do paciente
+- `cd6942f` — feat: remove escalas BDI e BAI (copyright Pearson); mantem PHQ-9, GAD-7 e DASS-21
 
 ## Correções e Funcionalidades (04/08/2026) — TRANSCRIÇÃO RÁPIDA, SÍNTESE CONFIÁVEL E SEGURANÇA
 

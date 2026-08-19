@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
@@ -58,5 +59,35 @@ void main() {
         await AudioRelatoService.lerAudioDescriptografado(arquivo.path);
 
     expect(resultado, orderedEquals(bytesOriginais));
+  });
+
+  test('criptografa e descriptografa bytes crus (formato binario MAV1)', () async {
+    final bytesOriginais =
+        Uint8List.fromList(utf8.encode('audio binario de teste com mais conteudo'));
+
+    final cifrado = await EncryptionService.criptografarBytes(bytesOriginais);
+
+    expect(cifrado, isNotNull);
+    expect(cifrado!.length, greaterThan(16));
+    expect(cifrado[0], 0x4D);
+    expect(cifrado[1], 0x41);
+    expect(cifrado[2], 0x56);
+    expect(cifrado[3], 0x31);
+
+    final arquivo = File('${tempDir.path}/audio_binario.m4a');
+    await arquivo.writeAsBytes(cifrado);
+
+    final resultado =
+        await AudioRelatoService.lerAudioDescriptografado(arquivo.path);
+
+    expect(resultado, orderedEquals(bytesOriginais));
+  });
+
+  test('descriptografarBytes retorna null para formato invalido', () async {
+    final resultado = await EncryptionService.descriptografarBytes(
+      Uint8List.fromList(utf8.encode('nao eh um arquivo valido')),
+    );
+
+    expect(resultado, isNull);
   });
 }
