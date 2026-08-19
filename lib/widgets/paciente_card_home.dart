@@ -1,9 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../models/paciente.dart';
+import '../services/whatsapp_service.dart';
 import '../utils/mentall_colors.dart';
 import 'demo_badge.dart';
 
@@ -50,7 +50,8 @@ class PacienteCardHome extends StatelessWidget {
           decoration: BoxDecoration(
             color: cs.surface,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: cs.outlineVariant),
+            boxShadow: context.corCardSombra,
+            border: context.corCardBorda,
           ),
           child: Row(
             children: [
@@ -239,57 +240,14 @@ class _WhatsAppLogoButton extends StatelessWidget {
     return contato.replaceAll(RegExp(r'[^\d]'), '');
   }
 
-  Future<void> _abrirWhatsApp(String numero) async {
-    final uri = Uri.parse('https://wa.me/$numero');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
-  void _mostrarOpcoes(BuildContext context) {
-    final numero = _numeroLimpo;
-    if (numero.isEmpty) return;
-
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.only(top: 16, bottom: 8),
-              child: Text(
-                'Abrir com...',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
-              ),
-            ),
-            ListTile(
-              leading: Image.asset('assets/images/logo_whats.png', width: 28, height: 28),
-              title: const Text('WhatsApp'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _abrirWhatsApp(numero);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.business, size: 28, color: Color(0xFF0D9488)),
-              title: const Text('WhatsApp Business'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _abrirWhatsApp(numero);
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => _mostrarOpcoes(context),
+      onTap: () {
+        final numero = _numeroLimpo;
+        if (numero.isEmpty) return;
+        WhatsAppService.escolher(context: context, numero: numero);
+      },
       child: const SizedBox(
         width: 52,
         height: 52,

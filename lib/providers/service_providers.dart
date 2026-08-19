@@ -51,6 +51,14 @@ final perfilProfissionalServiceProvider = Provider<PerfilProfissionalService>((r
   return PerfilProfissionalService(encryption: encryption);
 });
 
+final perfilTermoPluralProvider = StreamProvider<String>((ref) async* {
+  final service = ref.watch(perfilProfissionalServiceProvider);
+  yield service.obterPerfil()?.termoPluralNavbar ?? 'Pacientes';
+  await for (final _ in service.observarPerfil()) {
+    yield service.obterPerfil()?.termoPluralNavbar ?? 'Pacientes';
+  }
+});
+
 final sessaoServiceProvider = Provider<SessaoService>((ref) {
   final encryption = ref.watch(encryptionServiceProvider);
   return SessaoService(encryption: encryption);

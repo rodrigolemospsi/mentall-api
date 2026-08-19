@@ -340,7 +340,8 @@ class _KpiCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: cs.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outlineVariant),
+        boxShadow: context.corCardSombra,
+        border: context.corCardBorda,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -416,7 +417,8 @@ class SessoesHojeCard extends ConsumerWidget {
       decoration: BoxDecoration(
         color: cs.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outlineVariant),
+        boxShadow: context.corCardSombra,
+        border: context.corCardBorda,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -652,7 +654,8 @@ class AtividadeRecenteCard extends ConsumerWidget {
       decoration: BoxDecoration(
         color: cs.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outlineVariant),
+        boxShadow: context.corCardSombra,
+        border: context.corCardBorda,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

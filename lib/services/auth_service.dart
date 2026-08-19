@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:local_auth/local_auth.dart';
 
@@ -15,8 +16,20 @@ class AuthService {
   static const String _usernameKey = 'auth_username';
   static const String _passwordKey = 'auth_password';
 
+  // SecureStorage keys for server credentials (protected by device PIN/biometrics)
+  static const String _serverUserKey = 'server_username';
+  static const String _serverPassKey = 'server_password';
+
   late final Box<String> _box = Hive.box<String>(_authBoxName);
   final LocalAuthentication _localAuth = LocalAuthentication();
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+    ),
+    iOptions: IOSOptions(
+      accessibility: KeychainAccessibility.first_unlock_this_device,
+    ),
+  );
 
   final EncryptionService _encryptionService;
   bool _desbloqueado = false;
@@ -171,5 +184,38 @@ class AuthService {
   /// Usado para operações sensíveis (ex: exportar backup) que exigem reautenticação.
   Future<bool> validarPin(String pin) async {
     return _encryptionService.validarPin(pin);
+  }
+
+  /// Salva credenciais do servidor no SecureStorage (protegido por PIN/biometria do dispositivo).
+  Future<void> salvarCredenciaisServidor(String username, String password) async {
+    await _secureStorage.write(key: _serverUserKey, value: username);
+    await _secureStorage.write(key: _serverPassKey, value: password);
+  }
+
+  /// Carrega credenciais do servidor do SecureStorage.
+  /// Retorna (username, password) ou (null, null) se não existirem.
+  Future<(String?, String?)> carregarCredenciaisServidor() async {
+    final username = await _secureStorage.read(key: _serverUserKey);
+    final password = await _secureStorage.read(key: _serverPassKey);
+    return (username, password);
+  }
+
+  /// Remove credenciais do servidor do SecureStorage.
+  Future<void> limparCredenciaisServidor() async {
+    await _secureStorage.delete(key: _serverUserKey);
+    await _secureStorage.delete(key: _serverPassKey);
+  }
+
+  /// Tenta auto-login com credenciais salvas no SecureStorage.
+  /// Deve ser chamado após desbloqueio bem-sucedido (biometria/PIN).
+  Future<bool> tentarAutoLoginServidor() async {
+    final (username, password) = await carregarCredenciaisServidor();
+    if (username == null || password == null || username.isEmpty || password.isEmpty) {
+      return false;
+    }
+
+    // Configura no ApiClient e tenta autenticar
+    await ApiClient.setCredentials(username, password);
+    return autenticarBackend();
   }
 }

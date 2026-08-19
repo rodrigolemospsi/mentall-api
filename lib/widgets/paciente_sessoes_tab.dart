@@ -168,15 +168,10 @@ class PacienteSessoesTab extends ConsumerWidget {
                 labelColor: Theme.of(context).colorScheme.primary,
                 unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.38),
                 indicatorColor: Theme.of(context).colorScheme.primary,
+                indicatorWeight: 3,
                 tabs: [
-                  Tab(
-                    icon: const Icon(Icons.history_outlined),
-                    text: 'Ativas (${sessoesAtivas.length})',
-                  ),
-                  Tab(
-                    icon: const Icon(Icons.archive_outlined),
-                    text: 'Arquivadas (${sessoesArquivadas.length})',
-                  ),
+                  Tab(text: 'Ativas (${sessoesAtivas.length})'),
+                  Tab(text: 'Arquivadas (${sessoesArquivadas.length})'),
                 ],
               ),
               SizedBox(

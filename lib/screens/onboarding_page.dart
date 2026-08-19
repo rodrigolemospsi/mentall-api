@@ -53,24 +53,21 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                 controller: _pageController,
                 onPageChanged: (i) =>
                     ref.read(_pageIndexProvider.notifier).state = i,
-                children: const [
-                  _Slide(
-                    emoji: '📋',
-                    title: 'Prontuário inteligente',
-                    description:
-                        'Registre sessões com transcrição automática e síntese clínica por IA adaptada à sua abordagem.',
+                children: [
+                  Image.asset(
+                    'assets/images/prontuario_inteligente.png',
+                    fit: BoxFit.cover,
+                    alignment: Alignment.center,
                   ),
-                  _Slide(
-                    emoji: '🧠',
-                    title: 'Sua abordagem, suas regras',
-                    description:
-                        '14 abordagens clínicas disponíveis. O prontuário se adapta à sua linha terapêutica.',
+                  Image.asset(
+                    'assets/images/sua_abordagem.png',
+                    fit: BoxFit.cover,
+                    alignment: Alignment.center,
                   ),
-                  _Slide(
-                    emoji: '🔒',
-                    title: 'Segurança e privacidade',
-                    description:
-                        'Criptografia AES-256. PIN de acesso. Seus dados nunca saem do app sem sua autorização.',
+                  Image.asset(
+                    'assets/images/seguranca_app.png',
+                    fit: BoxFit.cover,
+                    alignment: Alignment.center,
                   ),
                 ],
               ),
@@ -110,51 +107,6 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
             const SizedBox(height: 24),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _Slide extends StatelessWidget {
-  final String emoji;
-  final String title;
-  final String description;
-
-  const _Slide({
-    required this.emoji,
-    required this.title,
-    required this.description,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 64)),
-          const SizedBox(height: 32),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: context.corTextoHeading,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            description,
-            style: TextStyle(
-              fontSize: 16,
-              color: context.corTextoBody,
-              height: 1.5,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
       ),
     );
   }

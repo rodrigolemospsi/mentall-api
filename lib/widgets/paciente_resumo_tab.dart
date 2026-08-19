@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../models/anamnese_enviada.dart';
 import '../models/contrato_terapeutico.dart';
@@ -11,6 +10,7 @@ import '../models/pacote.dart';
 import '../models/progresso_sessao.dart';
 import '../providers/service_providers.dart';
 import '../services/anamnese_templates.dart';
+import '../services/whatsapp_service.dart';
 import '../utils/mentall_colors.dart';
 import '../utils/responsivo.dart';
 import '../widgets/anamnese_card.dart';
@@ -39,24 +39,25 @@ Future<void> _enviarAnamneseWhatsApp({
     return;
   }
 
-  final mensagem = Uri.encodeComponent(
-    'Olá ${paciente.nome.trim()}! Antes da nossa consulta, gostaria que você respondesse este questionário. '
-    'Leva cerca de 10 minutos e me ajuda a conhecer você melhor:\n\n'
-    '${anamnese.url}',
+  final mensagem =
+      'Olá ${paciente.nome.trim()}! Antes da nossa consulta, gostaria que você respondesse este questionário. '
+      'Leva cerca de 10 minutos e me ajuda a conhecer você melhor:\n\n'
+      '${anamnese.url}';
+
+  final abriu = await WhatsAppService.escolher(
+    context: context,
+    numero: contato,
+    texto: mensagem,
+    titulo: 'Enviar com...',
   );
-  final uri = Uri.parse('https://wa.me/$contato?text=$mensagem');
 
-  if (await canLaunchUrl(uri)) {
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-
+  if (abriu) {
     final service = ref.read(anamneseEnviadaServiceProvider);
     await service.marcarComoEnviada(anamnese);
-  } else {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Não foi possível abrir o WhatsApp.')),
-      );
-    }
+  } else if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Não foi possível abrir o WhatsApp.')),
+    );
   }
 }
 
@@ -160,18 +161,21 @@ Future<void> _enviarContratoWhatsApp({
     return;
   }
 
-  final mensagem = Uri.encodeComponent(
-    'Olá ${paciente.nome.trim()}! Segue o Acordo Terapêutico para sua leitura. '
-    'Por favor, acesse o link, leia com atenção e, se estiver de acordo, '
-    'digite seu nome ao final para confirmar:\n\n'
-    '${contrato.url}',
-  );
+  final mensagem =
+      'Olá ${paciente.nome.trim()}! Segue o Acordo Terapêutico para sua leitura. '
+      'Por favor, acesse o link, leia com atenção e, se estiver de acordo, '
+      'digite seu nome ao final para confirmar:\n\n'
+      '${contrato.url}';
   final numero = contato.replaceAll(RegExp(r'[^\d]'), '');
-  final uri = Uri.parse('https://wa.me/$numero?text=$mensagem');
 
-  if (await canLaunchUrl(uri)) {
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  final abriu = await WhatsAppService.escolher(
+    context: context,
+    numero: numero,
+    texto: mensagem,
+    titulo: 'Enviar com...',
+  );
 
+  if (abriu) {
     final contratoService = ref.read(contratoServiceProvider);
     await contratoService.marcarComoEnviado(contrato);
 
@@ -183,12 +187,10 @@ Future<void> _enviarContratoWhatsApp({
     );
 
     ref.invalidate(contratoPorPacienteProvider(paciente.id));
-  } else {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Não foi possível abrir o WhatsApp.')),
-      );
-    }
+  } else if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Não foi possível abrir o WhatsApp.')),
+    );
   }
 }
 
@@ -516,7 +518,7 @@ class PacienteResumoTab extends ConsumerWidget {
     return Card(
       margin: EdgeInsets.zero,
       color: corCard,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -631,7 +633,7 @@ class PacienteResumoTab extends ConsumerWidget {
       margin: EdgeInsets.zero,
       color: context.corCard,
       elevation: Theme.of(context).brightness == Brightness.dark ? 4 : 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -813,7 +815,7 @@ class PacienteResumoTab extends ConsumerWidget {
     return Card(
       margin: EdgeInsets.zero,
       color: context.corCard,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(

@@ -6,6 +6,7 @@ import '../utils/mentall_colors.dart';
 final gravandoAudioProvider = StateProvider<bool>((ref) => false);
 final audioPausadoProvider = StateProvider<bool>((ref) => false);
 final reproduzindoAudioProvider = StateProvider<bool>((ref) => false);
+final preparandoAudioProvider = StateProvider<bool>((ref) => false);
 final duracaoGravacaoProvider = StateProvider<Duration>((ref) => Duration.zero);
 final audioRelatoPathProvider = StateProvider<String>((ref) => '');
 final audioRelatoBase64Provider = StateProvider<String>((ref) => '');
@@ -349,6 +350,7 @@ class BotoesAudioWidget extends ConsumerWidget {
     final gravando = ref.watch(gravandoAudioProvider);
     final pausado = ref.watch(audioPausadoProvider);
     final reproduzindo = ref.watch(reproduzindoAudioProvider);
+    final preparando = ref.watch(preparandoAudioProvider);
     final possuiAudio = _checkPossuiAudio(ref);
     ref.watch(audioRelatoPathProvider);
     ref.watch(audioRelatoBase64Provider);
@@ -414,9 +416,23 @@ class BotoesAudioWidget extends ConsumerWidget {
                 icone: reproduzindo
                     ? Icons.stop_rounded
                     : Icons.play_arrow_rounded,
-                rotulo: reproduzindo ? 'Parar áudio' : 'Ouvir áudio',
+                rotulo: preparando
+                    ? 'Preparando áudio...'
+                    : (reproduzindo ? 'Parar áudio' : 'Ouvir áudio'),
                 cor: reproduzindo ? context.corError : context.corPrimaria,
-                onPressed: existeAcaoEmAndamento ? null : onOuvirParar,
+                onPressed: (existeAcaoEmAndamento || preparando)
+                    ? null
+                    : onOuvirParar,
+                iconeCustomizado: preparando
+                    ? SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: context.corPrimaria,
+                        ),
+                      )
+                    : null,
               ),
             if (possuiAudio && !gravando)
               BotaoAudioCircular(

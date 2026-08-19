@@ -21,6 +21,22 @@ extension MentAllProColors on BuildContext {
   Color get corDivider => cs.outlineVariant;
   Color get corBorda => cs.outlineVariant;
 
+  List<BoxShadow>? get corCardSombra {
+    if (cs.brightness == Brightness.dark) return null;
+    return [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.08),
+        blurRadius: 8,
+        offset: const Offset(0, 2),
+      ),
+    ];
+  }
+
+  Border? get corCardBorda {
+    if (cs.brightness != Brightness.dark) return null;
+    return Border.all(color: cs.outlineVariant);
+  }
+
   Color get corSuccess => const Color(0xFF2E7D32);
   Color get corError => cs.error;
   Color get corOnError => cs.onError;

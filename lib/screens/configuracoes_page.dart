@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
 import '../providers/service_providers.dart';
 import '../services/api_client.dart';
@@ -266,98 +269,164 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
     final urlController = TextEditingController(text: ApiClient.baseUrl);
     final userController = TextEditingController(text: ApiClient.username);
     final passController = TextEditingController(text: '');
+    bool _testando = false;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Servidor'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: urlController,
-              keyboardType: TextInputType.url,
-              decoration: const InputDecoration(
-                labelText: 'URL do servidor',
-                hintText: 'https://mentall-api.fly.dev',
-                border: OutlineInputBorder(),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: const Text('Servidor'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: urlController,
+                keyboardType: TextInputType.url,
+                decoration: const InputDecoration(
+                  labelText: 'URL do servidor',
+                  hintText: 'https://mentall-api.fly.dev',
+                  border: OutlineInputBorder(),
+                ),
               ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: userController,
+                decoration: const InputDecoration(
+                  labelText: 'Usu\u00e1rio',
+                  hintText: 'Obrigat\u00f3rio',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: passController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Senha',
+                  hintText: 'Obrigat\u00f3ria',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Credenciais s\u00e3o obrigat\u00f3rias para transcri\u00e7\u00e3o e s\u00edntese com IA.',
+                  style: TextStyle(fontSize: 12, color: context.corTextoMuted),
+                ),
+              ),
+              if (_testando) ...[
+                const SizedBox(height: 16),
+                const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                    SizedBox(width: 12),
+                    Text('Testando conex\u00e3o...'),
+                  ],
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: _testando
+                  ? null
+                  : () {
+                      urlController.text = ApiClient.defaultBaseUrl;
+                      userController.text = '';
+                      passController.text = '';
+                    },
+              child: const Text('Restaurar URL padr\u00e3o'),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: userController,
-              decoration: const InputDecoration(
-                labelText: 'Usu\u00e1rio',
-                hintText: 'Obrigat\u00f3rio',
-                border: OutlineInputBorder(),
-              ),
+            TextButton(
+              onPressed: _testando ? null : () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: passController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Senha',
-                hintText: 'Obrigat\u00f3ria',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Credenciais s\u00e3o obrigat\u00f3rias para transcri\u00e7\u00e3o e s\u00edntese com IA.',
-                style: TextStyle(fontSize: 12, color: context.corTextoMuted),
-              ),
+            FilledButton(
+              onPressed: _testando
+                  ? null
+                  : () async {
+                      final url = urlController.text.trim();
+                      if (url.isEmpty || !url.startsWith('http')) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Informe uma URL v\u00e1lida come\u00e7ando com http.'),
+                          ),
+                        );
+                        return;
+                      }
+                      final username = userController.text.trim();
+                      final password = passController.text.trim();
+                      if (username.isEmpty || password.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Usu\u00e1rio e senha s\u00e3o obrigat\u00f3rios.'),
+                          ),
+                        );
+                        return;
+                      }
+
+                      setState(() => _testando = true);
+
+                      // Testa conexão antes de salvar
+                      final ok = await _testarConexaoServidor(url, username, password);
+
+                      if (!ctx.mounted) return;
+                      setState(() => _testando = false);
+
+                      if (!ok) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Falha na conex\u00e3o. Verifique URL, usu\u00e1rio e senha.'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+
+                      // Salva no Hive (ApiClient) + SecureStorage (AuthService)
+                      await ApiClient.setBaseUrl(url);
+                      await ApiClient.setCredentials(username, password);
+                      await ref.read(authServiceProvider).salvarCredenciaisServidor(username, password);
+
+                      if (ctx.mounted) Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Servidor configurado e conex\u00e3o testada com sucesso!'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    },
+              child: const Text('Salvar e testar'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              urlController.text = ApiClient.defaultBaseUrl;
-              userController.text = '';
-              passController.text = '';
-            },
-            child: const Text('Restaurar URL padr\u00e3o'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final url = urlController.text.trim();
-              if (url.isEmpty || !url.startsWith('http')) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Informe uma URL v\u00e1lida come\u00e7ando com http.'),
-                  ),
-                );
-                return;
-              }
-              final username = userController.text.trim();
-              final password = passController.text.trim();
-              if (username.isEmpty || password.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Usu\u00e1rio e senha s\u00e3o obrigat\u00f3rios.'),
-                  ),
-                );
-                return;
-              }
-              await ApiClient.setBaseUrl(url);
-              await ApiClient.setCredentials(username, password);
-              if (ctx.mounted) Navigator.pop(ctx);
-            },
-            child: const Text('Salvar'),
-          ),
-        ],
       ),
     ).then((_) {
       urlController.dispose();
       userController.dispose();
       passController.dispose();
     });
+  }
+
+  /// Testa a conexão com o servidor usando as credenciais fornecidas.
+  Future<bool> _testarConexaoServidor(String url, String username, String password) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$url/auth/login'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'username': username,
+              'password': password,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
   }
 
   void _mostrarDialogContrato(BuildContext context, WidgetRef ref) {

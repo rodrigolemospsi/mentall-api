@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/service_providers.dart';
+import '../services/api_client.dart';
+import 'conta_page.dart';
 import 'login_page.dart';
 import 'main_shell.dart';
 import 'onboarding_page.dart';
@@ -21,6 +23,7 @@ class _AppStartPageState extends ConsumerState<AppStartPage>
   bool _bloqueadoPeloCicloDeVida = false;
   bool _mostrarSplash = true;
   bool _splashPodePular = false;
+  bool _autoLoginTentado = false;
   Timer? _splashTimer;
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnimation;
@@ -77,6 +80,7 @@ class _AppStartPageState extends ConsumerState<AppStartPage>
       if (authService.desbloqueado && authService.requerAutenticacao) {
         authService.bloquear();
         _bloqueadoPeloCicloDeVida = true;
+        _autoLoginTentado = false; // Permite novo auto-login no próximo desbloqueio
       }
     } else if (state == AppLifecycleState.resumed) {
       if (_bloqueadoPeloCicloDeVida) {
@@ -94,7 +98,23 @@ class _AppStartPageState extends ConsumerState<AppStartPage>
       return _buildSplash(context);
     }
 
+    ref.watch(contaRevisaoProvider);
+
     final authService = ref.read(authServiceProvider);
+
+    // Tenta auto-login com credenciais salvas no SecureStorage após desbloqueio
+    if (authService.desbloqueado && !_autoLoginTentado) {
+      _autoLoginTentado = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          authService.tentarAutoLoginServidor();
+        }
+      });
+    }
+
+    if (!ApiClient.possuiConta) {
+      return const ContaPage();
+    }
 
     if (!authService.desbloqueado && authService.requerAutenticacao) {
       return const LoginPage();
@@ -132,10 +152,10 @@ class _AppStartPageState extends ConsumerState<AppStartPage>
           body: Center(
               child: Image.asset(
                 isDark
-                    ? 'assets/images/logo_mentall_escuro.png'
-                    : 'assets/images/logo_mentall_pro_claro.png',
-                height: 160,
-                cacheHeight: 320,
+                    ? 'assets/images/logo_mentallpro_fundoescuro1.png'
+                    : 'assets/images/logo_mentallpro_fundoclaro1.png',
+                height: 128,
+                cacheHeight: 256,
                 semanticLabel: 'Logo MentAll PRO',
               ),
           ),

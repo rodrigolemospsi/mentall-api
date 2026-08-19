@@ -141,7 +141,8 @@ class PacienteFinanceiroTab extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        boxShadow: context.corCardSombra,
+        border: context.corCardBorda,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

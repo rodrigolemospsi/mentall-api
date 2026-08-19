@@ -58,6 +58,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   intl: ^0.20.2
+  android_intent_plus: ^6.1.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -89,9 +90,9 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: false
-  image_path: "assets/images/logo_mentall_pro_home.png"
+  image_path: "assets/images/logo_mentallpro_sem_nome_quadrado.png"
   adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/images/logo_mentall_pro_home.png"
+  adaptive_icon_foreground: "assets/images/logo_mentallpro_sem_nome_quadrado.png"
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -69,10 +69,12 @@ class DemoDataService {
       dataNascimento: DateTime(1991, 1, 25),
       tratamento: 'feminino',
       tipoAtendimento: 'Particular',
+      contato: '(11) 99999-9999',
       fotoBase64: fotoBase64,
       ehDemo: true,
       observacoes:
-          'Paciente fict\u00edcia de demonstra\u00e7\u00e3o \u2014 criada como exemplo para teste do aplicativo.',
+          'Paciente fict\u00edcia de demonstra\u00e7\u00e3o \u2014 criada como exemplo para teste do aplicativo. '
+          'Para testar o WhatsApp, substitua o contato pelo seu pr\u00f3prio n\u00famero.',
       dataCadastro: DateTime(2026, 7, 8),
     );
 

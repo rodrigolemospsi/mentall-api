@@ -140,12 +140,20 @@ class IaClinicaService {
         return ResultadoIaClinica.falha(erro: data['erro'] as String? ?? 'Erro do servidor.');
       }
 
+      final status = resultado['status'] as int? ?? 0;
+      if (status == 0 || status >= 500) {
+        return ResultadoIaClinica.falha(
+          erro:
+              'Serviço de IA temporariamente indisponível. Tente novamente em instantes.',
+        );
+      }
       return ResultadoIaClinica.falha(
-        erro: 'Servidor retornou código ${resultado['status']}.',
+        erro: 'Servidor retornou código $status.',
       );
-    } catch (erro) {
+    } catch (_) {
       return ResultadoIaClinica.falha(
-        erro: 'Não foi possível gerar a síntese clínica. Detalhes: $erro',
+        erro:
+            'Serviço de IA temporariamente indisponível. Verifique sua conexão e tente novamente.',
       );
     }
   }

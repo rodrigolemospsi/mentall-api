@@ -10,7 +10,7 @@ import '../models/sessao.dart';
 import 'logger.dart';
 
 class PdfExportService {
-  static const PdfColor _primaria = PdfColor.fromInt(0xFF2563EB);
+  static const PdfColor _primaria = PdfColor.fromInt(0xFF2066FF);
   static const PdfColor _primariaClara = PdfColor.fromInt(0xFFDBEAFE);
   static const PdfColor _secundaria = PdfColor.fromInt(0xFF64748B);
   static const PdfColor _fundo = PdfColor.fromInt(0xFFF8FAFC);
@@ -23,7 +23,7 @@ class PdfExportService {
   static Future<void> _carregarLogo() async {
     if (_logoBytes != null) return;
     try {
-      _logoBytes = (await rootBundle.load('assets/images/logo_mentall_pro_claro.png'))
+      _logoBytes = (await rootBundle.load('assets/images/logo_mentallpro_fundoclaro1.png'))
           .buffer
           .asUint8List();
       _logoImage = pw.MemoryImage(_logoBytes!);
@@ -258,7 +258,7 @@ class PdfExportService {
         crossAxisAlignment: pw.CrossAxisAlignment.end,
         children: [
           if (_logoImage != null)
-            pw.Image(_logoImage!, height: 44)
+            pw.Image(_logoImage!, height: 35)
           else
             pw.Text(
               'MentAll PRO',
@@ -998,7 +998,7 @@ class PdfExportService {
             child: pw.Row(
               children: [
                 if (_logoImage != null)
-                  pw.Image(_logoImage!, width: 40, height: 40),
+                  pw.Image(_logoImage!, width: 32, height: 32),
                 pw.SizedBox(width: 8),
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,

@@ -197,7 +197,10 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   bool get _editando => widget.sessaoExistente != null;
 
   bool get _existeAcaoEmAndamento {
-    return ref.read(gravandoAudioProvider) || _transcrevendoRelato || _gerandoSinteseIa;
+    return ref.read(gravandoAudioProvider) ||
+        _transcrevendoRelato ||
+        _gerandoSinteseIa ||
+        ref.read(preparandoAudioProvider);
   }
 
   bool _descarteConfirmado = false;
@@ -841,8 +844,10 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       SnackBar(
         content: Text(
           _possuiAudioRelatoBase64
-              ? 'Gravação finalizada e salva com backup interno em Base64.'
-              : 'Gravação finalizada e vinculada à sessão. O backup Base64 não foi gerado.',
+              ? 'Gravação finalizada e salva.'
+              : (kIsWeb
+                  ? 'Gravação finalizada, mas o backup Base64 não foi gerado.'
+                  : 'Gravação finalizada.'),
         ),
       ),
     );
@@ -935,11 +940,19 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
           _possuiAudioRelatoBase64 &&
               (caminhoAudio.isEmpty || caminhoAudio.startsWith('blob:'));
 
-      if (devePreferirBase64) {
-        fonteAudio = _criarFonteAudioBase64();
-      } else {
-        fonteAudio = await _criarFonteAudioPorCaminho(caminhoAudio) ??
-            _criarFonteAudioBase64();
+      ref.read(preparandoAudioProvider.notifier).state = true;
+      _triggerRebuild();
+
+      try {
+        if (devePreferirBase64) {
+          fonteAudio = _criarFonteAudioBase64();
+        } else {
+          fonteAudio = await _criarFonteAudioPorCaminho(caminhoAudio) ??
+              _criarFonteAudioBase64();
+        }
+      } finally {
+        ref.read(preparandoAudioProvider.notifier).state = false;
+        if (mounted) _triggerRebuild();
       }
 
       if (fonteAudio == null) {
@@ -1334,7 +1347,7 @@ if (!mounted || confirmar != true) return;
       _statusProcessamento =
           _possuiTranscricaoRelato ? 'transcrito' : 'manual';
       _erroProcessamentoIa =
-          'Não foi possível gerar a síntese clínica. Detalhes: $erro';
+          'Serviço de IA temporariamente indisponível. Tente novamente em instantes.';
       _triggerRebuild();
 
       ScaffoldMessenger.of(context).showSnackBar(

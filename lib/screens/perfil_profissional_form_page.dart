@@ -372,9 +372,9 @@ class _PerfilProfissionalFormPageState
                 alignment: Alignment.centerLeft,
                 child: Image.asset(
                   Theme.of(context).brightness == Brightness.dark
-                      ? 'assets/images/logo_mentall_escuro.png'
-                      : 'assets/images/logo_mentall_pro_claro.png',
-                  height: 56,
+                      ? 'assets/images/logo_mentallpro_fundoescuro1.png'
+                      : 'assets/images/logo_mentallpro_fundoclaro1.png',
+                  height: 45,
                 ),
               ),
               const SizedBox(height: 16),
@@ -382,9 +382,9 @@ class _PerfilProfissionalFormPageState
               Center(
                 child: Image.asset(
                   Theme.of(context).brightness == Brightness.dark
-                      ? 'assets/images/logo_mentall_escuro.png'
-                      : 'assets/images/logo_mentall_pro_claro.png',
-                  height: 160,
+                      ? 'assets/images/logo_mentallpro_fundoescuro1.png'
+                      : 'assets/images/logo_mentallpro_fundoclaro1.png',
+                  height: 128,
                 ),
               ),
               const SizedBox(height: 10),
@@ -634,7 +634,8 @@ class _PerfilProfissionalFormPageState
       decoration: BoxDecoration(
         color: context.corCard,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: context.corDivider),
+        boxShadow: context.corCardSombra,
+        border: context.corCardBorda,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

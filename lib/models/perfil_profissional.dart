@@ -124,6 +124,17 @@ class PerfilProfissional extends HiveObject {
   String get termoPluralCapitalizado =>
       _capitalizarPrimeiraLetra(termoPlural);
 
+  String get termoPluralNavbar {
+    switch (termoPessoaAtendidaEnum) {
+      case TermoPessoaAtendida.pessoaAtendida:
+        return 'P. Atendidas';
+      case TermoPessoaAtendida.cliente:
+        return 'Clientes';
+      case TermoPessoaAtendida.paciente:
+        return 'Pacientes';
+    }
+  }
+
   String get artigoDefinidoSingular =>
       termoPessoaAtendidaEnum.artigoDefinidoSingular;
 

@@ -417,9 +417,9 @@ class _HomePageState extends ConsumerState<HomePage> {
         toolbarHeight: 80,
         title: Image.asset(
           Theme.of(context).brightness == Brightness.dark
-              ? 'assets/images/logo_mentall_escuro.png'
-              : 'assets/images/logo_mentall_pro_home.png',
-          height: 98,
+              ? 'assets/images/logo_mentallpro_fundoescuro1.png'
+              : 'assets/images/logo_mentallpro_fundoclaro1.png',
+          height: 78,
         ),
         centerTitle: false,
         backgroundColor: colorScheme.surface,

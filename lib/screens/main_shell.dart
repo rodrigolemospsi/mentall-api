@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../providers/service_providers.dart';
 import 'financeiro_page.dart';
 import 'home_page.dart';
 import 'pacientes_page.dart';
@@ -21,6 +22,9 @@ class _MainShellState extends ConsumerState<MainShell> {
   Widget build(BuildContext context) {
     final tabIndex = ref.watch(_tabIndexProvider);
     _tabsConstruidas.add(tabIndex);
+
+    final termoPluralNavbar =
+        ref.watch(perfilTermoPluralProvider).valueOrNull ?? 'Pacientes';
 
     return Scaffold(
       body: IndexedStack(
@@ -49,11 +53,11 @@ class _MainShellState extends ConsumerState<MainShell> {
             ),
           ),
           Semantics(
-            label: 'Pacientes',
-            child: const NavigationDestination(
-              icon: Icon(Icons.people_outlined),
-              selectedIcon: Icon(Icons.people),
-              label: 'Pacientes',
+            label: termoPluralNavbar,
+            child: NavigationDestination(
+              icon: const Icon(Icons.people_outlined),
+              selectedIcon: const Icon(Icons.people),
+              label: termoPluralNavbar,
             ),
           ),
           Semantics(

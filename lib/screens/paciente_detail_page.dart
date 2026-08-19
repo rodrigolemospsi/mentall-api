@@ -116,10 +116,11 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
           labelColor: context.corOnPrimaria,
           unselectedLabelColor: context.corOnPrimaria.withValues(alpha: 0.6),
           indicatorColor: context.corOnPrimaria,
+          indicatorWeight: 3,
           tabs: [
-            const Tab(icon: Icon(Icons.person_outline), text: 'Resumo'),
-            Tab(icon: const Icon(Icons.history_outlined), text: 'Sessões ($totalSessoes)'),
-            const Tab(icon: Icon(Icons.payments_outlined), text: 'Financeiro'),
+            const Tab(text: 'Resumo'),
+            Tab(text: 'Sessões ($totalSessoes)'),
+            const Tab(text: 'Financeiro'),
           ],
         ),
         actions: _appBarAcoes(),
@@ -177,25 +178,25 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
         },
         itemBuilder: (_) {
           final items = <PopupMenuItem<String>>[
-            const PopupMenuItem(
+            PopupMenuItem(
               value: 'escalas',
               child: Row(
                 children: [
-                  Icon(Icons.analytics_outlined, size: 20),
-                  SizedBox(width: 8),
-                  Text('Escalas Psicologicas'),
+                  Icon(Icons.analytics_outlined, size: 20, color: context.corPrimaria),
+                  const SizedBox(width: 8),
+                  const Text('Escalas Psicologicas'),
                 ],
               ),
             ),
           ];
           if (temContratoAceito) {
-            items.add(const PopupMenuItem(
+            items.add(PopupMenuItem(
               value: 'acordo',
               child: Row(
                 children: [
-                  Icon(Icons.description_outlined, size: 20),
-                  SizedBox(width: 8),
-                  Text('Acordo Terapeutico'),
+                  Icon(Icons.description_outlined, size: 20, color: context.corPrimaria),
+                  const SizedBox(width: 8),
+                  const Text('Acordo Terapeutico'),
                 ],
               ),
             ));

@@ -3,9 +3,9 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 class PdfArquiteturaLgpdService {
-  static const _azul = PdfColor.fromInt(0xFF2563EB);
+  static const _azul = PdfColor.fromInt(0xFF2066FF);
   static const _azulClaro = PdfColor.fromInt(0xFFDBEAFE);
-  static const _azulBg = PdfColor.fromInt(0xFFEFF6FF);
+  static const _azulBg = PdfColor.fromInt(0xFFE8F1FF);
   static const _texto = PdfColor.fromInt(0xFF1E293B);
   static const _subtitulo = PdfColor.fromInt(0xFF475569);
   static const _linha = PdfColor.fromInt(0xFFE2E8F0);
