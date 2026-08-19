@@ -65,6 +65,23 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    usuario_id: str = ""
+    email: str = ""
+    nome: str = ""
+    plano: str = ""
+
+
+class RegistrarRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=200)
+    senha: str = Field(min_length=6, max_length=200)
+    nome: str = Field(default="", max_length=120)
+
+
+class RegistrarResponse(BaseModel):
+    sucesso: bool
+    usuario_id: str = ""
+    mensagem: str = ""
+    erro: str = ""
 
 
 class SmsRequest(BaseModel):

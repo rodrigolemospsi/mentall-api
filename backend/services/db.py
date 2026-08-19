@@ -2,6 +2,7 @@ import logging
 import os
 import sqlite3
 import threading
+import time
 
 log = logging.getLogger("mentall.db")
 
@@ -11,6 +12,8 @@ TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN", "").strip()
 _conexao = None
 _conexao_lock = threading.Lock()
 _usa_turso = False
+_turso_ultima_tentativa = 0.0
+TURSO_RECONNECT_INTERVAL = 60.0
 
 
 def _conectar_local():
@@ -45,11 +48,42 @@ def _to_dict(row, cursor):
     return row
 
 
+def _tentar_conectar_turso():
+    """Tenta conectar ao Turso. Retorna a conexao ou None em caso de falha."""
+    try:
+        conn = _conectar_turso()
+        conn.execute("SELECT 1")
+        log.info("Turso conectado.")
+        return conn
+    except Exception as e:
+        log.error("Falha ao conectar ao Turso: %s", e)
+        return None
+
+
+def _criar_tabelas(conn) -> None:
+    for sql in _tabelas + _indices:
+        conn.execute(sql)
+    conn.commit()
+    log.info("Tabelas verificadas/criadas com sucesso.")
+
+
 def _obter_conexao():
-    global _conexao, _usa_turso
+    global _conexao, _usa_turso, _turso_ultima_tentativa
+
     if _conexao is not None:
         try:
             _conexao.execute("SELECT 1")
+            if not _usa_turso and TURSO_URL and TURSO_TOKEN:
+                agora = time.time()
+                if agora - _turso_ultima_tentativa >= TURSO_RECONNECT_INTERVAL:
+                    _turso_ultima_tentativa = agora
+                    log.warning("Em fallback SQLite local. Tentando reconectar ao Turso...")
+                    nova = _tentar_conectar_turso()
+                    if nova is not None:
+                        with _conexao_lock:
+                            _conexao = nova
+                            _usa_turso = True
+                        log.info("Reconectado ao Turso. Dados persistidos novamente.")
             return _conexao
         except Exception:
             log.warning("Conexao perdida. Reconectando...")
@@ -60,22 +94,22 @@ def _obter_conexao():
         if _conexao is not None:
             return _conexao
 
+        _turso_ultima_tentativa = time.time()
         if TURSO_URL and TURSO_TOKEN:
             log.info("Conectando ao Turso: %s", TURSO_URL[:60])
-            try:
-                _conexao = _conectar_turso()
-                _conexao.execute("SELECT 1")
+            nova = _tentar_conectar_turso()
+            if nova is not None:
+                _conexao = nova
                 _usa_turso = True
-                log.info("Turso conectado.")
                 return _conexao
-            except Exception as e:
-                log.error("Falha ao conectar ao Turso: %s. Fallback para SQLite local.", e)
-                _conexao = None
-                _usa_turso = False
 
-        log.info("Usando SQLite local.")
+        log.critical(
+            "ATENCAO: Turso indisponivel. Usando SQLite local (efemero). "
+            "Os dados NAO persistirao entre reinicios. Verifique a conexao com o Turso."
+        )
         _conexao = _conectar_local()
         _usa_turso = False
+        _criar_tabelas(_conexao)
         return _conexao
 
 
@@ -152,9 +186,21 @@ _tabelas = [
     """CREATE TABLE IF NOT EXISTS recuperacoes (
         email_hash TEXT PRIMARY KEY,
         recovery_token TEXT NOT NULL DEFAULT '',
-        codigo TEXT,
+        codigo_hash TEXT,
         codigo_expiracao TEXT,
         criado_em TEXT NOT NULL
+    )""",
+    """CREATE TABLE IF NOT EXISTS usuarios (
+        id TEXT PRIMARY KEY,
+        email TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        nome TEXT NOT NULL DEFAULT '',
+        plano TEXT NOT NULL DEFAULT 'gratis',
+        status TEXT NOT NULL DEFAULT 'pendente',
+        criado_em TEXT NOT NULL,
+        ultimo_acesso_em TEXT,
+        email_verificacao_token_hash TEXT,
+        email_verificacao_expiracao TEXT
     )""",
 ]
 
@@ -166,10 +212,27 @@ _indices = [
 
 try:
     conn = _obter_conexao()
-    for sql in _tabelas + _indices:
-        conn.execute(sql)
-    conn.commit()
-    log.info("Tabelas verificadas/criadas com sucesso.")
+    _criar_tabelas(conn)
 except Exception as e:
     log.exception("Erro ao criar tabelas: %s", e)
     raise
+
+
+def _colunas(tabela: str) -> set:
+    try:
+        rows = executar(f"PRAGMA table_info({tabela})").fetchall()
+        return {r["name"] for r in rows}
+    except Exception:
+        return set()
+
+
+def _garantir_coluna(tabela: str, coluna: str, tipo: str) -> None:
+    if coluna not in _colunas(tabela):
+        executar(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {tipo}").commit()
+        log.info("Migracao: coluna %s.%s adicionada.", tabela, coluna)
+
+
+# Migracoes incrementais (para bancos ja existentes)
+_garantir_coluna("usuarios", "email_verificacao_token_hash", "TEXT")
+_garantir_coluna("usuarios", "email_verificacao_expiracao", "TEXT")
+_garantir_coluna("recuperacoes", "codigo_hash", "TEXT")

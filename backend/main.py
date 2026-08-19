@@ -21,6 +21,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+log = logging.getLogger("mentall")
+
 from models.schemas import (
     AnamneseRequest,
     AnamneseResponse,
@@ -41,6 +51,8 @@ from models.schemas import (
     RecuperacaoRequest,
     RecuperacaoResponse,
     RegistrarRecuperacaoRequest,
+    RegistrarRequest,
+    RegistrarResponse,
     ResponderAnamneseRequest,
     SinteseRequest,
     SinteseResponse,
@@ -74,15 +86,6 @@ from services.lembrete_service import (
     parar_scheduler,
 )
 from services.transcricao import transcrever_audio
-
-load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-log = logging.getLogger("mentall")
 
 _rate_limit_store: dict[str, list[float]] = {}
 
@@ -219,7 +222,7 @@ def _renderizar_template_personalizado(
     right: 28px;
     font-size: 12px;
     font-weight: 700;
-    color: #2563EB;
+    color: #2066FF;
     opacity: 0.45;
     letter-spacing: 0.5px;
   }}
@@ -250,7 +253,7 @@ def _renderizar_template_personalizado(
     text-align: center;
     font-size: 20px;
     font-weight: 700;
-    color: #2563EB;
+    color: #2066FF;
     margin-bottom: 0;
     padding-bottom: 0;
     letter-spacing: 0.5px;
@@ -298,13 +301,13 @@ def _renderizar_template_personalizado(
     outline: none;
   }}
   .secao-aceite input[type="text"]:focus {{
-    border-color: #2563EB;
-    box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+    border-color: #2066FF;
+    box-shadow: 0 0 0 3px rgba(32,102,255,0.12);
   }}
   .btn-aceitar {{
     width: 100%;
     padding: 14px;
-    background: #2563EB;
+    background: #2066FF;
     color: #fff;
     font-size: 16px;
     font-weight: 600;
@@ -418,9 +421,9 @@ def _verificar_senha(senha: str) -> bool:
         return False
 
 
-def _criar_token_jwt(username: str) -> str:
+def _criar_token_jwt(username: str, owner_id: str) -> str:
     expiracao = datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRATION)
-    payload = {"sub": username, "exp": expiracao, "owner": APP_USER_ID}
+    payload = {"sub": username, "exp": expiracao, "owner": owner_id}
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
@@ -523,15 +526,123 @@ def health():
 def login(request: LoginRequest, _req: Request):
     ip = _req.client.host if _req.client else "unknown"
     _rate_limit_check(ip, max_requests=10)
-    if not _verificar_senha(request.password):
-        log.warning("Falha de autenticacao para usuario '%s' (IP: %s)", request.username, ip)
+
+    username = request.username.strip()
+
+    # 1) Admin legado (owner fixo, preserva dados existentes)
+    if username == APP_USERNAME and _verificar_senha(request.password):
+        token = _criar_token_jwt(username, APP_USER_ID)
+        log.info("Login admin legado bem-sucedido (IP: %s)", ip)
+        return LoginResponse(
+            access_token=token,
+            usuario_id=APP_USER_ID,
+            email=username,
+            nome="",
+            plano="pro",
+        )
+
+    # 2) Conta de psicologo cadastrada
+    from services.usuarios import autenticar, registrar_acesso
+
+    usuario = autenticar(username, request.password)
+    if usuario is None:
+        log.warning("Falha de autenticacao para usuario '%s' (IP: %s)", username, ip)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Credenciais invalidas.",
         )
-    log.info("Login bem-sucedido para usuario '%s' (IP: %s)", request.username, ip)
-    token = _criar_token_jwt(request.username)
-    return LoginResponse(access_token=token)
+
+    if usuario["status"] == "pendente":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Conta nao confirmada. Verifique seu email.",
+        )
+
+    registrar_acesso(usuario["id"])
+    token = _criar_token_jwt(usuario["email"], usuario["id"])
+    log.info("Login bem-sucedido para usuario '%s' (IP: %s)", usuario["email"], ip)
+    return LoginResponse(
+        access_token=token,
+        usuario_id=usuario["id"],
+        email=usuario["email"],
+        nome=usuario["nome"],
+        plano=usuario["plano"],
+    )
+
+
+@app.post("/auth/registrar", response_model=RegistrarResponse, tags=["Autenticacao"])
+async def registrar(request: RegistrarRequest, _req: Request):
+    ip = _req.client.host if _req.client else "unknown"
+    _rate_limit_check(ip, max_requests=5)
+
+    email = request.email.strip().lower()
+    if "@" not in email or "." not in email.split("@")[-1]:
+        raise HTTPException(status_code=400, detail="Email invalido.")
+
+    from services.usuarios import criar_usuario_pendente, obter_por_email, regenerar_token
+
+    existente = obter_por_email(email)
+    if existente is not None and existente["status"] == "ativo":
+        raise HTTPException(status_code=409, detail="Email ja cadastrado.")
+
+    token = (
+        regenerar_token(email)
+        if existente is not None
+        else criar_usuario_pendente(email, request.senha, request.nome)
+    )
+
+    base_url = os.getenv("API_BASE_URL", "https://mentall-api.fly.dev")
+    link = f"{base_url}/auth/confirmar-email?token={token}"
+    corpo = f"""<html><body style="font-family:sans-serif;padding:20px;">
+<h2>MentAll PRO - Confirme seu cadastro</h2>
+<p>Obrigado por criar sua conta no MentAll PRO.</p>
+<p>Para ativar sua conta, clique no link abaixo (valido por 60 minutos):</p>
+<p><a href="{link}" style="display:inline-block;padding:12px 20px;background:#2066FF;color:#fff;
+text-decoration:none;border-radius:8px;">Confirmar meu cadastro</a></p>
+<p style="font-size:13px;color:#64748B;">Se voce nao criou esta conta, ignore este email.</p>
+</body></html>"""
+
+    enviado = await _enviar_email(email, "MentAll PRO - Confirme seu cadastro", corpo)
+    log.info("Cadastro solicitado para email %s (link enviado=%s)", email, enviado)
+
+    return RegistrarResponse(
+        sucesso=True,
+        mensagem="Link de confirmacao enviado para o email." if enviado
+        else "Conta criada, mas o email nao esta disponivel no momento.",
+    )
+
+
+@app.get("/auth/confirmar-email", response_class=HTMLResponse, tags=["Autenticacao"])
+def confirmar_email(token: str, _req: Request):
+    ip = _req.client.host if _req.client else "unknown"
+    _rate_limit_check(ip, max_requests=30)
+
+    from services.usuarios import confirmar_email as _confirmar
+
+    usuario = _confirmar(token)
+    if usuario is None:
+        return HTMLResponse(
+            content="""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MentAll PRO</title></head>
+<body style="font-family:sans-serif;text-align:center;padding:40px;">
+<h2 style="color:#D32F2F;">Link invalido ou expirado</h2>
+<p>Este link de confirmacao nao e mais valido. Volte ao app e solicite um novo link.</p>
+</body></html>""",
+            status_code=400,
+        )
+
+    return HTMLResponse(
+        content="""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MentAll PRO</title></head>
+<body style="font-family:sans-serif;text-align:center;padding:40px;">
+<div style="width:64px;height:64px;border-radius:50%;background:#E8F5E9;color:#2E7D32;
+font-size:32px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">&#10003;</div>
+<h2 style="color:#1E293B;">Conta confirmada!</h2>
+<p style="color:#64748B;">Sua conta foi ativada. Volte ao app e toque em "Ja confirmei" para entrar.</p>
+</body></html>""",
+    )
 
 
 @app.post(
@@ -1229,6 +1340,10 @@ def _hash_email(email: str) -> str:
     return hashlib.sha256(email.lower().strip().encode()).hexdigest()
 
 
+def _hash_codigo(codigo: str) -> str:
+    return hashlib.sha256(codigo.encode()).hexdigest()
+
+
 async def _enviar_email(destinatario: str, assunto: str, corpo: str) -> bool:
     if not SMTP_HOST:
         log.warning("SMTP_HOST nao configurado. Email nao enviado para %s", destinatario)
@@ -1281,8 +1396,8 @@ async def solicitar_recuperacao(request: RecuperacaoRequest, _req: Request):
 
     if existente:
         executar(
-            "UPDATE recuperacoes SET codigo = ?, codigo_expiracao = ? WHERE email_hash = ?",
-            (codigo, (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat(), email_hash),
+            "UPDATE recuperacoes SET codigo_hash = ?, codigo_expiracao = ? WHERE email_hash = ?",
+            (_hash_codigo(codigo), (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat(), email_hash),
         ).commit()
     else:
         return RecuperacaoResponse(
@@ -1298,7 +1413,7 @@ async def solicitar_recuperacao(request: RecuperacaoRequest, _req: Request):
 </body></html>"""
 
     enviado = await _enviar_email(email, "MentAll PRO - Codigo de Recuperacao", corpo)
-    log.info("Codigo de recuperacao %s gerado para email %s (enviado=%s)", codigo, email_hash[:16], enviado)
+    log.info("Codigo de recuperacao gerado para email %s (enviado=%s)", email_hash[:16], enviado)
 
     return RecuperacaoResponse(
         sucesso=True,
@@ -1328,10 +1443,10 @@ def verificar_recuperacao(request: VerificarCodigoRequest, _req: Request):
     if not registro:
         return VerificarCodigoResponse(sucesso=False, erro="Nenhuma solicitacao de recuperacao encontrada.")
 
-    codigo_armazenado = registro.get("codigo", "")
+    codigo_armazenado = registro.get("codigo_hash", "")
     expiracao_str = registro.get("codigo_expiracao", "")
 
-    if codigo != codigo_armazenado:
+    if _hash_codigo(codigo) != codigo_armazenado:
         return VerificarCodigoResponse(sucesso=False, erro="Codigo invalido.")
 
     if expiracao_str:
@@ -1343,7 +1458,7 @@ def verificar_recuperacao(request: VerificarCodigoRequest, _req: Request):
             pass
 
     executar(
-        "UPDATE recuperacoes SET codigo = NULL, codigo_expiracao = NULL WHERE email_hash = ?",
+        "UPDATE recuperacoes SET codigo_hash = NULL, codigo_expiracao = NULL WHERE email_hash = ?",
         (email_hash,),
     ).commit()
 

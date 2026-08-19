@@ -577,17 +577,43 @@ def gerar_sintese(
         )
 
         provider = _get_provider()
-        log.info(
-            "Gerando sintese - provider=%s modelo=%s sessao=%d",
-            provider,
-            _get_model_name(),
-            numero_sessao,
+        ordem_providers = [provider] + [
+            p for p in ("gemini", "openai", "deepseek") if p != provider
+        ]
+
+        ultimo_erro = ""
+        for prov in ordem_providers:
+            log.info(
+                "Gerando sintese - provider=%s modelo=%s sessao=%d",
+                prov,
+                _get_model_name(prov),
+                numero_sessao,
+            )
+            resultado = _chamar_provider_sintese(prov, prompt)
+            if resultado.get("sucesso"):
+                return resultado
+            ultimo_erro = resultado.get("erro", "")
+            log.warning(
+                "Provedor %s falhou na sintese (tentando proximo): %s",
+                prov,
+                ultimo_erro,
+            )
+
+        log.error(
+            "Todos os provedores falharam na sintese. Ultimo erro: %s",
+            ultimo_erro,
         )
-        return _chamar_provider_sintese(provider, prompt)
+        return {
+            "sucesso": False,
+            "erro": "Serviço de IA temporariamente indisponível. Tente novamente em instantes.",
+        }
 
     except Exception as e:
         log.exception("Erro inesperado ao gerar sintese: %s", e)
-        return {"sucesso": False, "erro": f"Erro ao gerar síntese clínica: {str(e)}"}
+        return {
+            "sucesso": False,
+            "erro": "Serviço de IA temporariamente indisponível. Tente novamente em instantes.",
+        }
 
 
 def gerar_progresso(
