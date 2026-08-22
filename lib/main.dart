@@ -30,9 +30,8 @@ class _SecureHttpOverrides extends HttpOverrides {
   // To obtain: openssl s_client -connect mentall-api.fly.dev:443 -servername mentall-api.fly.dev </dev/null 2>/dev/null | openssl x509 -fingerprint -sha256 -noout
   // Format: "SHA256 Fingerprint=XX:XX:XX:..."
   static const _certFingerprints = <String>[
-    // Produção Fly.io - mentall-api.fly.dev
-    // Atualize ao renovar certificado (geralmente a cada 90 dias via Let's Encrypt)
-    // 'SHA256 Fingerprint=XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX',
+    // Produção Fly.io - mentall-api.fly.dev (Let's Encrypt, renova a cada ~90 dias)
+    'SHA256 Fingerprint=F6:3E:15:49:6D:97:94:61:45:C9:E5:D5:CC:21:C8:3F:12:DD:2E:35:14:DD:9A:B2:21:40:85:69:53:71:9B:19',
   ];
 
   @override
