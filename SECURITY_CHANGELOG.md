@@ -19,20 +19,13 @@
 | SEC-04 | Criptografar log em arquivo | `lib/services/logger.dart`, `lib/main.dart` | ✅ Concluído | P0 |
 | **Commit:** `9b85d2b` — Criptografa linhas antes de escrever no arquivo se PIN ativo
 | SEC-05 | Implementar certificate pinning | `lib/main.dart:28-49` | ✅ Concluído | P0 |
-| **Commit:** `a73d7dd` — Usa cert.der (DER), formata SHA-256, instruções para obter fingerprint
+| **Commit:** `a73d7dd` (infra) + `688bed6` (ativa fingerprint real do `mentall-api.fly.dev`)
 | SEC-06 | Migrar AES-CBC legado → AES-GCM | `lib/services/encryption_service.dart`, `lib/services/encrypted_service_mixin.dart` | ✅ Concluído | P0 |
 | **Commit:** `9775ae3` — Adiciona migrarParaGcm() e migrarCamposLegados() para migração proativa
 | SEC-07 | Lockout de PIN com backoff exponencial | `lib/services/encryption_service.dart`, `lib/screens/login_page.dart` | ✅ Concluído | P0 |
 | **Commit:** `ff2f527` — 5 tentativas → backoff 1s,2s,4s,8s,16s,32s,60s; reseta no sucesso
 | SEC-08 | Criptografar campos de auditoria | `lib/services/lgpd/auditoria_service.dart` | ✅ Concluído | P0 |
 | **Commit:** (já implementado) — EncryptedServiceMixin criptografa `descricao` em RegistroAuditoria
-| SEC-02 | Exigir PIN antes de exportar backup | `lib/screens/backup_restore_page*.dart`, `lib/services/backup_service.dart` | 🟡 Planejado | P0 |
-| SEC-03 | Eliminar fallback de áudio em texto puro | `lib/services/audio_relato_service.dart:403-405` | 🟡 Planejado | P0 |
-| SEC-04 | Criptografar ou desabilitar log em arquivo | `lib/services/logger.dart:66-82` | 🟡 Planejado | P0 |
-| SEC-05 | Implementar certificate pinning real | `lib/main.dart:28` | 🟡 Planejado | P0 |
-| SEC-06 | Migrar AES-CBC legado → AES-GCM com autenticação | `lib/services/encryption_service.dart:320-328` | 🟡 Planejado | P0 |
-| SEC-07 | Implementar lockout de PIN com backoff exponencial | `lib/services/encryption_service.dart`, `lib/services/auth_service.dart`, `lib/screens/login_page.dart` | 🟡 Planejado | P0 |
-| SEC-08 | Criptografar campos de auditoria (nomes de pacientes) | `lib/services/auditoria_service.dart` | 🟡 Planejado | P0 |
 
 ---
 
@@ -79,14 +72,14 @@
 ## 📋 Fases de Execução
 
 ### Fase 1 — Semana 1 (Crítico)
-- [ ] SEC-01
-- [ ] SEC-02
-- [ ] SEC-03
-- [ ] SEC-04
-- [ ] SEC-05
-- [ ] SEC-06
-- [ ] SEC-07
-- [ ] SEC-08
+- [x] SEC-01
+- [x] SEC-02
+- [x] SEC-03
+- [x] SEC-04
+- [x] SEC-05
+- [x] SEC-06
+- [x] SEC-07
+- [x] SEC-08
 
 ### Fase 2 — Semana 1-2 (Alto)
 - [ ] SEC-09
