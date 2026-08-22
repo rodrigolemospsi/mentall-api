@@ -98,9 +98,8 @@ Future<void> _criarEnviarAnamnese({
       crpVerificado: perfil.crpVerificado,
     );
 
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
     await _enviarAnamneseWhatsApp(
       context: context,
@@ -234,9 +233,8 @@ Future<void> _criarEnviarContrato({
       templateContrato: config.contratoTemplate,
     );
 
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
     await _enviarContratoWhatsApp(
       context: context,

@@ -7,7 +7,6 @@ void main() async {
   final azul = PdfColor.fromInt(0xFF2066FF);
   final azulClaro = PdfColor.fromInt(0xFFE8F1FF);
   final cinza = PdfColor.fromInt(0xFF64748B);
-  final fundo = PdfColor.fromInt(0xFFF7F9FA);
   final linha = PdfColor.fromInt(0xFFE2E8F0);
 
   final doc = pw.Document();

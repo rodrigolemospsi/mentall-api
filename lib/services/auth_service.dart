@@ -23,9 +23,6 @@ class AuthService {
   late final Box<String> _box = Hive.box<String>(_authBoxName);
   final LocalAuthentication _localAuth = LocalAuthentication();
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
-    aOptions: AndroidOptions(
-      encryptedSharedPreferences: true,
-    ),
     iOptions: IOSOptions(
       accessibility: KeychainAccessibility.first_unlock_this_device,
     ),

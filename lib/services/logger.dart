@@ -79,7 +79,7 @@ class Log {
       String linhaParaEscrever = linha;
       if (_encryptionService != null && _encryptionService!.configurado) {
         final encrypted = _encryptionService!.criptografar(linha);
-        if (encrypted != null && encrypted != linha) {
+        if (encrypted != linha) {
           linhaParaEscrever = encrypted;
         }
       }

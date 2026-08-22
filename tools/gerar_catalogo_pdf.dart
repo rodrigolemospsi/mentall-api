@@ -24,12 +24,6 @@ void main() async {
 
   pw.Widget espaco([double h = 6]) => pw.SizedBox(height: h);
 
-  pw.Widget separador() => pw.Container(
-    margin: const pw.EdgeInsets.symmetric(vertical: 6),
-    height: 0.5,
-    color: linha,
-  );
-
   pw.Widget cabecalho() => pw.Container(
     padding: const pw.EdgeInsets.only(bottom: 4),
     decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: linha, width: 0.5))),

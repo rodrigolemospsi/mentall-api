@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/service_providers.dart';
 import '../models/paciente.dart';
-import '../services/logger.dart';
 import '../services/lembrete_service.dart';
 import '../widgets/compromisso_form_dialog.dart';
 import '../widgets/home_dashboard.dart';
@@ -63,24 +62,8 @@ class _HomePageState extends ConsumerState<HomePage> {
     return _termoFeminino ? 'Nova' : 'Novo';
   }
 
-  String get _nenhumOuNenhuma {
-    return _termoFeminino ? 'Nenhuma' : 'Nenhum';
-  }
-
-  String get _primeiroOuPrimeira {
-    return _termoFeminino ? 'primeira' : 'primeiro';
-  }
-
   String get _cadastradoOuCadastrada {
     return _termoFeminino ? 'cadastrada' : 'cadastrado';
-  }
-
-  String get _arquivadoOuArquivada {
-    return _termoFeminino ? 'arquivada' : 'arquivado';
-  }
-
-  String get _restauradoOuRestaurada {
-    return _termoFeminino ? 'restaurada' : 'restaurado';
   }
 
   String get _doOuDa {
@@ -203,114 +186,6 @@ class _HomePageState extends ConsumerState<HomePage> {
             telefonePaciente: paciente.contato,
           );
       }
-    }
-  }
-
-  Future<void> _confirmarArquivamentoPaciente(Paciente paciente) async {
-    final confirmar = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-      return AlertDialog(
-        title: Text('Arquivar $_termoSingular'),
-        content: Text(
-          'Deseja arquivar $_termoSingular ${paciente.nome}?\n\n'
-          'O cadastro deixará de aparecer na lista ativa, mas continuará preservado e poderá ser restaurado posteriormente.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop(false);
-            },
-            child: const Text('Cancelar'),
-          ),
-          FilledButton.icon(
-            onPressed: () {
-              Navigator.of(dialogContext).pop(true);
-            },
-            icon: const Icon(Icons.archive_outlined),
-            label: const Text('Arquivar'),
-          ),
-        ],
-      );
-      },
-    );
-
-    if (confirmar != true) return;
-
-    try {
-      await ref.read(pacienteServiceProvider).arquivarPaciente(paciente);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '$_termoSingularCapitalizado $_arquivadoOuArquivada com sucesso.',
-        ),
-      ),
-      );
-    } catch (erro) {
-      Log.erro(erro, contexto: 'home_page:arquivarPaciente');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Não foi possível arquivar $_doOuDa $_termoSingular. Tente novamente.',
-        ),
-      ),
-      );
-    }
-  }
-
-  Future<void> _confirmarRestauracaoPaciente(Paciente paciente) async {
-    final confirmar = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-      return AlertDialog(
-        title: Text('Restaurar $_termoSingular'),
-        content: Text(
-          'Deseja restaurar $_termoSingular ${paciente.nome}?\n\n'
-          'O cadastro voltará a aparecer na lista ativa.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop(false);
-            },
-            child: const Text('Cancelar'),
-          ),
-          FilledButton.icon(
-            onPressed: () {
-              Navigator.of(dialogContext).pop(true);
-            },
-            icon: const Icon(Icons.restore_outlined),
-            label: const Text('Restaurar'),
-          ),
-        ],
-      );
-      },
-    );
-
-    if (confirmar != true) return;
-
-    try {
-      await ref.read(pacienteServiceProvider).restaurarPaciente(paciente);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '$_termoSingularCapitalizado $_restauradoOuRestaurada com sucesso.',
-        ),
-      ),
-      );
-    } catch (erro) {
-      Log.erro(erro, contexto: 'home_page:restaurarPaciente');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Não foi possível restaurar $_doOuDa $_termoSingular. Tente novamente.',
-        ),
-      ),
-      );
     }
   }
 

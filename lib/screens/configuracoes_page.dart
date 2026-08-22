@@ -390,6 +390,7 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
                       await ref.read(authServiceProvider).salvarCredenciaisServidor(username, password);
 
                       if (ctx.mounted) Navigator.pop(ctx);
+                      if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Servidor configurado e conex\u00e3o testada com sucesso!'),

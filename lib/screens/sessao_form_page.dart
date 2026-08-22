@@ -149,8 +149,6 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   set _progressoSintomas(List<Map<String, dynamic>> v) =>
       ref.read(_progressoSintomasProvider.notifier).state = v;
 
-  List<Map<String, dynamic>> get _progressoMetas =>
-      ref.read(_progressoMetasProvider);
   set _progressoMetas(List<Map<String, dynamic>> v) =>
       ref.read(_progressoMetasProvider.notifier).state = v;
 
@@ -1619,7 +1617,7 @@ if (!mounted || confirmar != true) return;
             ],
           ),
         );
-        if (confirmar == true && mounted) {
+        if (confirmar == true && context.mounted) {
           _descarteConfirmado = true;
           Navigator.of(context).pop();
         }

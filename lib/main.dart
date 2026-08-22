@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
@@ -257,8 +256,10 @@ class MentAllApp extends ConsumerWidget {
       builder: (context, child) {
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(
-            textScaleFactor:
-                MediaQuery.of(context).textScaleFactor.clamp(0.8, 1.5),
+            textScaler: MediaQuery.of(context).textScaler.clamp(
+              minScaleFactor: 0.8,
+              maxScaleFactor: 1.5,
+            ),
           ),
           child: child!,
         );
