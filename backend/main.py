@@ -1006,7 +1006,7 @@ def _pagina_contrato(token: str, _req: Request):
         "{{url_aceitar}}": f"{base_url}/contratos/{token}/aceitar",
         "{{data_aceite}}": _formatar_data_br(aceito_em) if aceito_em else "-",
         "{{data_aceite_iso}}": aceito_em or "",
-        "{{nome_aceite}}": html.escape(contrato.get("nome_aceite", "")),
+        "{{nome_aceite}}": html.escape(contrato.get("nome_aceite") or ""),
         "{{crp_selo}}": ' <span style="color:#2E7D32; font-size:12px;">&#10003; Verificado</span>' if dados.get("crp_verificado") else "",
         "{% if not aceito %}": "" if aceito else "<!--",
         "{% endif %}": "<!--" if not aceito else "",
