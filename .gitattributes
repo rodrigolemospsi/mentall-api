@@ -1,0 +1,55 @@
+# Normaliza o fim de linha para LF no repositório; checkout usa o nativo da
+# plataforma (LF no macOS/Linux, CRLF no Windows).
+* text=auto
+
+# Formatos de texto explícitos (garante LF no repositório)
+*.dart        text eol=lf
+*.py          text eol=lf
+*.yaml        text eol=lf
+*.yml         text eol=lf
+*.json        text eol=lf
+*.md          text eol=lf
+*.html        text eol=lf
+*.txt         text eol=lf
+*.xml         text eol=lf
+*.kts         text eol=lf
+*.gradle      text eol=lf
+*.properties  text eol=lf
+*.sh          text eol=lf
+*.plist       text eol=lf
+*.xcconfig    text eol=lf
+*.pbxproj     text eol=lf
+*.storyboard  text eol=lf
+*.lock        text eol=lf
+*.cmake       text eol=lf
+*.cc          text eol=lf
+*.cpp         text eol=lf
+*.h           text eol=lf
+*.swift       text eol=lf
+*.rc          text eol=lf
+*.manifest    text eol=lf
+*.toml        text eol=lf
+*.gitignore   text eol=lf
+*.gitattributes text eol=lf
+
+# Binários (não normalizar)
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.webp    binary
+*.ico     binary
+*.pdf     binary
+*.docx    binary
+*.zip     binary
+*.m4a     binary
+*.wav     binary
+*.ttf     binary
+*.otf     binary
+*.lnk     binary
+*.jar     binary
+*.aar     binary
+*.so      binary
+*.dll     binary
+*.keystore binary
+*.jks     binary
