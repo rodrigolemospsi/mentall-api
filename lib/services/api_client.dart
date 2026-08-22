@@ -208,6 +208,7 @@ class ApiClient {
       await Hive.box<String>('auth_meta')
           .put('jwt_token', encryptedToken ?? token);
       await salvarConta(email);
+      await setCredentials(email.trim(), senha);
       return {'sucesso': true};
     } catch (_) {
       return {'sucesso': false, 'erro': 'Erro de conexao. Verifique a internet.'};
