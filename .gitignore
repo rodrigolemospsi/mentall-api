@@ -15,6 +15,10 @@ MEMORIA_PIX.md
 # PDFs (nao publicar)
 *.pdf
 
+# Arquivos de trabalho/fonte (nao fazem parte do app nem do build)
+*.docx
+*.zip
+
 # Miscellaneous
 *.class
 *.log
