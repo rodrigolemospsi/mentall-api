@@ -13,7 +13,7 @@ class AnamneseEnviadaService with EncryptedServiceMixin {
   @override
   final EncryptionService? encryption;
 
-  AnamneseEnviadaService({EncryptionService? encryption}) : encryption = encryption;
+  AnamneseEnviadaService({this.encryption});
 
   Box get _box => Hive.box(_boxName);
 

@@ -15,7 +15,7 @@ class PacienteService with EncryptedServiceMixin {
   @override
   final EncryptionService? encryption;
 
-  PacienteService({EncryptionService? encryption}) : encryption = encryption;
+  PacienteService({this.encryption});
 
   List<Paciente> listarPacientes() {
     final pacientes = _box.values.toList();

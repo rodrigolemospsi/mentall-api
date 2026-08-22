@@ -10,8 +10,7 @@ class PerfilProfissionalService with EncryptedServiceMixin {
   @override
   final EncryptionService? encryption;
 
-  PerfilProfissionalService({EncryptionService? encryption})
-      : encryption = encryption;
+  PerfilProfissionalService({this.encryption});
 
   PerfilProfissional? obterPerfil() {
     if (_box.isEmpty) return null;

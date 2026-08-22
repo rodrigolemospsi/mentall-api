@@ -10,7 +10,7 @@ class AvaliacaoInicialService with EncryptedServiceMixin {
   final EncryptionService? encryption;
   Box get _box => Hive.box('avaliacoes_iniciais');
 
-  AvaliacaoInicialService({EncryptionService? encryption}) : encryption = encryption;
+  AvaliacaoInicialService({this.encryption});
 
   String _encrypt(String value) => encrypt(value);
   String _decrypt(String value) => decrypt(value);

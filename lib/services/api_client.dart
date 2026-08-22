@@ -30,11 +30,7 @@ class ApiClient {
 
   static const Duration timeout = Duration(seconds: 120);
 
-  static String? _authToken;
-
-  static String? get authToken => _authToken;
-
-  static set authToken(String? token) => _authToken = token;
+  static String? authToken;
 
   static String get username {
     final box = Hive.box<String>('app_config');
@@ -62,7 +58,7 @@ class ApiClient {
   static String get _password => password;
 
   static Map<String, String> get authHeaders {
-    final token = _authToken;
+    final token = authToken;
     if (token == null || token.isEmpty) return {};
     return {'Authorization': 'Bearer $token'};
   }
@@ -75,8 +71,8 @@ class ApiClient {
   }
 
   static Future<bool> ensureAuthenticated() async {
-    if (_authToken != null && _authToken!.isNotEmpty) {
-      if (_tokenExpirado(_authToken!)) {
+    if (authToken != null && authToken!.isNotEmpty) {
+      if (_tokenExpirado(authToken!)) {
         return forceReauthenticate();
       }
       return true;
@@ -109,7 +105,7 @@ class ApiClient {
   }
 
   static Future<bool> forceReauthenticate() async {
-    _authToken = null;
+    authToken = null;
     try {
       await Hive.box<String>('auth_meta').delete('jwt_token');
     } catch (_) {}
@@ -130,7 +126,7 @@ class ApiClient {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final token = data['access_token'] as String?;
         if (token == null || token.isEmpty) return false;
-        _authToken = token;
+        authToken = token;
         try {
           final encryptedToken = EncryptionService.tryEncrypt(token);
           await Hive.box<String>('auth_meta')
@@ -207,7 +203,7 @@ class ApiClient {
       if (token == null || token.isEmpty) {
         return {'sucesso': false, 'erro': 'Resposta invalida do servidor.'};
       }
-      _authToken = token;
+      authToken = token;
       final encryptedToken = EncryptionService.tryEncrypt(token);
       await Hive.box<String>('auth_meta')
           .put('jwt_token', encryptedToken ?? token);

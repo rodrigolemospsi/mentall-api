@@ -2320,7 +2320,7 @@ if (!mounted || confirmar != true) return;
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: _statusPagamento,
+              initialValue: _statusPagamento,
               decoration: const InputDecoration(
                 labelText: 'Status do pagamento',
                 border: OutlineInputBorder(),
@@ -2356,7 +2356,7 @@ if (!mounted || confirmar != true) return;
             if (_statusPagamento == 'pago') ...[
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _metodoPagamento.isEmpty ? null : _metodoPagamento,
+                initialValue: _metodoPagamento.isEmpty ? null : _metodoPagamento,
                 decoration: const InputDecoration(
                   labelText: 'Método de pagamento',
                   border: OutlineInputBorder(),

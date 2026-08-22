@@ -16,7 +16,7 @@ class ContratoService with EncryptedServiceMixin {
   @override
   final EncryptionService? encryption;
 
-  ContratoService({EncryptionService? encryption}) : encryption = encryption;
+  ContratoService({this.encryption});
 
   String _encrypt(String value) => encrypt(value);
   String _decrypt(String value) => decrypt(value);

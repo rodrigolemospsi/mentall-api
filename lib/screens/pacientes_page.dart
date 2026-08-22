@@ -474,7 +474,7 @@ class _ListaPacientes extends StatelessWidget {
         return ListView.separated(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
           itemCount: pacientes.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 0),
+          separatorBuilder: (_, _) => const SizedBox(height: 0),
           itemBuilder: (context, index) {
             final paciente = pacientes[index];
             return PacienteCardHome(

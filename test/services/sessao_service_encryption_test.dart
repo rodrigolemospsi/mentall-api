@@ -35,7 +35,7 @@ void main() {
       '   Relevância: relacionado ao caso.\n'
       '   https://doi.org/10.1234/teste';
 
-  Sessao _novaSessao() => Sessao(
+  Sessao novaSessao() => Sessao(
         id: 's1',
         pacienteId: 'p1',
         numeroSessao: 1,
@@ -48,14 +48,14 @@ void main() {
       );
 
   test('adicionar e listar preserva artigosSugeridos', () async {
-    await service.adicionarSessao(_novaSessao());
+    await service.adicionarSessao(novaSessao());
 
     final sessoes = service.listarSessoesDoPaciente('p1');
     expect(sessoes.single.artigosSugeridos, artigos);
   });
 
   test('atualizar apos listar preserva artigosSugeridos', () async {
-    await service.adicionarSessao(_novaSessao());
+    await service.adicionarSessao(novaSessao());
 
     final sessao = service.listarSessoesDoPaciente('p1').single;
     sessao.intervencoes = 'Editado';
@@ -67,7 +67,7 @@ void main() {
   });
 
   test('listar duas vezes nao corrompe (dupla descriptografia)', () async {
-    await service.adicionarSessao(_novaSessao());
+    await service.adicionarSessao(novaSessao());
 
     service.listarSessoesDoPaciente('p1');
     final sessoes = service.listarSessoesDoPaciente('p1');
@@ -75,7 +75,7 @@ void main() {
   });
 
   test('reabrir box (restart do app) preserva artigosSugeridos', () async {
-    await service.adicionarSessao(_novaSessao());
+    await service.adicionarSessao(novaSessao());
 
     await Hive.box<Sessao>('sessoes').close();
     await Hive.openBox<Sessao>('sessoes');
@@ -86,7 +86,7 @@ void main() {
   });
 
   test('pendentes de revisao vem descriptografadas', () async {
-    final s = _novaSessao();
+    final s = novaSessao();
     s.revisadoPeloProfissional = false;
     await service.adicionarSessao(s);
 

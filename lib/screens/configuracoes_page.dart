@@ -269,7 +269,7 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
     final urlController = TextEditingController(text: ApiClient.baseUrl);
     final userController = TextEditingController(text: ApiClient.username);
     final passController = TextEditingController(text: '');
-    bool _testando = false;
+    bool testando = false;
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -314,7 +314,7 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
                   style: TextStyle(fontSize: 12, color: context.corTextoMuted),
                 ),
               ),
-              if (_testando) ...[
+              if (testando) ...[
                 const SizedBox(height: 16),
                 const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -329,7 +329,7 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
           ),
           actions: [
             TextButton(
-              onPressed: _testando
+              onPressed: testando
                   ? null
                   : () {
                       urlController.text = ApiClient.defaultBaseUrl;
@@ -339,11 +339,11 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
               child: const Text('Restaurar URL padr\u00e3o'),
             ),
             TextButton(
-              onPressed: _testando ? null : () => Navigator.pop(ctx),
+              onPressed: testando ? null : () => Navigator.pop(ctx),
               child: const Text('Cancelar'),
             ),
             FilledButton(
-              onPressed: _testando
+              onPressed: testando
                   ? null
                   : () async {
                       final url = urlController.text.trim();
@@ -366,13 +366,13 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
                         return;
                       }
 
-                      setState(() => _testando = true);
+                      setState(() => testando = true);
 
                       // Testa conexão antes de salvar
                       final ok = await _testarConexaoServidor(url, username, password);
 
                       if (!ctx.mounted) return;
-                      setState(() => _testando = false);
+                      setState(() => testando = false);
 
                       if (!ok) {
                         ScaffoldMessenger.of(context).showSnackBar(

@@ -66,13 +66,13 @@ void main() {
     fakeAudio = _FakeAudioRelatoService();
   });
 
-  Widget _app({Sessao? sessao}) => ProviderScope(
+  Widget app({Sessao? sessao}) => ProviderScope(
     overrides: [audioRelatoServiceProvider.overrideWithValue(fakeAudio)],
     child: MaterialApp(home: SessaoFormPage(paciente: paciente, sessaoExistente: sessao)),
   );
 
-  Future<void> _pump(WidgetTester t, {Sessao? sessao}) async {
-    await t.pumpWidget(_app(sessao: sessao));
+  Future<void> pump(WidgetTester t, {Sessao? sessao}) async {
+    await t.pumpWidget(app(sessao: sessao));
     await t.pump();
     await t.pump();
     await t.pump();
@@ -80,24 +80,24 @@ void main() {
 
   group('Nova sessao', () {
     testWidgets('renderiza sem erro fatal', (tester) async {
-      await tester.pumpWidget(_app());
+      await tester.pumpWidget(app());
       await tester.pump();
       expect(find.text('Erro'), findsNothing);
     });
 
     testWidgets('AppBar com titulo de nova sessao', (tester) async {
-      await _pump(tester);
+      await pump(tester);
       final titleText = ((tester.widget<AppBar>(find.byType(AppBar)).title as Text).data)!;
       expect(titleText.contains('sess'), isTrue);
     });
 
     testWidgets('exibe titulo da sessao', (tester) async {
-      await _pump(tester);
+      await pump(tester);
       expect(find.textContaining('SESSÃO'), findsWidgets);
     });
 
     testWidgets('exibe campos clinicos base', (tester) async {
-      await _pump(tester);
+      await pump(tester);
       expect(find.text('Apontamentos'), findsNothing);
     });
   });
@@ -119,18 +119,18 @@ void main() {
     });
 
     testWidgets('inicia no modo bloqueado com botao Editar', (tester) async {
-      await _pump(tester, sessao: sessao);
+      await pump(tester, sessao: sessao);
       expect(find.text('Editar'), findsOneWidget);
     });
 
     testWidgets('AppBar mostra numero da sessao', (tester) async {
-      await _pump(tester, sessao: sessao);
+      await pump(tester, sessao: sessao);
       final titleText = ((tester.widget<AppBar>(find.byType(AppBar)).title as Text).data)!;
       expect(titleText, 'Sessão 3');
     });
 
     testWidgets('campos preenchidos carregam corretamente', (tester) async {
-      await _pump(tester, sessao: sessao);
+      await pump(tester, sessao: sessao);
       expect(find.text('Relato teste'), findsOneWidget);
       expect(find.text('Transcricao teste'), findsOneWidget);
     });
@@ -154,12 +154,12 @@ void main() {
     });
 
     testWidgets('referencias aparecem ao abrir sessao salva', (tester) async {
-      await _pump(tester, sessao: sessao);
+      await pump(tester, sessao: sessao);
       expect(find.textContaining('Artigo Teste'), findsOneWidget);
     });
 
     testWidgets('referencias permanecem apos editar e salvar', (tester) async {
-      await _pump(tester, sessao: sessao);
+      await pump(tester, sessao: sessao);
 
       await tester.tap(find.text('Editar'));
       await tester.pump();
@@ -177,7 +177,7 @@ void main() {
       final salva = Hive.box<Sessao>('sessoes').get('s2')!;
       expect(salva.artigosSugeridos, contains('Artigo Teste'));
 
-      await _pump(tester, sessao: salva);
+      await pump(tester, sessao: salva);
       expect(find.textContaining('Artigo Teste'), findsOneWidget);
     });
   });

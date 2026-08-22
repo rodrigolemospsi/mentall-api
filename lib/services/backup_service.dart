@@ -15,7 +15,7 @@ class BackupService with EncryptedServiceMixin {
   @override
   final EncryptionService? encryption;
 
-  BackupService({EncryptionService? encryption}) : encryption = encryption;
+  BackupService({this.encryption});
 
   String _encrypt(String value) => encrypt(value);
   String _decrypt(String value) => decrypt(value);

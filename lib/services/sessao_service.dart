@@ -14,7 +14,7 @@ class SessaoService with EncryptedServiceMixin {
   int? _cacheFrameHash;
   List<Sessao>? _cacheSessoes;
 
-  SessaoService({EncryptionService? encryption}) : encryption = encryption;
+  SessaoService({this.encryption});
 
   List<Sessao> listarTodasSessoes() {
     final sessoes = _box.values.toList();

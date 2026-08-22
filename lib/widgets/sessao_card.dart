@@ -120,7 +120,7 @@ class SessaoCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        '$horarioFormatado',
+                        horarioFormatado,
                         style: TextStyle(color: context.corTextoSecondary),
                       ),
                       const SizedBox(height: 6),

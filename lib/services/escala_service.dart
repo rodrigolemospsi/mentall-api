@@ -10,7 +10,7 @@ class EscalaService with EncryptedServiceMixin {
   final EncryptionService? encryption;
   Box get _box => Hive.box('respostas_escalas');
 
-  EscalaService({EncryptionService? encryption}) : encryption = encryption;
+  EscalaService({this.encryption});
 
   String _encrypt(String value) => encrypt(value);
   String _decrypt(String value) => decrypt(value);

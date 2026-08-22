@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'dart:io';
 
 import 'package:pdf/pdf.dart';
@@ -417,7 +419,7 @@ pw.Widget _servico(String nome, String desc) {
     child: pw.RichText(
       text: pw.TextSpan(
         children: [
-          pw.TextSpan(text: '$nome', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF1E293B))),
+          pw.TextSpan(text: nome, style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF1E293B))),
           pw.TextSpan(text: ' — $desc', style: _bodyStyle),
         ],
       ),
@@ -431,7 +433,7 @@ pw.Widget _widget(String nome, String desc) {
     child: pw.RichText(
       text: pw.TextSpan(
         children: [
-          pw.TextSpan(text: '$nome', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF2066FF))),
+          pw.TextSpan(text: nome, style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF2066FF))),
           pw.TextSpan(text: ' — $desc', style: _bodyStyle),
         ],
       ),
