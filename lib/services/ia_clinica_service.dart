@@ -220,19 +220,19 @@ class IaClinicaService {
           .timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 401 && tentativa < 2) {
-        return _fazerRequisicaoComRetry(
+        return await _fazerRequisicaoComRetry(
             endpoint: endpoint, body: body, tentativa: tentativa + 1);
       }
 
       if (response.statusCode == 429 && tentativa < 2) {
         await Future.delayed(Duration(seconds: 2 * (tentativa + 1)));
-        return _fazerRequisicaoComRetry(
+        return await _fazerRequisicaoComRetry(
             endpoint: endpoint, body: body, tentativa: tentativa + 1);
       }
 
       if (response.statusCode >= 500 && tentativa < 2) {
         await Future.delayed(Duration(seconds: 2 * (tentativa + 1)));
-        return _fazerRequisicaoComRetry(
+        return await _fazerRequisicaoComRetry(
             endpoint: endpoint, body: body, tentativa: tentativa + 1);
       }
 
@@ -245,7 +245,7 @@ class IaClinicaService {
     } catch (e) {
       if (tentativa < 2) {
         await Future.delayed(Duration(seconds: 2 * (tentativa + 1)));
-        return _fazerRequisicaoComRetry(
+        return await _fazerRequisicaoComRetry(
             endpoint: endpoint, body: body, tentativa: tentativa + 1);
       }
       return {'status': 0, 'data': null};
