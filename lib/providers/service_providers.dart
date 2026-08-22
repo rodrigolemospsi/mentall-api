@@ -103,7 +103,8 @@ final auditoriaServiceProvider = Provider<AuditoriaService>((ref) {
 });
 
 final compromissoServiceProvider = Provider<CompromissoService>((ref) {
-  return CompromissoService();
+  final encryption = ref.watch(encryptionServiceProvider);
+  return CompromissoService(encryption: encryption);
 });
 
 final lembreteServiceProvider = Provider<LembreteService>((ref) {
@@ -111,7 +112,8 @@ final lembreteServiceProvider = Provider<LembreteService>((ref) {
 });
 
 final configuracoesServiceProvider = Provider<ConfiguracoesService>((ref) {
-  return ConfiguracoesService();
+  final encryption = ref.watch(encryptionServiceProvider);
+  return ConfiguracoesService(encryption: encryption);
 });
 
 final configuracoesRevisaoProvider = StreamProvider<int>((ref) async* {
@@ -263,7 +265,8 @@ final anamnesePorPacienteProvider =
 });
 
 final pacoteServiceProvider = Provider<PacoteService>((ref) {
-  return PacoteService();
+  final encryption = ref.watch(encryptionServiceProvider);
+  return PacoteService(encryption: encryption);
 });
 
 final pacotesAtivosPorPacienteProvider =
@@ -276,7 +279,8 @@ final pacotesAtivosPorPacienteProvider =
 });
 
 final progressoServiceProvider = Provider<ProgressoService>((ref) {
-  return ProgressoService();
+  final encryption = ref.watch(encryptionServiceProvider);
+  return ProgressoService(encryption: encryption);
 });
 
 final progressoPorPacienteProvider =

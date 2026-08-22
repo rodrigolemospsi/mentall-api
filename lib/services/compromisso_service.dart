@@ -2,14 +2,46 @@ import 'package:hive_ce/hive.dart';
 
 import '../models/compromisso.dart';
 import '../models/enums.dart';
+import 'encrypted_service_mixin.dart';
+import 'encryption_service.dart';
 import 'lembrete_service.dart';
 
-class CompromissoService {
+class CompromissoService with EncryptedServiceMixin {
+  @override
+  final EncryptionService? encryption;
+
+  CompromissoService({this.encryption});
+
   final Box<Compromisso> _box = Hive.box<Compromisso>('compromissos');
   final LembreteService _lembreteService = LembreteService();
 
+  String _encrypt(String value) => encrypt(value);
+  String _decrypt(String value) => decrypt(value);
+
+  Compromisso _decryptCompromisso(Compromisso c) {
+    return Compromisso(
+      id: c.id,
+      pacienteId: c.pacienteId,
+      dataHoraInicio: c.dataHoraInicio,
+      dataHoraFim: c.dataHoraFim,
+      titulo: _decrypt(c.titulo),
+      observacoes: _decrypt(c.observacoes),
+      status: c.status,
+      sessaoId: c.sessaoId,
+      dataCriacao: c.dataCriacao,
+      dataAtualizacao: c.dataAtualizacao,
+      lembreteAtivado: c.lembreteAtivado,
+      minutosAntecedencia: c.minutosAntecedencia,
+      mensagemLembrete: c.mensagemLembrete,
+      recorrencia: c.recorrencia,
+      dataLimiteRecorrencia: c.dataLimiteRecorrencia,
+      compromissoPaiId: c.compromissoPaiId,
+      canalLembrete: c.canalLembrete,
+    );
+  }
+
   List<Compromisso> listarTodos() {
-    final compromissos = _box.values.toList();
+    final compromissos = _box.values.map(_decryptCompromisso).toList();
     compromissos.sort((a, b) => a.dataHoraInicio.compareTo(b.dataHoraInicio));
     return compromissos;
   }
@@ -22,6 +54,7 @@ class CompromissoService {
         .where((c) =>
             c.dataHoraInicio.isAfter(inicioDia.subtract(const Duration(seconds: 1))) &&
             c.dataHoraInicio.isBefore(fimDia))
+        .map(_decryptCompromisso)
         .toList();
     compromissos.sort((a, b) => a.dataHoraInicio.compareTo(b.dataHoraInicio));
     return compromissos;
@@ -30,6 +63,7 @@ class CompromissoService {
   List<Compromisso> listarPorPaciente(String pacienteId) {
     final compromissos = _box.values
         .where((c) => c.pacienteId == pacienteId)
+        .map(_decryptCompromisso)
         .toList();
     compromissos.sort((a, b) => b.dataHoraInicio.compareTo(a.dataHoraInicio));
     return compromissos;
@@ -45,6 +79,7 @@ class CompromissoService {
             c.dataHoraInicio.isAfter(
                 inicio.subtract(const Duration(seconds: 1))) &&
             c.dataHoraInicio.isBefore(fim))
+        .map(_decryptCompromisso)
         .toList();
     compromissos.sort((a, b) => a.dataHoraInicio.compareTo(b.dataHoraInicio));
     return compromissos;
@@ -57,6 +92,7 @@ class CompromissoService {
         .where((c) =>
             c.dataHoraInicio.isAfter(inicioMes.subtract(const Duration(seconds: 1))) &&
             c.dataHoraInicio.isBefore(fimMes.add(const Duration(seconds: 1))))
+        .map(_decryptCompromisso)
         .toList();
   }
 
@@ -73,6 +109,7 @@ class CompromissoService {
         .where((c) =>
             c.dataHoraInicio.isAfter(fimHoje.subtract(const Duration(seconds: 1))) &&
             c.statusEnum == StatusCompromisso.agendado)
+        .map(_decryptCompromisso)
         .toList();
     compromissos.sort((a, b) => a.dataHoraInicio.compareTo(b.dataHoraInicio));
     return compromissos;
@@ -88,12 +125,12 @@ class CompromissoService {
 
   Compromisso? buscarPorSessaoId(String sessaoId) {
     final match = _box.values.where((c) => c.sessaoId == sessaoId);
-    return match.isNotEmpty ? match.first : null;
+    return match.isNotEmpty ? _decryptCompromisso(match.first) : null;
   }
 
   Compromisso? obterPorId(String id) {
     try {
-      return _box.values.firstWhere((c) => c.id == id);
+      return _decryptCompromisso(_box.values.firstWhere((c) => c.id == id));
     } catch (_) {
       return null;
     }
@@ -109,18 +146,36 @@ class CompromissoService {
       if (ignorarId != null && c.id == ignorarId) return false;
       return c.dataHoraInicio.isBefore(fim) &&
           c.dataHoraFim.isAfter(inicio);
-    }).toList();
+    }).map(_decryptCompromisso).toList();
   }
 
   Future<void> adicionar(Compromisso compromisso) async {
-    await _box.add(compromisso);
+    await _box.add(Compromisso(
+      id: compromisso.id,
+      pacienteId: compromisso.pacienteId,
+      dataHoraInicio: compromisso.dataHoraInicio,
+      dataHoraFim: compromisso.dataHoraFim,
+      titulo: _encrypt(compromisso.titulo),
+      observacoes: _encrypt(compromisso.observacoes),
+      status: compromisso.status,
+      sessaoId: compromisso.sessaoId,
+      dataCriacao: compromisso.dataCriacao,
+      dataAtualizacao: compromisso.dataAtualizacao,
+      lembreteAtivado: compromisso.lembreteAtivado,
+      minutosAntecedencia: compromisso.minutosAntecedencia,
+      mensagemLembrete: compromisso.mensagemLembrete,
+      recorrencia: compromisso.recorrencia,
+      dataLimiteRecorrencia: compromisso.dataLimiteRecorrencia,
+      compromissoPaiId: compromisso.compromissoPaiId,
+      canalLembrete: compromisso.canalLembrete,
+    ));
   }
 
   Future<List<Compromisso>> adicionarComRecorrencia(
     Compromisso compromisso,
   ) async {
     final gerados = <Compromisso>[];
-    await _box.add(compromisso);
+    await adicionar(compromisso);
     gerados.add(compromisso);
 
     final freq = compromisso.recorrenciaEnum;
@@ -147,13 +202,17 @@ class CompromissoService {
         dataHoraFim: proxima.add(
           compromisso.dataHoraFim.difference(compromisso.dataHoraInicio),
         ),
-        titulo: compromisso.titulo,
-        observacoes: compromisso.observacoes,
+        titulo: _encrypt(compromisso.titulo),
+        observacoes: _encrypt(compromisso.observacoes),
+        status: compromisso.status,
+        sessaoId: compromisso.sessaoId,
+        dataCriacao: DateTime.now(),
         lembreteAtivado: compromisso.lembreteAtivado,
         minutosAntecedencia: compromisso.minutosAntecedencia,
         mensagemLembrete: compromisso.mensagemLembrete,
         recorrencia: '',
         compromissoPaiId: compromisso.id,
+        canalLembrete: compromisso.canalLembrete,
       );
       await _box.add(copia);
       gerados.add(copia);
@@ -188,7 +247,28 @@ class CompromissoService {
 
   Future<void> atualizar(Compromisso compromisso) async {
     compromisso.dataAtualizacao = DateTime.now();
-    await compromisso.save();
+    await _box.put(
+      compromisso.key,
+      Compromisso(
+        id: compromisso.id,
+        pacienteId: compromisso.pacienteId,
+        dataHoraInicio: compromisso.dataHoraInicio,
+        dataHoraFim: compromisso.dataHoraFim,
+        titulo: _encrypt(compromisso.titulo),
+        observacoes: _encrypt(compromisso.observacoes),
+        status: compromisso.status,
+        sessaoId: compromisso.sessaoId,
+        dataCriacao: compromisso.dataCriacao,
+        dataAtualizacao: compromisso.dataAtualizacao,
+        lembreteAtivado: compromisso.lembreteAtivado,
+        minutosAntecedencia: compromisso.minutosAntecedencia,
+        mensagemLembrete: compromisso.mensagemLembrete,
+        recorrencia: compromisso.recorrencia,
+        dataLimiteRecorrencia: compromisso.dataLimiteRecorrencia,
+        compromissoPaiId: compromisso.compromissoPaiId,
+        canalLembrete: compromisso.canalLembrete,
+      ),
+    );
   }
 
   Future<void> remover(Compromisso compromisso) async {
@@ -241,5 +321,35 @@ class CompromissoService {
     return _box.watch();
   }
 
-  Future<void> removerCriptografiaExistente() async {}
+  Future<void> removerCriptografiaExistente() async {
+    if (encryption == null || !encryption!.configurado) return;
+    final todos = _box.values.toList();
+    for (final c in todos) {
+      if (c.titulo.startsWith('2:') || c.titulo.startsWith('3:') ||
+          c.observacoes.startsWith('2:') || c.observacoes.startsWith('3:')) {
+        await _box.put(
+          c.key,
+          Compromisso(
+            id: c.id,
+            pacienteId: c.pacienteId,
+            dataHoraInicio: c.dataHoraInicio,
+            dataHoraFim: c.dataHoraFim,
+            titulo: _decrypt(c.titulo),
+            observacoes: _decrypt(c.observacoes),
+            status: c.status,
+            sessaoId: c.sessaoId,
+            dataCriacao: c.dataCriacao,
+            dataAtualizacao: c.dataAtualizacao,
+            lembreteAtivado: c.lembreteAtivado,
+            minutosAntecedencia: c.minutosAntecedencia,
+            mensagemLembrete: c.mensagemLembrete,
+            recorrencia: c.recorrencia,
+            dataLimiteRecorrencia: c.dataLimiteRecorrencia,
+            compromissoPaiId: c.compromissoPaiId,
+            canalLembrete: c.canalLembrete,
+          ),
+        );
+      }
+    }
+  }
 }

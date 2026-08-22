@@ -101,11 +101,8 @@ class EncryptionService {
 
   static String tryDecrypt(String texto) {
     if (_instance == null || texto.isEmpty) return texto;
-    try {
-      return _instance!.descriptografar(texto);
-    } catch (_) {
-      return texto;
-    }
+    if (!_instance!.configurado) return texto;
+    return _instance!.descriptografar(texto);
   }
 
   /// Cabeçalho mágico do formato binário de áudio criptografado ("MAV1").

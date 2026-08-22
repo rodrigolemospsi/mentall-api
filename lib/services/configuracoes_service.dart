@@ -1,6 +1,13 @@
 import 'package:hive_ce/hive.dart';
+import 'encrypted_service_mixin.dart';
+import 'encryption_service.dart';
 
-class ConfiguracoesService {
+class ConfiguracoesService with EncryptedServiceMixin {
+  @override
+  final EncryptionService? encryption;
+
+  ConfiguracoesService({this.encryption});
+
   static const String _boxName = 'app_config';
 
   static const String _kDuracaoSessaoMin = 'duracao_padrao_sessao_min';
@@ -42,6 +49,9 @@ Ao preencher e aceitar este formul\u00e1rio, declaro estar ciente e de acordo co
   ];
 
   Box<String> get _box => Hive.box<String>(_boxName);
+
+  String _encrypt(String value) => encrypt(value);
+  String _decrypt(String value) => decrypt(value);
 
   int get duracaoPadraoSessaoMinutos {
     final valor = int.tryParse(_box.get(_kDuracaoSessaoMin) ?? '');
@@ -87,11 +97,14 @@ Ao preencher e aceitar este formul\u00e1rio, declaro estar ciente e de acordo co
     await _box.put(_kCanalLembretePadrao, canal);
   }
 
-  String get contratoTemplate =>
-      _box.get(_kContratoTemplate) ?? contratoPadrao;
+  String get contratoTemplate {
+    final valor = _box.get(_kContratoTemplate);
+    if (valor == null || valor.isEmpty) return contratoPadrao;
+    return _decrypt(valor);
+  }
 
   Future<void> setContratoTemplate(String texto) async {
-    await _box.put(_kContratoTemplate, texto);
+    await _box.put(_kContratoTemplate, _encrypt(texto));
   }
 
   double get valorPadraoSessao {
@@ -128,5 +141,13 @@ Ao preencher e aceitar este formul\u00e1rio, declaro estar ciente e de acordo co
 
   Stream<BoxEvent> observar() {
     return _box.watch();
+  }
+
+  Future<void> removerCriptografiaExistente() async {
+    if (encryption == null || !encryption!.configurado) return;
+    final valor = _box.get(_kContratoTemplate);
+    if (valor != null && (valor.startsWith('2:') || valor.startsWith('3:'))) {
+      await _box.put(_kContratoTemplate, _decrypt(valor));
+    }
   }
 }

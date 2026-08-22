@@ -44,5 +44,14 @@ void main() {
           .put('duracao_padrao_sessao_min', 'abc');
       expect(config.duracaoPadraoSessaoMinutos, 60);
     });
+
+    test('contratoTemplate retorna texto padrao quando vazio', () {
+      expect(config.contratoTemplate, ConfiguracoesService.contratoPadrao);
+    });
+
+    test('contratoTemplate persiste template personalizado', () async {
+      await config.setContratoTemplate('Meu template customizado');
+      expect(config.contratoTemplate, 'Meu template customizado');
+    });
   });
 }
