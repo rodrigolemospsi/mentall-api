@@ -10,7 +10,7 @@ import '../models/perfil_profissional.dart';
 import '../providers/service_providers.dart';
 import '../services/logger.dart';
 import '../utils/mentall_colors.dart';
-import 'home_page.dart';
+import 'main_shell.dart';
 import 'lgpd/politica_privacidade_page.dart';
 import 'lgpd/termos_uso_page.dart';
 
@@ -244,7 +244,7 @@ class _PerfilProfissionalFormPageState
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => const HomePage(),
+            builder: (context) => const MainShell(),
           ),
         );
       }

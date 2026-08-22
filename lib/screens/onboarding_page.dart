@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/service_providers.dart';
 import '../utils/mentall_colors.dart';
 import 'main_shell.dart';
+import 'perfil_profissional_form_page.dart';
 
 final _pageIndexProvider = StateProvider<int>((ref) => 0);
 
@@ -19,8 +20,13 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
 
   void _concluir() {
     ref.read(configuracoesServiceProvider).onboardingConcluido = true;
+    final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const MainShell()),
+      MaterialPageRoute(
+        builder: (_) => perfil == null
+            ? const PerfilProfissionalFormPage()
+            : const MainShell(),
+      ),
     );
   }
 
@@ -57,17 +63,17 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                   Image.asset(
                     'assets/images/prontuario_inteligente.png',
                     fit: BoxFit.cover,
-                    alignment: Alignment.center,
+                    alignment: Alignment.topCenter,
                   ),
                   Image.asset(
                     'assets/images/sua_abordagem.png',
                     fit: BoxFit.cover,
-                    alignment: Alignment.center,
+                    alignment: Alignment.topCenter,
                   ),
                   Image.asset(
                     'assets/images/seguranca_app.png',
                     fit: BoxFit.cover,
-                    alignment: Alignment.center,
+                    alignment: Alignment.topCenter,
                   ),
                 ],
               ),
