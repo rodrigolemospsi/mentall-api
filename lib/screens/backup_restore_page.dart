@@ -108,6 +108,14 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
   }
 
   Future<void> _importar() async {
+    final autorizado = await _validarAutenticacaoAntesExportar();
+    if (!autorizado) {
+      if (mounted) {
+        _mostrarSnackBar('Autenticação necessária para importar.', context.corError);
+      }
+      return;
+    }
+
     try {
       final jsonString = await selecionarArquivoJson();
       if (jsonString == null) return;
