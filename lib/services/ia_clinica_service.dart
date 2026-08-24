@@ -217,7 +217,7 @@ class IaClinicaService {
             headers: ApiClient.defaultHeaders(),
             body: jsonEncode(body),
           )
-          .timeout(const Duration(seconds: 60));
+          .timeout(const Duration(seconds: 90));
 
       if (response.statusCode == 401 && tentativa < 2) {
         return await _fazerRequisicaoComRetry(

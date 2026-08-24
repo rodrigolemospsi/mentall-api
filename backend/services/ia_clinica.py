@@ -276,7 +276,7 @@ def _get_model_name(provider: str | None = None) -> str:
         return os.getenv("IA_MODEL", "gpt-4o-mini")
     if provider == "deepseek":
         return "deepseek-v4-flash"
-    return "gemini-3.7-flash"
+    return os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
 
 
 def _gemini_client():
