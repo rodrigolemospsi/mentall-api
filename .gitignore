@@ -15,6 +15,9 @@ MEMORIA_PIX.md
 # PDFs (nao publicar)
 *.pdf
 
+# APKs (artefatos de release locais, nao versionar)
+*.apk
+
 # Arquivos de trabalho/fonte (nao fazem parte do app nem do build)
 *.docx
 *.zip
