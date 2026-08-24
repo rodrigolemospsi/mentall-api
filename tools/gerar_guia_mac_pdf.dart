@@ -5,7 +5,9 @@ import 'dart:io';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
-const primaria = PdfColor.fromInt(0xFF2066FF);
+const primaria = PdfColor.fromInt(0xFF8806CE);
+const titulo = PdfColor.fromInt(0xFF3C096C);
+const marca = PdfColor.fromInt(0xFFC77DFF);
 const cinza = PdfColor.fromInt(0xFF64748B);
 const heading = PdfColor.fromInt(0xFF1E293B);
 const body = PdfColor.fromInt(0xFF334155);
@@ -21,7 +23,7 @@ void main() async {
   pw.TextStyle tituloSecao(int nivel) => pw.TextStyle(
         fontSize: nivel == 1 ? 16 : nivel == 2 ? 12 : 10,
         fontWeight: nivel <= 2 ? pw.FontWeight.bold : pw.FontWeight.normal,
-        color: nivel == 1 ? primaria : nivel == 2 ? heading : body,
+        color: nivel == 1 ? titulo : nivel == 2 ? heading : body,
       );
 
   pw.Widget espaco([double h = 6]) => pw.SizedBox(height: h);
@@ -40,7 +42,7 @@ void main() async {
                 style: pw.TextStyle(
                     fontSize: 12,
                     fontWeight: pw.FontWeight.bold,
-                    color: primaria)),
+                    color: marca)),
             pw.Text('Guia de Configuracao - Mac Mini M4',
                 style: const pw.TextStyle(fontSize: 9, color: cinza)),
           ],
@@ -80,7 +82,7 @@ void main() async {
         margin: const pw.EdgeInsets.symmetric(vertical: 4),
         padding: const pw.EdgeInsets.all(10),
         decoration: pw.BoxDecoration(
-          color: const PdfColor.fromInt(0xFFE8F1FF),
+          color: const PdfColor.fromInt(0x1FA10AF5),
           borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
         ),
         child: pw.Row(
@@ -117,7 +119,7 @@ void main() async {
       columnWidths: columnWidths,
       children: [
         pw.TableRow(
-          decoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFEFF6FF)),
+          decoration: const pw.BoxDecoration(color: PdfColor.fromInt(0x1FA10AF5)),
           children: cabecalhos
               .map((c) => pw.Padding(
                     padding: const pw.EdgeInsets.all(6),
@@ -156,7 +158,7 @@ void main() async {
               style: pw.TextStyle(
                   fontSize: 22,
                   fontWeight: pw.FontWeight.bold,
-                  color: primaria,
+                  color: marca,
                   letterSpacing: 1.5))),
       espaco(4),
       pw.Center(

@@ -6,8 +6,10 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 void main() async {
-  final azul = PdfColor.fromInt(0xFF2066FF);
-  final azulClaro = PdfColor.fromInt(0xFFE8F1FF);
+  final azul = PdfColor.fromInt(0xFF8806CE);
+  final titulo = PdfColor.fromInt(0xFF3C096C);
+  final marca = PdfColor.fromInt(0xFFC77DFF);
+  final azulClaro = PdfColor.fromInt(0x1FA10AF5);
   final cinza = PdfColor.fromInt(0xFF64748B);
   final linha = PdfColor.fromInt(0xFFE2E8F0);
 
@@ -20,7 +22,7 @@ void main() async {
       build: (context) => [
         pw.Center(
           child: pw.Text('MENTALL', style: pw.TextStyle(
-            fontSize: 28, fontWeight: pw.FontWeight.bold, color: azul, letterSpacing: 3,
+            fontSize: 28, fontWeight: pw.FontWeight.bold, color: marca, letterSpacing: 3,
           )),
         ),
         pw.SizedBox(height: 2),
@@ -39,12 +41,12 @@ void main() async {
         _linha(azul),
 
         pw.SizedBox(height: 12),
-        _titulo('O QUE É O MENTALL', azul),
+        _titulo('O QUE É O MENTALL', titulo),
         pw.SizedBox(height: 4),
         _texto('O MentAll é um aplicativo de prontuário clínico eletrônico desenvolvido especificamente para psicólogos. Diferente de prontuários genéricos, ele se adapta à SUA abordagem terapêutica e utiliza inteligência artificial como assistente de documentação, nunca como substituto do seu julgamento clínico.'),
 
         pw.SizedBox(height: 12),
-        _titulo('POR QUE USAR O MENTALL', azul),
+        _titulo('POR QUE USAR O MENTALL', titulo),
         pw.SizedBox(height: 6),
 
         _topico('1. Foco no paciente, não no papel', azul),
@@ -72,7 +74,7 @@ void main() async {
 
         pw.SizedBox(height: 6),
         _topico('7. Exportação profissional em PDF', azul),
-        _texto('5 formatos: registro de sessão, histórico clínico, relatório com evolução, síntese revisada e prontuário completo. Design limpo, paleta azul minimalista, pronto para anexar ou imprimir.'),
+        _texto('5 formatos: registro de sessão, histórico clínico, relatório com evolução, síntese revisada e prontuário completo. Design limpo, paleta violeta minimalista, pronto para anexar ou imprimir.'),
 
         pw.SizedBox(height: 6),
         _topico('8. Privacidade e Ética', azul),
@@ -86,23 +88,23 @@ void main() async {
         _linha(azul),
         pw.SizedBox(height: 10),
 
-        _titulo('FUNCIONALIDADES PRINCIPAIS', azul),
+        _titulo('FUNCIONALIDADES PRINCIPAIS', titulo),
         pw.SizedBox(height: 6),
 
         _tabelaFuncionalidades(azulClaro, linha, azul),
 
         pw.SizedBox(height: 12),
-        _titulo('PARA QUEM É O MENTALL', azul),
+        _titulo('PARA QUEM É O MENTALL', titulo),
         pw.SizedBox(height: 4),
         _texto('Psicólogos clínicos que atendem regularmente, valorizam seu tempo, desejam registros de qualidade com mínimo esforço, trabalham com diferentes abordagens, precisam de segurança real nos dados e querem um app que se adapta à sua rotina.'),
 
         pw.SizedBox(height: 12),
-        _titulo('O QUE O MENTALL NÃO É', azul),
+        _titulo('O QUE O MENTALL NÃO É', titulo),
         pw.SizedBox(height: 4),
         _texto('Não é um prontuário genérico adaptado da medicina. Não substitui o julgamento clínico. Não armazena dados em nuvens públicas. Não gera conteúdo sem supervisão. Não é um robô-terapeuta — é um assistente de documentação.'),
 
         pw.SizedBox(height: 12),
-        _titulo('COMEÇAR É SIMPLES', azul),
+        _titulo('COMEÇAR É SIMPLES', titulo),
         pw.SizedBox(height: 4),
         _texto('1. Instale o app no Android  2. Configure seu perfil e abordagem  3. Cadastre seu primeiro paciente  4. Agende na agenda integrada  5. Após o atendimento, grave um relato em áudio  6. Revise a transcrição e síntese da IA  7. Marque como revisado — pronto.'),
 

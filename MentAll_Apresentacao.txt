@@ -79,7 +79,7 @@ POR QUE USAR O MENTALL
    • Síntese revisada da sessão
    • Prontuário completo
 
-   Design limpo, paleta azul minimalista, margens profissionais, sem poluição
+   Design limpo, paleta violeta minimalista, margens profissionais, sem poluição
    visual. Pronto para anexar, imprimir ou compartilhar.
 
 8. PRIVACIDADE E ÉTICA
@@ -93,7 +93,7 @@ POR QUE USAR O MENTALL
    • Dados armazenados localmente (Hive) — funciona offline
    • Abertura instantânea do app (sem espera por servidor)
    • Sincronização com IA apenas quando você solicita
-   • Ícones e logo profissional com splash screen azul
+   • Ícones e logo profissional com splash screen violeta
 
 
 FUNCIONALIDADES PRINCIPAIS

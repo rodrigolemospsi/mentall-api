@@ -11,7 +11,8 @@ void main() async {
     author: 'MentAll PRO',
   );
 
-  const primaria = PdfColor.fromInt(0xFF2066FF);
+  const titulo = PdfColor.fromInt(0xFF3C096C);
+  const marca = PdfColor.fromInt(0xFFC77DFF);
   const cinza = PdfColor.fromInt(0xFF64748B);
   const heading = PdfColor.fromInt(0xFF1E293B);
   const body = PdfColor.fromInt(0xFF334155);
@@ -21,7 +22,7 @@ void main() async {
   pw.TextStyle tituloSecao(int nivel) => pw.TextStyle(
     fontSize: nivel == 1 ? 18 : nivel == 2 ? 14 : 12,
     fontWeight: nivel <= 2 ? pw.FontWeight.bold : pw.FontWeight.normal,
-    color: nivel == 1 ? primaria : nivel == 2 ? heading : body,
+    color: nivel == 1 ? titulo : nivel == 2 ? heading : body,
   );
 
   pw.Widget espaco([double h = 6]) => pw.SizedBox(height: h);
@@ -32,7 +33,7 @@ void main() async {
     child: pw.Row(
       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
       children: [
-        pw.Text('MentAll PRO', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: primaria)),
+        pw.Text('MentAll PRO', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: marca)),
         pw.Text('Catálogo de Funcionalidades', style: const pw.TextStyle(fontSize: 10, color: cinza)),
       ],
     ),
@@ -44,7 +45,7 @@ void main() async {
     header: (_) => cabecalho(),
     footer: (ctx) => pw.Center(child: pw.Text('Página ${ctx.pageNumber}', style: const pw.TextStyle(fontSize: 7, color: cinza))),
     build: (ctx) => [
-      pw.Center(child: pw.Text('MentAll PRO', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: primaria, letterSpacing: 1.5))),
+      pw.Center(child: pw.Text('MentAll PRO', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: marca, letterSpacing: 1.5))),
       espaco(4),
       pw.Center(child: pw.Text('Prontuário Clínico com Inteligência Artificial', style: const pw.TextStyle(fontSize: 12, color: cinza))),
       espaco(16),
@@ -433,7 +434,7 @@ pw.Widget _widget(String nome, String desc) {
     child: pw.RichText(
       text: pw.TextSpan(
         children: [
-          pw.TextSpan(text: nome, style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF2066FF))),
+          pw.TextSpan(text: nome, style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF8806CE))),
           pw.TextSpan(text: ' — $desc', style: _bodyStyle),
         ],
       ),
@@ -447,7 +448,7 @@ pw.Widget _endpoint(String method, String path, String desc, bool auth) {
     child: pw.RichText(
       text: pw.TextSpan(
         children: [
-          pw.TextSpan(text: '$method ', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF2066FF))),
+          pw.TextSpan(text: '$method ', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF8806CE))),
           pw.TextSpan(text: path, style: pw.TextStyle(fontSize: 9, color: const PdfColor.fromInt(0xFF1E293B))),
           pw.TextSpan(text: ' ${auth ? "🔒" : "🌐"} ', style: const pw.TextStyle(fontSize: 9)),
           pw.TextSpan(text: '— $desc', style: pw.TextStyle(fontSize: 9, color: const PdfColor.fromInt(0xFF64748B))),

@@ -222,7 +222,7 @@ def _renderizar_template_personalizado(
     right: 28px;
     font-size: 12px;
     font-weight: 700;
-    color: #2066FF;
+    color: #C77DFF;
     opacity: 0.45;
     letter-spacing: 0.5px;
   }}
@@ -253,7 +253,7 @@ def _renderizar_template_personalizado(
     text-align: center;
     font-size: 20px;
     font-weight: 700;
-    color: #2066FF;
+    color: #3C096C;
     margin-bottom: 0;
     padding-bottom: 0;
     letter-spacing: 0.5px;
@@ -301,13 +301,13 @@ def _renderizar_template_personalizado(
     outline: none;
   }}
   .secao-aceite input[type="text"]:focus {{
-    border-color: #2066FF;
-    box-shadow: 0 0 0 3px rgba(32,102,255,0.12);
+    border-color: #8806CE;
+    box-shadow: 0 0 0 3px rgba(136,6,206,0.12);
   }}
   .btn-aceitar {{
     width: 100%;
     padding: 14px;
-    background: #2066FF;
+    background: #8806CE;
     color: #fff;
     font-size: 16px;
     font-weight: 600;
@@ -597,7 +597,7 @@ async def registrar(request: RegistrarRequest, _req: Request):
 <h2>MentAll PRO - Confirme seu cadastro</h2>
 <p>Obrigado por criar sua conta no MentAll PRO.</p>
 <p>Para ativar sua conta, clique no link abaixo (valido por 60 minutos):</p>
-<p><a href="{link}" style="display:inline-block;padding:12px 20px;background:#2066FF;color:#fff;
+<p><a href="{link}" style="display:inline-block;padding:12px 20px;background:#8806CE;color:#fff;
 text-decoration:none;border-radius:8px;">Confirmar meu cadastro</a></p>
 <p style="font-size:13px;color:#64748B;">Se voce nao criou esta conta, ignore este email.</p>
 </body></html>"""
