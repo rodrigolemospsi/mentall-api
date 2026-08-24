@@ -1,6 +1,60 @@
 # MentAll PRO — Prontuário Clínico com IA
 
-> **Regra de trabalho (obrigatória):** sempre invocar as skills relevantes de `.opencode/skills/` (via `skill` tool) **antes** de planejar e executar qualquer tarefa. Ex.: `planning-and-task-breakdown`, `test-driven-development`, `debugging-and-error-recovery`, `frontend-ui-engineering`, etc.
+> **Regra de comunicação (obrigatória):** o dono do projeto se chama **Rodrigo**. Toda resposta deve começar se dirigindo a ele como "Rodrigo".
+
+> **Regra de trabalho (obrigatória):** ao receber **qualquer solicitação**, invocar obrigatoriamente a skill `using-agent-skills` **antes de qualquer leitura de código ou planejamento**. Ela apontará as demais skills aplicáveis (ex.: `planning-and-task-breakdown`, `test-driven-development`, `frontend-ui-engineering`, `debugging-and-error-recovery`), que devem ser invocadas em sequência antes de planejar e executar. Não iniciar análise, plano ou código sem ter passado por esse passo.
+
+## Correções e Funcionalidades (22/08/2026) — SESSÃO 2 — CORES: SOMBRAS, BARRA INFERIOR, TÍTULOS E MARCA
+
+### Decisões do dono (confirmadas por pergunta)
+- Tema claro: **sombra dos cards → `#E0AAFF` a 40%**; **barra fixa inferior** (NavigationBar) → fundo `#E0AAFF` com ícones/legendas `#3C096C`.
+- **Títulos principais** dos documentos → **`#3C096C`** (só o título principal de cada documento; subtítulos internos de seção permanecem).
+- **Nome "MentAll PRO"** nos documentos → **`#C77DFF`**.
+- Escopo "documentos": PDFs do app (6 tipos + LGPD) + HTML backend (contrato/anamnese) + tools (catálogo, guia, apresentação).
+
+### Arquivos alterados
+- `lib/utils/mentall_colors.dart` — `corCardSombra` → `Color(0xFFE0AAFF).withValues(alpha: 0.40)`.
+- `lib/main.dart` — `navigationBarTheme` no tema claro (`brightness == light`): fundo `#E0AAFF`, indicator `#3C096C` 14%, ícones/legendas `#3C096C` (selecionado) / `#3C096C` 55-60% (não selecionado).
+- `lib/services/pdf_export_service.dart` — consts `_titulo` (`#3C096C`) e `_marca` (`#C77DFF`); helper `_tituloDocumento`; títulos principais (Registro de Sessão, HISTÓRICO CLÍNICO, Relatório Clínico, Síntese Revisada, Prontuário Completo, Relatório Financeiro) → `_titulo`; fallback "MentAll PRO" no cabeçalho → `_marca`.
+- `lib/services/lgpd/pdf_arquitetura_lgpd_service.dart` — consts `_titulo`/`_marca`; títulos das 14 seções + sublinhado → `_titulo`; header "MentAll PRO" → `_marca`.
+- `backend/templates/contrato.html` e `anamnese.html` — `.titulo-acordo` → `#3C096C`; `.logo-mentall` → `#C77DFF`.
+- `backend/main.py` — template inline do contrato (idem `.titulo-acordo` e `.logo-mentall`).
+- `tools/gerar_catalogo_pdf.dart` e `tools/gerar_guia_mac_pdf.dart` — `tituloSecao(1)` → `#3C096C`; "MentAll PRO" (cabeçalho + capa) → `#C77DFF`.
+- `gerar_apresentacao_pdf.dart` — `_titulo` (seções em caps) → `#3C096C`; "MENTALL" da capa → `#C77DFF`.
+
+### Fora de escopo (decisão do dono)
+- Rodapés "MentAll PRO — Soluções para Psicólogos" mantidos cinza; e-mails transacionais fora.
+- Sombra de elevação do `Card` (`cardTheme.elevation`) e `shadowColor` do botão de áudio (`sessao_audio_controls.dart`) não mudam.
+
+### Verificação
+- `flutter analyze` limpo nos 7 arquivos alterados; `flutter test` 98/98 passando.
+
+### APK
+- `1.0.4+5` → **`1.0.5+6`**; APK `MentAllPRO-v1.0.5.apk`.
+
+## Correções e Funcionalidades (22/08/2026) — REBRAND FRENCH VIOLET + NOVAS LOGOS
+
+### Nova paleta da marca: French violet (antes azul #2066FF)
+- Variações da logo (escala tonal fornecida pelo dono): **Claro `#A10AF5`** · **Principal `#8806CE`** · **Médio `#6D05A5`** · **Escuro `#52047C`** · **Sombra profunda `#360250`**.
+- Seed do `ColorScheme.fromSeed` em `main.dart` → `0xFF8806CE` (propaga para AppBar, FAB, botões, ícones e links automaticamente).
+- PDFs (`pdf_export_service.dart` `_primaria`, `pdf_arquitetura_lgpd_service.dart` `_azul`) e tools (`gerar_catalogo_pdf`, `gerar_guia_mac_pdf`, `gerar_apresentacao_pdf`) → primária `#8806CE`.
+- Bordas/acentos claros (`_primariaClara`, `_azulClaro`) → `#A10AF5`.
+- Fundos claros (`_azulBg` `#E8F1FF`, `#EFF6FF`) → **`#A10AF5` translúcido 12%** (`0x1FA10AF5` / `rgba(161,10,245,0.12)`) para preservar legibilidade (decisão do dono).
+- Splash Android claro `#8806CE` e escuro `#52047C`; `web/manifest.json` → `#8806CE`.
+- Backend (decisão do dono: também backend): `main.py`, `contrato.html`, `anamnese.html` → `#8806CE` + `rgba(136,6,206,0.12)` + fundos `rgba(161,10,245,0.12)`.
+
+### Novas logos (fundos francês violeta + transparência)
+- `logo_mentallpro_fundoescuro1.png` → `logo_mentallpro_french_violet_transparente.png` (dark).
+- `logo_mentallpro_fundoclaro1.png` → `logo_mentallpro_fundoclaro_french_violet_transparente.png` (light).
+- Arquivos: `app_start_page`, `login_page`, `conta_page`, `perfil_profissional_form_page`, `home_page`, `pdf_export_service`.
+- Textos de marketing atualizados ("paleta azul" → "violeta") em `gerar_apresentacao_pdf.dart` e `MentAll_Apresentacao.txt`.
+- Pendência do dono: regenerar ícone do app (`logo_mentallpro_sem_nome*`) depois.
+- `flutter analyze` limpo nos arquivos alterados.
+
+### APK e numeração de versão (convenção)
+- **Convenção de release:** cada APK novo incrementa `versionName` (patch) + `versionCode` (+1) em `pubspec.yaml`, e o artefato é renomeado para `MentAllPRO-vX.Y.Z.apk` na raiz do repo.
+- Nesta sessão: `1.0.3+4` → **`1.0.4+5`**; APK `MentAllPRO-v1.0.4.apk` (78,8 MB). O `app-release.apk` cru da pasta `build/` não deve ser entregue — sempre copiar/renomear seguindo o padrão.
+- Lembrete: **sempre fazer o bump de versão antes de buildar** (o build anterior saiu com a versão antiga por esquecimento).
 
 ## Correções e Funcionalidades (15/08/2026) — LOGIN FIX + PERFORMANCE ÁUDIO + LOGOS
 
@@ -784,9 +838,12 @@ lib/widgets/paciente_financeiro_tab.dart
 
 ## Cores do App
 ```
-Primary:         #2563EB   Azul principal (AppBar, FAB, títulos, ações)
-Primary Light:   #DBEAFE   Borda de cards de destaque
-Primary BG:      #EFF6FF   Fundo de cards de destaque
+Primary:         #8806CE   French violet (AppBar, FAB, títulos, ações)
+Primary Claro:   #A10AF5   Variação clara (bordas/acentos)
+Primary Médio:   #6D05A5   Variação média
+Primary Escuro:  #52047C   Variação escura (splash escuro)
+Sombra profunda: #360250   Variação mais escura da logo
+Primary BG:      #A10AF5 12%  Fundo translúcido de cards de destaque
 Text Heading:    #1E293B   Títulos
 Text Body:       #334155   Corpo de texto
 Text Secondary:  #475569   Texto secundário
