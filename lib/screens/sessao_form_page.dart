@@ -266,14 +266,6 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
     return _transcricaoRelatoController.text.trim().isNotEmpty;
   }
 
-  bool get _estaAguardandoRevisao {
-    return _statusProcessamento == 'audio_gravado' ||
-        _statusProcessamento == 'transcrevendo' ||
-        _statusProcessamento == 'transcrito' ||
-        _statusProcessamento == 'ia_processando' ||
-        _statusProcessamento == 'ia_processada';
-  }
-
   String _concatenarSintese(Sessao s) {
     final partes = <String>[];
     if (s.eventosImportantes.trim().isNotEmpty) partes.add(s.eventosImportantes.trim());
@@ -1919,8 +1911,7 @@ if (!mounted || confirmar != true) return;
             label: 'Relato clínico organizado',
           ),
         ],
-        if (_estaAguardandoRevisao ||
-            (!_revisadoPeloProfissional && _geradoComIa)) ...[
+        if (!_revisadoPeloProfissional && _geradoComIa) ...[
           const SizedBox(height: 4),
           Semantics(
             label: 'Marcar como revisado',

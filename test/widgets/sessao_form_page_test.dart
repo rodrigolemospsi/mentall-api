@@ -181,4 +181,59 @@ void main() {
       expect(find.textContaining('Artigo Teste'), findsOneWidget);
     });
   });
+
+  group('Botao Marcar como revisado', () {
+    testWidgets('nao aparece quando ha apenas transcricao (sem sintese)', (tester) async {
+      final sessao = Sessao(
+        id: 's3', pacienteId: 'p1', numeroSessao: 5,
+        data: DateTime(2026, 7, 20, 10, 0),
+        relatoPosSessao: 'Relato teste',
+        transcricaoRelato: 'Transcricao teste',
+        geradoComIa: false,
+        statusProcessamento: 'transcrito',
+        revisadoPeloProfissional: false,
+      );
+      await Hive.box<Sessao>('sessoes').put('s3', sessao);
+
+      await pump(tester, sessao: sessao);
+
+      expect(find.text('Marcar como revisado'), findsNothing);
+    });
+
+    testWidgets('aparece quando a sintese foi gerada', (tester) async {
+      final sessao = Sessao(
+        id: 's4', pacienteId: 'p1', numeroSessao: 6,
+        data: DateTime(2026, 7, 21, 10, 0),
+        relatoPosSessao: 'Relato teste',
+        transcricaoRelato: 'Transcricao teste',
+        eventosImportantes: 'Sintese gerada',
+        geradoComIa: true,
+        statusProcessamento: 'ia_processada',
+        revisadoPeloProfissional: false,
+      );
+      await Hive.box<Sessao>('sessoes').put('s4', sessao);
+
+      await pump(tester, sessao: sessao);
+
+      expect(find.text('Marcar como revisado'), findsOneWidget);
+    });
+
+    testWidgets('nao aparece quando a sessao ja foi revisada', (tester) async {
+      final sessao = Sessao(
+        id: 's5', pacienteId: 'p1', numeroSessao: 7,
+        data: DateTime(2026, 7, 22, 10, 0),
+        relatoPosSessao: 'Relato teste',
+        transcricaoRelato: 'Transcricao teste',
+        eventosImportantes: 'Sintese gerada',
+        geradoComIa: true,
+        statusProcessamento: 'revisado',
+        revisadoPeloProfissional: true,
+      );
+      await Hive.box<Sessao>('sessoes').put('s5', sessao);
+
+      await pump(tester, sessao: sessao);
+
+      expect(find.text('Marcar como revisado'), findsNothing);
+    });
+  });
 }
