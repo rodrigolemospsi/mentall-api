@@ -176,6 +176,7 @@ class _PacientesPageState extends ConsumerState<PacientesPage>
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(perfilRevisaoProvider);
     final pacientesAtivos =
         ref.watch(pacientesAtivosProvider).valueOrNull ?? [];
     final pacientesArquivados =

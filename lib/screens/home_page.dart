@@ -258,6 +258,7 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(perfilRevisaoProvider);
     final nomeProf = _nomeProfissional();
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -292,8 +293,8 @@ class _HomePageState extends ConsumerState<HomePage> {
         toolbarHeight: 80,
         title: Image.asset(
           Theme.of(context).brightness == Brightness.dark
-              ? 'assets/images/logo_mentallpro_fundoescuro1.png'
-              : 'assets/images/logo_mentallpro_fundoclaro1.png',
+              ? 'assets/images/logo_mentallpro_fundoescuro_01.png'
+              : 'assets/images/logo_mentallpro_fundoclaro_01.png',
           height: 78,
         ),
         centerTitle: false,

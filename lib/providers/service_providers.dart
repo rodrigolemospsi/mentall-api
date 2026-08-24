@@ -59,6 +59,15 @@ final perfilTermoPluralProvider = StreamProvider<String>((ref) async* {
   }
 });
 
+final perfilRevisaoProvider = StreamProvider<int>((ref) async* {
+  final service = ref.watch(perfilProfissionalServiceProvider);
+  var revisao = 0;
+  yield revisao;
+  await for (final _ in service.observarPerfil()) {
+    yield ++revisao;
+  }
+});
+
 final sessaoServiceProvider = Provider<SessaoService>((ref) {
   final encryption = ref.watch(encryptionServiceProvider);
   return SessaoService(encryption: encryption);
