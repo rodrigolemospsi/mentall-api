@@ -321,11 +321,14 @@ class AudioRelatoService {
   ///
   /// Em Android/iOS/Desktop, mantemos AAC LC em arquivo M4A, que é mais leve
   /// e mais adequado para armazenamento local e envio futuro para transcrição.
+  ///
+  /// 16 kHz / 32 kbps é a taxa nativa do Whisper (transcrição) com qualidade
+  /// adequada para fala e arquivo ~3x menor que o antigo (44,1 kHz / 96 kbps).
   RecordConfig _gerarConfiguracaoGravacaoArquivo() {
     return const RecordConfig(
       encoder: AudioEncoder.aacLc,
-      bitRate: 96000,
-      sampleRate: 44100,
+      bitRate: 32000,
+      sampleRate: 16000,
       numChannels: 1,
       autoGain: true,
       echoCancel: true,
