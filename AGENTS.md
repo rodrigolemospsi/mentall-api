@@ -4,6 +4,41 @@
 
 > **Regra de trabalho (obrigatória):** ao receber **qualquer solicitação**, invocar obrigatoriamente a skill `using-agent-skills` **antes de qualquer leitura de código ou planejamento**. Ela apontará as demais skills aplicáveis (ex.: `planning-and-task-breakdown`, `test-driven-development`, `frontend-ui-engineering`, `debugging-and-error-recovery`), que devem ser invocadas em sequência antes de planejar e executar. Não iniciar análise, plano ou código sem ter passado por esse passo.
 
+## Correções e Funcionalidades (24/08/2026) — UX, ÁUDIO, ESTABILIDADE IA E DEPLOY
+
+### Botão "Marcar como revisado" só aparece após gerar a síntese
+- Antes aparecia logo após a transcrição (condição usava `_estaAguardandoRevisao`, que incluía o status `'transcrito'`).
+- Agora depende apenas de `!_revisadoPeloProfissional && _geradoComIa` (`sessao_form_page.dart`). Removido o getter `_estaAguardandoRevisao` (sem uso). 3 testes de regressão em `sessao_form_page_test.dart`.
+
+### Áudio: gravação 16 kHz / 32 kbps (arquivo ~3× menor)
+- `audio_relato_service.dart`: AAC LC mantido, mas `sampleRate` 44100→16000 e `bitRate` 96000→32000.
+- 16 kHz é a taxa nativa do Whisper/Groq; qualidade para fala preservada. Relato de 5 min cai de ~3,6 MB → ~1,2 MB.
+- Web continua WAV/PCM (caminho separado, não afetado). Validado em APK 1.0.8 no Android.
+
+### Perfil atualiza na tela imediatamente após editar
+- Home e Pacientes liam o perfil com `ref.read` no build (não-reativo) → saudação "Dr. Fulano" e termos ficavam desatualizados até reiniciar o app.
+- Novo `perfilRevisaoProvider` (StreamProvider de contador, padrão `configuracoesRevisaoProvider`) + `ref.watch(perfilRevisaoProvider)` no build das duas telas.
+
+### Estabilidade da síntese (IA)
+- **`GEMINI_MODEL` configurável via env** (`ia_clinica.py`): antes `gemini-3.7-flash` era hardcoded; agora `os.getenv("GEMINI_MODEL", "gemini-3.7-flash")`. Troca de versão sem redeploy. Secret criado no Fly.
+- **Timeout do app** na chamada de síntese: 60s → 90s (`ia_clinica_service.dart`).
+- Causa da oscilação "Serviço de IA temporariamente indisponível": rate limit (429) do Gemini na 1ª chamada, sem fallback eficaz por timeout curto.
+
+### Logos e ícone
+- Novas logos `logo_mentallpro_fundoclaro_01.png` / `fundoescuro_01.png` / `sem_nome_01.png` (French Violet); ícone do app redimensionado para 1024×1024 e mipmaps regerados.
+- Onboarding usa `sua_abordagem_001_1.jpeg` no lugar da png antiga.
+
+### Deploy (Fly.io + GitHub Actions) — fix do deploy automático
+- **Causa raiz**: o repositório não tinha o secret `FLY_API_TOKEN` (0 secrets) → o CI falhava com "no access token available" (já falhava desde 22/08).
+- **Fix**: criado o secret `FLY_API_TOKEN` no GitHub (token `flyctl tokens create deploy`, criptografado via API libsodium). Próximo push dispara o deploy normalmente.
+- **Nota**: se o CI voltar a falhar com "no access token available", recriar o secret `FLY_API_TOKEN` no GitHub (Settings → Secrets → Actions).
+
+### Outros
+- `.gitignore` agora ignora `*.apk` (artefatos locais não versionados).
+- Novos tools: `tools/gerar_guia_publicacao_pdf.dart` e `tools/gerar_prompts_ia_pdf.dart` (geram PDFs na raiz).
+- APK: `1.0.8+9` (`MentAllPRO-v1.0.8.apk`).
+- Fluxo de síntese confirmado: Gemini (`gemini-3.7-flash`) como provedor principal, com fallback OpenAI/DeepSeek (todas as chaves configuradas no Fly).
+
 ## Correções e Funcionalidades (22/08/2026) — SESSÃO 2 — CORES: SOMBRAS, BARRA INFERIOR, TÍTULOS E MARCA
 
 ### Decisões do dono (confirmadas por pergunta)
