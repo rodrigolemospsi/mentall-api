@@ -372,8 +372,8 @@ class _PerfilProfissionalFormPageState
                 alignment: Alignment.centerLeft,
                 child: Image.asset(
                   Theme.of(context).brightness == Brightness.dark
-                      ? 'assets/images/logo_mentallpro_fundoescuro1.png'
-                      : 'assets/images/logo_mentallpro_fundoclaro1.png',
+                      ? 'assets/images/logo_mentallpro_fundoescuro_01.png'
+                      : 'assets/images/logo_mentallpro_fundoclaro_01.png',
                   height: 45,
                 ),
               ),
@@ -382,8 +382,8 @@ class _PerfilProfissionalFormPageState
               Center(
                 child: Image.asset(
                   Theme.of(context).brightness == Brightness.dark
-                      ? 'assets/images/logo_mentallpro_fundoescuro1.png'
-                      : 'assets/images/logo_mentallpro_fundoclaro1.png',
+                      ? 'assets/images/logo_mentallpro_fundoescuro_01.png'
+                      : 'assets/images/logo_mentallpro_fundoclaro_01.png',
                   height: 128,
                 ),
               ),

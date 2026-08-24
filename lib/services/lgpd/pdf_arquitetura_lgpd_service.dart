@@ -3,9 +3,11 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 class PdfArquiteturaLgpdService {
-  static const _azul = PdfColor.fromInt(0xFF2066FF);
-  static const _azulClaro = PdfColor.fromInt(0xFFDBEAFE);
-  static const _azulBg = PdfColor.fromInt(0xFFE8F1FF);
+  static const _azul = PdfColor.fromInt(0xFF8806CE);
+  static const _azulClaro = PdfColor.fromInt(0xFFA10AF5);
+  static const _titulo = PdfColor.fromInt(0xFF3C096C);
+  static const _marca = PdfColor.fromInt(0xFFC77DFF);
+  static const _azulBg = PdfColor.fromInt(0x1FA10AF5);
   static const _texto = PdfColor.fromInt(0xFF1E293B);
   static const _subtitulo = PdfColor.fromInt(0xFF475569);
   static const _linha = PdfColor.fromInt(0xFFE2E8F0);
@@ -57,9 +59,9 @@ class PdfArquiteturaLgpdService {
               style: pw.TextStyle(
                   fontSize: 18,
                   fontWeight: pw.FontWeight.bold,
-                  color: _azul)),
+                  color: _titulo)),
           pw.SizedBox(height: 4),
-          pw.Container(width: 40, height: 3, color: _azul),
+          pw.Container(width: 40, height: 3, color: _titulo),
           pw.SizedBox(height: 20),
           conteudo,
         ],
@@ -81,7 +83,7 @@ class PdfArquiteturaLgpdService {
               style: pw.TextStyle(
                   fontSize: 10,
                   fontWeight: pw.FontWeight.bold,
-                  color: _azul)),
+                  color: _marca)),
           pw.Text('Arquitetura LGPD v1.0',
               style:
                   const pw.TextStyle(fontSize: 8, color: _subtitulo)),

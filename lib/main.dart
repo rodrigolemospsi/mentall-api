@@ -173,7 +173,7 @@ void main() async {
 class MentAllApp extends ConsumerWidget {
   const MentAllApp({super.key});
 
-  static const Color _corPrimaria = Color(0xFF2066FF);
+  static const Color _corPrimaria = Color(0xFF8806CE);
 
   ThemeData _criarTema(Brightness brightness) {
     final colorScheme = ColorScheme.fromSeed(
@@ -201,6 +201,31 @@ class MentAllApp extends ConsumerWidget {
         centerTitle: false,
         elevation: 0,
       ),
+      navigationBarTheme: brightness == Brightness.light
+          ? NavigationBarThemeData(
+              backgroundColor: const Color(0xFFE0AAFF),
+              indicatorColor: const Color(0xFF3C096C).withValues(alpha: 0.14),
+              surfaceTintColor: Colors.transparent,
+              iconTheme: WidgetStateProperty.resolveWith(
+                (states) => IconThemeData(
+                  color: states.contains(WidgetState.selected)
+                      ? const Color(0xFF3C096C)
+                      : const Color(0xFF3C096C).withValues(alpha: 0.55),
+                ),
+              ),
+              labelTextStyle: WidgetStateProperty.resolveWith(
+                (states) => TextStyle(
+                  fontSize: 12,
+                  fontWeight: states.contains(WidgetState.selected)
+                      ? FontWeight.w600
+                      : FontWeight.w400,
+                  color: states.contains(WidgetState.selected)
+                      ? const Color(0xFF3C096C)
+                      : const Color(0xFF3C096C).withValues(alpha: 0.6),
+                ),
+              ),
+            )
+          : null,
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: colorScheme.primary,
         foregroundColor: colorScheme.onPrimary,

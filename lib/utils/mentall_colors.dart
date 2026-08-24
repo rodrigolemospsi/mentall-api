@@ -25,7 +25,7 @@ extension MentAllProColors on BuildContext {
     if (cs.brightness == Brightness.dark) return null;
     return [
       BoxShadow(
-        color: Colors.black.withValues(alpha: 0.08),
+        color: const Color(0xFFE0AAFF).withValues(alpha: 0.40),
         blurRadius: 8,
         offset: const Offset(0, 2),
       ),

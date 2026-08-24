@@ -346,8 +346,8 @@ class _ContaPageState extends ConsumerState<ContaPage> {
   Widget _logo(BuildContext context) {
     return Image.asset(
       Theme.of(context).brightness == Brightness.dark
-          ? 'assets/images/logo_mentallpro_fundoescuro1.png'
-          : 'assets/images/logo_mentallpro_fundoclaro1.png',
+          ? 'assets/images/logo_mentallpro_fundoescuro_01.png'
+          : 'assets/images/logo_mentallpro_fundoclaro_01.png',
       height: 96,
       cacheHeight: 192,
       semanticLabel: 'Logo MentAll PRO',

@@ -10,8 +10,10 @@ import '../models/sessao.dart';
 import 'logger.dart';
 
 class PdfExportService {
-  static const PdfColor _primaria = PdfColor.fromInt(0xFF2066FF);
-  static const PdfColor _primariaClara = PdfColor.fromInt(0xFFDBEAFE);
+  static const PdfColor _primaria = PdfColor.fromInt(0xFF8806CE);
+  static const PdfColor _primariaClara = PdfColor.fromInt(0xFFA10AF5);
+  static const PdfColor _titulo = PdfColor.fromInt(0xFF3C096C);
+  static const PdfColor _marca = PdfColor.fromInt(0xFFC77DFF);
   static const PdfColor _secundaria = PdfColor.fromInt(0xFF64748B);
   static const PdfColor _fundo = PdfColor.fromInt(0xFFF8FAFC);
   static const PdfColor _superficie = PdfColor.fromInt(0xFFF1F5F9);
@@ -23,7 +25,7 @@ class PdfExportService {
   static Future<void> _carregarLogo() async {
     if (_logoBytes != null) return;
     try {
-      _logoBytes = (await rootBundle.load('assets/images/logo_mentallpro_fundoclaro1.png'))
+      _logoBytes = (await rootBundle.load('assets/images/logo_mentallpro_fundoclaro_01.png'))
           .buffer
           .asUint8List();
       _logoImage = pw.MemoryImage(_logoBytes!);
@@ -184,7 +186,7 @@ class PdfExportService {
               style: pw.TextStyle(
                 fontSize: 14,
                 fontWeight: pw.FontWeight.bold,
-                color: _primaria,
+                color: _titulo,
               ),
             ),
           ),
@@ -265,7 +267,7 @@ class PdfExportService {
               style: pw.TextStyle(
                 fontSize: 13,
                 fontWeight: pw.FontWeight.bold,
-                color: _primaria,
+                color: _marca,
                 letterSpacing: 1.2,
               ),
             ),
@@ -308,7 +310,7 @@ class PdfExportService {
       header: (context) => _cabecalhoPagina(perfil),
       footer: (context) => _rodapePagina(context),
       build: (context) => [
-        _tituloSecao('Registro de Sessão'),
+        _tituloDocumento('Registro de Sessão'),
         pw.SizedBox(height: 2),
         pw.Text(
           paciente.nomeExibicao,
@@ -651,6 +653,18 @@ class PdfExportService {
     );
   }
 
+  pw.Widget _tituloDocumento(String texto) {
+    return pw.Text(
+      texto.toUpperCase(),
+      style: pw.TextStyle(
+        fontSize: 9,
+        fontWeight: pw.FontWeight.bold,
+        color: _titulo,
+        letterSpacing: 0.8,
+      ),
+    );
+  }
+
   pw.Widget _linhaSeparadora() {
     return pw.Container(
       height: 0.5,
@@ -679,7 +693,7 @@ class PdfExportService {
         header: (context) => _cabecalhoPagina(perfil),
         footer: (context) => _rodapePagina(context),
         build: (context) => [
-          _tituloSecao('Relatório Clínico'),
+          _tituloDocumento('Relatório Clínico'),
           pw.SizedBox(height: 12),
           _dadosPaciente(paciente),
           pw.SizedBox(height: 8),
@@ -722,7 +736,7 @@ class PdfExportService {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    _tituloSecao('Síntese Revisada'),
+                    _tituloDocumento('Síntese Revisada'),
                     pw.SizedBox(height: 4),
                     pw.Text(
                       'Sessão ${sessao.numeroSessao} - ${paciente.nomeExibicao}',
@@ -815,7 +829,7 @@ class PdfExportService {
         header: (context) => _cabecalhoPagina(perfil),
         footer: (context) => _rodapePagina(context),
         build: (context) => [
-          _tituloSecao('Prontuário Completo'),
+          _tituloDocumento('Prontuário Completo'),
           pw.SizedBox(height: 4),
           pw.Text(
             paciente.nomeExibicao,
@@ -1008,7 +1022,7 @@ class PdfExportService {
                   ],
                 ),
                 pw.Spacer(),
-                pw.Text('Relatório Financeiro', style: pw.TextStyle(fontSize: 12, color: _primaria)),
+                pw.Text('Relatório Financeiro', style: pw.TextStyle(fontSize: 12, color: _titulo)),
               ],
             ),
           ),

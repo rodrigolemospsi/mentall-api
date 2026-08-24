@@ -66,7 +66,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                     alignment: Alignment.topCenter,
                   ),
                   Image.asset(
-                    'assets/images/sua_abordagem.png',
+                    'assets/images/sua_abordagem_001_1.jpeg',
                     fit: BoxFit.cover,
                     alignment: Alignment.topCenter,
                   ),

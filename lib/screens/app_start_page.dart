@@ -152,8 +152,8 @@ class _AppStartPageState extends ConsumerState<AppStartPage>
           body: Center(
               child: Image.asset(
                 isDark
-                    ? 'assets/images/logo_mentallpro_fundoescuro1.png'
-                    : 'assets/images/logo_mentallpro_fundoclaro1.png',
+                    ? 'assets/images/logo_mentallpro_fundoescuro_01.png'
+                    : 'assets/images/logo_mentallpro_fundoclaro_01.png',
                 height: 128,
                 cacheHeight: 256,
                 semanticLabel: 'Logo MentAll PRO',
