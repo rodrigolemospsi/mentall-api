@@ -4,6 +4,269 @@
 
 > **Regra de trabalho (obrigatória):** ao receber **qualquer solicitação**, invocar obrigatoriamente a skill `using-agent-skills` **antes de qualquer leitura de código ou planejamento**. Ela apontará as demais skills aplicáveis (ex.: `planning-and-task-breakdown`, `test-driven-development`, `frontend-ui-engineering`, `debugging-and-error-recovery`), que devem ser invocadas em sequência antes de planejar e executar. Não iniciar análise, plano ou código sem ter passado por esse passo.
 
+## BACKUP DA CONFIGURAÇÃO ATUAL (25/08/2026) — PALETA ROXA ANTES DA MIGRAÇÃO PARA CINZA
+
+> **Objetivo:** registrar o estado visual atual (paleta roxa) antes de qualquer mudança para tons de cinza, para permitir reversão sem perder o que foi construído. Atualizar este bloco conforme as mudanças forem aplicadas.
+
+> **STATUS (25/08/2026):** ✅ **MIGRAÇÃO PARA CINZA APLICADA** nos 3 itens abaixo (sombras + botões de ação + barra inferior da Home). Os valores "atuais" abaixo são o estado ANTES (roxo); o que foi aplicado está indicado em **APLICADO**.
+
+### Sombra dos cards (APLICADO — agora cinza)
+- **Arquivo:** `lib/utils/mentall_colors.dart` → getter `corCardSombra` (linhas ~25-34).
+- **Estado anterior (roxo):**
+  - `color: Color(0xFFE0AAFF).withValues(alpha: 0.40)` (roxo claro)
+  - `blurRadius: 8`
+  - `offset: Offset(0, 2)`
+- **APLICADO:** `color: Color(0xFF94A3B8).withValues(alpha: 0.30)` (cinza neutro). `blurRadius`/`offset` mantidos.
+- **Tema escuro:** retorna `null` (usa `corCardBorda`).
+- **Consumida por:** `MentAllCard`, KPIs/Sessões de hoje/Atividade recente (Home), Financeiro (resumo), PacienteCard da Home, perfil (todos via `context.corCardSombra`).
+
+### Botões de ação da Home — Novo paciente / Agendar / Nova sessão (APLICADO — agora cinza)
+- **Arquivo:** `lib/widgets/home_dashboard.dart` → widget `_AcaoRapida` (linhas ~118-172).
+- **Estado anterior (roxo):**
+  - Borda (`Border.all`, linha ~139): `context.corContainerPrimario`
+  - Ícone (22px, linha ~145): `context.corPrimaria`
+  - Texto (w600, `Tipografia.xs`, linha ~154): `context.corPrimaria`
+  - Fundo do `Material` (linha ~167): `context.corContainerPrimario`
+- **APLICADO:** novos getters em `mentall_colors.dart` — `corAcaoFundo`, `corAcaoBorda`, `corAcaoFg` (tema claro: `#F1F5F9`, `#E2E8F0`, `#64748B`; tema escuro: mantém tons do `ColorScheme`). Usados na borda, ícone, texto e fundo do `_AcaoRapida`.
+- **APLICADO (25/08/2026, ajuste):** o fundo dos botões de ação (tema claro) passou a usar **a mesma cor da sombra dos cards** — `#94A3B8` a 30% de opacidade (extraído para a constante `corSombraCard` em `mentall_colors.dart`, compartilhada com `corCardSombra`). Antes era `#F1F5F9`. Tema escuro inalterado. Borda (`corAcaoBorda`) e texto/ícone (`corAcaoFg`) inalterados.
+- **Resolução das cores ANTES** (tema claro, seed `0xFF8806CE`):
+  - `corContainerPrimario` = `cs.primaryContainer` (roxo claro translúcido derivado do seed)
+  - `corPrimaria` = `#8806CE` (french violet)
+
+### Barra fixa inferior (NavigationBar) — Início / Pacientes / Financeiro (APLICADO — agora cinza)
+- **Arquivo:** `lib/main.dart` → `navigationBarTheme` no tema claro (`brightness == light`).
+- **Estado anterior (roxo):**
+  - Fundo: `Color(0xFFE0AAFF)`
+  - Indicator: `#3C096C` a 14%
+  - Ícones/legendas: `#3C096C` (selecionado) / `#3C096C` 55-60% (não selecionado)
+- **APLICADO (25/08/2026):** fundo = **mesma cor da sombra** — `corSombraCard.withValues(alpha: 0.30)`; indicator = `corAcaoFgClaro` (`#64748B`) a 14%; ícones/legendas = `#64748B` (selecionado) / `#64748B` 55-60% (não selecionado). Novas constantes públicas em `mentall_colors.dart`: `corSombraCard` (`#94A3B8`) e `corAcaoFgClaro` (`#64748B`). Tema escuro inalterado (`null` → default do ColorScheme).
+- **Nota:** os botões de ação da Home (`corAcaoFundo`/`corAcaoFg`) já usam exatamente as mesmas cores do fundo/ícones da barra (mesmas constantes) — barra e botões são sincronizados.
+
+### Ícones da Atividade recente (Home) — (APLICADO — agora cinza)
+- **Arquivo:** `lib/widgets/home_dashboard.dart` → widget `_AtividadeItem` (chip circular 34px + ícone 17px).
+- **Estado anterior (roxo):** chip `context.corContainerPrimario` (`primaryContainer`) + ícone `context.corPrimaria`.
+- **APLICADO (25/08/2026):** novos getters em `mentall_colors.dart` — `corAtividadeIconeFundo` (tema claro: `corAcaoFgClaro` a 14%, igual ao indicator da barra) e `corAtividadeIcone` (tema claro: `corAcaoFgClaro`). Tema escuro inalterado (`primaryContainer`/`primary`).
+
+### Como reverter
+- Sombra: restaurar `corCardSombra` para `Color(0xFFE0AAFF).withValues(alpha: 0.40)`.
+- Botões: remover os getters `corAcaoFundo`/`corAcaoBorda`/`corAcaoFg` de `mentall_colors.dart` e restaurar `_AcaoRapida` para `corContainerPrimario`/`corPrimaria`.
+- Barra inferior: restaurar em `main.dart` `backgroundColor: Color(0xFFE0AAFF)`, `indicatorColor: Color(0xFF3C096C).withValues(alpha: 0.14)` e ícones/legendas `#3C096C`.
+- Nenhuma outra tela/componente é afetado por essas mudanças.
+
+## Correções e Funcionalidades (25/08/2026) — RETRY DE LEMBRETES + RECONEXÃO WUZAPI
+
+### Fix: botões da Agenda (Confirmar/Ausência/Cancelar/Remover) não persistiam
+- **Sintoma:** tocar em "Realizado/Faltou/Cancelar/Remover" no card da Agenda não mudava nada.
+- **Causa raiz:** `CompromissoService._decryptCompromisso()` criava uma **nova instância** de `Compromisso` (sem `key` Hive) ao descriptografar. Os métodos de ação (`marcarComoRealizado/Cancelado/Faltou/Agendado`, `remover`, `vincularSessao`, `atualizar`) chamavam `.save()`/`.delete()`/`_box.put(compromisso.key, ...)` nessa cópia sem `key` → Hive falhava silenciosamente e o status nunca persistia.
+- **Fix (padrão do `SessaoService`):** `_decryptCompromisso()` agora **modifica o objeto no lugar** (preserva `key`). Novo `_encryptCompromisso()` re-criptografa `titulo`/`observacoes` antes do `save()`. `atualizar()` busca o registro original por `id` para obter a `key`.
+- **Testes:** novos `test/services/compromisso_service_test.dart` (6 testes: marcarRealizado/Cancelado/Faltou/Agendado, remover, atualizar). Reproduzem o bug antes do fix (RED) e passam depois (GREEN).
+
+### Bug reportado: "lembrete não chegou" (antecedência 1h)
+- **Diagnóstico:** o agendamento no app **funcionou** (POST `/lembretes` → 200, log "Lembrete agendado"). O envio falhou porque o **wuzapi estava desconectado do WhatsApp** desde ~16:00 (reinício do serviço com erro DNS transitório `lookup web.whatsapp.com: no such host`). O scheduler tentou enviar e o wuzapi retornou `500 {"error":"no session"}` — registrado no log como `Erro wuzapi (500): no session`.
+- **Reconexão:** a sessão ainda existia no disco (`Already logged in`); reconectada via `POST /session/connect` (header `token: <user_token>`, body `{"Subscribe":["All"],"Immediate":false}`) → `logged_in: 1`. Confirmado com envio de teste. **Atenção:** o wuzapi NÃO reconecta sozinho após perder a conexão — para restabelecer, reiniciar o serviço (`launchctl kickstart -k gui/$(id -u)/com.mentall.wuzapi`) e, se a sessão persistir, o launchd tenta conectar no boot; caso contrário, `POST /session/connect` com o token do usuário.
+
+### Retry robusto no scheduler (`backend/services/lembrete_service.py`)
+- **Antes:** ao falhar o envio, o scheduler marcava `status='falha'` na 1ª tentativa — lembrete perdido se o WhatsApp ficasse fora do ar por minutos.
+- **Agora:** nova função `_deve_continuar_tentando(horario_envio, agora)` + env `JANELA_RETRY_LEMBRETES_MINUTOS` (padrão 60). Dentro da janela, o lembrete permanece `pendente` (incrementa `tentativas`, grava `ultima_tentativa_em`) e é re-tentado a cada ciclo de 30s; só vira `falha` após a janela expirar.
+- **Schema:** colunas novas em `lembretes`: `tentativas INTEGER NOT NULL DEFAULT 0` e `ultima_tentativa_em TEXT` (migração via `_garantir_coluna` em `db.py`, também adicionadas ao `CREATE TABLE`).
+- **Resgate:** lembretes antigos já marcados `falha` dentro da janela de retry foram resetados para `pendente` e reenviados com sucesso.
+- **Testes:** novos em `backend/tests/test_lembrete_retry.py` (6 testes, `unittest` — rodar com `.venv/bin/python -m unittest discover -s tests`). Cobertos: dentro/fora da janela, limite exato, formato Z do app, valor inválido, janela configurável.
+- **Ops:** `.env`/`.env.example` → `JANELA_RETRY_LEMBRETES_MINUTOS=60`.
+
+### Watchdog de reconexão do wuzapi (reconecta sozinho)
+- **Problema:** o wuzapi NÃO reconecta sozinho após perder a conexão do WhatsApp. O launchd (`KeepAlive`) reinicia só se o **processo** morrer — quando a conexão cai com o processo vivo, ficava desconectado para sempre (era preciso `POST /session/connect` manual).
+- **Agora:** o scheduler do backend (`_scheduler`) chama `_checar_e_reconectar_wuzapi()` a cada ciclo (30s) via `asyncio.to_thread`. Ele:
+  1. Faz `GET {WUZAPI_BASE_URL}/health` (público, sem auth) — se `logged_in_users == 0` (e `total_users > 0`), está desconectado.
+  2. Chama `POST /session/connect` (header `token`, body `{"Subscribe":["All"],"Immediate":false}`) — reusa a sessão salva no disco, sem escanear QR.
+  3. Cooldown de `WUZAPI_RECONNECT_COOLDOWN_SECONDS` (padrão 300s = 5 min) entre tentativas, para não martelar o WhatsApp se estiver fora.
+- **Funções novas** em `lembrete_service.py`: `_wuzapi_health_ok()`, `_reconectar_wuzapi()`, `_checar_e_reconectar_wuzapi()`.
+- **Testes:** novos em `backend/tests/test_wuzapi_watchdog.py` (12 testes: health online/offline/sem users/erro rede, reconnect sucesso/falha, cooldown, sem base_url).
+- **Validado em produção local:** desconectei a sessão (`/session/disconnect`) e o watchdog reconectou sozinho em ~35s (`logged_in: 0 → 1`, log "wuzapi desconectado. Tentando reconectar..." → "wuzapi reconectado via /session/connect.").
+- **Ops:** `.env`/`.env.example` → `WUZAPI_RECONNECT_COOLDOWN_SECONDS=300`.
+
+### Webhook de confirmação de entrega/leitura (25/08/2026) — como saber se o lembrete chegou
+- **Problema:** o backend marcava o lembrete como `enviado` ao receber HTTP 200 do wuzapi — mas o wuzapi só enfileira a mensagem (`Message sent`), **não confirma entrega/leitura**. Sem confirmação, era impossível saber se o recado chegou ao paciente (falso sucesso).
+- **Agora:** o wuzapi envia webhooks ao backend com os eventos `Message` e `ReadReceipt`; o backend correlaciona pelo `mensagem_id` e grava quando a mensagem foi **entregue** (`entregue_em`) e **lida** (`lido_em`).
+- **Status:** ✅ **CONFIGURADO E ATIVO** no wuzapi local — `GET /webhook` retorna `subscribe=["Message","ReadReceipt"]` e a URL aponta para `http://localhost:8000/wuzapi/webhook?token=<WUZAPI_WEBHOOK_TOKEN>`. Logs confirmam `Webhook call successful status=200` no wuzapi e `Webhook wuzapi Message recebido` no backend.
+- **Fluxo:**
+  1. `_enviar_whatsapp_via_wuzapi` agora retorna `(sucesso, mensagem_id)` e loga o Id (`id=...`); o scheduler salva `mensagem_id` no lembrete.
+  2. O wuzapi POSTa os eventos para `{WUZAPI_BASE_URL aponta p/ backend}/wuzapi/webhook?token=...` (token = env `WUZAPI_WEBHOOK_TOKEN`).
+  3. `registrar_receipt(payload)` em `lembrete_service.py`: para `ReadReceipt` com `state=Delivered` → grava `entregue_em`; `state=Read/ReadSelf` → grava `lido_em` (busca por `mensagem_id`).
+- **Endpoint:** `POST /wuzapi/webhook` em `main.py` (sem JWT; autenticado por `?token=`). Aceita modo `form` (campo `jsonData`) ou `json`.
+- **Schema:** colunas novas em `lembretes`: `mensagem_id`, `entregue_em`, `lido_em` (migração via `_garantir_coluna` em `db.py`).
+- **Testes:** novos em `backend/tests/test_webhook_wuzapi.py` (10 testes: captura de Id, receipt Delivered→entregue, Read→lido, id sem match, payload não-receipt, sem MessageIDs, state desconhecido).
+- **Atenção CRLF:** o `backend/.env` era salvo com quebras CRLF — ao ler variáveis via `grep|cut` no shell, o valor ficava com `\r` no final, fazendo o `curl` montar header inválido (400 do Go). Normalizado para LF. Preferir `tr -d '\r'` ao extrair tokens em comandos.
+- **Como conferir:** `SELECT mensagem_id, entregue_em, lido_em FROM lembretes WHERE id='...'` (via `executar`) ou log do wuzapi (`Message delivered`/`Message was read`) + log do backend (`Webhook wuzapi ReadReceipt recebido`).
+- **Nota:** o `ReadReceipt` de leitura só é emitido pelo WhatsApp quando um destinatário real abre a mensagem — mensagens enviadas para o próprio número conectado podem não gerar receipt.
+
+## Correções e Funcionalidades (26/08/2026) — AUDITORIA COMPLETA + FIX CRÍTICOS
+
+### Auditoria completa do app (25/08/2026) — relatório
+- Revisão multi-eixo (código, segurança, performance, dependências, serviços). Estado geral saudável: `flutter analyze` limpo (1 warning pré-existente), testes Flutter 95/95 + backend 31/31, serviços no ar, criptografia AES-GCM + PBKDF2 100k ok, SQL parameterizado, XSS escapado, CORS restrito, security headers presentes.
+- Achados críticos corrigidos abaixo; restam como pendência: arquivos gigantes (`sessao_form_page` 2438 linhas — seções acopladas ao estado), e descriptografia em lote via Isolate para listagens completas.
+
+### Fix crítico 1: scheduler do backend bloqueava o event loop (disponibilidade)
+- **Problema:** `_scheduler` (a cada 30s) chamava `_enviar_whatsapp_via_wuzapi` (com `requests.post timeout=20`) **direto no event loop** — cada envio podia travar todos os requests HTTP do backend por até 20s.
+- **Fix:** extraída `_processar_pendentes(agora)` (SELECT + envio + UPDATEs, síncrona) e o scheduler agora chama `await asyncio.to_thread(_processar_pendentes, agora)` dentro do `_LOCK` — o envio sai do loop (mesmo padrão já usado no watchdog).
+- **Testes:** novos em `test_webhook_wuzapi.py` (envio sucesso salva mensagem_id, falha mantém pendente, scheduler chama processar em to_thread).
+
+### Fix crítico 2: token do wuzapi vazado no AGENTS.md (rotacionado)
+- **Problema:** o token real `WUZAPI_TOKEN` do usuário wuzapi estava **versionado no AGENTS.md** (linha 127) — dá acesso de envio de WhatsApp em nome do profissional.
+- **Fix:** token **rotacionado** (`PUT /admin/users/{id}` no wuzapi + novo valor em `backend/.env`). AGENTS.md agora usa placeholder (`WUZAPI_TOKEN`, sem valor) com nota de não versionar. Envio ponta a ponta validado com o novo token.
+
+### Fix crítico 3: `validarPin` aceitava qualquer PIN (reautenticação decorativa)
+- **Problema:** `EncryptionService.validarPin()` retornava `true` incondicionalmente quando a chave estava em memória (`if (_key != null) return true;`) — o PIN exigido antes de exportar backup aceitava **qualquer valor**.
+- **Fix:** removido o atalho — `validarPin` agora sempre valida o PIN derivando a chave e tentando descriptografar `encrypted_key` (no fluxo moderno sem PIN legado, retorna `false`; a reautenticação legítima é via biometria/credencial do dispositivo).
+- **Testes:** novos `test/services/encryption_service_test.dart` (2 testes: rejeita PIN quando não há chave legada; não aceita PIN qualquer com chave em memória).
+
+### Fixes de prioridade ALTA/MÉDIA da auditoria (26/08/2026)
+- **Reatividade dos KPIs financeiros:** `_sessoesDoMesHomeProvider` era `Provider.autoDispose` + `IndexedStack` (nunca recomputava) → KPIs **Receita/Pendente obsoletos** até reiniciar o app. Convertido para `StreamProvider` reativo com `async*` + `observarSessoes()` (mesmo padrão dos KPIs). Consumo com `valueOrNull`.
+- **Webhook `/wuzapi/webhook` endurecido:** adicionado rate limit (120/min) + limite de payload (1 MB via `content-length` e `jsonData`) + token **obrigatório** (antes aceitava sem env setada). Payloads grandes retornam 200 com sucesso (para não gerar retry no wuzapi).
+- **Rate limit atrás do proxy Fly:** `Dockerfile` → uvicorn com `--proxy-headers` (passa a confiar no `X-Forwarded-For`; antes `client.host` era o IP do proxy para todos → bucket global de DoS).
+- **N+1 `buscarPacientePorId`:** materializado `Map<String, Paciente>` via `listarPacientes()` (1 leitura) + lookup O(1) em `home_dashboard` (AtividadeRecente), `agenda_page` (dia/semana/mês) e `financeiro_page` (lista + export PDF).
+- **`MemoryImage` sem cache:** novo `lib/utils/imagem_cache.dart` com cache de `MemoryImage` por base64 (reusa instância → evita re-decode JPEG a cada build). Aplicado em 8 telas/widgets.
+- **Logs com PII mascarados:** helper `_mascarar_contato` (e-mail: 1º char + domínio; telefone: últimos 4 dígitos) em `main.py` e `_mascarar` em `lembrete_service.py`. Aplicado em login, cadastro, contrato/anamnese/aceite, envio de e-mail e envio de WhatsApp (telefone).
+- **Código morto removido (aprovado pelo dono):** apagado `lib/widgets/agenda_inline_widget.dart` (682 linhas) e `SessoesHojeCard`/`_SessaoHojeItem` do `home_dashboard.dart`; referências removidas do `tools/gerar_catalogo_pdf.dart`.
+- **Testes:** backend 33/33 (novos: mascaramento PII + processar_pendentes), Flutter 97/97, `analyze` limpo.
+
+### Fixes de prioridade ALTA/MÉDIA restantes (26/08/2026)
+- **Credenciais sem PIN em texto puro (eliminado):** `ApiClient.setCredentials`/JWT **não persistem mais em texto puro** quando a criptografia não está disponível — mantêm apenas em memória (campos `_usernameMemoria`/`_passwordMemoria`), getters consultam memória primeiro. `AuthService._username/_password` delegam a `ApiClient`. Testes: novos `test/services/api_client_test.dart` (2 testes: persiste criptografado com chave; não persiste em claro sem chave).
+- **Certificate pinning:** removido o **bypass genérico de `192.168.x.x`** (qualquer host da rede local aceitava qualquer cert = MITM); agora só `localhost`/`127.0.0.1` são liberados para dev. Adicionado o fingerprint **atual** do cert Fly (renovação Let's Encrypt) ao lado do anterior — o pin só age quando a validação padrão falha, então manter os 2 últimos evita quebra na transição.
+- **Descriptografia síncrona na UI thread (contadores sem decrypt):** novos `SessaoService.contarSessoesAtivasUltimos30Dias()` e `somarFinanceiroPorPeriodo(inicio, fim)` que **não descriptografam** campos clínicos (só contam/somam campos não-cifrados como `data`, `statusPagamento`, `valorSessao`). Usados em `dashboardKpisSessoesProvider` (antes decrypt de tudo) e `_sessoesDoMesHomeProvider` da Home. `PacienteResumoTab` passou a usar `contarSessoesDoPaciente`/`contarSessoesArquivadasDoPaciente` (eram listagens com decrypt só para `.length`).
+- **Arquivo gigante `sessao_form_page.dart`:** extraídos 3 widgets autocontidos para `lib/widgets/sessao_form_widgets.dart` — `CardBuscandoArtigos`, `AudioMantidoSwitch`, `BotaoSalvarSessao`. Seções altamente acopladas ao estado (`_secaoFinanceira`, `_secaoProgresso`, `_secaoRelatoIa`) **ficam como pendência** — extraí-las relocaria complexidade (passagem de ~10 callbacks/setters) sem reduzi-la.
+- **Testes:** Flutter 99/99 (novos: api_client_test + encryption_service_test), backend 33/33, `analyze` limpo.
+
+## INFRAESTRUTURA LOCAL (25/08/2026) — Setup e automação
+
+### Localização do projeto (MOVIDA!)
+- Projeto movido de `~/Documents/mentall-pro-app` → **`~/mentall-pro-app`** (fora de Documents).
+- **Motivo**: a pasta Documents é protegida pelo **TCC do macOS** — o launchd não conseguia executar scripts lá (`Operation not permitted`). Fora de Documents, a automação funciona.
+
+### Serviços locais com launchd (iniciam no login + reiniciam se caírem)
+- **`com.mentall.wuzapi`** → wuzapi (WhatsApp) na porta **8080**. Plist: `~/Library/LaunchAgents/com.mentall.wuzapi.plist`. Binário: `~/wuzapi/wuzapi`. Logs: `~/wuzapi/wuzapi.launchd.log(.err.log)`.
+- **`com.mentall.backend`** → backend (uvicorn) na porta **8000**. Plist: `~/Library/LaunchAgents/com.mentall.backend.plist`. Script: `~/mentall-pro-app/backend/start_backend.sh` (roda `.venv/bin/python -u -m uvicorn`). Logs: `backend.launchd.log` (stdout/requests) e `backend.launchd.err.log` (logs do app/scheduler).
+
+### Como operar
+- **Reiniciar um serviço**: `launchctl kickstart -k gui/$(id -u)/com.mentall.backend` (ou `.wuzapi`).
+- **Parar**: `launchctl unload ~/Library/LaunchAgents/com.mentall.<serviço>.plist`.
+- **Ver logs**: `tail -f ~/mentall-pro-app/backend/backend.launchd.err.log`.
+- **`start_backend.sh` e `start_wuzapi.sh`** também servem para uso manual (`nohup ... &`).
+
+### Python e ferramentas (sem Homebrew/sudo)
+- **uv** (gerenciador): `~/.local/bin/uv`. Instalou **Python 3.12.14** gerenciado.
+- **Backend venv**: `~/mentall-pro-app/backend/.venv` (Python 3.12). Ativar/rodar: `./.venv/bin/python -m uvicorn main:app --port 8000`.
+- **Importante**: `main.py` usa f-strings que exigem **Python 3.12+** (o 3.9 do sistema não compila).
+- **Go** (para compilar wuzapi): `~/go-local/bin/go`.
+
+### wuzapi
+- Binário compilado: `~/wuzapi/wuzapi` (v1.0.8). Config: `~/wuzapi/.env` (`WUZAPI_ADMIN_TOKEN`).
+- Usuário/instância "profissional" criada, **WhatsApp conectado** (`loggedIn: true`, jid `557592298347@s.whatsapp.net`).
+- Token do usuário (para envio): `WUZAPI_TOKEN` (em `backend/.env` → `WUZAPI_TOKEN`; **não versionar** — rotacionado em 25/08/2026 após vazamento no AGENTS.md).
+- Dashboard: `http://localhost:8080/dashboard` (login = admin token do `~/wuzapi/.env`).
+
+### Validação concluída (ponta a ponta)
+- wuzapi enviando (curl direto), função `_enviar_whatsapp_via_wuzapi` OK, endpoint `/enviar-whatsapp` autenticado OK.
+- **Scheduler automático** OK: agendou lembrete → log `Lembrete WhatsApp enviado via wuzapi: 557592298347 (id=...)` (o `mensagem_id` agora é gravado no lembrete para correlacionar com o webhook de entrega/leitura).
+- **KeepAlive** OK: matar o backend → launchd reinicia sozinho em ~10s.
+
+## Correções e Funcionalidades (25/08/2026) — LEMBRETES VIA WUZAPI (WhatsApp do próprio profissional)
+
+### Decisões do dono (entrevista)
+- Objetivo: **reduzir custo** de envio de lembretes de sessão (Twilio cobra por mensagem) e facilitar o início da operação.
+- **Número**: WhatsApp **do próprio profissional** (multi-usuário — cada psicólogo conecta o seu; no 1º momento o dono conecta o dele).
+- **Hospedagem**: testar **local no PC** primeiro, depois **Fly.io** (máquina separada do backend).
+- **Canal**: **só WhatsApp** — opção SMS **removida** do formulário de compromisso e do backend.
+- **Conexão**: via **painel web do wuzapi** (`/dashboard` → QR code escaneado com o celular do profissional; mecânica de "aparelho vinculado" como WhatsApp Web).
+- **Escopo**: **só lembretes automáticos** (scheduler). Envios manuais de anamnese/acordo continuam abrindo o WhatsApp do celular (`url_launcher`).
+- **Risco assumido**: wuzapi usa WhatsApp não-oficial (whatsmeow) — risco de banimento em uso comercial (decisão do dono; caminho oficial p/ escala = WhatsApp Business API).
+
+### Backend
+- **`services/db.py`**: nova tabela `wuzapi_instancias (owner_id PK, wuzapi_token, wuzapi_user_id, conectado, atualizado_em)`.
+- **`services/lembrete_service.py`**: reescrito — remove `_enviar_whatsapp_direto` (Twilio); novo `_enviar_whatsapp_via_wuzapi(owner_id, telefone, mensagem)`:
+  - Resolve token: env `WUZAPI_TOKEN` (1ª fase) → depois tabela `wuzapi_instancias` (multi-profissional).
+  - Normaliza telefone BR → internacional sem `+` (`(11) 99999-9999` → `5511999999999`).
+  - `POST {WUZAPI_BASE_URL}/chat/send/text` com header **`token`** (⚠️ o wuzapi usa header `token` minúsculo, NÃO `Authorization` — `Authorization` é só para `/admin/*`).
+  - Scheduler passa a usar a função wuzapi.
+- **`main.py`**:
+  - `POST /enviar-whatsapp` → agora usa wuzapi (envio imediato, quando toca na notificação).
+  - `POST /enviar-sms` **removido** (Twilio SMS fora de escopo).
+  - Novo `POST /wuzapi/config` (protegido por JWT): registra token da instância do profissional (upsert por `owner_id`).
+- **`models/schemas.py`**: removidos `SmsRequest`/`SmsResponse`; novo `WuzapiConfigRequest`.
+- **`.env`/`.env.example`**: `WUZAPI_BASE_URL` (local `http://localhost:8080`) e `WUZAPI_TOKEN` (token do usuário wuzapi conectado).
+
+### Flutter
+- `compromisso_form_dialog.dart`: seletor canal WhatsApp/SMS **removido** — lembrete sempre WhatsApp (fixo `canalLembrete: 'whatsapp'`).
+- `lembrete_service.dart`: `enviarMensagem` sempre via `/enviar-whatsapp` (sem ramo SMS).
+- `configuracoes_page.dart`: texto "lembrete via SMS" → "lembrete via WhatsApp".
+
+### Verificação
+- `flutter analyze`: limpo (1 warning pré-existente em `tools/`).
+- Testes: widgets 14/14, services OK.
+- Backend: sintaxe validada nos arquivos alterados (`schemas`, `lembrete_service`, `db`). `main.py` não compila no Python 3.9 local por f-strings pré-existentes (exigem 3.12, que é o do Docker/produção).
+
+### Próximos passos (manual do dono)
+1. Instalar wuzapi local: `brew install asternic/wuzapi/wuzapi` (ou `go build`).
+2. Rodar: `WUZAPI_ADMIN_TOKEN=<token> ./wuzapi` → `http://localhost:8080/dashboard`.
+3. Criar usuário + conectar WhatsApp via QR (celular → Aparelhos conectados).
+4. Colar o token do usuário em `backend/.env` → `WUZAPI_TOKEN`.
+5. Rodar backend local e testar: criar compromisso com lembrete para daqui a 1 min.
+6. Depois: deploy do wuzapi no Fly.io (Dockerfile do repo) + `WUZAPI_BASE_URL` apontando para lá.
+
+## Correções e Funcionalidades (25/08/2026) — AUDITORIA VISUAL: CORES, RAIO, TIPOGRAFIA E COMPONENTES
+
+### Auditoria de frontend (estilo, cores e padrões)
+- Revisão completa do design system existente (`MentAllProColors`, `Tipografia`, `Espacamento`, `Responsivo`). Nota 8/10 — gaps eram **aderência ao próprio design system**, não problemas estruturais.
+
+### Novos tokens e componentes de design system
+- **`lib/utils/raio.dart`** (novo): escala unificada de border radius `xxs=6, xs=8, sm=10, md=12, lg=14, xl=16, xxl=18, xxxl=24`. Migrados **100+ ocorrências hardcoded** em 25+ arquivos (widgets + screens + main).
+- **`lib/widgets/mentall_card.dart`** (novo): `MentAllCard` — card tema-consciente (sombra `corCardSombra` no claro / borda `corCardBorda` no escuro), com `padding`, `borderRadius`, `color` e `onTap` opcionais. Aplicado em `home_dashboard` (KPI, Sessões de hoje, Atividade recente), `financeiro_page` (_cardResumo), `paciente_resumo_tab` (_pacoteCard, _contratoCard, _secaoEvolucao).
+- **`lib/widgets/botoes.dart`** (novo): helpers `botaoPrimario()` (FilledButton com spinner de loading) e `botaoSecundario()` (OutlinedButton com cor de borda customizável).
+- **`lib/widgets/status_chip.dart`** (novo): `StatusChip` unificado (label, cor, icone, fontSize, pill, borda). Substituiu `_StatusPacienteChip`, `_PendenciasBadge` (paciente_card_home), `_statusBadge` (paciente_resumo_tab) e o chip inline do Financeiro.
+- **`lib/utils/app_bar_padrao.dart`** (novo): helper `appBarPadrao()` (AppBar primária com `corPrimaria`/`corOnPrimaria`). Aplicado em Financeiro, Pacientes e Paciente Detail.
+
+### Cores — eliminação de hardcoded
+- Todos os `Theme.of(context).colorScheme` de widgets/screens substituídos pela extension `MentAllProColors` (`context.corPrimaria`, `context.corCard`, `context.corOnPrimaria`, `context.corContainerPrimario`, `context.corOnSurface`, etc.).
+- Adicionado getter `corOnSurface` em `lib/utils/mentall_colors.dart`.
+- Imports LGPD corrigidos (`../../utils/mentall_colors.dart`).
+
+### Tipografia — migração de literais
+- `lib/utils/tipografia.dart`: adicionados tokens `xxs=10, xs=11, sm=12, smMd=13, base=14, baseMd=15, md=16, lg=18, xl=20, xxl=24, display=28`.
+- **200+ `fontSize` literais** → tokens `Tipografia.xxx` em 36 arquivos (valores idênticos = zero mudança visual), incluindo `main.dart` textTheme e PDFs.
+
+### SegmentedButton nativo
+- `pacientes_page.dart`: `_SegmentedControl`/`_Segment`/`_SegmentData` custom (~110 linhas) removidos → `SegmentedButton<int>` nativo do Material 3, com estilização preservada (fundo `onPrimary` 12%, texto primário no selecionado).
+
+### AppBar padronizada
+- `appBarPadrao()` aplicada em `financeiro_page`, `pacientes_page` e `paciente_detail_page` (removida redundância com `appBarTheme` do tema).
+
+### Verificação
+- `flutter analyze`: limpo (1 warning pré-existente em `tools/gerar_prompts_ia_pdf.dart`).
+- Testes: widgets 14/14 (`app_start` 2, `home` 4, `paciente_detail` 6, `perfil_form` 2), services 23/23, `widget_test` 52/52.
+- `sessao_form_page_test`: travou no teardown (flake conhecido de file-lock, documentado).
+
+### APK
+- `1.0.13+14` → **`1.0.14+15`**; APK `MentAllPRO-v1.0.14.apk` (72 MB).
+
+### Pendência (deferida pelo dono)
+- Limpeza de espaçamentos mágicos (2, 3, 5, 6, 10, 14, 18) → `Espacamento` — baixo valor, risco de mudança visual.
+
+## Correções e Funcionalidades (24/08/2026) — ONBOARDING SIMPLIFICADO
+
+### Onboarding em tela única fullscreen
+- Antes: carrossel de 3 slides (`prontuario_inteligente.png`, `sua_abordagem_001_1.jpeg`, `seguranca_app.png`) com dots + botões "Pular" / "Começar".
+- Agora: **1 tela única** com `sua_abordagem_001_1.jpeg` em fullscreen (`BoxFit.cover`), apenas botão **"Pular"** sobreposto no canto superior direito.
+- Removidos: `PageView`, `PageController`, dots, `_pageIndexProvider`, botão "Começar".
+- Lógica `_concluir()` mantida: marca `onboardingConcluido` via `ConfiguracoesService.setOnboardingConcluido(true)` e navega para perfil/Home.
+- Assets removidos: `prontuario_inteligente.png`, `seguranca_app.png`.
+
+### `ConfiguracoesService` — propriedade `onboardingConcluido`
+- Adicionados getter `onboardingConcluido` e setter `setOnboardingConcluido(bool)` persistindo em Hive `app_config` (chave `onboarding_concluido`).
+
+### Verificação
+- `flutter analyze` limpo.
+- `flutter test test/widgets/app_start_page_test.dart` → 2/2 passando.
+- APK: `1.0.11+12` → **`1.0.12+13`**; APK `MentAllPRO-v1.0.12.apk` (75,4 MB).
+
 ## Correções e Funcionalidades (24/08/2026) — UX, ÁUDIO, ESTABILIDADE IA E DEPLOY
 
 ### Botão "Marcar como revisado" só aparece após gerar a síntese
