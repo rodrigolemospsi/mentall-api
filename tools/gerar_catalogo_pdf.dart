@@ -80,10 +80,6 @@ void main() async {
         'Recuperação por email (código 6 dígitos)',
         'Lockout exponencial (5 tentativas, máx 1h)',
       ]),
-      _tela(pdf, 'OnboardingPage', 'Carrossel introdutório (3 slides)', [
-        'Prontuário inteligente, Sua abordagem, Segurança e privacidade',
-        'Dots animados + botão Pular/Começar',
-      ]),
       _tela(pdf, 'MainShell', 'BottomNavigationBar com 3 abas', [
         'Início (dashboard), Pacientes (lista), Financeiro',
         'IndexedStack — preserva estado entre abas',
@@ -202,9 +198,7 @@ void main() async {
       _widget('SaudacaoResumoHome', 'Cabeçalho com saudação + contagem de sessões do dia'),
       _widget('AcoesRapidasHome', '3 botões de ação rápida (Novo Paciente, Agendar, Nova Sessão)'),
       _widget('KpiCardsHome', 'Grade 2×2 de indicadores (Hoje, Pacientes, Receita, Pendente)'),
-      _widget('SessoesHojeCard', 'Lista de compromissos do dia com avatar, nome, horário, status'),
       _widget('AtividadeRecenteCard', 'Feed dos últimos 5 registros de auditoria com tempo relativo'),
-      _widget('AgendaInlineWidget', 'Calendário inline Dia/Semana/Mês com mini-cards de compromisso'),
       _widget('CompromissoFormDialog', 'Diálogo de criação/edição de compromisso com recorrência e lembretes'),
       _widget('NovoPacienteDialog', 'Diálogo de cadastro com foto, CEP, e validação de email'),
       _widget('PacienteCardHome', 'Card de paciente com avatar, nome, modalidade, WhatsApp, pendências'),
