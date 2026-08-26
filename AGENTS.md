@@ -136,6 +136,20 @@
 - **Arquivo gigante `sessao_form_page.dart`:** extraídos 3 widgets autocontidos para `lib/widgets/sessao_form_widgets.dart` — `CardBuscandoArtigos`, `AudioMantidoSwitch`, `BotaoSalvarSessao`. Seções altamente acopladas ao estado (`_secaoFinanceira`, `_secaoProgresso`, `_secaoRelatoIa`) **ficam como pendência** — extraí-las relocaria complexidade (passagem de ~10 callbacks/setters) sem reduzi-la.
 - **Testes:** Flutter 99/99 (novos: api_client_test + encryption_service_test), backend 33/33, `analyze` limpo.
 
+### Correção anti-alucinação nas indicações de artigos (26/08/2026)
+- **Sintoma:** o card "Indicações de artigos" mostrava conteúdo que parecia título de artigo inventado (ou URL crua de base de busca).
+- **Diagnóstico (leitura minuciosa):** o pipeline novo (OpenAlex → rerank → `_formatar_artigos`) é anti-alucinação e retorna artigos reais. As causas do sintoma:
+  1. **Fallback parecia artigo:** `_montar_artigos_sugeridos` gerava `"1. Ansiedade social"` (tema como título numerado) + URLs — o parser do app tratava a 1ª linha como título clicável, parecendo artigo inventado.
+  2. **Bug de renderização (CAPES):** `Periódicos CAPES: https://...` não era filtrado pelo parser (`[A-Za-z]+` não casa `ó`) → URL crua visível.
+  3. **Sessões antigas persistidas:** artigos gerados pelo LLM direto (pré-15/07, formato `"1. Título: ... Link: ..."`) continuavam criptografados no Hive e eram exibidos ao reabrir.
+  4. **Race condition:** `artigosSugeridosProvider` é global; uma busca em background de outra sessão podia sobrescrever o card.
+- **Fix:**
+  1. Fallback agora usa rótulo **"Busca sugerida N: tema"** (não parece título de artigo); cada plataforma vira link clicável com rótulo (SciELO/CAPES/Oasisbr).
+  2. Parser do app (`sessao_artigos_sugeridos.dart`) reescrito: reconhece bloco "Busca sugerida" e bloco de artigo; regex de plataforma aceita acentos (`^[^:]+:\s*https?://`).
+  3. Novo `lib/utils/artigos_validacao.dart` — `limparArtigosAntigos()` detecta o formato legado (`Título:`/`Link:`/`Acesse:` ou numeração sem link confiável) e limpa ao abrir a sessão (`sessao_form_page.dart:334`).
+  4. `_buscarArtigosEmBackground` guarda `_sessaoId` e descarta a resposta se a sessão mudou durante a busca.
+- **Testes:** backend `tests/test_artigos.py` (7: fallback rótulo, formato real, normalizar temas), Flutter `test/services/artigos_validacao_test.dart` (8) + `test/widgets/sessao_artigos_sugeridos_test.dart` (2). Backend 40/40, Flutter 111/111, `analyze` limpo.
+
 ## INFRAESTRUTURA LOCAL (25/08/2026) — Setup e automação
 
 ### Localização do projeto (MOVIDA!)
