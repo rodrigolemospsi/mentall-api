@@ -84,17 +84,6 @@ class RegistrarResponse(BaseModel):
     erro: str = ""
 
 
-class SmsRequest(BaseModel):
-    telefone: str = Field(min_length=8, max_length=30)
-    mensagem: str = Field(min_length=1, max_length=1600)
-
-
-class SmsResponse(BaseModel):
-    sucesso: bool
-    mensagem: str = ""
-    erro: str = ""
-
-
 class ContratoRequest(BaseModel):
     nome_paciente: str = Field(min_length=1, max_length=120)
     nome_profissional: str = Field(min_length=1, max_length=120)
@@ -133,6 +122,11 @@ class WhatsAppResponse(BaseModel):
     sucesso: bool
     mensagem: str = ""
     erro: str = ""
+
+
+class WuzapiConfigRequest(BaseModel):
+    wuzapi_token: str = Field(min_length=8, max_length=500)
+    wuzapi_user_id: int = 0
 
 
 class LembreteRequest(BaseModel):

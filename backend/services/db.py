@@ -181,7 +181,12 @@ _tabelas = [
         status TEXT NOT NULL DEFAULT 'pendente',
         owner_id TEXT NOT NULL DEFAULT '',
         criado_em TEXT NOT NULL,
-        enviado_em TEXT
+        enviado_em TEXT,
+        tentativas INTEGER NOT NULL DEFAULT 0,
+        ultima_tentativa_em TEXT,
+        mensagem_id TEXT,
+        entregue_em TEXT,
+        lido_em TEXT
     )""",
     """CREATE TABLE IF NOT EXISTS recuperacoes (
         email_hash TEXT PRIMARY KEY,
@@ -202,12 +207,20 @@ _tabelas = [
         email_verificacao_token_hash TEXT,
         email_verificacao_expiracao TEXT
     )""",
+    """CREATE TABLE IF NOT EXISTS wuzapi_instancias (
+        owner_id TEXT PRIMARY KEY,
+        wuzapi_token TEXT NOT NULL DEFAULT '',
+        wuzapi_user_id INTEGER DEFAULT 0,
+        conectado INTEGER NOT NULL DEFAULT 0,
+        atualizado_em TEXT NOT NULL
+    )""",
 ]
 
 _indices = [
     "CREATE INDEX IF NOT EXISTS idx_contratos_owner ON contratos(owner_id)",
     "CREATE INDEX IF NOT EXISTS idx_anamneses_owner ON anamneses(owner_id)",
     "CREATE INDEX IF NOT EXISTS idx_lembretes_owner ON lembretes(owner_id)",
+    "CREATE INDEX IF NOT EXISTS idx_wuzapi_instancias_owner ON wuzapi_instancias(owner_id)",
 ]
 
 try:
@@ -236,3 +249,8 @@ def _garantir_coluna(tabela: str, coluna: str, tipo: str) -> None:
 _garantir_coluna("usuarios", "email_verificacao_token_hash", "TEXT")
 _garantir_coluna("usuarios", "email_verificacao_expiracao", "TEXT")
 _garantir_coluna("recuperacoes", "codigo_hash", "TEXT")
+_garantir_coluna("lembretes", "tentativas", "INTEGER NOT NULL DEFAULT 0")
+_garantir_coluna("lembretes", "ultima_tentativa_em", "TEXT")
+_garantir_coluna("lembretes", "mensagem_id", "TEXT")
+_garantir_coluna("lembretes", "entregue_em", "TEXT")
+_garantir_coluna("lembretes", "lido_em", "TEXT")

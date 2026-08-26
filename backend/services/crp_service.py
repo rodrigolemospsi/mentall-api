@@ -22,7 +22,7 @@ def _extrair_regiao_registro(crp: str) -> tuple[str, str]:
 
 def verificar_crp_online(registro_profissional: str) -> dict:
     if not registro_profissional or not registro_profissional.strip():
-        return {"ativo": False, "erro": "CRP nao informado."}
+        return {"ativo": False, "erro": "CRP não informado."}
 
     regiao, numero = _extrair_regiao_registro(registro_profissional)
 
@@ -56,7 +56,7 @@ def verificar_crp_online(registro_profissional: str) -> dict:
                         "erro": "",
                     }
 
-        return {"ativo": False, "erro": "CRP nao encontrado ou nao esta ativo."}
+        return {"ativo": False, "erro": "CRP não encontrado ou não está ativo."}
 
     except requests.Timeout:
         log.warning("Timeout ao consultar CFP: regiao=%s registro=%s", regiao, numero)

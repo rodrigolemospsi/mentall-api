@@ -381,7 +381,7 @@ def _parse_resultado_sucesso(resultado_raw: dict) -> dict:
             "erro": "",
         }
     except Exception as e:
-        log.exception("Erro ao parsear resultado da sintese: %s", e)
+        log.exception("Erro ao parsear resultado da síntese: %s", e)
         return {
             "sucesso": False,
             "erro": "Falha ao processar resultado da IA.",
@@ -417,7 +417,7 @@ def _chamar_provider_sintese(provider_name: str, prompt: str) -> dict:
 def _gerar_sintese_gemini(prompt: str) -> dict:
     client = _gemini_client()
     if not client:
-        log.warning("Gemini nao configurado para sintese")
+        log.warning("Gemini não configurado para síntese")
         return {"sucesso": False, "erro": "GEMINI_API_KEY não configurada."}
 
     try:
@@ -435,22 +435,22 @@ def _gerar_sintese_gemini(prompt: str) -> dict:
         if not conteudo:
             return {"sucesso": False, "erro": "Resposta vazia da IA."}
 
-        log.info("Gemini sintese concluida com sucesso")
+        log.info("Gemini síntese concluída com sucesso")
         resultado = json.loads(conteudo)
         return _parse_resultado_sucesso(resultado)
 
     except json.JSONDecodeError as e:
-        log.warning("Gemini sintese JSON invalido: %s", e)
+        log.warning("Gemini síntese JSON inválido: %s", e)
         return {"sucesso": False, "erro": "Resposta da IA não pôde ser interpretada. Tente novamente."}
     except Exception as e:
-        log.error("Gemini erro na sintese: %s", e)
+        log.error("Gemini erro na síntese: %s", e)
         return {"sucesso": False, "erro": f"Erro ao gerar síntese clínica: {str(e)}"}
 
 
 def _gerar_sintese_openai(prompt: str) -> dict:
     client = _openai_client()
     if not client:
-        log.warning("OpenAI nao configurado para sintese")
+        log.warning("OpenAI não configurado para síntese")
         return {"sucesso": False, "erro": "OPENAI_API_KEY não configurada."}
     return _gerar_sintese_openai_compat(client, prompt)
 
@@ -458,7 +458,7 @@ def _gerar_sintese_openai(prompt: str) -> dict:
 def _gerar_sintese_deepseek(prompt: str) -> dict:
     api_key = os.getenv("DEEPSEEK_API_KEY")
     if not api_key:
-        log.warning("DeepSeek nao configurado para sintese")
+        log.warning("DeepSeek não configurado para síntese")
         return {"sucesso": False, "erro": "DEEPSEEK_API_KEY não configurada."}
 
     model = _get_model_name("deepseek")
@@ -488,7 +488,7 @@ def _gerar_sintese_deepseek(prompt: str) -> dict:
         )
 
         if resp.status_code != 200:
-            log.error("DeepSeek sintese retornou %d: %s", resp.status_code, resp.text[:500])
+            log.error("DeepSeek síntese retornou %d: %s", resp.status_code, resp.text[:500])
             return {
                 "sucesso": False,
                 "erro": f"DeepSeek retornou {resp.status_code}: {resp.text[:500]}",
@@ -500,15 +500,15 @@ def _gerar_sintese_deepseek(prompt: str) -> dict:
         if not conteudo:
             return {"sucesso": False, "erro": "Resposta vazia da IA."}
 
-        log.info("DeepSeek sintese concluida com sucesso")
+        log.info("DeepSeek síntese concluída com sucesso")
         resultado = json.loads(conteudo)
         return _parse_resultado_sucesso(resultado)
 
     except json.JSONDecodeError as e:
-        log.warning("DeepSeek sintese JSON invalido: %s", e)
+        log.warning("DeepSeek síntese JSON inválido: %s", e)
         return {"sucesso": False, "erro": "Resposta da IA não pôde ser interpretada. Tente novamente."}
     except Exception as e:
-        log.error("DeepSeek erro na sintese: %s", e)
+        log.error("DeepSeek erro na síntese: %s", e)
         return {"sucesso": False, "erro": f"Erro ao gerar síntese: {type(e).__name__}: {str(e)}"}
 
 
@@ -532,15 +532,15 @@ def _gerar_sintese_openai_compat(client, prompt: str) -> dict:
         if not conteudo:
             return {"sucesso": False, "erro": "Resposta vazia da IA."}
 
-        log.info("OpenAI sintese concluida com sucesso")
+        log.info("OpenAI síntese concluída com sucesso")
         resultado = json.loads(conteudo)
         return _parse_resultado_sucesso(resultado)
 
     except json.JSONDecodeError as e:
-        log.warning("OpenAI sintese JSON invalido: %s", e)
+        log.warning("OpenAI síntese JSON inválido: %s", e)
         return {"sucesso": False, "erro": "Resposta da IA não pôde ser interpretada. Tente novamente."}
     except Exception as e:
-        log.error("OpenAI erro na sintese: %s", e)
+        log.error("OpenAI erro na síntese: %s", e)
         return {"sucesso": False, "erro": f"Erro ao gerar síntese clínica: {str(e)}"}
 
 
@@ -560,7 +560,7 @@ def gerar_sintese(
         material_base = relato_manual if relato_manual.strip() else transcricao_relato
 
         if not material_base.strip():
-            log.warning("Sintese abortada: sem material clinico")
+            log.warning("Síntese abortada: sem material clínico")
             return {
                 "sucesso": False,
                 "erro": "Não há relato ou transcrição suficiente para gerar síntese clínica.",
@@ -584,7 +584,7 @@ def gerar_sintese(
         ultimo_erro = ""
         for prov in ordem_providers:
             log.info(
-                "Gerando sintese - provider=%s modelo=%s sessao=%d",
+                "Gerando síntese - provider=%s modelo=%s sessão=%d",
                 prov,
                 _get_model_name(prov),
                 numero_sessao,
@@ -594,13 +594,13 @@ def gerar_sintese(
                 return resultado
             ultimo_erro = resultado.get("erro", "")
             log.warning(
-                "Provedor %s falhou na sintese (tentando proximo): %s",
+                "Provedor %s falhou na síntese (tentando próximo): %s",
                 prov,
                 ultimo_erro,
             )
 
         log.error(
-            "Todos os provedores falharam na sintese. Ultimo erro: %s",
+            "Todos os provedores falharam na síntese. Último erro: %s",
             ultimo_erro,
         )
         return {
@@ -609,7 +609,7 @@ def gerar_sintese(
         }
 
     except Exception as e:
-        log.exception("Erro inesperado ao gerar sintese: %s", e)
+        log.exception("Erro inesperado ao gerar síntese: %s", e)
         return {
             "sucesso": False,
             "erro": "Serviço de IA temporariamente indisponível. Tente novamente em instantes.",

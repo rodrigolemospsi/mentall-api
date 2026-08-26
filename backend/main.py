@@ -56,8 +56,6 @@ from models.schemas import (
     ResponderAnamneseRequest,
     SinteseRequest,
     SinteseResponse,
-    SmsRequest,
-    SmsResponse,
     TranscricaoRequest,
     TranscricaoResponse,
     VerificarCodigoRequest,
@@ -66,6 +64,7 @@ from models.schemas import (
     VerificarCrpResponse,
     WhatsAppRequest,
     WhatsAppResponse,
+    WuzapiConfigRequest,
 )
 from services.anamnese_service import (
     criar_anamnese,
@@ -80,10 +79,13 @@ from services.contrato_service import (
 from services.crp_service import verificar_crp_online
 from services.ia_clinica import _get_model_name, gerar_artigos, gerar_progresso, gerar_sintese
 from services.lembrete_service import (
+    _enviar_whatsapp_via_wuzapi,
     agendar_lembrete,
     cancelar_lembrete,
     iniciar_scheduler,
     parar_scheduler,
+    registrar_receipt,
+    salvar_instancia_wuzapi,
 )
 from services.transcricao import transcrever_audio
 
@@ -116,7 +118,7 @@ APP_USERNAME = os.getenv("APP_USERNAME", "admin")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 APP_PASSWORD_HASH = os.getenv("APP_PASSWORD_HASH", "").strip()
 if not APP_PASSWORD_HASH:
-    raise RuntimeError("APP_PASSWORD_HASH nao configurado. Defina a variavel de ambiente APP_PASSWORD_HASH.")
+    raise RuntimeError("APP_PASSWORD_HASH não configurado. Defina a variável de ambiente APP_PASSWORD_HASH.")
 APP_USER_ID = os.getenv("APP_USER_ID", "").strip() or str(uuid.uuid4())
 log.info("APP_USER_ID: %s", APP_USER_ID[:8])
 SMTP_HOST = os.getenv("SMTP_HOST", "")
@@ -134,6 +136,21 @@ def _formatar_data_br(valor: str) -> str:
         return dt.strftime("%d/%m/%Y")
     except Exception:
         return valor[:10].replace("-", "/")
+
+
+def _mascarar_contato(valor: str) -> str:
+    """Mascara PII (e-mail/telefone) em logs: mantém só o primeiro char + domínio para e-mail,
+    ou os últimos 4 dígitos para telefone."""
+    texto = str(valor).strip()
+    if "@" in texto:
+        local, _, dominio = texto.partition("@")
+        if not local:
+            return "****@" + dominio
+        mascara = local[0] + "*" * max(len(local) - 1, 1)
+        return f"{mascara}@{dominio}"
+    if len(texto) <= 4:
+        return "****"
+    return "*" * (len(texto) - 4) + texto[-4:]
 
 
 def _limpar_crp(valor: str) -> str:
@@ -457,7 +474,7 @@ async def lifespan(app: FastAPI):
         api_key = os.getenv("GEMINI_API_KEY", "")
 
     if not api_key or api_key.startswith("sua_chave"):
-        print(f"ATENCAO: chave de API para {provider} nao configurada.")
+        print(f"ATENCAO: chave de API para {provider} não configurada.")
 
     model = _get_model_name(provider)
     print(f"Modelo de IA: {provider}/{model}")
@@ -469,7 +486,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="MentAll PRO API",
-    description="Backend de IA para o prontuario clinico MentAll PRO",
+    description="Backend de IA para o prontuário clínico MentAll PRO",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -522,7 +539,7 @@ def health():
     )
 
 
-@app.post("/auth/login", response_model=LoginResponse, tags=["Autenticacao"])
+@app.post("/auth/login", response_model=LoginResponse, tags=["Autenticação"])
 def login(request: LoginRequest, _req: Request):
     ip = _req.client.host if _req.client else "unknown"
     _rate_limit_check(ip, max_requests=10)
@@ -546,21 +563,21 @@ def login(request: LoginRequest, _req: Request):
 
     usuario = autenticar(username, request.password)
     if usuario is None:
-        log.warning("Falha de autenticacao para usuario '%s' (IP: %s)", username, ip)
+        log.warning("Falha de autenticação para usuário '%s' (IP: %s)", _mascarar_contato(username), ip)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Credenciais invalidas.",
+            detail="Credenciais inválidas.",
         )
 
     if usuario["status"] == "pendente":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Conta nao confirmada. Verifique seu email.",
+            detail="Conta não confirmada. Verifique seu e-mail.",
         )
 
     registrar_acesso(usuario["id"])
     token = _criar_token_jwt(usuario["email"], usuario["id"])
-    log.info("Login bem-sucedido para usuario '%s' (IP: %s)", usuario["email"], ip)
+    log.info("Login bem-sucedido para usuário '%s' (IP: %s)", _mascarar_contato(usuario["email"]), ip)
     return LoginResponse(
         access_token=token,
         usuario_id=usuario["id"],
@@ -570,7 +587,7 @@ def login(request: LoginRequest, _req: Request):
     )
 
 
-@app.post("/auth/registrar", response_model=RegistrarResponse, tags=["Autenticacao"])
+@app.post("/auth/registrar", response_model=RegistrarResponse, tags=["Autenticação"])
 async def registrar(request: RegistrarRequest, _req: Request):
     ip = _req.client.host if _req.client else "unknown"
     _rate_limit_check(ip, max_requests=5)
@@ -583,7 +600,7 @@ async def registrar(request: RegistrarRequest, _req: Request):
 
     existente = obter_por_email(email)
     if existente is not None and existente["status"] == "ativo":
-        raise HTTPException(status_code=409, detail="Email ja cadastrado.")
+        raise HTTPException(status_code=409, detail="E-mail já cadastrado.")
 
     token = (
         regenerar_token(email)
@@ -599,20 +616,20 @@ async def registrar(request: RegistrarRequest, _req: Request):
 <p>Para ativar sua conta, clique no link abaixo (valido por 60 minutos):</p>
 <p><a href="{link}" style="display:inline-block;padding:12px 20px;background:#8806CE;color:#fff;
 text-decoration:none;border-radius:8px;">Confirmar meu cadastro</a></p>
-<p style="font-size:13px;color:#64748B;">Se voce nao criou esta conta, ignore este email.</p>
+<p style="font-size:13px;color:#64748B;">Se você não criou esta conta, ignore este e-mail.</p>
 </body></html>"""
 
     enviado = await _enviar_email(email, "MentAll PRO - Confirme seu cadastro", corpo)
-    log.info("Cadastro solicitado para email %s (link enviado=%s)", email, enviado)
+    log.info("Cadastro solicitado para email %s (link enviado=%s)", _mascarar_contato(email), enviado)
 
     return RegistrarResponse(
         sucesso=True,
-        mensagem="Link de confirmacao enviado para o email." if enviado
-        else "Conta criada, mas o email nao esta disponivel no momento.",
+        mensagem="Link de confirmação enviado para o e-mail." if enviado
+        else "Conta criada, mas o e-mail não está disponível no momento.",
     )
 
 
-@app.get("/auth/confirmar-email", response_class=HTMLResponse, tags=["Autenticacao"])
+@app.get("/auth/confirmar-email", response_class=HTMLResponse, tags=["Autenticação"])
 def confirmar_email(token: str, _req: Request):
     ip = _req.client.host if _req.client else "unknown"
     _rate_limit_check(ip, max_requests=30)
@@ -627,7 +644,7 @@ def confirmar_email(token: str, _req: Request):
 <title>MentAll PRO</title></head>
 <body style="font-family:sans-serif;text-align:center;padding:40px;">
 <h2 style="color:#D32F2F;">Link invalido ou expirado</h2>
-<p>Este link de confirmacao nao e mais valido. Volte ao app e solicite um novo link.</p>
+<p>Este link de confirmação não é mais válido. Volte ao app e solicite um novo link.</p>
 </body></html>""",
             status_code=400,
         )
@@ -685,14 +702,14 @@ async def transcrever(request: TranscricaoRequest, req: Request):
     if not request.audio_base64:
         raise HTTPException(status_code=400, detail="Nenhum audio informado.")
 
-    log.info("Solicitacao de transcricao recebida (formato: %s)", request.formato)
+    log.info("Solicitação de transcrição recebida (formato: %s)", request.formato)
     loop = asyncio.get_running_loop()
     resultado = await loop.run_in_executor(
         None, transcrever_audio, request.audio_base64, request.formato,
     )
 
     if not resultado["sucesso"]:
-        log.error("Falha na transcricao: %s", resultado["erro"])
+        log.error("Falha na transcrição: %s", resultado["erro"])
         return TranscricaoResponse(sucesso=False, transcricao="", erro=resultado["erro"])
 
     log.info("Transcricao concluida com sucesso (%d caracteres)", len(resultado["transcricao"]))
@@ -710,7 +727,7 @@ async def sintese(request: SinteseRequest, _req: Request):
     _rate_limit_check(ip, max_requests=30)
 
     log.info(
-        "Solicitacao de sintese - sessao_id=%s sessao=%d abordagem=%s",
+        "Solicitação de síntese - sessao_id=%s sessão=%d abordagem=%s",
         request.sessao_id[:8],
         request.numero_sessao,
         request.abordagem_clinica,
@@ -730,7 +747,7 @@ async def sintese(request: SinteseRequest, _req: Request):
     )
 
     if not resultado["sucesso"]:
-        log.error("Falha na sintese: %s", resultado["erro"])
+        log.error("Falha na síntese: %s", resultado["erro"])
         return SinteseResponse(sucesso=False, erro=resultado["erro"])
 
     log.info("Sintese concluida com sucesso")
@@ -792,7 +809,7 @@ async def progresso(request: ProgressoRequest, _req: Request):
     _rate_limit_check(ip, max_requests=30)
 
     log.info(
-        "Solicitacao de progresso - paciente=%s sessao=%d",
+        "Solicitação de progresso - paciente=%s sessão=%d",
         request.paciente_id[:8],
         request.numero_sessao,
     )
@@ -812,7 +829,7 @@ async def progresso(request: ProgressoRequest, _req: Request):
     if not resultado.get("sintomas"):
         return ProgressoResponse(sucesso=False, erro=resultado.get("erro", "Erro ao gerar progresso"))
 
-    log.info("Progresso concluido com sucesso")
+    log.info("Progresso concluído com sucesso")
     return ProgressoResponse(
         sucesso=True,
         sintomas=resultado.get("sintomas", []),
@@ -825,70 +842,115 @@ async def progresso(request: ProgressoRequest, _req: Request):
 
 
 @app.post(
-    "/enviar-sms",
-    response_model=SmsResponse,
+    "/enviar-whatsapp",
+    response_model=WhatsAppResponse,
     tags=["Mensagens"],
     dependencies=[Depends(_verificar_token)],
 )
-def enviar_sms(request: SmsRequest, _req: Request):
+def enviar_whatsapp(request: WhatsAppRequest, _req: Request, auth: tuple = Depends(_verificar_token)):
     ip = _req.client.host if _req.client else "unknown"
-    _rate_limit_check(ip, max_requests=5)
-    log.info("Envio de SMS solicitado para telefone final %s", request.telefone[-4:])
+    _rate_limit_check(ip, max_requests=10)
     if not request.telefone.strip():
-        raise HTTPException(status_code=400, detail="Telefone nao informado.")
+        raise HTTPException(status_code=400, detail="Telefone não informado.")
     if not request.mensagem.strip():
-        raise HTTPException(status_code=400, detail="Mensagem nao informada.")
+        raise HTTPException(status_code=400, detail="Mensagem não informada.")
 
-    account_sid = os.getenv("TWILIO_ACCOUNT_SID", "")
-    auth_token = os.getenv("TWILIO_AUTH_TOKEN", "")
-    twilio_phone = os.getenv("TWILIO_PHONE_NUMBER", "")
-
-    if not account_sid or not auth_token or not twilio_phone:
-        return SmsResponse(
-            sucesso=False,
-            erro="Servico de SMS nao configurado. Configure TWILIO_ACCOUNT_SID, "
-                 "TWILIO_AUTH_TOKEN e TWILIO_PHONE_NUMBER no ambiente.",
+    _, owner_id = auth
+    sucesso, _ = _enviar_whatsapp_via_wuzapi(owner_id, request.telefone, request.mensagem)
+    if sucesso:
+        return WhatsAppResponse(
+            sucesso=True,
+            mensagem=f"WhatsApp enviado para {request.telefone.strip()}",
         )
+    return WhatsAppResponse(
+        sucesso=False,
+        erro="Não foi possível enviar o WhatsApp. Verifique se o wuzapi está conectado.",
+    )
+
+
+@app.post(
+    "/wuzapi/config",
+    response_model=WhatsAppResponse,
+    tags=["Mensagens"],
+    dependencies=[Depends(_verificar_token)],
+)
+def configurar_wuzapi(request: WuzapiConfigRequest, _req: Request, auth: tuple = Depends(_verificar_token)):
+    ip = _req.client.host if _req.client else "unknown"
+    _rate_limit_check(ip, max_requests=10)
+    _, owner_id = auth
+
+    if not request.wuzapi_token.strip():
+        raise HTTPException(status_code=400, detail="Token do wuzapi não informado.")
+
+    salvar_instancia_wuzapi(
+        owner_id=owner_id,
+        token=request.wuzapi_token.strip(),
+        user_id=request.wuzapi_user_id,
+        conectado=True,
+    )
+    return WhatsAppResponse(
+        sucesso=True,
+        mensagem="Instancia wuzapi configurada.",
+    )
+
+
+@app.post("/wuzapi/webhook", tags=["Mensagens"])
+async def webhook_wuzapi(request: Request):
+    """Recebe os webhooks do wuzapi (ReadReceipt/Message).
+
+    O wuzapi POSTa eventos assinados (Message, ReadReceipt) para a URL
+    configurada. Aqui processamos apenas os ReadReceipt que confirmam a
+    entrega/leitura das mensagens de lembrete, correlacionando pelo
+    ``mensagem_id`` gravado no envio.
+
+    A URL do webhook deve incluir ``?token=...`` (env WUZAPI_WEBHOOK_TOKEN)
+    para autenticacao. Em modo form (padrao), o payload chega no campo
+    ``jsonData``; em modo json, no corpo.
+    """
+    ip = request.client.host if request.client else "unknown"
+    _rate_limit_check(ip, max_requests=120)
+
+    esperado = os.getenv("WUZAPI_WEBHOOK_TOKEN", "").strip()
+    recebido = request.query_params.get("token", "")
+    if not esperado or recebido != esperado:
+        log.warning("Webhook wuzapi rejeitado: token invalido.")
+        raise HTTPException(status_code=403, detail="Token invalido.")
+
+    # Limite de tamanho do payload (1 MB) para evitar DoS por corpo gigante.
+    content_length = request.headers.get("content-length")
+    if content_length and content_length.isdigit() and int(content_length) > 1_000_000:
+        log.warning("Webhook wuzapi rejeitado: payload muito grande (%s bytes).", content_length)
+        return JSONResponse(status_code=200, content={"success": True})
 
     try:
-        import requests
-
-        telefone = request.telefone.strip()
-        if not telefone.startswith("+"):
-            if telefone.startswith("55") and len(telefone) >= 12:
-                telefone = "+" + telefone
-            else:
-                telefone = "+55" + telefone
-
-        url = f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
-        data = {
-            "From": twilio_phone,
-            "To": telefone,
-            "Body": request.mensagem,
-        }
-
-        resp = requests.post(url, data=data, auth=(account_sid, auth_token), timeout=30)
-
-        if resp.status_code in (200, 201):
-            return SmsResponse(
-                sucesso=True,
-                mensagem=f"SMS enviado para {telefone}",
-            )
+        content_type = (request.headers.get("content-type") or "").lower()
+        if "application/json" in content_type:
+            payload = await request.json()
         else:
-            return SmsResponse(
-                sucesso=False,
-                erro=f"Erro Twilio ({resp.status_code}): {resp.text[:300]}",
-            )
+            form = await request.form()
+            json_str = form.get("jsonData", "")
+            if not json_str:
+                log.warning("Webhook wuzapi sem jsonData.")
+                return JSONResponse(status_code=200, content={"success": True})
+            if len(json_str) > 1_000_000:
+                log.warning("Webhook wuzapi rejeitado: jsonData muito grande.")
+                return JSONResponse(status_code=200, content={"success": True})
+            payload = json.loads(json_str)
     except Exception as e:
-        return SmsResponse(
-            sucesso=False,
-            erro=f"Erro ao enviar SMS: {str(e)}",
-        )
+        log.error("Webhook wuzapi invalido: %s", e)
+        return JSONResponse(status_code=200, content={"success": True})
+
+    atualizados = registrar_receipt(payload)
+    log.info(
+        "Webhook wuzapi %s recebido (state=%s, lembretes atualizados=%s)",
+        payload.get("type"), payload.get("state"), atualizados,
+    )
+    return JSONResponse(status_code=200, content={"success": True, "atualizados": atualizados})
 
 
 @app.exception_handler(Exception)
 async def _global_exception_handler(request: Request, exc: Exception):
-    log.exception("Erro interno nao tratado: %s", exc)
+    log.exception("Erro interno não tratado: %s", exc)
     return JSONResponse(
         status_code=500,
         content={"sucesso": False, "erro": "Erro interno do servidor"},
@@ -906,9 +968,9 @@ def criar_contrato_endpoint(request: ContratoRequest, _req: Request, auth: tuple
     _rate_limit_check(ip, max_requests=10)
     _, owner_id = auth
     if not request.nome_paciente.strip():
-        raise HTTPException(status_code=400, detail="Nome do paciente nao informado.")
+        raise HTTPException(status_code=400, detail="Nome do paciente não informado.")
     if not request.nome_profissional.strip():
-        raise HTTPException(status_code=400, detail="Nome do profissional nao informado.")
+        raise HTTPException(status_code=400, detail="Nome do profissional não informado.")
 
     dados = {
         "nome_paciente": request.nome_paciente.strip(),
@@ -924,7 +986,7 @@ def criar_contrato_endpoint(request: ContratoRequest, _req: Request, auth: tuple
     base_url = os.getenv("API_BASE_URL", "https://mentall-api.fly.dev")
     url = f"{base_url}/contratos/{token}"
 
-    log.info("Contrato criado via API: token=%s paciente=%s", token[:8], request.nome_paciente[:20])
+    log.info("Contrato criado via API: token=%s paciente=%s", token[:8], _mascarar_contato(request.nome_paciente[:20]))
     return ContratoResponse(sucesso=True, token=token, url=url)
 
 
@@ -1024,13 +1086,13 @@ def _pagina_contrato(token: str, _req: Request):
 def aceitar_contrato(token: str, request: ContratoAceiteRequest, _req: Request):
     ip = _req.client.host if _req.client else "unknown"
     _rate_limit_check(ip, max_requests=10)
-    log.info("Aceite de contrato %s por %s", token[:12], request.nome[:30])
+    log.info("Aceite de contrato %s por %s", token[:12], _mascarar_contato(request.nome[:30]))
     if not request.nome.strip() or len(request.nome.strip()) < 3:
         raise HTTPException(status_code=400, detail="Nome invalido. Digite seu nome completo.")
 
     contrato = registrar_aceite(token, request.nome.strip())
     if contrato is None:
-        raise HTTPException(status_code=404, detail="Contrato nao encontrado.")
+        raise HTTPException(status_code=404, detail="Contrato não encontrado.")
 
     return ContratoStatusResponse(
         sucesso=True,
@@ -1051,7 +1113,7 @@ def status_contrato(token: str, _req: Request):
     _rate_limit_check(ip, max_requests=30)
     contrato = obter_contrato(token)
     if contrato is None:
-        return ContratoStatusResponse(sucesso=False, erro="Contrato nao encontrado.")
+        return ContratoStatusResponse(sucesso=False, erro="Contrato não encontrado.")
 
     return ContratoStatusResponse(
         sucesso=True,
@@ -1072,11 +1134,11 @@ async def criar_lembrete(request: LembreteRequest, _req: Request, auth: tuple = 
     ip = _req.client.host if _req.client else "unknown"
     _rate_limit_check(ip, max_requests=10)
     if not request.telefone.strip():
-        raise HTTPException(status_code=400, detail="Telefone nao informado.")
+        raise HTTPException(status_code=400, detail="Telefone não informado.")
     if not request.mensagem.strip():
-        raise HTTPException(status_code=400, detail="Mensagem nao informada.")
+        raise HTTPException(status_code=400, detail="Mensagem não informada.")
     if not request.horario_envio.strip():
-        raise HTTPException(status_code=400, detail="Horario de envio nao informado.")
+        raise HTTPException(status_code=400, detail="Horário de envio não informado.")
 
     rid = await agendar_lembrete(
         compromisso_id=request.compromisso_id,
@@ -1101,88 +1163,8 @@ async def remover_lembrete(compromisso_id: str, _req: Request):
     log.info("Remocao de lembrete: %s", compromisso_id[:20])
     ok = await cancelar_lembrete(compromisso_id)
     if not ok:
-        return LembreteResponse(sucesso=False, erro="Lembrete nao encontrado.")
+        return LembreteResponse(sucesso=False, erro="Lembrete não encontrado.")
     return LembreteResponse(sucesso=True, id=compromisso_id)
-
-
-@app.post(
-    "/enviar-whatsapp",
-    response_model=WhatsAppResponse,
-    tags=["Mensagens"],
-    dependencies=[Depends(_verificar_token)],
-)
-def enviar_whatsapp(request: WhatsAppRequest, _req: Request):
-    ip = _req.client.host if _req.client else "unknown"
-    _rate_limit_check(ip, max_requests=10)
-    if not request.telefone.strip():
-        raise HTTPException(status_code=400, detail="Telefone nao informado.")
-    if not request.mensagem.strip():
-        raise HTTPException(status_code=400, detail="Mensagem nao informada.")
-
-    account_sid = os.getenv("TWILIO_ACCOUNT_SID", "")
-    auth_token = os.getenv("TWILIO_AUTH_TOKEN", "")
-    whatsapp_number = os.getenv("TWILIO_WHATSAPP_NUMBER", "")
-
-    if not account_sid or not auth_token:
-        return WhatsAppResponse(
-            sucesso=False,
-            erro="Servico de mensagens nao configurado. Configure TWILIO_ACCOUNT_SID "
-                 "e TWILIO_AUTH_TOKEN no ambiente.",
-        )
-
-    sandbox = os.getenv("TWILIO_WHATSAPP_SANDBOX", "true").strip().lower() == "true"
-
-    if sandbox:
-        from_number = "whatsapp:+14155238886"
-    elif whatsapp_number:
-        from_number = f"whatsapp:{whatsapp_number}" if not whatsapp_number.startswith("whatsapp:") else whatsapp_number
-    else:
-        return WhatsAppResponse(
-            sucesso=False,
-            erro="Numero WhatsApp nao configurado. Defina TWILIO_WHATSAPP_NUMBER "
-                 "ou ative TWILIO_WHATSAPP_SANDBOX=true.",
-        )
-
-    try:
-        import requests
-
-        telefone = request.telefone.strip()
-        if not telefone.startswith("+"):
-            if telefone.startswith("55") and len(telefone) >= 12:
-                telefone = "+" + telefone
-            else:
-                telefone = "+55" + telefone
-
-        to_number = f"whatsapp:{telefone}"
-
-        url = f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
-        data = {
-            "From": from_number,
-            "To": to_number,
-            "Body": request.mensagem,
-        }
-
-        log.info("Enviando WhatsApp: de=%s para=%s", from_number, to_number[:20])
-        resp = requests.post(url, data=data, auth=(account_sid, auth_token), timeout=30)
-
-        if resp.status_code in (200, 201):
-            log.info("WhatsApp enviado com sucesso para %s", telefone)
-            return WhatsAppResponse(
-                sucesso=True,
-                mensagem=f"WhatsApp enviado para {telefone}",
-            )
-        else:
-            log.error("Erro Twilio WhatsApp (%s): %s", resp.status_code, resp.text[:300])
-            return WhatsAppResponse(
-                sucesso=False,
-                erro=f"Erro Twilio ({resp.status_code}): {resp.text[:300]}",
-            )
-    except Exception as e:
-        log.exception("Erro ao enviar WhatsApp")
-        return WhatsAppResponse(
-            sucesso=False,
-            erro=f"Erro ao enviar WhatsApp: {str(e)}",
-        )
 
 
 @app.post(
@@ -1196,9 +1178,9 @@ def criar_anamnese_endpoint(request: AnamneseRequest, _req: Request, auth: tuple
     _rate_limit_check(ip, max_requests=10)
     _, owner_id = auth
     if not request.template_json.strip():
-        raise HTTPException(status_code=400, detail="Template nao informado.")
+        raise HTTPException(status_code=400, detail="Template não informado.")
     if not request.nome_paciente.strip():
-        raise HTTPException(status_code=400, detail="Nome do paciente nao informado.")
+        raise HTTPException(status_code=400, detail="Nome do paciente não informado.")
 
     dados_extra = {
         "nome_paciente": html.escape(request.nome_paciente.strip()),
@@ -1214,7 +1196,7 @@ def criar_anamnese_endpoint(request: AnamneseRequest, _req: Request, auth: tuple
     url = f"{base_url}/anamneses/{token}"
 
     log.info("Anamnese criada via API: token=%s paciente=%s abordagem=%s",
-             token[:8], request.nome_paciente[:20], request.abordagem)
+             token[:8], _mascarar_contato(request.nome_paciente[:20]), request.abordagem)
     return AnamneseResponse(sucesso=True, token=token, url=url)
 
 
@@ -1297,11 +1279,11 @@ def responder_anamnese(token: str, request: ResponderAnamneseRequest, _req: Requ
     _rate_limit_check(ip, max_requests=10)
     log.info("Resposta de anamnese %s", token[:12])
     if not request.respostas.strip():
-        raise HTTPException(status_code=400, detail="Respostas nao informadas.")
+        raise HTTPException(status_code=400, detail="Respostas não informadas.")
 
     anamnese = registrar_resposta(token, request.respostas)
     if anamnese is None:
-        raise HTTPException(status_code=404, detail="Anamnese nao encontrada.")
+        raise HTTPException(status_code=404, detail="Anamnese não encontrada.")
 
     return AnamneseStatusResponse(
         sucesso=True,
@@ -1322,7 +1304,7 @@ def status_anamnese(token: str, _req: Request):
     _rate_limit_check(ip, max_requests=30)
     anamnese = obter_anamnese(token)
     if anamnese is None:
-        return AnamneseStatusResponse(sucesso=False, erro="Anamnese nao encontrada.")
+        return AnamneseStatusResponse(sucesso=False, erro="Anamnese não encontrada.")
 
     return AnamneseStatusResponse(
         sucesso=True,
@@ -1346,7 +1328,7 @@ def _hash_codigo(codigo: str) -> str:
 
 async def _enviar_email(destinatario: str, assunto: str, corpo: str) -> bool:
     if not SMTP_HOST:
-        log.warning("SMTP_HOST nao configurado. Email nao enviado para %s", destinatario)
+        log.warning("SMTP_HOST não configurado. E-mail não enviado para %s", _mascarar_contato(destinatario))
         return False
     try:
         msg = MIMEText(corpo, "html", "utf-8")
@@ -1359,10 +1341,10 @@ async def _enviar_email(destinatario: str, assunto: str, corpo: str) -> bool:
             None,
             lambda: _enviar_email_sync(msg, destinatario),
         )
-        log.info("Email enviado para %s", destinatario)
+        log.info("Email enviado para %s", _mascarar_contato(destinatario))
         return True
     except Exception as e:
-        log.error("Erro ao enviar email para %s: %s", destinatario, e)
+        log.error("Erro ao enviar email para %s: %s", _mascarar_contato(destinatario), e)
         return False
 
 
@@ -1402,22 +1384,22 @@ async def solicitar_recuperacao(request: RecuperacaoRequest, _req: Request):
     else:
         return RecuperacaoResponse(
             sucesso=False,
-            erro="Nenhum registro de recuperacao encontrado para este email. Configure o PIN primeiro.",
+            erro="Nenhum registro de recuperação encontrado para este e-mail. Configure o PIN primeiro.",
         )
 
     corpo = f"""<html><body style="font-family:sans-serif;padding:20px;">
 <h2>MentAll PRO - Recuperacao de PIN</h2>
 <p>Seu codigo de verificacao: <strong style="font-size:24px;letter-spacing:4px;">{codigo}</strong></p>
 <p>Este codigo expira em 10 minutos.</p>
-<p>Se voce nao solicitou esta recuperacao, ignore este email.</p>
+<p>Se você não solicitou esta recuperação, ignore este e-mail.</p>
 </body></html>"""
 
     enviado = await _enviar_email(email, "MentAll PRO - Codigo de Recuperacao", corpo)
-    log.info("Codigo de recuperacao gerado para email %s (enviado=%s)", email_hash[:16], enviado)
+    log.info("Código de recuperação gerado para e-mail %s (enviado=%s)", email_hash[:16], enviado)
 
     return RecuperacaoResponse(
         sucesso=True,
-        mensagem="Codigo enviado para o email." if enviado else "Codigo gerado. Email nao disponivel no momento.",
+        mensagem="Codigo enviado para o email." if enviado else "Código gerado. E-mail não disponível no momento.",
     )
 
 
@@ -1441,7 +1423,7 @@ def verificar_recuperacao(request: VerificarCodigoRequest, _req: Request):
     ).fetchone()
 
     if not registro:
-        return VerificarCodigoResponse(sucesso=False, erro="Nenhuma solicitacao de recuperacao encontrada.")
+        return VerificarCodigoResponse(sucesso=False, erro="Nenhuma solicitação de recuperação encontrada.")
 
     codigo_armazenado = registro.get("codigo_hash", "")
     expiracao_str = registro.get("codigo_expiracao", "")

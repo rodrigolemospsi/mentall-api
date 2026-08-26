@@ -54,7 +54,7 @@ def transcrever_audio(audio_base64: str, formato: str = "wav") -> dict:
             }
 
         log.info(
-            "Iniciando transcricao - provider=%s modelo=%s formato=%s tamanho=%d bytes",
+            "Iniciando transcrição - provider=%s modelo=%s formato=%s tamanho=%d bytes",
             provider, model, formato, len(audio_bytes),
         )
 
