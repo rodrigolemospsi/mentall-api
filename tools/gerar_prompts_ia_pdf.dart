@@ -185,7 +185,7 @@ void main() async {
 
   if (prompts.isEmpty) {
     stderr.writeln(
-        'ERRO: nao foi possivel ler os arquivos de prompts do backend.');
+        'ERRO: não foi possível ler os arquivos de prompts do backend.');
     exitCode = 1;
     return;
   }

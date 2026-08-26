@@ -183,7 +183,7 @@ void main() async {
         child: pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            pw.Text('Resumo do que voce vai fazer', style: tituloSecao(2)),
+            pw.Text('Resumo do que você vai fazer', style: tituloSecao(2)),
             espaco(6),
             item('1. Transferir o projeto (Git ou copia direta da pasta).'),
             item('2. Instalar os programas base (CLT, Homebrew).'),
@@ -233,7 +233,7 @@ void main() async {
       // ============================================================
       pw.Text('2. Programas base (obrigatorios)', style: tituloSecao(1)),
       espaco(8),
-      item('Xcode Command Line Tools (necessario para Git e compiladores).'),
+      item('Xcode Command Line Tools (necessário para Git e compiladores).'),
       comando('xcode-select --install'),
       item('Homebrew (gerenciador de pacotes do macOS).'),
       comando(
@@ -309,13 +309,13 @@ void main() async {
       item('Ver os logs do backend em producao.'),
       comando('flyctl logs -a mentall-api'),
       aviso('Os segredos (chaves de API, JWT_SECRET, TURSO, SMTP) ja estao '
-          'configurados no Fly.io e nao precisam ser recriados no Mac.'),
+          'configurados no Fly.io e não precisam ser recriados no Mac.'),
       espaco(8),
 
       // ============================================================
       // 6. IOS (OPCIONAL)
       // ============================================================
-      pw.Text('6. iOS (opcional - so quando for publicar na App Store)',
+      pw.Text('6. iOS (opcional - só quando for publicar na App Store)',
           style: tituloSecao(1)),
       espaco(8),
       item('Instalar o Xcode pela App Store (~12 GB).'),
