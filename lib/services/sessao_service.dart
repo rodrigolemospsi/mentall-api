@@ -75,6 +75,28 @@ class SessaoService with EncryptedServiceMixin {
     return sessoes.take(limite).toList();
   }
 
+  /// Soma receita (pago) e pendente (a receber) das sessões ativas num período,
+  /// **sem** descriptografar os campos clínicos. Os campos financeiros
+  /// (`data`, `statusPagamento`, `valorSessao`) não são criptografados.
+  ({double receita, double pendente}) somarFinanceiroPorPeriodo(
+      DateTime inicio, DateTime fim) {
+    double receita = 0;
+    double pendente = 0;
+    for (final s in _box.values) {
+      if (s.arquivada) continue;
+      if (!s.data.isAfter(inicio.subtract(const Duration(seconds: 1))) ||
+          !s.data.isBefore(fim.add(const Duration(seconds: 1)))) {
+        continue;
+      }
+      if (s.statusPagamento == 'pago') {
+        receita += s.valorSessao;
+      } else if (s.statusPagamento != 'convenio' && s.statusPagamento != 'pacote') {
+        pendente += s.valorSessao;
+      }
+    }
+    return (receita: receita, pendente: pendente);
+  }
+
   List<Sessao> listarTodasSessoesArquivadas() {
     final sessoes = _box.values
         .where((sessao) => sessao.arquivada)
@@ -182,6 +204,16 @@ class SessaoService with EncryptedServiceMixin {
   int contarSessoesPendentesRevisao() {
     return _box.values
         .where((s) => !s.arquivada && s.revisaoPendente)
+        .length;
+  }
+
+  /// Conta sessões ativas (não arquivadas) dos últimos 30 dias **sem**
+  /// descriptografar os campos clínicos (que não são necessários para a contagem).
+  /// Evita o custo de N×20 decrypts AES-GCM na UI thread a cada evento.
+  int contarSessoesAtivasUltimos30Dias() {
+    final limite = DateTime.now().subtract(const Duration(days: 30));
+    return _box.values
+        .where((s) => !s.arquivada && s.data.isAfter(limite))
         .length;
   }
 

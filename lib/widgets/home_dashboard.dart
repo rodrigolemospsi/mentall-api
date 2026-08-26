@@ -1,17 +1,15 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/compromisso.dart';
 import '../models/enums.dart';
 import '../models/lgpd/registro_auditoria.dart';
 import '../providers/service_providers.dart';
-import '../screens/agenda_page.dart';
 import '../screens/paciente_detail_page.dart';
 import '../utils/mentall_colors.dart';
+import '../utils/raio.dart';
 import '../utils/responsivo.dart';
-import 'compromisso_form_dialog.dart';
+import '../utils/tipografia.dart';
+import 'mentall_card.dart';
 
 class SaudacaoResumoHome extends ConsumerWidget {
   final String saudacao;
@@ -45,7 +43,7 @@ class SaudacaoResumoHome extends ConsumerWidget {
         Text(
           texto,
           style: TextStyle(
-            fontSize: 20,
+            fontSize: Tipografia.xl,
             fontWeight: FontWeight.w700,
             color: context.corTextoHeading,
             height: 1.3,
@@ -54,7 +52,7 @@ class SaudacaoResumoHome extends ConsumerWidget {
         const SizedBox(height: 2),
         Text(
           resumo,
-          style: TextStyle(fontSize: 14, color: context.corTextoMuted),
+          style: TextStyle(fontSize: Tipografia.base, color: context.corTextoMuted),
         ),
       ],
     );
@@ -127,29 +125,28 @@ class _AcaoRapida extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final inkWell = InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(Raio.lg),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          border: Border.all(color: cs.primaryContainer),
-          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: context.corAcaoBorda),
+          borderRadius: BorderRadius.circular(Raio.lg),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icone, size: 22, color: cs.primary),
+            Icon(icone, size: 22, color: context.corAcaoFg),
             const SizedBox(height: 6),
             Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: Tipografia.xs,
                 fontWeight: FontWeight.w600,
-                color: cs.primary,
+                color: context.corAcaoFg,
               ),
             ),
           ],
@@ -162,8 +159,8 @@ class _AcaoRapida extends StatelessWidget {
         : inkWell;
 
     return Material(
-      color: cs.primaryContainer,
-      borderRadius: BorderRadius.circular(14),
+      color: context.corAcaoFundo,
+      borderRadius: BorderRadius.circular(Raio.lg),
       child: wrapped,
     );
   }
@@ -194,9 +191,9 @@ class KpiCardsHome extends ConsumerWidget {
         .length;
     final ativos = ref.watch(pacientesAtivosProvider).valueOrNull?.length ?? 0;
 
-    final financeiro = ref.watch(_sessoesDoMesHomeProvider);
-    final receita = financeiro.receita;
-    final pendente = financeiro.pendente;
+    final financeiro = ref.watch(_sessoesDoMesHomeProvider).valueOrNull;
+    final receita = financeiro?.receita ?? 0;
+    final pendente = financeiro?.pendente ?? 0;
 
     final termoCapitalizado = termoPlural == 'pessoas atendidas'
         ? 'P. atendidas'
@@ -334,15 +331,10 @@ class _KpiCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final card = Container(
+    final card = MentAllCard(
+      borderRadius: Raio.lg,
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: context.corCardSombra,
-        border: context.corCardBorda,
-      ),
+      onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -354,7 +346,7 @@ class _KpiCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: Tipografia.sm,
                     fontWeight: FontWeight.w600,
                     color: context.corTextoMuted,
                   ),
@@ -368,7 +360,7 @@ class _KpiCard extends StatelessWidget {
             child: Text(
               valor,
               style: TextStyle(
-                fontSize: 24,
+                fontSize: Tipografia.xxl,
                 fontWeight: FontWeight.w800,
                 color: cor,
                 height: 1,
@@ -381,263 +373,17 @@ class _KpiCard extends StatelessWidget {
               subtitulo,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 11, color: context.corTextoMuted),
+              style: TextStyle(fontSize: Tipografia.xs, color: context.corTextoMuted),
             ),
           ),
         ],
       ),
     );
 
-    if (onTap == null) return card;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: card,
-      ),
-    );
+    return card;
   }
 }
 
-class SessoesHojeCard extends ConsumerWidget {
-  final VoidCallback onAgendar;
-
-  const SessoesHojeCard({super.key, required this.onAgendar});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final compromissos =
-        ref.watch(compromissosHojeProvider).valueOrNull ?? [];
-    final pacService = ref.watch(pacienteServiceProvider);
-
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: context.corCardSombra,
-        border: context.corCardBorda,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Sessões de hoje',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: context.corTextoHeading,
-                    ),
-                  ),
-                ),
-                TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const AgendaPage()),
-                    );
-                  },
-                  child: Text(
-                    'Ver todas',
-                    style: TextStyle(fontSize: 12, color: cs.primary),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (compromissos.isEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Nenhuma sessão agendada para hoje.',
-                      style: TextStyle(fontSize: 13, color: context.corTextoMuted),
-                    ),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: onAgendar,
-                    icon: const Icon(Icons.add, size: 16),
-                    label: const Text(
-                      'Agendar',
-                      style: TextStyle(fontSize: 12),
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
-            ...compromissos.map((c) {
-              final paciente = pacService.buscarPacientePorId(c.pacienteId);
-              return _SessaoHojeItem(
-                compromisso: c,
-                nomePaciente:
-                    paciente?.nomeExibicao ?? 'Pessoa não encontrada',
-                fotoBase64: paciente?.fotoBase64 ?? '',
-                onTap: () => _editarCompromisso(context, ref, c),
-              );
-            }),
-          const SizedBox(height: 6),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _editarCompromisso(
-    BuildContext context,
-    WidgetRef ref,
-    Compromisso compromisso,
-  ) async {
-    final service = ref.read(compromissoServiceProvider);
-    final pacientes = ref.read(pacienteServiceProvider).listarPacientesAtivos();
-
-    final editado = await mostrarCompromissoFormDialog(
-      context: context,
-      pacientes: pacientes,
-      termoPessoa: ref
-              .read(perfilProfissionalServiceProvider)
-              .obterPerfil()
-              ?.termoSingularCapitalizado ??
-          'Pessoa atendida',
-      compromissoExistente: compromisso,
-      compromissoService: service,
-    );
-
-    if (editado == null) return;
-    await service.atualizar(editado);
-
-    if (!editado.lembreteAtivado || !editado.isAgendado) return;
-    final paciente =
-        ref.read(pacienteServiceProvider).buscarPacientePorId(editado.pacienteId);
-    if (paciente == null) return;
-    final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
-    await ref.read(lembreteServiceProvider).agendarLembrete(
-          compromisso: editado,
-          nomePaciente: paciente.nome,
-          nomeProfissional: perfil?.nome ?? 'Profissional',
-          telefonePaciente: paciente.contato,
-        );
-  }
-}
-
-class _SessaoHojeItem extends StatelessWidget {
-  final Compromisso compromisso;
-  final String nomePaciente;
-  final String fotoBase64;
-  final VoidCallback onTap;
-
-  const _SessaoHojeItem({
-    required this.compromisso,
-    required this.nomePaciente,
-    required this.fotoBase64,
-    required this.onTap,
-  });
-
-  Color _obterCorStatus(BuildContext context) {
-    switch (compromisso.statusEnum) {
-      case StatusCompromisso.agendado:
-        return context.corScheduled;
-      case StatusCompromisso.realizado:
-        return context.corSuccess;
-      case StatusCompromisso.cancelado:
-        return context.corCancelled;
-      case StatusCompromisso.faltou:
-        return context.corDanger;
-    }
-  }
-
-  String get _labelStatus {
-    switch (compromisso.statusEnum) {
-      case StatusCompromisso.agendado:
-        return 'Agendada';
-      case StatusCompromisso.realizado:
-        return 'Realizada';
-      case StatusCompromisso.cancelado:
-        return 'Cancelada';
-      case StatusCompromisso.faltou:
-        return 'Faltou';
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final inicial =
-        nomePaciente.isNotEmpty ? nomePaciente[0].toUpperCase() : '?';
-
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: context.corContainerPrimario,
-              backgroundImage: fotoBase64.isNotEmpty
-                  ? MemoryImage(base64Decode(fotoBase64))
-                  : null,
-              child: fotoBase64.isEmpty
-                  ? Text(
-                      inicial,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                        color: context.corPrimaria,
-                      ),
-                    )
-                  : null,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    nomePaciente,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: context.corTextoHeading,
-                    ),
-                  ),
-                  Text(
-                    compromisso.horarioInicioFormatado,
-                    style: TextStyle(fontSize: 12, color: context.corTextoMuted),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: _obterCorStatus(context).withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                _labelStatus,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: _obterCorStatus(context),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class AtividadeRecenteCard extends ConsumerWidget {
   const AtividadeRecenteCard({super.key});
@@ -646,17 +392,15 @@ class AtividadeRecenteCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final registros = ref.watch(atividadeRecenteProvider).valueOrNull ?? [];
     final pacService = ref.watch(pacienteServiceProvider);
+    final pacientesPorId = {
+      for (final p in pacService.listarPacientes()) p.id: p,
+    };
 
     if (registros.isEmpty) return const SizedBox.shrink();
 
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: context.corCardSombra,
-        border: context.corCardBorda,
-      ),
+    return MentAllCard(
+      borderRadius: Raio.lg,
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -665,15 +409,14 @@ class AtividadeRecenteCard extends ConsumerWidget {
             child: Text(
               'Atividade recente',
               style: TextStyle(
-                fontSize: 15,
+                fontSize: Tipografia.baseMd,
                 fontWeight: FontWeight.w700,
                 color: context.corTextoHeading,
               ),
             ),
           ),
           ...registros.map((r) {
-            final paciente =
-                pacService.buscarPacientePorId(r.pacienteId);
+            final paciente = pacientesPorId[r.pacienteId];
             return _AtividadeItem(
               registro: r,
               nomePaciente: paciente?.nomeExibicao,
@@ -751,10 +494,10 @@ class _AtividadeItem extends StatelessWidget {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: context.corContainerPrimario,
+              color: context.corAtividadeIconeFundo,
               shape: BoxShape.circle,
             ),
-            child: Icon(_icone, size: 17, color: context.corPrimaria),
+            child: Icon(_icone, size: 17, color: context.corAtividadeIcone),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -766,7 +509,7 @@ class _AtividadeItem extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: Tipografia.smMd,
                     fontWeight: FontWeight.w600,
                     color: context.corTextoHeading,
                   ),
@@ -775,7 +518,7 @@ class _AtividadeItem extends StatelessWidget {
                   registro.descricao,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: context.corTextoMuted),
+                  style: TextStyle(fontSize: Tipografia.sm, color: context.corTextoMuted),
                 ),
               ],
             ),
@@ -783,7 +526,7 @@ class _AtividadeItem extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             _tempoRelativo,
-            style: TextStyle(fontSize: 11, color: context.corTextoMuted),
+            style: TextStyle(fontSize: Tipografia.xs, color: context.corTextoMuted),
           ),
         ],
       ),
@@ -803,20 +546,19 @@ class _AtividadeItem extends StatelessWidget {
   }
 }
 
-final _sessoesDoMesHomeProvider = Provider.autoDispose<({double receita, double pendente})>((ref) {
+final _sessoesDoMesHomeProvider =
+    StreamProvider<({double receita, double pendente})>((ref) async* {
   final service = ref.watch(sessaoServiceProvider);
-  final now = DateTime.now();
-  final inicio = DateTime(now.year, now.month, 1);
-  final fim = DateTime(now.year, now.month + 1, 1);
-  final sessoes = service.listarSessoesPorPeriodo(inicio, fim);
-  double receita = 0;
-  double pendente = 0;
-  for (final s in sessoes) {
-    if (s.statusPagamento == 'pago') {
-      receita += s.valorSessao;
-    } else if (s.statusPagamento != 'convenio' && s.statusPagamento != 'pacote') {
-      pendente += s.valorSessao;
-    }
+
+  ({double receita, double pendente}) calcular() {
+    final now = DateTime.now();
+    final inicio = DateTime(now.year, now.month, 1);
+    final fim = DateTime(now.year, now.month + 1, 1);
+    return service.somarFinanceiroPorPeriodo(inicio, fim);
   }
-  return (receita: receita, pendente: pendente);
+
+  yield calcular();
+  await for (final _ in service.observarSessoes()) {
+    yield calcular();
+  }
 });

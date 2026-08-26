@@ -6,6 +6,11 @@ import '../models/sessao.dart';
 import '../providers/service_providers.dart';
 import '../services/pdf_export_service.dart';
 import '../utils/mentall_colors.dart';
+import '../utils/raio.dart';
+import '../utils/app_bar_padrao.dart';
+import '../utils/tipografia.dart';
+import '../widgets/mentall_card.dart';
+import '../widgets/status_chip.dart';
 import 'sessao_form_page.dart';
 
 final _mesFinanceiroProvider = StateProvider<DateTime>((ref) {
@@ -27,6 +32,9 @@ class _FinanceiroPageState extends ConsumerState<FinanceiroPage> {
     final sessoes = _sessoesDoMes(ref, mesAtual);
     final resumo = _calcularResumo(sessoes);
     final pacienteService = ref.watch(pacienteServiceProvider);
+    final pacientesPorId = {
+      for (final p in pacienteService.listarPacientes()) p.id: p,
+    };
 
     final meses = [
       'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -35,10 +43,9 @@ class _FinanceiroPageState extends ConsumerState<FinanceiroPage> {
 
     return Scaffold(
       backgroundColor: context.corFundo,
-      appBar: AppBar(
-        title: const Text('Financeiro'),
-        backgroundColor: context.corPrimaria,
-        foregroundColor: context.corOnPrimaria,
+      appBar: appBarPadrao(
+        context: context,
+        title: 'Financeiro',
         actions: [
           IconButton(
             tooltip: 'Exportar relatório',
@@ -125,7 +132,7 @@ class _FinanceiroPageState extends ConsumerState<FinanceiroPage> {
                 Text(
                   'Sessões do mês',
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: Tipografia.baseMd,
                     fontWeight: FontWeight.w700,
                     color: context.corTextoHeading,
                   ),
@@ -134,7 +141,7 @@ class _FinanceiroPageState extends ConsumerState<FinanceiroPage> {
                 Text(
                   '${sessoes.length} sessões',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: Tipografia.sm,
                     color: context.corTextoMuted,
                   ),
                 ),
@@ -155,7 +162,7 @@ class _FinanceiroPageState extends ConsumerState<FinanceiroPage> {
                     itemCount: sessoes.length,
                     itemBuilder: (context, index) {
                       final sessao = sessoes[index];
-                      final paciente = pacienteService.buscarPacientePorId(sessao.pacienteId);
+                      final paciente = pacientesPorId[sessao.pacienteId];
                       return _linhaSessao(context, sessao, paciente, mesAtual);
                     },
                   ),
@@ -184,7 +191,7 @@ class _FinanceiroPageState extends ConsumerState<FinanceiroPage> {
           Text(
             '${meses[mesAtual.month - 1]}/${mesAtual.year}',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: Tipografia.md,
               fontWeight: FontWeight.w700,
               color: context.corTextoHeading,
             ),
@@ -211,30 +218,25 @@ class _FinanceiroPageState extends ConsumerState<FinanceiroPage> {
     String subtitulo,
     Color cor,
   ) {
-    return Container(
+    return MentAllCard(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: context.corCardSombra,
-        border: context.corCardBorda,
-      ),
+      borderRadius: Raio.lg,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             titulo,
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.corTextoMuted),
+            style: TextStyle(fontSize: Tipografia.sm, fontWeight: FontWeight.w600, color: context.corTextoMuted),
           ),
           const SizedBox(height: 6),
           Text(
             valor,
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: cor, height: 1),
+            style: TextStyle(fontSize: Tipografia.xl, fontWeight: FontWeight.w800, color: cor, height: 1),
           ),
           const SizedBox(height: 4),
           Text(
             subtitulo,
-            style: TextStyle(fontSize: 11, color: context.corTextoMuted),
+            style: TextStyle(fontSize: Tipografia.xs, color: context.corTextoMuted),
           ),
         ],
       ),
@@ -255,7 +257,7 @@ class _FinanceiroPageState extends ConsumerState<FinanceiroPage> {
       color: context.corCard,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: InkWell(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(Raio.sm),
         onTap: () {
           if (paciente == null) return;
           Navigator.push(
@@ -279,7 +281,7 @@ class _FinanceiroPageState extends ConsumerState<FinanceiroPage> {
                     Text(
                       paciente?.nomeExibicao ?? 'Paciente',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: Tipografia.base,
                         fontWeight: FontWeight.w600,
                         color: context.corTextoHeading,
                       ),
@@ -287,7 +289,7 @@ class _FinanceiroPageState extends ConsumerState<FinanceiroPage> {
                     const SizedBox(height: 2),
                     Text(
                       'Sessão ${sessao.numeroSessao} - ${sessao.data.day.toString().padLeft(2, '0')}/${sessao.data.month.toString().padLeft(2, '0')}',
-                      style: TextStyle(fontSize: 11, color: context.corTextoMuted),
+                      style: TextStyle(fontSize: Tipografia.xs, color: context.corTextoMuted),
                     ),
                   ],
                 ),
@@ -295,23 +297,13 @@ class _FinanceiroPageState extends ConsumerState<FinanceiroPage> {
               Text(
                 'R\$ ${sessao.valorSessao.toStringAsFixed(2)}',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: Tipografia.base,
                   fontWeight: FontWeight.w700,
                   color: context.corTextoHeading,
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: statusCor.withAlpha(25),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  statusTexto,
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: statusCor),
-                ),
-              ),
+              StatusChip(label: statusTexto, cor: statusCor, fontSize: Tipografia.xxs, pill: false),
             ],
           ),
         ),
@@ -400,10 +392,14 @@ class _FinanceiroPageState extends ConsumerState<FinanceiroPage> {
     if (perfil == null) return;
 
     try {
+      final pacientesPorId = {
+        for (final p in ref.read(pacienteServiceProvider).listarPacientes())
+          p.id: p,
+      };
       final nomesPacientes = <String, String>{};
       for (final s in sessoes) {
-        final p = ref.read(pacienteServiceProvider).buscarPacientePorId(s.pacienteId);
-        nomesPacientes[s.pacienteId] = p?.nomeExibicao ?? 'Paciente';
+        nomesPacientes[s.pacienteId] =
+            pacientesPorId[s.pacienteId]?.nomeExibicao ?? 'Paciente';
       }
 
       await PdfExportService().exportarRelatorioFinanceiro(

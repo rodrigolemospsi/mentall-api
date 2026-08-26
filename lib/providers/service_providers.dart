@@ -177,13 +177,8 @@ final dashboardKpisSessoesProvider =
   final service = ref.watch(sessaoServiceProvider);
 
   DashboardKpisSessoes calcular() {
-    final limite = DateTime.now().subtract(const Duration(days: 30));
-    final sessoes30 = service
-        .listarTodasSessoesAtivas()
-        .where((s) => s.data.isAfter(limite))
-        .length;
     return DashboardKpisSessoes(
-      sessoesUltimos30Dias: sessoes30,
+      sessoesUltimos30Dias: service.contarSessoesAtivasUltimos30Dias(),
       pendentesRevisao: service.contarSessoesPendentesRevisao(),
     );
   }

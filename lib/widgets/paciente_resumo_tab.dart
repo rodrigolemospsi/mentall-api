@@ -12,11 +12,15 @@ import '../providers/service_providers.dart';
 import '../services/anamnese_templates.dart';
 import '../services/whatsapp_service.dart';
 import '../utils/mentall_colors.dart';
+import '../utils/raio.dart';
 import '../utils/responsivo.dart';
 import '../widgets/anamnese_card.dart';
 import '../widgets/escalas_section.dart';
+import '../widgets/mentall_card.dart';
 import '../widgets/paciente_resumo_card.dart';
+import '../widgets/status_chip.dart';
 import '../screens/sessao_form_page.dart';
+import '../utils/tipografia.dart';
 
 // ---------------------------------------------------------------------------
 // Top-level async helpers (accept BuildContext + WidgetRef explicitly so that
@@ -215,7 +219,7 @@ Future<void> _criarEnviarContrato({
           content: Row(children: [
             SizedBox(width: 18, height: 18, child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: Theme.of(context).colorScheme.onInverseSurface,
+              color: context.corOnError,
             )),
             const SizedBox(width: 12),
             const Text('Criando contrato...'),
@@ -281,8 +285,10 @@ class PacienteResumoTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sessaoService = ref.watch(sessaoServiceProvider);
-    final sessoesAtivas = sessaoService.listarSessoesDoPaciente(paciente.id);
-    final sessoesArquivadas = sessaoService.listarSessoesArquivadasDoPaciente(paciente.id);
+    // Contagens sem descriptografar os campos clínicos (evita N×20 decrypts no build).
+    final quantidadeSessoes = sessaoService.contarSessoesDoPaciente(paciente.id);
+    final quantidadeSessoesArquivadas =
+        sessaoService.contarSessoesArquivadasDoPaciente(paciente.id);
 
     final termoSingular = _termo(ref);
     final usaPessoaAtendida = _usaPessoaAtendida(ref);
@@ -307,8 +313,8 @@ class PacienteResumoTab extends ConsumerWidget {
                         paciente: paciente,
                         termoSingular: termoSingular,
                         usaPessoaAtendida: usaPessoaAtendida,
-                        quantidadeSessoes: sessoesAtivas.length,
-                        quantidadeSessoesArquivadas: sessoesArquivadas.length,
+                        quantidadeSessoes: quantidadeSessoes,
+                        quantidadeSessoesArquivadas: quantidadeSessoesArquivadas,
                         contrato: contrato,
                       ),
                       const SizedBox(height: 16),
@@ -327,8 +333,8 @@ class PacienteResumoTab extends ConsumerWidget {
                               icon: const Icon(Icons.add),
                               label: const Text('Nova sessão'),
                               style: FilledButton.styleFrom(
-                                backgroundColor: Theme.of(context).colorScheme.primary,
-                                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                                backgroundColor: context.corPrimaria,
+                                foregroundColor: context.corOnPrimaria,
                                 padding: const EdgeInsets.symmetric(vertical: 14),
                               ),
                             ),
@@ -373,8 +379,8 @@ class PacienteResumoTab extends ConsumerWidget {
               paciente: paciente,
               termoSingular: termoSingular,
               usaPessoaAtendida: usaPessoaAtendida,
-              quantidadeSessoes: sessoesAtivas.length,
-              quantidadeSessoesArquivadas: sessoesArquivadas.length,
+              quantidadeSessoes: quantidadeSessoes,
+              quantidadeSessoesArquivadas: quantidadeSessoesArquivadas,
               contrato: contrato,
             ),
             const SizedBox(height: 16),
@@ -393,8 +399,8 @@ class PacienteResumoTab extends ConsumerWidget {
                     icon: const Icon(Icons.add),
                     label: const Text('Nova sessão'),
                     style: FilledButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                      backgroundColor: context.corPrimaria,
+                      foregroundColor: context.corOnPrimaria,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                   ),
@@ -513,43 +519,40 @@ class PacienteResumoTab extends ConsumerWidget {
       );
     }
 
-    return Card(
-      margin: EdgeInsets.zero,
+    return MentAllCard(
+      borderRadius: Raio.xxl,
       color: corCard,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.inventory_2_outlined, color: corPrimaria, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  'Pacotes ativos',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: corTextoHeading),
-                ),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: () => _criarPacote(context, ref, paciente),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Novo'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '$totalRestantes de $totalSessoes sessões restantes',
-              style: TextStyle(fontSize: 13, color: corTextoBody),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              '$qtdPacotes ${qtdPacotes == 1 ? 'pacote' : 'pacotes'} ativos',
-              style: TextStyle(fontSize: 12, color: corTextoMuted),
-            ),
-          ],
-        ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.inventory_2_outlined, color: corPrimaria, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Pacotes ativos',
+                style: TextStyle(fontSize: Tipografia.base, fontWeight: FontWeight.w700, color: corTextoHeading),
+              ),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: () => _criarPacote(context, ref, paciente),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Novo'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '$totalRestantes de $totalSessoes sessões restantes',
+            style: TextStyle(fontSize: Tipografia.smMd, color: corTextoBody),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '$qtdPacotes ${qtdPacotes == 1 ? 'pacote' : 'pacotes'} ativos',
+            style: TextStyle(fontSize: Tipografia.sm, color: corTextoMuted),
+          ),
+        ],
       ),
     );
   }
@@ -627,37 +630,33 @@ class PacienteResumoTab extends ConsumerWidget {
     ContratoTerapeutico? contrato,
     String termoSingular,
   ) {
-    return Card(
-      margin: EdgeInsets.zero,
-      color: context.corCard,
-      elevation: Theme.of(context).brightness == Brightness.dark ? 4 : 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.description_outlined, color: context.corPrimaria, size: 22),
-                const SizedBox(width: 8),
-                Text(
-                  'Acordo Terapêutico',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: context.corTextoHeading,
-                  ),
+    return MentAllCard(
+      borderRadius: Raio.xxl,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.description_outlined, color: context.corPrimaria, size: 22),
+              const SizedBox(width: 8),
+              Text(
+                'Acordo Terapêutico',
+                style: TextStyle(
+                  fontSize: Tipografia.md,
+                  fontWeight: FontWeight.w700,
+                  color: context.corTextoHeading,
                 ),
-                const Spacer(),
-                if (contrato != null && contrato.isAceito) ...[
-                  TextButton.icon(
-                    onPressed: () => _verContrato(context, contrato),
-                    icon: Icon(Icons.visibility_outlined, size: 16, color: context.corSuccess),
-                    label: Text('Ver', style: TextStyle(fontSize: 13, color: context.corSuccess)),
-                  ),
-                  IconButton(
-                    tooltip: 'Arquivar acordo',
+              ),
+              const Spacer(),
+              if (contrato != null && contrato.isAceito) ...[
+                TextButton.icon(
+                  onPressed: () => _verContrato(context, contrato),
+                  icon: Icon(Icons.visibility_outlined, size: 16, color: context.corSuccess),
+                  label: Text('Ver', style: TextStyle(fontSize: Tipografia.smMd, color: context.corSuccess)),
+                ),
+                IconButton(
+                  tooltip: 'Arquivar acordo',
                     icon: Icon(Icons.archive_outlined, size: 18, color: context.corTextoMuted),
                     onPressed: () => _arquivarContrato(context, ref, paciente, contrato),
                   ),
@@ -671,7 +670,7 @@ class PacienteResumoTab extends ConsumerWidget {
                       paciente: paciente,
                     ),
                     icon: Icon(Icons.send_outlined, size: 16, color: context.corPrimaria),
-                    label: Text('Enviar', style: TextStyle(fontSize: 13, color: context.corPrimaria)),
+                    label: Text('Enviar', style: TextStyle(fontSize: Tipografia.smMd, color: context.corPrimaria)),
                   )
                 else
                   TextButton.icon(
@@ -681,7 +680,7 @@ class PacienteResumoTab extends ConsumerWidget {
                       paciente: paciente,
                     ),
                     icon: Icon(Icons.send_outlined, size: 16, color: context.corPrimaria),
-                    label: Text('Enviar', style: TextStyle(fontSize: 13, color: context.corPrimaria)),
+                    label: Text('Enviar', style: TextStyle(fontSize: Tipografia.smMd, color: context.corPrimaria)),
                   ),
               ],
             ),
@@ -689,7 +688,7 @@ class PacienteResumoTab extends ConsumerWidget {
             if (contrato == null)
               Text(
                 'Envie o Acordo Terapêutico para leitura e aceite do $termoSingular.',
-                style: TextStyle(fontSize: 13, color: context.corTextoMuted, height: 1.4),
+                style: TextStyle(fontSize: Tipografia.smMd, color: context.corTextoMuted, height: 1.4),
               )
             else ...[
               Row(
@@ -700,21 +699,20 @@ class PacienteResumoTab extends ConsumerWidget {
                     Expanded(
                       child: Text(
                         'por ${contrato.nomeAceite} em ${contrato.dataAceiteFormatada}',
-                        style: TextStyle(fontSize: 12, color: context.corTextoSecondary),
+                        style: TextStyle(fontSize: Tipografia.sm, color: context.corTextoSecondary),
                       ),
                     )
                   else if (contrato.isEnviado)
                     Expanded(
                       child: Text(
                         'Enviado em ${contrato.dataCriacao.day.toString().padLeft(2, '0')}/${contrato.dataCriacao.month.toString().padLeft(2, '0')}/${contrato.dataCriacao.year}',
-                        style: TextStyle(fontSize: 12, color: context.corTextoSecondary),
+                        style: TextStyle(fontSize: Tipografia.sm, color: context.corTextoSecondary),
                       ),
                     ),
                 ],
               ),
             ],
           ],
-        ),
       ),
     );
   }
@@ -732,17 +730,7 @@ class PacienteResumoTab extends ConsumerWidget {
       cor = context.corTextoMuted;
       texto = 'Pendente';
     }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: cor.withAlpha(30),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        texto,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: cor),
-      ),
-    );
+    return StatusChip(label: texto, cor: cor);
   }
 
   Future<void> _verContrato(BuildContext context, ContratoTerapeutico contrato) async {
@@ -810,34 +798,31 @@ class PacienteResumoTab extends ConsumerWidget {
     final ultimo = progressos.first;
     final sintomas = _parseJsonList(ultimo.sintomasJson);
 
-    return Card(
-      margin: EdgeInsets.zero,
-      color: context.corCard,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.trending_up, color: context.corPrimaria, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  'Evolucao Clinica',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: context.corTextoHeading,
-                  ),
+    return MentAllCard(
+      borderRadius: Raio.xxl,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.trending_up, color: context.corPrimaria, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Evolução Clínica',
+                style: TextStyle(
+                  fontSize: Tipografia.base,
+                  fontWeight: FontWeight.w700,
+                  color: context.corTextoHeading,
                 ),
-                const Spacer(),
-                Text(
-                  'Sessao ${ultimo.numeroSessao}',
-                  style: TextStyle(fontSize: 12, color: context.corTextoMuted),
-                ),
-              ],
-            ),
+              ),
+              const Spacer(),
+              Text(
+                'Sessao ${ultimo.numeroSessao}',
+                style: TextStyle(fontSize: Tipografia.sm, color: context.corTextoMuted),
+              ),
+            ],
+          ),
             if (sintomas.isNotEmpty) ...[
               const SizedBox(height: 10),
               ...sintomas.take(3).map((s) => Padding(
@@ -861,7 +846,7 @@ class PacienteResumoTab extends ConsumerWidget {
                         Expanded(
                           child: Text(
                             '${s['nome']} (${s['intensidade']}/10)',
-                            style: TextStyle(fontSize: 12, color: context.corTextoBody),
+                            style: TextStyle(fontSize: Tipografia.sm, color: context.corTextoBody),
                           ),
                         ),
                       ],
@@ -872,11 +857,10 @@ class PacienteResumoTab extends ConsumerWidget {
               const SizedBox(height: 8),
               Text(
                 ultimo.avaliacaoGeral,
-                style: TextStyle(fontSize: 11, color: context.corTextoMuted, fontStyle: FontStyle.italic),
+                style: TextStyle(fontSize: Tipografia.xs, color: context.corTextoMuted, fontStyle: FontStyle.italic),
               ),
             ],
           ],
-        ),
       ),
     );
   }
@@ -928,7 +912,7 @@ class PacienteResumoTab extends ConsumerWidget {
 
     blocos.add(Text(
       'Segurança emocional',
-      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: context.corTextoHeading),
+      style: TextStyle(fontSize: Tipografia.baseMd, fontWeight: FontWeight.w600, color: context.corTextoHeading),
     ));
     blocos.add(const SizedBox(height: 8));
 
@@ -960,7 +944,7 @@ class PacienteResumoTab extends ConsumerWidget {
                       Text(
                         _labelResposta(segId),
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: Tipografia.smMd,
                           fontWeight: FontWeight.w600,
                           color: isRisco ? context.corWarning : null,
                         ),
@@ -969,7 +953,7 @@ class PacienteResumoTab extends ConsumerWidget {
                       Text(
                         texto,
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: Tipografia.base,
                           fontWeight: FontWeight.w500,
                           color: isRisco ? context.corDanger : (valor == true ? context.corWarning : context.corSuccess),
                         ),
@@ -993,11 +977,11 @@ class PacienteResumoTab extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(_labelResposta(id), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.corTextoMuted)),
+            Text(_labelResposta(id), style: TextStyle(fontSize: Tipografia.sm, fontWeight: FontWeight.w600, color: context.corTextoMuted)),
             const SizedBox(height: 2),
             Text(
               valor is List ? valor.join(', ') : (valor is bool ? (valor ? 'Sim' : 'Não') : '${valor ?? ''}'),
-              style: TextStyle(fontSize: 14, color: context.corTextoHeading),
+              style: TextStyle(fontSize: Tipografia.base, color: context.corTextoHeading),
             ),
           ],
         ),

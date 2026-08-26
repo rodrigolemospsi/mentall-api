@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,7 +10,10 @@ import '../services/paciente_service.dart';
 import '../services/compromisso_service.dart';
 import '../screens/paciente_detail_page.dart';
 import '../widgets/compromisso_form_dialog.dart';
+import '../utils/imagem_cache.dart';
 import '../utils/mentall_colors.dart';
+import '../utils/raio.dart';
+import '../utils/tipografia.dart';
 
 final _dataSelecionadaProvider = StateProvider<DateTime>((ref) {
   final agora = DateTime.now();
@@ -386,12 +388,12 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
           color: selecionado ? corPrimaria : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(Raio.xl),
         ),
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: Tipografia.sm,
             fontWeight: FontWeight.w600,
             color: selecionado ? context.corOnPrimaria : corMuted,
           ),
@@ -422,7 +424,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
                       : isToday
                           ? context.cs.primaryContainer
                           : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(Raio.sm),
                   border: isToday && !isSelected
                       ? Border.all(color: context.corPrimaria, width: 1)
                       : null,
@@ -433,7 +435,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
                     Text(
                       _diasSemanaAbrev[dia.weekday - 1],
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: Tipografia.xxs,
                         fontWeight: FontWeight.w600,
                         color: isSelected
                             ? context.corOnPrimaria
@@ -446,7 +448,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
                     Text(
                       '${dia.day}',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: Tipografia.smMd,
                         fontWeight: FontWeight.w700,
                         color: isSelected
                             ? context.corOnPrimaria
@@ -525,7 +527,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
                         child: Text(
                           d,
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: Tipografia.xxs,
                             fontWeight: FontWeight.w700,
                             color: context.corTextoMuted,
                           ),
@@ -580,7 +582,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
               : isToday
                   ? context.cs.primaryContainer
                   : null,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(Raio.xs),
           border: isToday && !isSelected
               ? Border.all(color: context.corPrimaria, width: 1)
               : null,
@@ -591,7 +593,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
             Text(
               '$dia',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: Tipografia.sm,
                 fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
                 color: isSelected
                     ? context.corOnPrimaria
@@ -634,7 +636,7 @@ class _SeletorData extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Theme.of(context).colorScheme.surface,
+      color: context.corFundo,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -642,22 +644,22 @@ class _SeletorData extends StatelessWidget {
           IconButton(
             onPressed: onAnterior,
             icon: Icon(Icons.chevron_left,
-                color: Theme.of(context).colorScheme.primary),
+                color: context.corPrimaria),
             tooltip: 'Dia anterior',
           ),
           Text(
             titulo,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: Tipografia.md,
               fontWeight: FontWeight.w600,
-              color: Theme.of(context).colorScheme.primary,
+              color: context.corPrimaria,
             ),
           ),
           IconButton(
             onPressed: onProximo,
             icon: onProximo != null
                 ? Icon(Icons.chevron_right,
-                    color: Theme.of(context).colorScheme.primary)
+                    color: context.corPrimaria)
                 : const SizedBox(width: 24),
             tooltip: onProximo != null ? 'Próximo dia' : null,
           ),
@@ -705,7 +707,7 @@ class _EstadoVazioAgenda extends StatelessWidget {
             Text(
               _mensagem,
               style: TextStyle(
-                fontSize: 18,
+                fontSize: Tipografia.lg,
                 color: context.corTextoSecondary,
                 fontWeight: FontWeight.w500,
               ),
@@ -713,7 +715,7 @@ class _EstadoVazioAgenda extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               'Adicione sessões para organizar sua agenda.',
-              style: TextStyle(fontSize: 14, color: context.corTextoMuted),
+              style: TextStyle(fontSize: Tipografia.base, color: context.corTextoMuted),
             ),
             const SizedBox(height: 24),
             OutlinedButton.icon(
@@ -755,8 +757,12 @@ class _ListaCompromissos extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final pacientesPorId = {
+      for (final p in pacienteService.listarPacientes()) p.id: p,
+    };
+
     if (modo == 'semana' || modo == 'mes') {
-      return _buildAgrupadoPorData();
+      return _buildAgrupadoPorData(pacientesPorId);
     }
 
     return ListView.builder(
@@ -764,9 +770,7 @@ class _ListaCompromissos extends StatelessWidget {
       itemCount: compromissos.length,
       itemBuilder: (context, index) {
         final compromisso = compromissos[index];
-        final paciente = pacienteService.buscarPacientePorId(
-          compromisso.pacienteId,
-        );
+        final paciente = pacientesPorId[compromisso.pacienteId];
         return _CompromissoCard(
           compromisso: compromisso,
           paciente: paciente,
@@ -784,7 +788,7 @@ class _ListaCompromissos extends StatelessWidget {
     );
   }
 
-  Widget _buildAgrupadoPorData() {
+  Widget _buildAgrupadoPorData(Map<String, Paciente> pacientesPorId) {
     final Map<String, List<Compromisso>> agrupados = {};
     for (final c in compromissos) {
       final chave = '${c.dataHoraInicio.year}-'
@@ -818,16 +822,14 @@ class _ListaCompromissos extends StatelessWidget {
               child: Text(
                 '$diaSemana, $dataFormatada',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: Tipografia.smMd,
                   fontWeight: FontWeight.w700,
                   color: context.corTextoMuted,
                 ),
               ),
             ),
             ...comps.map((c) {
-              final paciente = pacienteService.buscarPacientePorId(
-                c.pacienteId,
-              );
+              final paciente = pacientesPorId[c.pacienteId];
               return _CompromissoCard(
                 compromisso: c,
                 paciente: paciente,
@@ -919,12 +921,11 @@ class _CompromissoCard extends StatelessWidget {
     final titulo = compromisso.titulo.trim().isNotEmpty
         ? compromisso.titulo.trim()
         : null;
-    final c = Theme.of(context).colorScheme;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(Raio.xl),
         side: BorderSide(
           color: compromisso.isAgendado ? corStatus.withValues(alpha: 0.3) : Colors.transparent,
           width: compromisso.isAgendado ? 1.5 : 0,
@@ -937,7 +938,7 @@ class _CompromissoCard extends StatelessWidget {
           children: [
             InkWell(
               onTap: onEditar,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(Raio.md),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: Column(
@@ -951,20 +952,20 @@ class _CompromissoCard extends StatelessWidget {
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: c.surface,
-                            borderRadius: BorderRadius.circular(12),
+                            color: context.corCard,
+                            borderRadius: BorderRadius.circular(Raio.md),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.access_time, size: 16, color: c.onSurface.withValues(alpha: 0.6)),
+                              Icon(Icons.access_time, size: 16, color: context.corOnSurface.withValues(alpha: 0.6)),
                               const SizedBox(width: 6),
                               Text(
                                 '${compromisso.horarioInicioFormatado} - ${compromisso.horarioFimFormatado}',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w600,
-                                  color: c.onSurface,
-                                  fontSize: 14,
+                                  color: context.corOnSurface,
+                                  fontSize: Tipografia.base,
                                 ),
                               ),
                             ],
@@ -974,8 +975,8 @@ class _CompromissoCard extends StatelessWidget {
                         Text(
                           compromisso.duracaoFormatada,
                           style: TextStyle(
-                            fontSize: 11,
-                            color: c.onSurface.withValues(alpha: 0.5),
+                            fontSize: Tipografia.xs,
+                            color: context.corOnSurface.withValues(alpha: 0.5),
                           ),
                         ),
                         const Spacer(),
@@ -1011,7 +1012,7 @@ class _CompromissoCard extends StatelessWidget {
                           radius: 18,
                           backgroundColor: corStatus.withValues(alpha: 0.15),
                           backgroundImage: paciente?.possuiFoto == true
-                              ? MemoryImage(base64Decode(paciente!.fotoBase64))
+                              ? fotoMemoria(paciente!.fotoBase64)
                               : null,
                           child: paciente?.possuiFoto != true
                               ? Text(
@@ -1020,7 +1021,7 @@ class _CompromissoCard extends StatelessWidget {
                                       : '?',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 16,
+                                    fontSize: Tipografia.md,
                                     color: corStatus,
                                   ),
                                 )
@@ -1035,15 +1036,15 @@ class _CompromissoCard extends StatelessWidget {
                                 nomePaciente,
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 15,
+                                  fontSize: Tipografia.baseMd,
                                 ),
                               ),
                               if (titulo != null)
                                 Text(
                                   titulo,
                                   style: TextStyle(
-                                    fontSize: 13,
-                                    color: c.onSurface.withValues(alpha: 0.5),
+                                    fontSize: Tipografia.smMd,
+                                    color: context.corOnSurface.withValues(alpha: 0.5),
                                   ),
                                 ),
                             ],
@@ -1055,7 +1056,7 @@ class _CompromissoCard extends StatelessWidget {
                             icon: const Icon(Icons.person_outline, size: 20),
                             tooltip: 'Ver ${paciente?.nome ?? 'pessoa'}',
                             style: IconButton.styleFrom(
-                              foregroundColor: c.primary,
+                              foregroundColor: context.corPrimaria,
                             ),
                           ),
                       ],
@@ -1066,12 +1067,12 @@ class _CompromissoCard extends StatelessWidget {
                         width: double.infinity,
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: c.surface,
-                          borderRadius: BorderRadius.circular(12),
+                          color: context.corCard,
+                          borderRadius: BorderRadius.circular(Raio.md),
                         ),
                         child: Text(
                           compromisso.observacoes.trim(),
-                          style: TextStyle(fontSize: 13, color: c.onSurface.withValues(alpha: 0.6)),
+                          style: TextStyle(fontSize: Tipografia.smMd, color: context.corOnSurface.withValues(alpha: 0.6)),
                         ),
                       ),
                     ],
@@ -1148,7 +1149,7 @@ class _ChipStatus extends StatelessWidget {
         height: 28,
         decoration: BoxDecoration(
           color: cor.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(Raio.lg),
         ),
         child: Icon(icone, size: 16, color: cor),
       ),
@@ -1175,12 +1176,12 @@ class _IconAcao extends StatelessWidget {
       message: tooltip,
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(Raio.xxl),
         child: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: cor.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(Raio.xxl),
           ),
           child: Icon(icone, size: 20, color: cor),
         ),
