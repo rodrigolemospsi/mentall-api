@@ -60,7 +60,6 @@ void main() {
     await Hive.box<Paciente>('pacientes').clear();
     await Hive.box<Sessao>('sessoes').clear();
     await Hive.box<Compromisso>('compromissos').clear();
-    await Hive.box<String>('app_config').put('onboarding_concluido', 'true');
     await Hive.box<String>('auth_meta')
         .put('account_email', 'teste@exemplo.com');
   });
