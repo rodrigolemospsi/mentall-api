@@ -6,9 +6,11 @@ import '../../providers/service_providers.dart';
 import '../../services/lgpd/auditoria_service.dart';
 import '../../services/lgpd/pdf_arquitetura_lgpd_service.dart';
 import '../../utils/mentall_colors.dart';
+import '../../utils/raio.dart';
 import '../login_page.dart';
 import 'politica_privacidade_page.dart';
 import 'termos_uso_page.dart';
+import '../../utils/tipografia.dart';
 
 class PrivacidadeSegurancaPage extends ConsumerWidget {
   const PrivacidadeSegurancaPage({super.key});
@@ -195,7 +197,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
       {required String titulo, required List<Widget> children}) {
     return Card(
       elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Raio.xxl)),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Column(
@@ -206,7 +208,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
               child: Text(
                 titulo,
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: Tipografia.md,
                   fontWeight: FontWeight.bold,
                   color: context.corPrimaria,
                 ),
@@ -244,12 +246,12 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
                         dense: true,
                         title: Text(
                           traducao,
-                          style: const TextStyle(fontSize: 13),
+                          style: const TextStyle(fontSize: Tipografia.smMd),
                         ),
                         subtitle: r.descricao.isNotEmpty
                             ? Text(
                                 r.descricao,
-                                style: const TextStyle(fontSize: 11),
+                                style: const TextStyle(fontSize: Tipografia.xs),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               )
@@ -259,7 +261,7 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
                           '${r.dataHora.month.toString().padLeft(2, '0')} '
                           '${r.dataHora.hour.toString().padLeft(2, '0')}:'
                           '${r.dataHora.minute.toString().padLeft(2, '0')}',
-                          style: const TextStyle(fontSize: 10),
+                          style: const TextStyle(fontSize: Tipografia.xxs),
                         ),
                       );
                     },

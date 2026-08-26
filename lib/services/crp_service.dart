@@ -8,7 +8,7 @@ class CrpService {
   Future<Map<String, dynamic>> verificarCrp(String registro) async {
     final autenticado = await ApiClient.ensureAuthenticated();
     if (!autenticado) {
-      return {'ativo': false, 'erro': 'Nao foi possivel autenticar com o servidor.'};
+      return {'ativo': false, 'erro': 'Não foi possível autenticar com o servidor.'};
     }
 
     try {

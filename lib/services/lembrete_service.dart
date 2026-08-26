@@ -11,7 +11,7 @@ import 'api_client.dart';
 import 'logger.dart';
 
 const _canalLembretesId = 'lembretes_mentall';
-const _canalLembretesNome = 'Lembretes de sessao';
+const _canalLembretesNome = 'Lembretes de sessão';
 
 class LembreteService {
   static final LembreteService _instance = LembreteService._();
@@ -52,7 +52,7 @@ class LembreteService {
       const androidChannel = AndroidNotificationChannel(
         _canalLembretesId,
         _canalLembretesNome,
-        description: 'Notificacoes de lembretes de sessoes agendadas',
+        description: 'Notificações de lembretes de sessões agendadas',
         importance: Importance.high,
         enableVibration: true,
         playSound: true,
@@ -93,7 +93,7 @@ class LembreteService {
 
     await _notifications.zonedSchedule(
       compromisso.id.hashCode,
-      'Lembrete de sessao',
+      'Lembrete de sessão',
       'Sessao ${compromisso.horarioInicioFormatado}'
           ' (em ${compromisso.antecedenciaFormatada})',
       tz.TZDateTime.from(horario, tz.local),
@@ -102,7 +102,7 @@ class LembreteService {
           _canalLembretesId,
           _canalLembretesNome,
           channelDescription:
-              'Notificacoes de lembretes de sessoes agendadas',
+              'Notificações de lembretes de sessões agendadas',
           importance: Importance.high,
           priority: Priority.high,
           icon: '@mipmap/ic_launcher',
@@ -223,8 +223,8 @@ class LembreteService {
     try {
       await ApiClient.ensureAuthenticated();
 
-      final endpoint = canal == 'whatsapp' ? '/enviar-whatsapp' : '/enviar-sms';
-      final canalNome = canal == 'whatsapp' ? 'WhatsApp' : 'SMS';
+      final endpoint = '/enviar-whatsapp';
+      final canalNome = 'WhatsApp';
 
       final response = await http
           .post(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/mentall_colors.dart';
+import '../utils/raio.dart';
+import '../utils/tipografia.dart';
 
 class StatusProcessamentoCard extends StatelessWidget {
   final String status;
@@ -32,7 +34,7 @@ class StatusProcessamentoCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: cor.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(Raio.lg),
         border: Border.all(color: cor.withValues(alpha: 0.3)),
       ),
       child: Row(
@@ -56,7 +58,7 @@ class StatusProcessamentoCard extends StatelessWidget {
                   'Origem do relato: $origemRelato',
                   style: TextStyle(
                     color: context.corTextoSecondary,
-                    fontSize: 13,
+                    fontSize: Tipografia.smMd,
                   ),
                 ),
                 Text(
@@ -65,7 +67,7 @@ class StatusProcessamentoCard extends StatelessWidget {
                       : 'Sem processamento por IA',
                   style: TextStyle(
                     color: context.corTextoSecondary,
-                    fontSize: 13,
+                    fontSize: Tipografia.smMd,
                   ),
                 ),
                 Text(
@@ -74,7 +76,7 @@ class StatusProcessamentoCard extends StatelessWidget {
                       : 'Ainda não marcado como revisado',
                   style: TextStyle(
                     color: context.corTextoSecondary,
-                    fontSize: 13,
+                    fontSize: Tipografia.smMd,
                   ),
                 ),
                 if (dataProcessamentoIa != null)
@@ -82,7 +84,7 @@ class StatusProcessamentoCard extends StatelessWidget {
                     'Último processamento: $dataProcessamentoIa',
                     style: TextStyle(
                       color: context.corTextoSecondary,
-                      fontSize: 13,
+                      fontSize: Tipografia.smMd,
                     ),
                   ),
                 if (possuiAudioRelato)
@@ -92,7 +94,7 @@ class StatusProcessamentoCard extends StatelessWidget {
                         : 'Áudio original poderá ser descartado',
                     style: TextStyle(
                       color: context.corTextoSecondary,
-                      fontSize: 13,
+                      fontSize: Tipografia.smMd,
                     ),
                   ),
               ],

@@ -8,6 +8,7 @@ import '../models/paciente.dart';
 import '../models/perfil_profissional.dart';
 import '../models/sessao.dart';
 import 'logger.dart';
+import '../utils/tipografia.dart';
 
 class PdfExportService {
   static const PdfColor _primaria = PdfColor.fromInt(0xFF8806CE);
@@ -184,7 +185,7 @@ class PdfExportService {
             child: pw.Text(
               'HISTÓRICO CLÍNICO',
               style: pw.TextStyle(
-                fontSize: 14,
+                fontSize: Tipografia.base,
                 fontWeight: pw.FontWeight.bold,
                 color: _titulo,
               ),
@@ -200,7 +201,7 @@ class PdfExportService {
               'Nenhuma sessão registrada.',
               style: pw.TextStyle(
                 color: _secundaria,
-                fontSize: 12,
+                fontSize: Tipografia.sm,
               ),
             )
           else
@@ -265,7 +266,7 @@ class PdfExportService {
             pw.Text(
               'MentAll PRO',
               style: pw.TextStyle(
-                fontSize: 13,
+                fontSize: Tipografia.smMd,
                 fontWeight: pw.FontWeight.bold,
                 color: _marca,
                 letterSpacing: 1.2,
@@ -315,7 +316,7 @@ class PdfExportService {
         pw.Text(
           paciente.nomeExibicao,
           style: pw.TextStyle(
-            fontSize: 16,
+            fontSize: Tipografia.md,
             fontWeight: pw.FontWeight.bold,
             color: _primaria,
           ),
@@ -414,7 +415,7 @@ class PdfExportService {
                 texto,
                 textAlign: pw.TextAlign.justify,
                 style: const pw.TextStyle(
-                  fontSize: 10,
+                  fontSize: Tipografia.xxs,
                   height: 1.5,
                 ),
               ),
@@ -443,7 +444,7 @@ class PdfExportService {
                 'Nenhum conteúdo clínico registrado nesta sessão.',
                 style: pw.TextStyle(
                   color: _secundaria,
-                  fontSize: 10,
+                  fontSize: Tipografia.xxs,
                   fontStyle: pw.FontStyle.italic,
                 ),
               ),
@@ -613,7 +614,7 @@ class PdfExportService {
                   '${_formatarData(sessao.data)} às '
                   '${_formatarHorario(sessao.data)}',
                   style: pw.TextStyle(
-                    fontSize: 11,
+                    fontSize: Tipografia.xs,
                     fontWeight: pw.FontWeight.bold,
                     color: _primaria,
                   ),
@@ -626,7 +627,7 @@ class PdfExportService {
                 sessao.relatoPosSessao,
                 textAlign: pw.TextAlign.justify,
                 style: const pw.TextStyle(
-                  fontSize: 10,
+                  fontSize: Tipografia.xxs,
                   height: 1.5,
                 ),
               ),
@@ -741,7 +742,7 @@ class PdfExportService {
                     pw.Text(
                       'Sessão ${sessao.numeroSessao} - ${paciente.nomeExibicao}',
                       style: pw.TextStyle(
-                        fontSize: 16,
+                        fontSize: Tipografia.md,
                         fontWeight: pw.FontWeight.bold,
                         color: _primaria,
                       ),
@@ -787,7 +788,7 @@ class PdfExportService {
               child: pw.Text(
                 sessao.apontamentosCopiloto,
                 style: pw.TextStyle(
-                  fontSize: 10,
+                  fontSize: Tipografia.xxs,
                   height: 1.4,
                   fontStyle: pw.FontStyle.italic,
                 ),
@@ -834,7 +835,7 @@ class PdfExportService {
           pw.Text(
             paciente.nomeExibicao,
             style: pw.TextStyle(
-              fontSize: 16,
+              fontSize: Tipografia.md,
               fontWeight: pw.FontWeight.bold,
               color: _primaria,
             ),
@@ -851,7 +852,7 @@ class PdfExportService {
               'Nenhuma sessão registrada.',
               style: pw.TextStyle(
                 color: _secundaria,
-                fontSize: 12,
+                fontSize: Tipografia.sm,
               ),
             )
           else
@@ -916,7 +917,7 @@ class PdfExportService {
               pw.Text(
                 'Sessão dia ${_formatarData(s.data)}',
                 style: pw.TextStyle(
-                  fontSize: 10,
+                  fontSize: Tipografia.xxs,
                   fontWeight: pw.FontWeight.bold,
                   color: _primaria,
                 ),
@@ -939,7 +940,7 @@ class PdfExportService {
           'Nenhuma evolução clínica registrada.',
           style: pw.TextStyle(
             color: _secundaria,
-            fontSize: 10,
+            fontSize: Tipografia.xxs,
             fontStyle: pw.FontStyle.italic,
           ),
         ),
@@ -966,7 +967,7 @@ class PdfExportService {
               child: pw.Text(
                 'Sessão ${sessao.numeroSessao} - ${_formatarData(sessao.data)} às ${_formatarHorario(sessao.data)}',
                 style: pw.TextStyle(
-                  fontSize: 12,
+                  fontSize: Tipografia.sm,
                   fontWeight: pw.FontWeight.bold,
                   color: _primaria,
                 ),
@@ -1017,12 +1018,12 @@ class PdfExportService {
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Text(perfil.nomeExibicao, style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                    pw.Text(perfil.nomeExibicao, style: pw.TextStyle(fontSize: Tipografia.base, fontWeight: pw.FontWeight.bold)),
                     pw.Text(perfil.registroProfissional, style: pw.TextStyle(fontSize: 9, color: _secundaria)),
                   ],
                 ),
                 pw.Spacer(),
-                pw.Text('Relatório Financeiro', style: pw.TextStyle(fontSize: 12, color: _titulo)),
+                pw.Text('Relatório Financeiro', style: pw.TextStyle(fontSize: Tipografia.sm, color: _titulo)),
               ],
             ),
           ),
@@ -1030,7 +1031,7 @@ class PdfExportService {
           pw.Center(
             child: pw.Text(
               '${meses[mes.month - 1]} de ${mes.year}',
-              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+              style: pw.TextStyle(fontSize: Tipografia.md, fontWeight: pw.FontWeight.bold),
             ),
           ),
           pw.SizedBox(height: 16),
@@ -1054,7 +1055,7 @@ class PdfExportService {
             ],
           ),
           pw.SizedBox(height: 16),
-          pw.Text('Sessões', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+          pw.Text('Sessões', style: pw.TextStyle(fontSize: Tipografia.sm, fontWeight: pw.FontWeight.bold)),
           pw.SizedBox(height: 8),
           ...sessoes.map((s) {
             final nome = nomesPacientes[s.pacienteId] ?? 'Paciente';
@@ -1104,7 +1105,7 @@ class PdfExportService {
           children: [
             pw.Text(titulo, style: pw.TextStyle(fontSize: 8, color: _secundaria)),
             pw.SizedBox(height: 4),
-            pw.Text(valor, style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: cor)),
+            pw.Text(valor, style: pw.TextStyle(fontSize: Tipografia.base, fontWeight: pw.FontWeight.bold, color: cor)),
           ],
         ),
       ),
@@ -1145,7 +1146,7 @@ class PdfExportService {
       child: pw.Text(
         texto,
         textAlign: pw.TextAlign.justify,
-        style: const pw.TextStyle(fontSize: 10, height: 1.5),
+        style: const pw.TextStyle(fontSize: Tipografia.xxs, height: 1.5),
       ),
     );
   }

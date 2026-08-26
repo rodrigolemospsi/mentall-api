@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../utils/mentall_colors.dart';
+import '../utils/tipografia.dart';
 
 class SessaoInfoChip extends StatelessWidget {
   final String texto;
@@ -63,7 +64,7 @@ class SessaoInfoChip extends StatelessWidget {
             texto,
             style: TextStyle(
               color: cor,
-              fontSize: 12,
+              fontSize: Tipografia.sm,
               fontWeight: FontWeight.w700,
             ),
           ),

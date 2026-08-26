@@ -8,7 +8,9 @@ import '../providers/service_providers.dart';
 import '../services/api_client.dart';
 import '../services/configuracoes_service.dart';
 import '../utils/mentall_colors.dart';
+import '../utils/raio.dart';
 import 'login_page.dart';
+import '../utils/tipografia.dart';
 
 class ConfiguracoesPage extends ConsumerStatefulWidget {
   const ConfiguracoesPage({super.key});
@@ -52,7 +54,7 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
     final authService = ref.read(authServiceProvider);
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: context.corFundo,
       appBar: AppBar(
         title: const Text('Configurações'),
       ),
@@ -151,7 +153,7 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
               SwitchListTile(
                 title: const Text('Lembrete ativado por padrão'),
                 subtitle: const Text(
-                  'Novos compromissos já nascem com lembrete via SMS ligado.',
+                  'Novos compromissos já nascem com lembrete via WhatsApp ligado.',
                 ),
                 value: config.lembretePadraoAtivado,
                 activeThumbColor: context.corPrimaria,
@@ -241,7 +243,7 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
       {required String titulo, required List<Widget> children}) {
     return Card(
       elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Raio.xxl)),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Column(
@@ -252,7 +254,7 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
               child: Text(
                 titulo,
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: Tipografia.md,
                   fontWeight: FontWeight.bold,
                   color: context.corPrimaria,
                 ),
@@ -311,7 +313,7 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Credenciais s\u00e3o obrigat\u00f3rias para transcri\u00e7\u00e3o e s\u00edntese com IA.',
-                  style: TextStyle(fontSize: 12, color: context.corTextoMuted),
+                  style: TextStyle(fontSize: Tipografia.sm, color: context.corTextoMuted),
                 ),
               ),
               if (testando) ...[

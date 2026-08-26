@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/mentall_colors.dart';
+import '../utils/tipografia.dart';
 
 class EstadoVazioPacientes extends StatelessWidget {
   final String termoSingular;
@@ -47,7 +48,7 @@ class EstadoVazioPacientes extends StatelessWidget {
             Text(
               titulo,
               style: TextStyle(
-                fontSize: 18,
+                fontSize: Tipografia.lg,
                 fontWeight: FontWeight.w600,
                 color: context.corTextoHeading,
               ),
@@ -57,7 +58,7 @@ class EstadoVazioPacientes extends StatelessWidget {
             Text(
               mensagem,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: Tipografia.base,
                 color: context.corTextoMuted,
                 height: 1.4,
               ),

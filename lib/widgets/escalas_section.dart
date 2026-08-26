@@ -7,6 +7,8 @@ import '../models/resposta_escala.dart';
 import '../providers/service_providers.dart';
 import '../services/escala_service.dart';
 import '../utils/mentall_colors.dart';
+import '../utils/raio.dart';
+import '../utils/tipografia.dart';
 
 class EscalasSection extends ConsumerWidget {
   final String pacienteId;
@@ -23,7 +25,7 @@ class EscalasSection extends ConsumerWidget {
       margin: EdgeInsets.zero,
       color: context.corCard,
       elevation: Theme.of(context).brightness == Brightness.dark ? 4 : 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Raio.lg)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -36,7 +38,7 @@ class EscalasSection extends ConsumerWidget {
                 Text(
                   'Escalas Psicológicas',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: Tipografia.md,
                     fontWeight: FontWeight.w700,
                     color: context.corTextoHeading,
                   ),
@@ -53,7 +55,7 @@ class EscalasSection extends ConsumerWidget {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(Raio.sm),
                   onTap: temResultado
                       ? () => _mostrarResultado(context, ref, ultimaResposta.first, escala)
                       : () => _aplicarEscala(context, ref, escalaId, escala),
@@ -61,7 +63,7 @@ class EscalasSection extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     decoration: BoxDecoration(
                       color: context.corContainerPrimario.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(Raio.sm),
                     ),
                     child: Row(
                       children: [
@@ -72,7 +74,7 @@ class EscalasSection extends ConsumerWidget {
                               Text(
                                 escala['nome'] as String,
                                 style: TextStyle(
-                                  fontSize: 13,
+                                  fontSize: Tipografia.smMd,
                                   fontWeight: FontWeight.w600,
                                   color: context.corTextoHeading,
                                 ),
@@ -81,7 +83,7 @@ class EscalasSection extends ConsumerWidget {
                               Text(
                                 escala['descricao'] as String,
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: Tipografia.xs,
                                   color: context.corTextoMuted,
                                 ),
                               ),
@@ -93,12 +95,12 @@ class EscalasSection extends ConsumerWidget {
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
                                         color: context.corPrimaria.withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(Raio.md),
                                       ),
                                       child: Text(
                                         '${ultimaResposta.first.pontuacao} pts - ${ultimaResposta.first.interpretacao}',
                                         style: TextStyle(
-                                          fontSize: 11,
+                                          fontSize: Tipografia.xs,
                                           fontWeight: FontWeight.w600,
                                           color: context.corPrimaria,
                                         ),
@@ -107,7 +109,7 @@ class EscalasSection extends ConsumerWidget {
                                     const SizedBox(width: 8),
                                     Text(
                                       _formatarData(ultimaResposta.first.dataAplicacao),
-                                      style: TextStyle(fontSize: 10, color: context.corTextoMuted),
+                                      style: TextStyle(fontSize: Tipografia.xxs, color: context.corTextoMuted),
                                     ),
                                   ],
                                 ),
@@ -160,7 +162,7 @@ class EscalasSection extends ConsumerWidget {
                 children: [
                   Text(
                     escala['instrucoes'] as String,
-                    style: TextStyle(fontSize: 12, color: context.corTextoMuted, fontStyle: FontStyle.italic),
+                    style: TextStyle(fontSize: Tipografia.sm, color: context.corTextoMuted, fontStyle: FontStyle.italic),
                   ),
                   const SizedBox(height: 16),
                   ...questoes.asMap().entries.map((q) {
@@ -171,7 +173,7 @@ class EscalasSection extends ConsumerWidget {
                         children: [
                           Text(
                             '${q.key + 1}. ${q.value}',
-                            style: TextStyle(fontSize: 13, color: context.corTextoHeading, height: 1.4),
+                            style: TextStyle(fontSize: Tipografia.smMd, color: context.corTextoHeading, height: 1.4),
                           ),
                           const SizedBox(height: 6),
                           Wrap(
@@ -179,7 +181,7 @@ class EscalasSection extends ConsumerWidget {
                             children: opcoes.asMap().entries.map((o) {
                               final selecionado = respostas[q.key] == o.key;
                               return ChoiceChip(
-                                label: Text(o.value, style: TextStyle(fontSize: 11)),
+                                label: Text(o.value, style: TextStyle(fontSize: Tipografia.xs)),
                                 selected: selecionado,
                                 selectedColor: context.corPrimaria,
                                 labelStyle: TextStyle(
@@ -264,7 +266,7 @@ class EscalasSection extends ConsumerWidget {
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: context.corPrimaria.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(Raio.md),
                   ),
                   child: Row(
                     children: [
@@ -277,7 +279,7 @@ class EscalasSection extends ConsumerWidget {
                           ),
                           Text(
                             'pontos',
-                            style: TextStyle(fontSize: 12, color: context.corTextoMuted),
+                            style: TextStyle(fontSize: Tipografia.sm, color: context.corTextoMuted),
                           ),
                         ],
                       ),
@@ -285,7 +287,7 @@ class EscalasSection extends ConsumerWidget {
                       Expanded(
                         child: Text(
                           resposta.interpretacao,
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: context.corTextoHeading),
+                          style: TextStyle(fontSize: Tipografia.base, fontWeight: FontWeight.w600, color: context.corTextoHeading),
                         ),
                       ),
                     ],
@@ -294,13 +296,13 @@ class EscalasSection extends ConsumerWidget {
                 const SizedBox(height: 4),
                 Text(
                   'Aplicado em ${_formatarData(resposta.dataAplicacao)}',
-                  style: TextStyle(fontSize: 11, color: context.corTextoMuted),
+                  style: TextStyle(fontSize: Tipografia.xs, color: context.corTextoMuted),
                 ),
                 if (historico.length > 1) ...[
                   const SizedBox(height: 12),
                   Text(
                     'Histórico',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: context.corTextoHeading),
+                    style: TextStyle(fontSize: Tipografia.smMd, fontWeight: FontWeight.w600, color: context.corTextoHeading),
                   ),
                   const SizedBox(height: 6),
                   ...historico.map((h) => Padding(
@@ -309,16 +311,16 @@ class EscalasSection extends ConsumerWidget {
                       children: [
                         Text(
                           _formatarData(h.dataAplicacao),
-                          style: TextStyle(fontSize: 12, color: context.corTextoMuted),
+                          style: TextStyle(fontSize: Tipografia.sm, color: context.corTextoMuted),
                         ),
                         const SizedBox(width: 8),
                         Text(
                           '${h.pontuacao} pts',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.corPrimaria),
+                          style: TextStyle(fontSize: Tipografia.sm, fontWeight: FontWeight.w600, color: context.corPrimaria),
                         ),
                         Text(
                           ' - ${h.interpretacao}',
-                          style: TextStyle(fontSize: 11, color: context.corTextoSecondary),
+                          style: TextStyle(fontSize: Tipografia.xs, color: context.corTextoSecondary),
                         ),
                       ],
                     ),
@@ -329,7 +331,7 @@ class EscalasSection extends ConsumerWidget {
                 const SizedBox(height: 8),
                 Text(
                   'Respostas detalhadas',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: context.corTextoHeading),
+                  style: TextStyle(fontSize: Tipografia.smMd, fontWeight: FontWeight.w600, color: context.corTextoHeading),
                 ),
                 const SizedBox(height: 6),
                 ...questoes.asMap().entries.map((q) {
@@ -342,7 +344,7 @@ class EscalasSection extends ConsumerWidget {
                       children: [
                         Text(
                           '${q.key + 1}.',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.corTextoMuted),
+                          style: TextStyle(fontSize: Tipografia.xs, fontWeight: FontWeight.w600, color: context.corTextoMuted),
                         ),
                         const SizedBox(width: 4),
                         Expanded(
@@ -351,11 +353,11 @@ class EscalasSection extends ConsumerWidget {
                             children: [
                               Text(
                                 q.value,
-                                style: TextStyle(fontSize: 12, color: context.corTextoBody, height: 1.3),
+                                style: TextStyle(fontSize: Tipografia.sm, color: context.corTextoBody, height: 1.3),
                               ),
                               Text(
                                 respostaTexto,
-                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.corPrimaria),
+                                style: TextStyle(fontSize: Tipografia.xs, fontWeight: FontWeight.w600, color: context.corPrimaria),
                               ),
                             ],
                           ),

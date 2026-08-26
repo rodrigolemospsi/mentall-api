@@ -4,8 +4,10 @@ import 'package:local_auth/local_auth.dart';
 
 import '../providers/service_providers.dart';
 import '../utils/mentall_colors.dart';
+import '../utils/raio.dart';
 import 'main_shell.dart';
 import 'perfil_profissional_form_page.dart';
+import '../utils/tipografia.dart';
 
 final _erroProvider = StateProvider<String>((ref) => '');
 final _processandoProvider = StateProvider<bool>((ref) => false);
@@ -121,16 +123,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 Text(
                   'Acesso protegido',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: Tipografia.xl,
                     fontWeight: FontWeight.bold,
                     color: context.corTextoHeading,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Autentique-se para acessar o prontuario.',
+                  'Autentique-se para acessar o prontuário.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: context.corTextoMuted, fontSize: 14),
+                  style: TextStyle(color: context.corTextoMuted, fontSize: Tipografia.base),
                 ),
                 const SizedBox(height: 28),
                 Semantics(
@@ -155,7 +157,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(Raio.lg),
                         ),
                       ),
                     ),
@@ -168,7 +170,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     child: Text(
                       erro,
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: context.corError, fontSize: 13),
+                      style: TextStyle(color: context.corError, fontSize: Tipografia.smMd),
                     ),
                   ),
                 if (possuiPinLegado)
@@ -244,9 +246,9 @@ class _DialogoMigracaoPinState extends ConsumerState<_DialogoMigracaoPin> {
         mainAxisSize: MainAxisSize.min,
         children: [
           const Text(
-            'Informe seu PIN antigo uma ultima vez para migrar seus dados '
+            'Informe seu PIN antigo uma última vez para migrar seus dados '
             'para o novo desbloqueio por biometria.',
-            style: TextStyle(fontSize: 13),
+            style: TextStyle(fontSize: Tipografia.smMd),
           ),
           const SizedBox(height: 16),
           TextField(

@@ -9,10 +9,13 @@ import '../models/endereco_consultorio.dart';
 import '../models/perfil_profissional.dart';
 import '../providers/service_providers.dart';
 import '../services/logger.dart';
+import '../utils/imagem_cache.dart';
 import '../utils/mentall_colors.dart';
+import '../utils/raio.dart';
 import 'main_shell.dart';
 import 'lgpd/politica_privacidade_page.dart';
 import 'lgpd/termos_uso_page.dart';
+import '../utils/tipografia.dart';
 
 final _abordagemProvider = StateProvider<String>((ref) => 'Integrativa');
 final _termoProvider = StateProvider<String>((ref) => 'paciente');
@@ -360,7 +363,7 @@ class _PerfilProfissionalFormPageState
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(Raio.xxl),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -408,7 +411,7 @@ class _PerfilProfissionalFormPageState
                       radius: 88,
                       backgroundColor: context.corPrimaria.withValues(alpha: 0.1),
                       backgroundImage: fotoBase64.isNotEmpty
-                          ? MemoryImage(base64Decode(fotoBase64))
+                          ? fotoMemoria(fotoBase64)
                           : null,
                       child: fotoBase64.isEmpty
                           ? Icon(Icons.camera_alt_outlined,
@@ -533,7 +536,7 @@ class _PerfilProfissionalFormPageState
       elevation: 0,
       color: context.corPrimaria.withValues(alpha: 0.06),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(Raio.xxl),
         side: BorderSide(color: context.corPrimaria.withValues(alpha: 0.12)),
       ),
       child: Padding(
@@ -575,7 +578,7 @@ class _PerfilProfissionalFormPageState
                   child: Text(
                     'Endereços',
                     style: TextStyle(
-                        fontSize: 16,
+                        fontSize: Tipografia.md,
                         fontWeight: FontWeight.w700,
                         color: context.corTextoHeading),
                   ),
@@ -593,7 +596,7 @@ class _PerfilProfissionalFormPageState
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Text(
                   'Nenhum endereço cadastrado. Toque em "Adicionar" para cadastrar um local de atendimento.',
-                  style: TextStyle(color: context.corTextoMuted, fontSize: 13),
+                  style: TextStyle(color: context.corTextoMuted, fontSize: Tipografia.smMd),
                 ),
               )
             else
@@ -611,7 +614,7 @@ class _PerfilProfissionalFormPageState
               contentPadding: EdgeInsets.zero,
               title: Text(
                 'Realizo atendimento online',
-                style: TextStyle(fontSize: 14, color: context.corTextoHeading),
+                style: TextStyle(fontSize: Tipografia.base, color: context.corTextoHeading),
               ),
               onChanged: (value) {
                 ref.read(_atendeOnlineProvider.notifier).state =
@@ -633,7 +636,7 @@ class _PerfilProfissionalFormPageState
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: context.corCard,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(Raio.md),
         boxShadow: context.corCardSombra,
         border: context.corCardBorda,
       ),
@@ -647,12 +650,12 @@ class _PerfilProfissionalFormPageState
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: context.corPrimaria.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(Raio.xxs),
                 ),
                 child: Text(
                   'Endereço ${index + 1}',
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: Tipografia.xs,
                     fontWeight: FontWeight.w700,
                     color: context.corPrimaria,
                   ),
@@ -804,7 +807,7 @@ class _PerfilProfissionalFormPageState
       elevation: 0,
       color: context.corContainerPrimario,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(Raio.xl),
         side: BorderSide(color: context.cs.primaryContainer),
       ),
       child: Padding(

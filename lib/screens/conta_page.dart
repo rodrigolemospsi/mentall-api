@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/api_client.dart';
 import '../utils/mentall_colors.dart';
+import '../utils/raio.dart';
+import '../utils/tipografia.dart';
 
 final contaRevisaoProvider = StateProvider<int>((ref) => 0);
 
@@ -88,7 +90,7 @@ class _ContaPageState extends ConsumerState<ContaPage> {
     if (!mounted) return;
     setState(() {
       _processando = false;
-      _erro = (resultado['erro'] as String?) ?? 'Nao foi possivel concluir.';
+      _erro = (resultado['erro'] as String?) ?? 'Não foi possível concluir.';
     });
   }
 
@@ -108,7 +110,7 @@ class _ContaPageState extends ConsumerState<ContaPage> {
     }
     setState(() {
       _processando = false;
-      _erro = (resultado['erro'] as String?) ?? 'Nao foi possivel confirmar.';
+      _erro = (resultado['erro'] as String?) ?? 'Não foi possível confirmar.';
     });
   }
 
@@ -128,7 +130,7 @@ class _ContaPageState extends ConsumerState<ContaPage> {
       if (resultado['sucesso'] == true) {
         _mensagem = (resultado['mensagem'] as String?) ?? '';
       } else {
-        _erro = (resultado['erro'] as String?) ?? 'Nao foi possivel reenviar.';
+        _erro = (resultado['erro'] as String?) ?? 'Não foi possível reenviar.';
       }
     });
   }
@@ -166,7 +168,7 @@ class _ContaPageState extends ConsumerState<ContaPage> {
                   _modoCadastro ? 'Criar sua conta' : 'Bem-vindo de volta',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: Tipografia.xl,
                     fontWeight: FontWeight.bold,
                     color: context.corTextoHeading,
                   ),
@@ -175,9 +177,9 @@ class _ContaPageState extends ConsumerState<ContaPage> {
                 Text(
                   _modoCadastro
                       ? 'Crie sua conta para usar o MentAll PRO.'
-                      : 'Entre com seu e-mail para acessar o prontuario.',
+                      : 'Entre com seu e-mail para acessar o prontuário.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: context.corTextoMuted, fontSize: 14),
+                  style: TextStyle(color: context.corTextoMuted, fontSize: Tipografia.base),
                 ),
                 const SizedBox(height: 28),
                 if (_modoCadastro) ...[
@@ -218,7 +220,7 @@ class _ContaPageState extends ConsumerState<ContaPage> {
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(Raio.lg),
                       ),
                     ),
                     child: _processando
@@ -238,7 +240,7 @@ class _ContaPageState extends ConsumerState<ContaPage> {
                   Text(
                     _erro!,
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: context.corError, fontSize: 13),
+                    style: TextStyle(color: context.corError, fontSize: Tipografia.smMd),
                   ),
                 ],
                 const SizedBox(height: 8),
@@ -247,7 +249,7 @@ class _ContaPageState extends ConsumerState<ContaPage> {
                   child: Text(
                     _modoCadastro
                         ? 'Ja tenho uma conta. Entrar'
-                        : 'Nao tenho conta. Criar conta',
+                        : 'Não tenho conta. Criar conta',
                   ),
                 ),
               ],
@@ -278,7 +280,7 @@ class _ContaPageState extends ConsumerState<ContaPage> {
                   'Confirme seu e-mail',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: Tipografia.xl,
                     fontWeight: FontWeight.bold,
                     color: context.corTextoHeading,
                   ),
@@ -288,14 +290,14 @@ class _ContaPageState extends ConsumerState<ContaPage> {
                   'Enviamos um link de confirmacao para ${_emailController.text.trim()}. '
                   'Abra o e-mail, toque no link e depois volte aqui.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: context.corTextoMuted, fontSize: 14, height: 1.4),
+                  style: TextStyle(color: context.corTextoMuted, fontSize: Tipografia.base, height: 1.4),
                 ),
                 if (_mensagem != null && _mensagem!.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Text(
                     _mensagem!,
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: context.corTextoSecondary, fontSize: 12),
+                    style: TextStyle(color: context.corTextoSecondary, fontSize: Tipografia.sm),
                   ),
                 ],
                 const SizedBox(height: 24),
@@ -304,7 +306,7 @@ class _ContaPageState extends ConsumerState<ContaPage> {
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(Raio.lg),
                     ),
                   ),
                   child: _processando
@@ -323,7 +325,7 @@ class _ContaPageState extends ConsumerState<ContaPage> {
                   Text(
                     _erro!,
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: context.corError, fontSize: 13),
+                    style: TextStyle(color: context.corError, fontSize: Tipografia.smMd),
                   ),
                 ],
                 const SizedBox(height: 4),

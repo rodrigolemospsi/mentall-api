@@ -7,6 +7,7 @@ import '../models/paciente.dart';
 import '../services/logger.dart';
 import '../services/paciente_service.dart';
 import '../services/lgpd/auditoria_service.dart';
+import '../utils/imagem_cache.dart';
 import '../utils/mentall_colors.dart';
 
 Future<void> mostrarDialogNovoPaciente({
@@ -68,7 +69,7 @@ Future<void> mostrarDialogNovoPaciente({
                           radius: 36,
                           backgroundColor: context.corSuperficie,
                           backgroundImage: fotoBase64 != null
-                              ? MemoryImage(base64Decode(fotoBase64!))
+                              ? fotoMemoria(fotoBase64!)
                               : null,
                           child: fotoBase64 == null
                               ? Icon(Icons.camera_alt_outlined,

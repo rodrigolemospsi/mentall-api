@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../utils/mentall_colors.dart';
+import '../../utils/raio.dart';
+import '../../utils/tipografia.dart';
 
 class AvisoPrivacidadeIaCard extends StatelessWidget {
   const AvisoPrivacidadeIaCard({super.key});
@@ -10,7 +12,7 @@ class AvisoPrivacidadeIaCard extends StatelessWidget {
       elevation: 0,
       color: context.corContainerPrimario,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(Raio.md),
         side: BorderSide(color: context.corPrimaria.withValues(alpha: 0.15)),
       ),
       child: Semantics(
@@ -29,7 +31,7 @@ class AvisoPrivacidadeIaCard extends StatelessWidget {
                 'Todo conteúdo gerado deve ser revisado e validado '
                 'pelo profissional antes de integrar o prontuário.',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: Tipografia.sm,
                   color: context.corTextoSecondary,
                   height: 1.4,
                 ),

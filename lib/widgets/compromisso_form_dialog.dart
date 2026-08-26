@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../utils/raio.dart';
+import '../utils/mentall_colors.dart';
 import '../models/compromisso.dart';
 import '../models/enums.dart';
 import '../models/paciente.dart';
 import '../services/compromisso_service.dart';
+import '../utils/tipografia.dart';
 
 Future<Compromisso?> mostrarCompromissoFormDialog({
   required BuildContext context,
@@ -58,7 +61,7 @@ class _CompromissoFormDialog extends StatefulWidget {
 
 class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
   final _formKey = GlobalKey<FormState>();
-  late Paciente _pacienteSelecionado;
+  Paciente? _pacienteSelecionado;
   late DateTime _data;
   late TimeOfDay _horaInicio;
   late TimeOfDay _horaFim;
@@ -67,7 +70,6 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
   late TextEditingController _mensagemLembreteController;
   late bool _lembreteAtivado;
   late int _minutosAntecedencia;
-  late String _canalLembrete;
   late FrequenciaRecorrencia _recorrencia;
   late DateTime? _dataLimiteRecorrencia;
 
@@ -93,7 +95,6 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
       _mensagemLembreteController = TextEditingController(text: existente.mensagemLembrete);
       _lembreteAtivado = existente.lembreteAtivado;
       _minutosAntecedencia = existente.minutosAntecedencia;
-      _canalLembrete = existente.canalLembrete.isNotEmpty ? existente.canalLembrete : 'whatsapp';
       _recorrencia = FrequenciaRecorrencia.nenhuma;
       _dataLimiteRecorrencia = null;
 
@@ -117,10 +118,9 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
       _mensagemLembreteController = TextEditingController();
       _lembreteAtivado = widget.lembretePadraoAtivado;
       _minutosAntecedencia = widget.antecedenciaPadraoMinutos;
-      _canalLembrete = 'whatsapp';
       _recorrencia = FrequenciaRecorrencia.nenhuma;
       _dataLimiteRecorrencia = null;
-      _pacienteSelecionado = widget.pacientes.first;
+      _pacienteSelecionado = null;
     }
   }
 
@@ -242,7 +242,7 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
     final existente = widget.compromissoExistente;
     final compromisso = Compromisso(
       id: existente?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
-      pacienteId: _pacienteSelecionado.id,
+      pacienteId: _pacienteSelecionado!.id,
       dataHoraInicio: dataHoraInicio,
       dataHoraFim: dataHoraFim,
       titulo: _tituloController.text.trim(),
@@ -253,7 +253,7 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
       lembreteAtivado: _lembreteAtivado,
       minutosAntecedencia: _minutosAntecedencia,
       mensagemLembrete: _mensagemLembreteController.text.trim(),
-      canalLembrete: _canalLembrete,
+      canalLembrete: 'whatsapp',
       recorrencia: _recorrencia.value,
       dataLimiteRecorrencia: _dataLimiteRecorrencia,
     );
@@ -276,6 +276,47 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
     return '${horas}h${mins}min';
   }
 
+  Future<void> _editarMensagemLembrete() async {
+    final controller = TextEditingController(
+      text: _mensagemLembreteController.text.isEmpty
+          ? 'Olá {nome}, lembrete da sua sessão com {profissional} '
+              'em {data} às {hora}. Até lá!'
+          : _mensagemLembreteController.text,
+    );
+    final salva = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Editar mensagem do lembrete'),
+        content: TextField(
+          controller: controller,
+          maxLines: 4,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            hintText: 'Use {nome}, {data}, {hora} e {profissional} '
+                'como placeholders',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
+    if (salva == true) {
+      setState(() {
+        _mensagemLembreteController.text = controller.text.trim();
+      });
+    }
+    controller.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -287,22 +328,41 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              DropdownButtonFormField<Paciente>(
+              const SizedBox(height: 24),
+              DropdownButtonFormField<Paciente?>(
                 initialValue: _pacienteSelecionado,
                 isExpanded: true,
                 decoration: InputDecoration(
                   labelText: widget.termoPessoa,
                   prefixIcon: Icon(Icons.person_outline),
                   border: OutlineInputBorder(),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 16,
+                  ),
                 ),
-                items: widget.pacientes.map((p) {
-                  return DropdownMenuItem(
-                    value: p,
-                    child: Text(p.nome, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  );
-                }).toList(),
+                items: [
+                  DropdownMenuItem<Paciente?>(
+                    value: null,
+                    child: Text(
+                      'Escolher ${widget.termoPessoa.toLowerCase()}',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  ...widget.pacientes.map((p) {
+                    return DropdownMenuItem<Paciente?>(
+                      value: p,
+                      child: Text(
+                        p.nome,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  }),
+                ],
                 onChanged: (v) {
-                  if (v != null) setState(() => _pacienteSelecionado = v);
+                  setState(() => _pacienteSelecionado = v);
                 },
                 validator: (v) =>
                     v == null ? 'Selecione uma pessoa' : null,
@@ -310,7 +370,7 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
               const SizedBox(height: 16),
               InkWell(
                 onTap: _selecionarData,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(Raio.md),
                 child: InputDecorator(
                   decoration: const InputDecoration(
                     labelText: 'Data',
@@ -326,7 +386,7 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
                   Expanded(
                     child: InkWell(
                       onTap: _selecionarHoraInicio,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(Raio.md),
                       child: InputDecorator(
                         decoration: const InputDecoration(
                           labelText: 'Início',
@@ -341,7 +401,7 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
                   Expanded(
                     child: InkWell(
                       onTap: _selecionarHoraFim,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(Raio.md),
                       child: InputDecorator(
                         decoration: const InputDecoration(
                           labelText: 'Término',
@@ -410,7 +470,7 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
                         setState(() => _dataLimiteRecorrencia = limite);
                       }
                     },
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(Raio.md),
                     child: InputDecorator(
                       decoration: const InputDecoration(
                         labelText: 'Até (opcional)',
@@ -433,8 +493,8 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
                   child: Text(
                 'Este é um compromisso recorrente.',
                 style: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                  fontSize: Tipografia.sm,
+                  color: context.corTextoMuted,
                   fontStyle: FontStyle.italic,
                 ),
               ),
@@ -442,8 +502,8 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
               const SizedBox(height: 20),
               Container(
                 decoration: BoxDecoration(
-                  border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: context.corDivider),
+                  borderRadius: BorderRadius.circular(Raio.md),
                 ),
                 padding: const EdgeInsets.all(14),
                 child: Column(
@@ -451,15 +511,9 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
                   children: [
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Row(
-                        children: [
-                          Text(
-                            _canalLembrete == 'whatsapp'
-                                ? 'Lembrete via WhatsApp'
-                                : 'Lembrete via SMS',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ],
+                      title: const Text(
+                        'Lembrete',
+                        style: TextStyle(fontWeight: FontWeight.w600),
                       ),
                       subtitle: Text(
                         _lembreteAtivado
@@ -469,32 +523,9 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
                       value: _lembreteAtivado,
                       onChanged: (v) =>
                           setState(() => _lembreteAtivado = v),
-                      activeThumbColor: Theme.of(context).colorScheme.primary,
+                      activeThumbColor: context.corPrimaria,
                     ),
                     if (_lembreteAtivado) ...[
-                      const SizedBox(height: 12),
-                      SegmentedButton<String>(
-                        segments: const [
-                          ButtonSegment<String>(
-                            value: 'whatsapp',
-                            label: Text('WhatsApp'),
-                            icon: Icon(Icons.chat_outlined, size: 18),
-                          ),
-                          ButtonSegment<String>(
-                            value: 'sms',
-                            label: Text('SMS'),
-                            icon: Icon(Icons.sms_outlined, size: 18),
-                          ),
-                        ],
-                        selected: {_canalLembrete},
-                        onSelectionChanged: (sel) {
-                          setState(() => _canalLembrete = sel.first);
-                        },
-                        style: ButtonStyle(
-                          visualDensity: VisualDensity.compact,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                      ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<int>(
                         initialValue: _minutosAntecedencia,
@@ -520,21 +551,12 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
                         },
                       ),
                       const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _mensagemLembreteController,
-                        maxLines: 3,
-                        textCapitalization: TextCapitalization.sentences,
-                        decoration: InputDecoration(
-                          labelText: 'Mensagem do lembrete',
-                          hintText:
-                              'Use {nome}, {data}, {hora} e {profissional} '
-                              'como placeholders',
-                          prefixIcon: const Icon(Icons.message_outlined),
-                          border: const OutlineInputBorder(),
-                          alignLabelWithHint: true,
-                          helperText: _mensagemLembreteController.text.isEmpty
-                              ? 'Ex: Olá {nome}, lembrete da sessão em {data} às {hora}.'
-                              : null,
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: _editarMensagemLembrete,
+                          icon: const Icon(Icons.edit_outlined, size: 18),
+                          label: const Text('Editar mensagem'),
                         ),
                       ),
                     ],

@@ -19,25 +19,14 @@ class CompromissoService with EncryptedServiceMixin {
   String _decrypt(String value) => decrypt(value);
 
   Compromisso _decryptCompromisso(Compromisso c) {
-    return Compromisso(
-      id: c.id,
-      pacienteId: c.pacienteId,
-      dataHoraInicio: c.dataHoraInicio,
-      dataHoraFim: c.dataHoraFim,
-      titulo: _decrypt(c.titulo),
-      observacoes: _decrypt(c.observacoes),
-      status: c.status,
-      sessaoId: c.sessaoId,
-      dataCriacao: c.dataCriacao,
-      dataAtualizacao: c.dataAtualizacao,
-      lembreteAtivado: c.lembreteAtivado,
-      minutosAntecedencia: c.minutosAntecedencia,
-      mensagemLembrete: c.mensagemLembrete,
-      recorrencia: c.recorrencia,
-      dataLimiteRecorrencia: c.dataLimiteRecorrencia,
-      compromissoPaiId: c.compromissoPaiId,
-      canalLembrete: c.canalLembrete,
-    );
+    c.titulo = _decrypt(c.titulo);
+    c.observacoes = _decrypt(c.observacoes);
+    return c;
+  }
+
+  void _encryptCompromisso(Compromisso c) {
+    c.titulo = _encrypt(c.titulo);
+    c.observacoes = _encrypt(c.observacoes);
   }
 
   List<Compromisso> listarTodos() {
@@ -247,8 +236,10 @@ class CompromissoService with EncryptedServiceMixin {
 
   Future<void> atualizar(Compromisso compromisso) async {
     compromisso.dataAtualizacao = DateTime.now();
+    final original = _box.values.where((c) => c.id == compromisso.id);
+    final key = original.isNotEmpty ? original.first.key : compromisso.key;
     await _box.put(
-      compromisso.key,
+      key,
       Compromisso(
         id: compromisso.id,
         pacienteId: compromisso.pacienteId,
@@ -284,7 +275,9 @@ class CompromissoService with EncryptedServiceMixin {
     } catch (_) {}
     compromisso.statusEnum = StatusCompromisso.realizado;
     compromisso.dataAtualizacao = DateTime.now();
+    _encryptCompromisso(compromisso);
     await compromisso.save();
+    _decryptCompromisso(compromisso);
   }
 
   Future<void> marcarComoCancelado(Compromisso compromisso) async {
@@ -293,7 +286,9 @@ class CompromissoService with EncryptedServiceMixin {
     } catch (_) {}
     compromisso.statusEnum = StatusCompromisso.cancelado;
     compromisso.dataAtualizacao = DateTime.now();
+    _encryptCompromisso(compromisso);
     await compromisso.save();
+    _decryptCompromisso(compromisso);
   }
 
   Future<void> marcarComoFaltou(Compromisso compromisso) async {
@@ -302,19 +297,25 @@ class CompromissoService with EncryptedServiceMixin {
     } catch (_) {}
     compromisso.statusEnum = StatusCompromisso.faltou;
     compromisso.dataAtualizacao = DateTime.now();
+    _encryptCompromisso(compromisso);
     await compromisso.save();
+    _decryptCompromisso(compromisso);
   }
 
   Future<void> marcarComoAgendado(Compromisso compromisso) async {
     compromisso.statusEnum = StatusCompromisso.agendado;
     compromisso.dataAtualizacao = DateTime.now();
+    _encryptCompromisso(compromisso);
     await compromisso.save();
+    _decryptCompromisso(compromisso);
   }
 
   Future<void> vincularSessao(Compromisso compromisso, String sessaoId) async {
     compromisso.sessaoId = sessaoId;
     compromisso.dataAtualizacao = DateTime.now();
+    _encryptCompromisso(compromisso);
     await compromisso.save();
+    _decryptCompromisso(compromisso);
   }
 
   Stream<BoxEvent> observar() {

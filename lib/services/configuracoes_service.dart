@@ -20,9 +20,9 @@ class ConfiguracoesService with EncryptedServiceMixin {
   static const String _kContratoTemplate = 'contrato_template';
   static const String _kValorPadraoSessao = 'valor_padrao_sessao';
   static const String _kControleFinanceiroAtivo = 'controle_financeiro_ativo';
-  static const String _kOnboardingConcluido = 'onboarding_concluido';
   static const String _kDemoCriado = 'demo_criado';
   static const String _kBiometriaAtivada = 'biometria_ativada';
+  static const String _kOnboardingConcluido = 'onboarding_concluido';
 
   static const String contratoPadrao = '''Este \u00e9 um espa\u00e7o de cuidado, escuta e respeito.
 
@@ -123,11 +123,6 @@ Ao preencher e aceitar este formul\u00e1rio, declaro estar ciente e de acordo co
     await _box.put(_kControleFinanceiroAtivo, '$ativado');
   }
 
-  bool get onboardingConcluido =>
-      _box.get(_kOnboardingConcluido, defaultValue: 'false') == 'true';
-
-  set onboardingConcluido(bool v) => _box.put(_kOnboardingConcluido, '$v');
-
   bool get demoCriado => _box.get(_kDemoCriado, defaultValue: 'false') == 'true';
 
   Future<void> setDemoCriado(bool v) => _box.put(_kDemoCriado, '$v');
@@ -138,6 +133,12 @@ Ao preencher e aceitar este formul\u00e1rio, declaro estar ciente e de acordo co
   Future<void> setBiometriaAtivada(bool ativado) async {
     await _box.put(_kBiometriaAtivada, '$ativado');
   }
+
+  bool get onboardingConcluido =>
+      _box.get(_kOnboardingConcluido, defaultValue: 'false') == 'true';
+
+  Future<void> setOnboardingConcluido(bool v) async =>
+      _box.put(_kOnboardingConcluido, '$v');
 
   Stream<BoxEvent> observar() {
     return _box.watch();

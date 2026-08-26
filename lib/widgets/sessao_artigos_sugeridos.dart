@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../utils/mentall_colors.dart';
+import '../utils/raio.dart';
 import 'sessao_audio_controls.dart';
+import '../utils/tipografia.dart';
 
 class ArtigosSugeridosCard extends ConsumerWidget {
   const ArtigosSugeridosCard({super.key});
@@ -22,8 +24,8 @@ class ArtigosSugeridosCard extends ConsumerWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: context.corContainerPrimario,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: context.cs.primaryContainer, width: 0.5),
+          borderRadius: BorderRadius.circular(Raio.md),
+          border: Border.all(color: context.corContainerPrimario, width: 0.5),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -36,7 +38,7 @@ class ArtigosSugeridosCard extends ConsumerWidget {
                 Text(
                   'INDICAÇÕES DE ARTIGOS',
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: Tipografia.xs,
                     fontWeight: FontWeight.w700,
                     color: context.corPrimaria,
                     letterSpacing: 0.8,
@@ -48,7 +50,7 @@ class ArtigosSugeridosCard extends ConsumerWidget {
             Text.rich(
               _buildArtigosComLinks(context, artigos),
               style: TextStyle(
-                fontSize: 12,
+                fontSize: Tipografia.sm,
                 height: 1.5,
                 color: context.corTextoBody,
               ),
@@ -96,7 +98,7 @@ class ArtigosSugeridosCard extends ConsumerWidget {
           spans.add(TextSpan(
             text: i < linhas.length - 1 ? '$trimmed\n' : trimmed,
             style: TextStyle(
-              fontSize: 13,
+              fontSize: Tipografia.smMd,
               height: 1.5,
               color: context.corPrimaria,
               fontWeight: FontWeight.w600,

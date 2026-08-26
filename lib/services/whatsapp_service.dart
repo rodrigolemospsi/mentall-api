@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../utils/mentall_colors.dart';
+import '../utils/tipografia.dart';
 
 class WhatsAppService {
   WhatsAppService._();
@@ -70,7 +71,7 @@ class WhatsAppService {
               child: Text(
                 titulo,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: Tipografia.base,
                   fontWeight: FontWeight.w600,
                   color: ctx.corTextoMuted,
                 ),

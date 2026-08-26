@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +10,7 @@ import '../services/lembrete_service.dart';
 import '../widgets/compromisso_form_dialog.dart';
 import '../widgets/home_dashboard.dart';
 import '../widgets/novo_paciente_dialog.dart';
+import '../utils/imagem_cache.dart';
 import '../utils/mentall_colors.dart';
 import 'backup_restore_page.dart';
 import 'configuracoes_page.dart';
@@ -219,7 +219,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   leading: CircleAvatar(
                     backgroundColor: context.corPrimaria.withValues(alpha: 0.12),
                     backgroundImage: p.possuiFoto
-                        ? MemoryImage(base64Decode(p.fotoBase64))
+                        ? fotoMemoria(p.fotoBase64)
                         : null,
                     child: p.possuiFoto
                         ? null
@@ -260,7 +260,6 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget build(BuildContext context) {
     ref.watch(perfilRevisaoProvider);
     final nomeProf = _nomeProfissional();
-    final colorScheme = Theme.of(context).colorScheme;
 
     return PopScope(
       canPop: false,
@@ -288,7 +287,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         }
       },
       child: Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: context.corFundo,
       appBar: AppBar(
         toolbarHeight: 80,
         title: Image.asset(
@@ -298,8 +297,8 @@ class _HomePageState extends ConsumerState<HomePage> {
           height: 78,
         ),
         centerTitle: false,
-        backgroundColor: colorScheme.surface,
-        foregroundColor: colorScheme.primary,
+        backgroundColor: context.corFundo,
+        foregroundColor: context.corPrimaria,
         elevation: 0,
         actions: [
           IconButton(

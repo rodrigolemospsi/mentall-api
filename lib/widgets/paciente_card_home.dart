@@ -1,11 +1,14 @@
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
 import '../models/paciente.dart';
 import '../services/whatsapp_service.dart';
+import '../utils/imagem_cache.dart';
 import '../utils/mentall_colors.dart';
+import '../utils/raio.dart';
 import 'demo_badge.dart';
+import 'status_chip.dart';
+import '../utils/tipografia.dart';
 
 class PacienteCardHome extends StatelessWidget {
   final Paciente paciente;
@@ -38,18 +41,17 @@ class PacienteCardHome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(Raio.lg),
         child: Container(
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: cs.surface,
-            borderRadius: BorderRadius.circular(14),
+            color: context.corCard,
+            borderRadius: BorderRadius.circular(Raio.lg),
             boxShadow: context.corCardSombra,
             border: context.corCardBorda,
           ),
@@ -59,18 +61,18 @@ class PacienteCardHome extends StatelessWidget {
                 radius: 22,
                 backgroundColor: listaArquivada
                     ? context.corSuperficie
-                    : cs.primaryContainer,
+                    : context.corContainerPrimario,
                 backgroundImage: paciente.possuiFoto
-                    ? MemoryImage(base64Decode(paciente.fotoBase64))
+                    ? fotoMemoria(paciente.fotoBase64)
                     : null,
                 child: paciente.possuiFoto
                     ? null
                     : Text(
                         paciente.inicial,
                         style: TextStyle(
-                          color: listaArquivada ? context.corTextoMuted : cs.primary,
+                          color: listaArquivada ? context.corTextoMuted : context.corPrimaria,
                           fontWeight: FontWeight.w600,
-                          fontSize: 16,
+                          fontSize: Tipografia.md,
                         ),
                       ),
               ),
@@ -88,7 +90,7 @@ class PacienteCardHome extends StatelessWidget {
                               text: _nomeExibicao,
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
-                                fontSize: 15,
+                                fontSize: Tipografia.baseMd,
                                 color: context.corTextoHeading,
                               ),
                             ),
@@ -97,7 +99,7 @@ class PacienteCardHome extends StatelessWidget {
                                 text: ' - $_modalidadeExibicao',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w400,
-                                  fontSize: 13,
+                                  fontSize: Tipografia.smMd,
                                   color: context.corTextoMuted,
                                 ),
                               ),
@@ -109,14 +111,23 @@ class PacienteCardHome extends StatelessWidget {
                       const SizedBox(height: 5),
                       Row(
                         children: [
-                          _StatusPacienteChip(ativo: paciente.ativo),
+                          StatusChip(
+                            label: paciente.ativo ? 'Ativo' : 'Arquivado',
+                            cor: paciente.ativo
+                                ? context.corSuccess
+                                : context.corTextoMuted,
+                          ),
                           if (paciente.ehDemo) ...[
                             const SizedBox(width: 8),
                             const DemoBadge(),
                           ],
                           if (sessoesPendentes > 0) ...[
                             const SizedBox(width: 8),
-                            _PendenciasBadge(pendentes: sessoesPendentes),
+                            StatusChip(
+                              label: '$sessoesPendentes',
+                              cor: context.corWarning,
+                              icone: Icons.rate_review_outlined,
+                            ),
                           ],
                         ],
                       ),
@@ -166,66 +177,6 @@ class PacienteCardHome extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _StatusPacienteChip extends StatelessWidget {
-  final bool ativo;
-
-  const _StatusPacienteChip({required this.ativo});
-
-  @override
-  Widget build(BuildContext context) {
-    final Color cor = ativo ? context.corSuccess : context.corTextoMuted;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: cor.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        ativo ? 'Ativo' : 'Arquivado',
-        style: TextStyle(
-          color: cor,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-class _PendenciasBadge extends StatelessWidget {
-  final int pendentes;
-
-  const _PendenciasBadge({required this.pendentes});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: context.corWarning.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.rate_review_outlined,
-              size: 11, color: context.corWarning),
-          const SizedBox(width: 3),
-          Text(
-            '$pendentes',
-            style: TextStyle(
-              color: context.corWarning,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
       ),
     );
   }

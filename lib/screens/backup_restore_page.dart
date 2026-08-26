@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/service_providers.dart';
 import '../utils/mentall_colors.dart';
+import '../utils/raio.dart';
+import '../utils/tipografia.dart';
 import 'backup_restore_page_io.dart'
     if (dart.library.html) 'backup_restore_page_web.dart';
 
@@ -159,7 +161,7 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
           Card(
             elevation: 1,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(Raio.xxl),
             ),
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -171,7 +173,7 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
                   const SizedBox(height: 12),
                   const Text(
                     'Exportar dados',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: Tipografia.lg, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -205,7 +207,7 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
           Card(
             elevation: 1,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(Raio.xxl),
             ),
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -217,7 +219,7 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
                   const SizedBox(height: 12),
                   const Text(
                     'Importar dados',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: Tipografia.lg, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -252,7 +254,7 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
             elevation: 0,
             color: context.corContainerPrimario,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(Raio.xxl),
               side: BorderSide(color: context.corPrimaria.withValues(alpha: 0.3)),
             ),
             child: Padding(

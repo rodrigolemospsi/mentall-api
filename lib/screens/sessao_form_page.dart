@@ -17,11 +17,14 @@ import '../services/pdf_export_service.dart';
 import '../services/sessao_service.dart';
 import '../services/transcricao_relato_service.dart';
 import '../utils/mentall_colors.dart';
+import '../utils/raio.dart';
 import '../widgets/campo_texto_widget.dart';
 import '../widgets/secao_campos_clinicos_widget.dart';
 import '../widgets/secao_formulario.dart';
 import '../widgets/sessao_artigos_sugeridos.dart';
 import '../widgets/sessao_audio_controls.dart';
+import '../widgets/sessao_form_widgets.dart';
+import '../utils/tipografia.dart';
 
 final _salvandoProvider = StateProvider<bool>((ref) => false);
 final _dataSessaoProvider = StateProvider<DateTime>((ref) => DateTime.now());
@@ -694,7 +697,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       ref.read(reproduzindoAudioProvider.notifier).state = false;
       _triggerRebuild();
 
-      _registrarAuditoria('Gravacao de audio', 'Inicio da gravacao do relato - sessao $_numeroSessao');
+      _registrarAuditoria('Gravação de áudio', 'Início da gravação do relato - sessão $_numeroSessao');
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1293,7 +1296,7 @@ if (!mounted || confirmar != true) return;
         _avisoInvalidacaoTranscricaoExibido = false;
         _triggerRebuild();
 
-        _registrarAuditoria('Sintese gerada por IA', 'IA gerou sintese clinica - sessao $_numeroSessao');
+        _registrarAuditoria('Síntese gerada por IA', 'IA gerou síntese clínica - sessão $_numeroSessao');
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1354,7 +1357,7 @@ if (!mounted || confirmar != true) return;
     _triggerRebuild();
     ref.read(erroAudioProvider.notifier).state = '';
 
-    _registrarAuditoria('Revisao profissional', 'Sessao $_numeroSessao marcada como revisada');
+    _registrarAuditoria('Revisão profissional', 'Sessão $_numeroSessao marcada como revisada');
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -1544,7 +1547,7 @@ if (!mounted || confirmar != true) return;
             Text(
               'Não foi possível abrir o prontuário',
               style: TextStyle(
-                fontSize: 20,
+                fontSize: Tipografia.xl,
                 fontWeight: FontWeight.bold,
                 color: context.corError,
               ),
@@ -1559,12 +1562,12 @@ if (!mounted || confirmar != true) return;
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: context.corError.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(Raio.md),
               ),
               child: Text(
                 _erroInicializacao!,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: Tipografia.sm,
                   color: context.corTextoBody,
                   fontFamily: 'monospace',
                 ),
@@ -1771,7 +1774,7 @@ if (!mounted || confirmar != true) return;
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(Raio.xxl),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -1790,7 +1793,7 @@ if (!mounted || confirmar != true) return;
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(Raio.xxl),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -1799,7 +1802,7 @@ if (!mounted || confirmar != true) return;
           children: [
             InkWell(
               onTap: _selecionarData,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(Raio.md),
               child: InputDecorator(
                 decoration: const InputDecoration(
                   labelText: 'Data da sessão',
@@ -1812,7 +1815,7 @@ if (!mounted || confirmar != true) return;
             const SizedBox(height: 16),
             InkWell(
               onTap: _selecionarHorario,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(Raio.md),
               child: InputDecorator(
                 decoration: const InputDecoration(
                   labelText: 'Horário da sessão',
@@ -1938,22 +1941,13 @@ if (!mounted || confirmar != true) return;
     if (!_possuiAudioRelato) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: 12),
-      child: SwitchListTile(
-        title: Text(
-          'Manter áudio salvo',
-          style: TextStyle(color: context.corTextoSecondary, fontSize: 13),
-        ),
-        value: _audioMantido,
-        activeTrackColor: context.corPrimaria.withValues(alpha: 0.4),
-        activeThumbColor: context.corPrimaria,
-        contentPadding: EdgeInsets.zero,
-        dense: true,
-        onChanged: _existeAcaoEmAndamento
-            ? null
-            : (value) {
-                _audioMantido = value;
-                _triggerRebuild();
-              },
+      child: AudioMantidoSwitch(
+        valor: _audioMantido,
+        desabilitado: _existeAcaoEmAndamento,
+        onChanged: (value) {
+          _audioMantido = value;
+          _triggerRebuild();
+        },
       ),
     );
   }
@@ -1984,38 +1978,7 @@ if (!mounted || confirmar != true) return;
   }
 
   Widget _cardBuscandoArtigos() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: context.corContainerPrimario,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: context.cs.primaryContainer, width: 0.5),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: context.corPrimaria,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Buscando artigos científicos...',
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.5,
-                color: context.corTextoBody,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    return const CardBuscandoArtigos();
   }
 
   Future<void> _gerarProgressoAutomatico() async {
@@ -2070,7 +2033,7 @@ if (!mounted || confirmar != true) return;
               tendencia: resultado.tendencia,
             );
 
-        _registrarAuditoria('Progresso gerado por IA', 'IA gerou tracking de evolucao - sessao $_numeroSessao');
+        _registrarAuditoria('Progresso gerado por IA', 'IA gerou tracking de evolução - sessão $_numeroSessao');
       }
 
       _progressoGerando = false;
@@ -2134,7 +2097,7 @@ if (!mounted || confirmar != true) return;
       return Card(
         margin: EdgeInsets.zero,
         color: context.corCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Raio.lg)),
         child: const Padding(
           padding: EdgeInsets.all(14),
           child: Row(
@@ -2145,7 +2108,7 @@ if (!mounted || confirmar != true) return;
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
               SizedBox(width: 10),
-              Text('Gerando análise de evolução...', style: TextStyle(fontSize: 13)),
+              Text('Gerando análise de evolução...', style: TextStyle(fontSize: Tipografia.smMd)),
             ],
           ),
         ),
@@ -2159,7 +2122,7 @@ if (!mounted || confirmar != true) return;
     return Card(
       margin: EdgeInsets.zero,
       color: context.corCard,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Raio.lg)),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -2171,7 +2134,7 @@ if (!mounted || confirmar != true) return;
                 const SizedBox(width: 8),
                 Text(
                   'Evolução Clínica',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: context.corTextoHeading),
+                  style: TextStyle(fontSize: Tipografia.base, fontWeight: FontWeight.w700, color: context.corTextoHeading),
                 ),
               ],
             ),
@@ -2197,7 +2160,7 @@ if (!mounted || confirmar != true) return;
                       Expanded(
                         child: Text(
                           '${s['nome']} — ${s['intensidade']}/10',
-                          style: TextStyle(fontSize: 12, color: context.corTextoBody),
+                          style: TextStyle(fontSize: Tipografia.sm, color: context.corTextoBody),
                         ),
                       ),
                     ],
@@ -2209,7 +2172,7 @@ if (!mounted || confirmar != true) return;
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: corTendencia.withAlpha(15),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(Raio.xxs),
                 ),
                 child: Row(
                   children: [
@@ -2218,7 +2181,7 @@ if (!mounted || confirmar != true) return;
                     Expanded(
                       child: Text(
                         _progressoAvaliacaoGeral,
-                        style: TextStyle(fontSize: 11, color: corTendencia, fontStyle: FontStyle.italic),
+                        style: TextStyle(fontSize: Tipografia.xs, color: corTendencia, fontStyle: FontStyle.italic),
                       ),
                     ),
                   ],
@@ -2253,7 +2216,7 @@ if (!mounted || confirmar != true) return;
     return Card(
       margin: EdgeInsets.zero,
       color: context.corCard,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Raio.lg)),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -2265,7 +2228,7 @@ if (!mounted || confirmar != true) return;
                 const SizedBox(width: 8),
                 Text(
                   'Financeiro',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: context.corTextoHeading),
+                  style: TextStyle(fontSize: Tipografia.base, fontWeight: FontWeight.w700, color: context.corTextoHeading),
                 ),
               ],
             ),
@@ -2275,7 +2238,7 @@ if (!mounted || confirmar != true) return;
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
                   color: context.corPacote.withAlpha(20),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(Raio.xs),
                   border: Border.all(color: context.corPacote.withAlpha(60)),
                 ),
                 child: Row(
@@ -2284,7 +2247,7 @@ if (!mounted || confirmar != true) return;
                     const SizedBox(width: 8),
                     Text(
                       'Pacote ativo: $sessoesRestantes ${sessoesRestantes == 1 ? 'sessão restante' : 'sessões restantes'}',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.corPacote),
+                      style: TextStyle(fontSize: Tipografia.sm, fontWeight: FontWeight.w600, color: context.corPacote),
                     ),
                   ],
                 ),
@@ -2392,7 +2355,7 @@ if (!mounted || confirmar != true) return;
                         ? '${_dataPagamento!.day.toString().padLeft(2, '0')}/${_dataPagamento!.month.toString().padLeft(2, '0')}/${_dataPagamento!.year}'
                         : 'Selecionar data',
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: Tipografia.base,
                       color: _dataPagamento != null ? context.corTextoBody : context.corTextoMuted,
                     ),
                   ),
@@ -2407,29 +2370,9 @@ if (!mounted || confirmar != true) return;
 
   Widget _botaoSalvar() {
     final salvando = ref.watch(_salvandoProvider);
-    return Semantics(
-      label: 'Salvar sessão',
-      child: FilledButton.icon(
-        onPressed: salvando ? null : _salvarSessao,
-        icon: salvando
-            ? SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: context.corOnPrimaria,
-                ),
-              )
-            : const Icon(Icons.save_outlined),
-        label: Text(salvando ? 'Salvando...' : 'Salvar sessão'),
-        style: FilledButton.styleFrom(
-          backgroundColor: context.corPrimaria,
-          foregroundColor: context.corOnPrimaria,
-          disabledBackgroundColor: context.corPrimaria.withValues(alpha: 0.6),
-          disabledForegroundColor: context.corOnPrimaria,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-        ),
-      ),
+    return BotaoSalvarSessao(
+      salvando: salvando,
+      onPressed: _salvarSessao,
     );
   }
 }

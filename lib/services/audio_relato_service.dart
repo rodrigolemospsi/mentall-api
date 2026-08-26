@@ -158,7 +158,7 @@ class AudioRelatoService {
 
       final file = File(_caminhoAudioAtual!);
       if (!await file.exists()) {
-        Log.erro('Arquivo de audio nao encontrado apos gravacao: $_caminhoAudioAtual');
+        Log.erro('Arquivo de áudio não encontrado após gravação: $_caminhoAudioAtual');
         return _caminhoAudioAtual;
       }
       final fileSize = await file.length();
@@ -425,7 +425,7 @@ class AudioRelatoService {
 
     final file = File(caminho);
     if (!await file.exists()) {
-      throw Exception('Arquivo de audio nao encontrado: $caminho');
+      throw Exception('Arquivo de áudio não encontrado: $caminho');
     }
 
     final bytes = await file.readAsBytes();
@@ -468,8 +468,8 @@ class AudioRelatoService {
       }
     }
 
-    // 3) Arquivo nao criptografado
-    Log.info('Audio nao criptografado (bytes brutos): ${bytes.length} bytes');
+    // 3) Arquivo não criptografado
+    Log.info('Áudio não criptografado (bytes brutos): ${bytes.length} bytes');
     _cacheAudioDescriptografado[caminho] = bytes;
     return bytes;
   }

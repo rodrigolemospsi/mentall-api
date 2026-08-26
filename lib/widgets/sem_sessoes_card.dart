@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../utils/mentall_colors.dart';
+import '../utils/tipografia.dart';
 
 class SemSessoesCard extends StatelessWidget {
   final String titulo;
@@ -27,7 +28,7 @@ class SemSessoesCard extends StatelessWidget {
             Text(
               titulo,
               style: TextStyle(
-                fontSize: 18,
+                fontSize: Tipografia.lg,
                 fontWeight: FontWeight.w600,
                 color: context.corTextoHeading,
               ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../utils/mentall_colors.dart';
+import '../utils/tipografia.dart';
 
 class StatusPacienteChip extends StatelessWidget {
   final bool ativo;
@@ -29,7 +30,7 @@ class StatusPacienteChip extends StatelessWidget {
         ativo ? textoAtivo : textoInativo,
         style: TextStyle(
           color: cor,
-          fontSize: 12,
+          fontSize: Tipografia.sm,
           fontWeight: FontWeight.w700,
         ),
       ),

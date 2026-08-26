@@ -8,8 +8,9 @@ import '../services/api_client.dart';
 import 'conta_page.dart';
 import 'login_page.dart';
 import 'main_shell.dart';
-import 'onboarding_page.dart';
 import 'perfil_profissional_form_page.dart';
+
+import '../utils/mentall_colors.dart';
 
 class AppStartPage extends ConsumerStatefulWidget {
   const AppStartPage({super.key});
@@ -121,11 +122,6 @@ class _AppStartPageState extends ConsumerState<AppStartPage>
     }
 
     final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
-    final config = ref.read(configuracoesServiceProvider);
-
-    if (!config.onboardingConcluido) {
-      return const OnboardingPage();
-    }
 
     if (perfil == null) {
       return const PerfilProfissionalFormPage();
@@ -148,7 +144,7 @@ class _AppStartPageState extends ConsumerState<AppStartPage>
           );
         },
         child: Scaffold(
-          backgroundColor: Theme.of(context).colorScheme.surface,
+          backgroundColor: context.corFundo,
           body: Center(
               child: Image.asset(
                 isDark

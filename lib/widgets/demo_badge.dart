@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../utils/mentall_colors.dart';
+import '../utils/tipografia.dart';
 
 class DemoBadge extends StatelessWidget {
   const DemoBadge({super.key});
@@ -24,7 +25,7 @@ class DemoBadge extends StatelessWidget {
               'Teste',
               style: TextStyle(
                 color: context.corPacote,
-                fontSize: 11,
+                fontSize: Tipografia.xs,
                 fontWeight: FontWeight.w700,
               ),
             ),

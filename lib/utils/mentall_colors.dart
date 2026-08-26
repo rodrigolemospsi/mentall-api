@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+const corSombraCard = Color(0xFF94A3B8);
+const corAcaoFgClaro = Color(0xFF64748B);
+
 extension MentAllProColors on BuildContext {
   ColorScheme get cs => Theme.of(this).colorScheme;
 
@@ -12,6 +15,7 @@ extension MentAllProColors on BuildContext {
   Color get corContainerPrimario => cs.primaryContainer;
 
   Color get corTextoHeading => cs.onSurface;
+  Color get corOnSurface => cs.onSurface;
   Color get corTextoBody => cs.onSurface.withValues(alpha: 0.87);
   Color get corTextoSecondary => cs.onSurface.withValues(alpha: 0.6);
   Color get corTextoMuted => cs.onSurface.withValues(alpha: 0.5);
@@ -25,7 +29,7 @@ extension MentAllProColors on BuildContext {
     if (cs.brightness == Brightness.dark) return null;
     return [
       BoxShadow(
-        color: const Color(0xFFE0AAFF).withValues(alpha: 0.40),
+        color: corSombraCard.withValues(alpha: 0.30),
         blurRadius: 8,
         offset: const Offset(0, 2),
       ),
@@ -48,6 +52,26 @@ extension MentAllProColors on BuildContext {
 
   Color get corWhatsAppBg => const Color(0xFF25D366);
   Color get corWhatsAppText => const Color(0xFF075E54);
+
+  Color get corAcaoFundo =>
+      cs.brightness == Brightness.dark
+          ? cs.surfaceContainerLow
+          : corSombraCard.withValues(alpha: 0.30);
+  Color get corAcaoBorda =>
+      cs.brightness == Brightness.dark
+          ? cs.outlineVariant
+          : const Color(0xFFE2E8F0);
+  Color get corAcaoFg =>
+      cs.brightness == Brightness.dark
+          ? cs.onSurfaceVariant
+          : corAcaoFgClaro;
+
+  Color get corAtividadeIconeFundo =>
+      cs.brightness == Brightness.dark
+          ? cs.primaryContainer
+          : corAcaoFgClaro.withValues(alpha: 0.14);
+  Color get corAtividadeIcone =>
+      cs.brightness == Brightness.dark ? cs.primary : corAcaoFgClaro;
 
   Color get corAppBarBg => cs.surface;
   Color get corAppBarFg => cs.primary;

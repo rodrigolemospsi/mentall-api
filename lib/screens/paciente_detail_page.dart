@@ -10,12 +10,15 @@ import '../models/perfil_profissional.dart';
 import '../models/sessao.dart';
 import '../providers/service_providers.dart';
 import '../services/pdf_export_service.dart';
+import '../utils/imagem_cache.dart';
 import '../utils/mentall_colors.dart';
+import '../utils/app_bar_padrao.dart';
 import '../widgets/escalas_section.dart';
 import '../widgets/paciente_financeiro_tab.dart';
 import '../widgets/paciente_resumo_tab.dart';
 import '../widgets/paciente_sessoes_tab.dart';
 import 'sessao_form_page.dart';
+import '../utils/tipografia.dart';
 
 final _refreshProvider = StateProvider<int>((ref) => 0);
 
@@ -107,10 +110,10 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
 
     return Scaffold(
       backgroundColor: context.corFundo,
-      appBar: AppBar(
-        title: Text(_nomePacienteExibicao),
-        backgroundColor: context.corPrimaria,
-        foregroundColor: context.corOnPrimaria,
+      appBar: appBarPadrao(
+        context: context,
+        title: _nomePacienteExibicao,
+        actions: _appBarAcoes(),
         bottom: TabBar(
           controller: _tabController,
           labelColor: context.corOnPrimaria,
@@ -123,7 +126,6 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
             const Tab(text: 'Financeiro'),
           ],
         ),
-        actions: _appBarAcoes(),
       ),
       body: TabBarView(
         controller: _tabController,
@@ -393,7 +395,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
                     backgroundColor:
                         context.corPrimaria.withValues(alpha: 0.1),
                     backgroundImage: fotoBase64.isNotEmpty
-                        ? MemoryImage(base64Decode(fotoBase64))
+                        ? fotoMemoria(fotoBase64)
                         : null,
                     child: fotoBase64.isEmpty
                         ? Icon(Icons.camera_alt_outlined,
@@ -604,12 +606,12 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
           children: [
             const Text(
               'Exportar',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: Tipografia.xl, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(
               'Escolha o tipo de documento para exportar.',
-              style: TextStyle(fontSize: 14, color: context.corTextoMuted),
+              style: TextStyle(fontSize: Tipografia.base, color: context.corTextoMuted),
             ),
             const SizedBox(height: 20),
             SizedBox(
@@ -738,7 +740,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
               const SizedBox(height: 4),
               Text(
                 'Enviado em ${contrato.dataEnvio!.day.toString().padLeft(2, '0')}/${contrato.dataEnvio!.month.toString().padLeft(2, '0')}/${contrato.dataEnvio!.year}',
-                style: TextStyle(fontSize: 12, color: context.corTextoMuted),
+                style: TextStyle(fontSize: Tipografia.sm, color: context.corTextoMuted),
               ),
             ],
           ],
@@ -792,10 +794,10 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
                 style: TextStyle(
                     fontWeight: FontWeight.w600,
                     color: ctx.corTextoHeading,
-                    fontSize: 13)),
+                    fontSize: Tipografia.smMd)),
             TextSpan(
                 text: valor,
-                style: TextStyle(color: ctx.corTextoBody, fontSize: 13)),
+                style: TextStyle(color: ctx.corTextoBody, fontSize: Tipografia.smMd)),
           ],
         ),
       ),

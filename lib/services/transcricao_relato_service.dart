@@ -101,7 +101,7 @@ class TranscricaoRelatoService {
           continue;
         }
         return ResultadoTranscricaoRelato.falha(
-          erro: 'Nao foi possivel autenticar com o servidor.',
+          erro: 'Não foi possível autenticar com o servidor.',
         );
       }
 
@@ -173,7 +173,7 @@ class TranscricaoRelatoService {
     }
 
     return ResultadoTranscricaoRelato.falha(
-      erro: 'Nao foi possivel transcrever o relato apos varias tentativas.',
+      erro: 'Não foi possível transcrever o relato após várias tentativas.',
     );
   }
 

@@ -44,8 +44,8 @@ class AnamneseEnviadaService with EncryptedServiceMixin {
   }) async {
     final autenticado = await ApiClient.ensureAuthenticated();
     if (!autenticado) {
-      Log.erro('Autenticacao falhou ao criar anamnese', contexto: 'AnamneseEnviadaService.criar');
-      throw Exception('Falha na autenticacao com o servidor. Verifique credenciais em Configuracoes > Avancado.');
+      Log.erro('Autenticação falhou ao criar anamnese', contexto: 'AnamneseEnviadaService.criar');
+      throw Exception('Falha na autenticação com o servidor. Verifique credenciais em Configurações > Avançado.');
     }
 
     final response = await ApiClient.post(

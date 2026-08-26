@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../utils/mentall_colors.dart';
+import '../utils/raio.dart';
+import '../utils/tipografia.dart';
 
 final gravandoAudioProvider = StateProvider<bool>((ref) => false);
 final audioPausadoProvider = StateProvider<bool>((ref) => false);
@@ -110,7 +112,7 @@ class TimerGravacaoWidget extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: context.corWarning.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(Raio.lg),
             border: Border.all(
               color: context.corWarning.withValues(alpha: 0.25),
             ),
@@ -135,7 +137,7 @@ class TimerGravacaoWidget extends ConsumerWidget {
               Text(
                 formatarDuracaoGravacao(duracao),
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: Tipografia.xl,
                   fontWeight: FontWeight.bold,
                   color: context.corWarning,
                 ),
@@ -171,7 +173,7 @@ class ProcessamentoIaWidget extends ConsumerWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: context.corPrimaria.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(Raio.md),
             border: Border.all(
               color: context.corPrimaria.withValues(alpha: 0.25),
             ),
@@ -229,7 +231,7 @@ class ErroProcessamentoIaWidget extends ConsumerWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: context.corError.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(Raio.md),
             border: Border.all(
               color: context.corError.withValues(alpha: 0.35),
             ),
@@ -285,7 +287,7 @@ class ErroAudioWidget extends ConsumerWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: context.corWarning.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(Raio.md),
             border: Border.all(
               color: context.corWarning.withValues(alpha: 0.35),
             ),
@@ -362,7 +364,7 @@ class BotoesAudioWidget extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: context.corSuperficie,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(Raio.xxl),
           border: Border.all(color: context.corDivider),
         ),
         child: Wrap(

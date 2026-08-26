@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 
+import '../../utils/mentall_colors.dart';
+import '../../utils/tipografia.dart';
+
 class TermosUsoPage extends StatelessWidget {
   const TermosUsoPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return Scaffold(
-      backgroundColor: cs.surface,
+      backgroundColor: context.corFundo,
       appBar: AppBar(
         title: const Text('Termos de Uso'),
-        backgroundColor: cs.primary,
-        foregroundColor: cs.onPrimary,
+        backgroundColor: context.corPrimaria,
+        foregroundColor: context.corOnPrimaria,
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
@@ -114,8 +115,6 @@ class _Termo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return Padding(
       padding: const EdgeInsets.only(bottom: 24),
       child: Column(
@@ -124,18 +123,18 @@ class _Termo extends StatelessWidget {
           Text(
             titulo,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: Tipografia.md,
               fontWeight: FontWeight.bold,
-              color: cs.primary,
+              color: context.corPrimaria,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             texto,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: Tipografia.base,
               height: 1.6,
-              color: cs.onSurface,
+              color: context.corTextoBody,
             ),
           ),
         ],

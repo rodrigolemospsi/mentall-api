@@ -7,6 +7,8 @@ import '../models/avaliacao_inicial.dart';
 import '../models/paciente.dart';
 import '../providers/service_providers.dart';
 import '../utils/mentall_colors.dart';
+import '../utils/raio.dart';
+import '../utils/tipografia.dart';
 
 class AnamneseCard extends ConsumerWidget {
   final String pacienteId;
@@ -31,7 +33,7 @@ class AnamneseCard extends ConsumerWidget {
       margin: EdgeInsets.zero,
       color: context.corCard,
       elevation: Theme.of(context).brightness == Brightness.dark ? 4 : 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Raio.lg)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -44,7 +46,7 @@ class AnamneseCard extends ConsumerWidget {
                 Text(
                   'Avaliação Inicial',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: Tipografia.md,
                     fontWeight: FontWeight.w700,
                     color: context.corTextoHeading,
                   ),
@@ -55,7 +57,7 @@ class AnamneseCard extends ConsumerWidget {
                   icon: Icon(Icons.edit_outlined, size: 16, color: context.corPrimaria),
                   label: Text(
                     avaliacao != null ? 'Editar' : 'Preencher',
-                    style: TextStyle(fontSize: 13, color: context.corPrimaria),
+                    style: TextStyle(fontSize: Tipografia.smMd, color: context.corPrimaria),
                   ),
                 ),
               ],
@@ -64,7 +66,7 @@ class AnamneseCard extends ConsumerWidget {
             if (avaliacao == null || !avaliacao.preenchida)
               Text(
                 'Registre a queixa principal, histórico clínico, medicamentos e hipótese diagnóstica.',
-                style: TextStyle(fontSize: 13, color: context.corTextoMuted, height: 1.4),
+                style: TextStyle(fontSize: Tipografia.smMd, color: context.corTextoMuted, height: 1.4),
               )
             else ...[
               _campoResumo(context, 'Queixa principal', avaliacao.queixaPrincipal),
@@ -91,12 +93,12 @@ class AnamneseCard extends ConsumerWidget {
         children: [
           Text(
             label,
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.corPrimaria),
+            style: TextStyle(fontSize: Tipografia.xs, fontWeight: FontWeight.w600, color: context.corPrimaria),
           ),
           const SizedBox(height: 3),
           Text(
             valor.length > 200 ? '${valor.substring(0, 200)}...' : valor,
-            style: TextStyle(fontSize: 13, color: context.corTextoBody, height: 1.4),
+            style: TextStyle(fontSize: Tipografia.smMd, color: context.corTextoBody, height: 1.4),
           ),
         ],
       ),

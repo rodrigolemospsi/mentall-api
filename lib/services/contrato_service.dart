@@ -59,8 +59,8 @@ class ContratoService with EncryptedServiceMixin {
   }) async {
     final autenticado = await ApiClient.ensureAuthenticated();
     if (!autenticado) {
-      Log.erro('Autenticacao falhou ao criar contrato', contexto: 'ContratoService.criarContrato');
-      throw Exception('Falha na autenticacao com o servidor. Verifique credenciais em Configuracoes > Avancado.');
+      Log.erro('Autenticação falhou ao criar contrato', contexto: 'ContratoService.criarContrato');
+      throw Exception('Falha na autenticação com o servidor. Verifique credenciais em Configurações > Avançado.');
     }
 
     final url = '${ApiClient.baseUrl}/contratos';

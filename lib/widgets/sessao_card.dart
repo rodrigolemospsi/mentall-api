@@ -4,7 +4,9 @@ import '../models/paciente.dart';
 import '../models/sessao.dart';
 import '../screens/sessao_form_page.dart';
 import '../utils/mentall_colors.dart';
+import '../utils/raio.dart';
 import 'sessao_info_chip.dart';
+import '../utils/tipografia.dart';
 
 class SessaoCard extends StatelessWidget {
   final Sessao sessao;
@@ -67,10 +69,10 @@ class SessaoCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 1,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(Raio.xl),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(Raio.xl),
         onTap: arquivada
             ? null
             : () {
@@ -113,7 +115,7 @@ class SessaoCard extends StatelessWidget {
                       Text(
                         'Sessão ${sessao.numeroSessao} - $dataFormatada',
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: Tipografia.md,
                           fontWeight: FontWeight.w700,
                           color: context.corTextoHeading,
                         ),

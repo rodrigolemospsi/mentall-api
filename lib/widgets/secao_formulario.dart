@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/mentall_colors.dart';
+import '../utils/raio.dart';
+import '../utils/tipografia.dart';
 
 class SecaoFormulario extends StatelessWidget {
   final String? titulo;
@@ -21,7 +23,7 @@ class SecaoFormulario extends StatelessWidget {
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(Raio.xxl),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -32,7 +34,7 @@ class SecaoFormulario extends StatelessWidget {
               Text(
                 titulo!,
                 style: const TextStyle(
-                  fontSize: 18,
+                  fontSize: Tipografia.lg,
                   fontWeight: FontWeight.bold,
                 ),
               ),

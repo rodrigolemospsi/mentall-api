@@ -157,8 +157,8 @@ class Compromisso extends HiveObject {
   }
 
   String gerarMensagemLembretePadrao(String nomePaciente, String nomeProfissional) {
-    return 'Olá {nome}, lembrete da sua sessao com {profissional} '
-        'em {data} as {hora}. Ate la!';
+    return 'Olá {nome}, lembrete da sua sessão com {profissional} '
+        'em {data} às {hora}. Até lá!';
   }
 
   String formatarMensagemLembrete(String nomePaciente, String nomeProfissional) {

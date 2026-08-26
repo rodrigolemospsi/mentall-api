@@ -5,7 +5,9 @@ import '../models/paciente.dart';
 import '../models/sessao.dart';
 import '../providers/service_providers.dart';
 import '../utils/mentall_colors.dart';
+import '../utils/raio.dart';
 import '../screens/sessao_form_page.dart';
+import '../utils/tipografia.dart';
 
 class PacienteFinanceiroTab extends ConsumerWidget {
   final Paciente paciente;
@@ -34,7 +36,7 @@ class PacienteFinanceiroTab extends ConsumerWidget {
             Text(
               'Os dados financeiros aparecerão aqui conforme as sessões forem registradas.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: context.corTextoMuted.withValues(alpha: 0.7)),
+              style: TextStyle(fontSize: Tipografia.sm, color: context.corTextoMuted.withValues(alpha: 0.7)),
             ),
           ],
         ),
@@ -47,7 +49,7 @@ class PacienteFinanceiroTab extends ConsumerWidget {
         Text(
           'Financeiro',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: Tipografia.md,
             fontWeight: FontWeight.w700,
             color: context.corTextoHeading,
           ),
@@ -55,7 +57,7 @@ class PacienteFinanceiroTab extends ConsumerWidget {
         const SizedBox(height: 2),
         Text(
           paciente.nomeExibicao,
-          style: TextStyle(fontSize: 13, color: context.corTextoMuted),
+          style: TextStyle(fontSize: Tipografia.smMd, color: context.corTextoMuted),
         ),
         const SizedBox(height: 16),
         Row(
@@ -117,7 +119,7 @@ class PacienteFinanceiroTab extends ConsumerWidget {
         Text(
           'Sessões',
           style: TextStyle(
-            fontSize: 15,
+            fontSize: Tipografia.baseMd,
             fontWeight: FontWeight.w700,
             color: context.corTextoHeading,
           ),
@@ -139,8 +141,8 @@ class PacienteFinanceiroTab extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(14),
+        color: context.corCard,
+        borderRadius: BorderRadius.circular(Raio.lg),
         boxShadow: context.corCardSombra,
         border: context.corCardBorda,
       ),
@@ -149,17 +151,17 @@ class PacienteFinanceiroTab extends ConsumerWidget {
         children: [
           Text(
             titulo,
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.corTextoMuted),
+            style: TextStyle(fontSize: Tipografia.sm, fontWeight: FontWeight.w600, color: context.corTextoMuted),
           ),
           const SizedBox(height: 6),
           Text(
             valor,
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: cor, height: 1),
+            style: TextStyle(fontSize: Tipografia.xl, fontWeight: FontWeight.w800, color: cor, height: 1),
           ),
           const SizedBox(height: 4),
           Text(
             subtitulo,
-            style: TextStyle(fontSize: 11, color: context.corTextoMuted),
+            style: TextStyle(fontSize: Tipografia.xs, color: context.corTextoMuted),
           ),
         ],
       ),
@@ -173,9 +175,9 @@ class PacienteFinanceiroTab extends ConsumerWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
       color: context.corCard,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Raio.sm)),
       child: InkWell(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(Raio.sm),
         onTap: () {
           Navigator.push(
             context,
@@ -198,7 +200,7 @@ class PacienteFinanceiroTab extends ConsumerWidget {
                     Text(
                       'Sessão ${sessao.numeroSessao} - ${sessao.data.day.toString().padLeft(2, '0')}/${sessao.data.month.toString().padLeft(2, '0')}/${sessao.data.year}',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: Tipografia.smMd,
                         fontWeight: FontWeight.w600,
                         color: context.corTextoHeading,
                       ),
@@ -207,7 +209,7 @@ class PacienteFinanceiroTab extends ConsumerWidget {
                       const SizedBox(height: 2),
                       Text(
                         'Pago em ${sessao.dataPagamento!.day.toString().padLeft(2, '0')}/${sessao.dataPagamento!.month.toString().padLeft(2, '0')}/${sessao.dataPagamento!.year}',
-                        style: TextStyle(fontSize: 11, color: context.corTextoMuted),
+                        style: TextStyle(fontSize: Tipografia.xs, color: context.corTextoMuted),
                       ),
                     ],
                   ],
@@ -216,7 +218,7 @@ class PacienteFinanceiroTab extends ConsumerWidget {
               Text(
                 'R\$ ${sessao.valorSessao.toStringAsFixed(2)}',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: Tipografia.base,
                   fontWeight: FontWeight.w700,
                   color: context.corTextoHeading,
                 ),
@@ -226,11 +228,11 @@ class PacienteFinanceiroTab extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: statusCor.withAlpha(25),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(Raio.xs),
                 ),
                 child: Text(
                   statusTexto,
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: statusCor),
+                  style: TextStyle(fontSize: Tipografia.xxs, fontWeight: FontWeight.w600, color: statusCor),
                 ),
               ),
             ],

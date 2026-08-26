@@ -1,6 +1,7 @@
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import '../../utils/tipografia.dart';
 
 class PdfArquiteturaLgpdService {
   static const _azul = PdfColor.fromInt(0xFF8806CE);
@@ -23,20 +24,20 @@ class PdfArquiteturaLgpdService {
       author: 'MentAll PRO',
     );
 
-    _addSecao(pdf, '1. Identificacao do documento', _conteudoSecao1());
+    _addSecao(pdf, '1. Identificação do documento', _conteudoSecao1());
     _addSecao(pdf, '2. Premissa central', _conteudoSecao2());
-    _addSecao(pdf, '3. Principios LGPD aplicados', _conteudoSecao3());
-    _addSecao(pdf, '4. Classificacao dos dados', _conteudoSecao4());
-    _addSecao(pdf, '5. Regra do audio pos-sessao', _conteudoSecao5());
-    _addSecao(pdf, '6. Papeis LGPD no MentAll PRO', _conteudoSecao6());
-    _addSecao(pdf, '7. Modulos LGPD dentro do app', _conteudoSecao7());
-    _addSecao(pdf, '8. IA, privacidade e responsabilidade clinica',
+    _addSecao(pdf, '3. Princípios LGPD aplicados', _conteudoSecao3());
+    _addSecao(pdf, '4. Classificação dos dados', _conteudoSecao4());
+    _addSecao(pdf, '5. Regra do áudio pós-sessão', _conteudoSecao5());
+    _addSecao(pdf, '6. Papéis LGPD no MentAll PRO', _conteudoSecao6());
+    _addSecao(pdf, '7. Módulos LGPD dentro do app', _conteudoSecao7());
+    _addSecao(pdf, '8. IA, privacidade e responsabilidade clínica',
         _conteudoSecao8());
-    _addSecao(pdf, '9. Revisao profissional obrigatoria',
+    _addSecao(pdf, '9. Revisão profissional obrigatória',
         _conteudoSecao9());
-    _addSecao(pdf, '10. Estrutura tecnica (Flutter)', _conteudoSecao10());
+    _addSecao(pdf, '10. Estrutura técnica (Flutter)', _conteudoSecao10());
     _addSecao(pdf, '11. Backlog LGPD', _conteudoSecao11());
-    _addSecao(pdf, '12. Documentos necessarios', _conteudoSecao12());
+    _addSecao(pdf, '12. Documentos necessários', _conteudoSecao12());
     _addSecao(pdf, '13. Posicionamento recomendado',
         _conteudoSecao13());
     _addSecao(pdf, '14. Resumo executivo', _conteudoSecao14());
@@ -57,7 +58,7 @@ class PdfArquiteturaLgpdService {
         build: (ctx) => [
           pw.Text(titulo,
               style: pw.TextStyle(
-                  fontSize: 18,
+                  fontSize: Tipografia.lg,
                   fontWeight: pw.FontWeight.bold,
                   color: _titulo)),
           pw.SizedBox(height: 4),
@@ -81,7 +82,7 @@ class PdfArquiteturaLgpdService {
         children: [
           pw.Text('MentAll PRO',
               style: pw.TextStyle(
-                  fontSize: 10,
+                  fontSize: Tipografia.xxs,
                   fontWeight: pw.FontWeight.bold,
                   color: _marca)),
           pw.Text('Arquitetura LGPD v1.0',
@@ -102,11 +103,11 @@ class PdfArquiteturaLgpdService {
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
-          pw.Text('Documento tecnico de trabalho',
+          pw.Text('Documento técnico de trabalho',
               style:
                   const pw.TextStyle(fontSize: 7, color: _subtitulo)),
           pw.Text(
-              'Pagina ${context.pageNumber} de ${context.pagesCount}',
+              'Página ${context.pageNumber} de ${context.pagesCount}',
               style:
                   const pw.TextStyle(fontSize: 7, color: _subtitulo)),
         ],
@@ -120,12 +121,12 @@ class PdfArquiteturaLgpdService {
         children: [
           _campo('Produto', 'MentAll PRO'),
           _campo('Documento', 'Arquitetura LGPD do Produto'),
-          _campo('Versao', '1.0 - documento tecnico de trabalho'),
+          _campo('Versão', '1.0 - documento técnico de trabalho'),
           pw.SizedBox(height: 12),
           _paragrafo(
-              'Este documento estrutura a base de privacidade, seguranca, '
-              'responsabilidade clinica, uso de IA, audio pos-sessao, '
-              'retencao, auditoria e tratamento de dados sensiveis no MentAll PRO.'),
+              'Este documento estrutura a base de privacidade, segurança, '
+              'responsabilidade clínica, uso de IA, áudio pós-sessão, '
+              'retenção, auditoria e tratamento de dados sensíveis no MentAll PRO.'),
         ]);
   }
 
@@ -139,19 +140,19 @@ class PdfArquiteturaLgpdService {
           border: pw.Border.all(color: _azulClaro),
         ),
         child: pw.Text(
-          'O MentAll PRO deve ser desenvolvido como um prontuario psicologico '
-          'inteligente com privacidade desde a concepcao.',
+          'O MentAll PRO deve ser desenvolvido como um prontuário psicológico '
+          'inteligente com privacidade desde a concepção.',
           style: pw.TextStyle(
-              fontSize: 13,
+              fontSize: Tipografia.smMd,
               fontWeight: pw.FontWeight.bold,
               color: _azul),
         ),
       ),
       pw.SizedBox(height: 14),
       _paragrafo(
-          'Como o app envolve dados de pessoas atendidas, registros clinicos, '
-          'audio pos-sessao, transcricao, sintese por IA e revisao profissional, '
-          'a protecao de dados deve fazer parte da arquitetura desde o inicio.'),
+          'Como o app envolve dados de pessoas atendidas, registros clínicos, '
+          'áudio pós-sessão, transcrição, síntese por IA e revisão profissional, '
+          'a proteção de dados deve fazer parte da arquitetura desde o início.'),
       pw.SizedBox(height: 16),
       _status('Status', true),
     ]);
@@ -159,35 +160,35 @@ class PdfArquiteturaLgpdService {
 
   pw.Widget _conteudoSecao3() {
     return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-      _principio('1. Finalidade clara', 'Cada dado deve ter finalidade compreensivel no uso clinico.', true),
-      _principio('2. Necessidade', 'Coletar somente o necessario para cadastro e registro clinico.', true),
-      _principio('3. Adequacao', 'Uso dos dados compativel com apoio documental ao psicologo.', true),
-      _principio('4. Seguranca', 'Dados clinicos, audio, transcricao e IA com protecao reforcada.', true),
-      _principio('5. Prevencao', 'Evitar perda de dados, exposicao indevida e logs clinicos.', true),
-      _principio('6. Transparencia', 'Profissional entende como o app usa audio, IA e armazenamento.', true),
-      _principio('7. Responsabilizacao', 'Registros minimos de auditoria sobre eventos relevantes.', true),
+      _principio('1. Finalidade clara', 'Cada dado deve ter finalidade compreensível no uso clínico.', true),
+      _principio('2. Necessidade', 'Coletar somente o necessário para cadastro e registro clínico.', true),
+      _principio('3. Adequação', 'Uso dos dados compatível com apoio documental ao psicólogo.', true),
+      _principio('4. Segurança', 'Dados clínicos, áudio, transcrição e IA com proteção reforçada.', true),
+      _principio('5. Prevenção', 'Evitar perda de dados, exposição indevida e logs clínicos.', true),
+      _principio('6. Transparência', 'Profissional entende como o app usa áudio, IA e armazenamento.', true),
+      _principio('7. Responsabilizacao', 'Registros mínimos de auditoria sobre eventos relevantes.', true),
       pw.SizedBox(height: 10),
-      _status('Todos os 7 principios aplicados', true),
+      _status('Todos os 7 princípios aplicados', true),
     ]);
   }
 
   pw.Widget _conteudoSecao4() {
     return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
       _subTitulo('4.1 Dados do profissional'),
-      _paragrafo('Nome, e-mail, registro profissional, abordagem clinica, termo preferido.'),
-      _status('Protecao padrao, autenticacao', true),
+      _paragrafo('Nome, e-mail, registro profissional, abordagem clínica, termo preferido.'),
+      _status('Proteção padrao, autenticação', true),
       pw.SizedBox(height: 14),
       _subTitulo('4.2 Dados da pessoa atendida'),
-      _paragrafo('Nome, data de nascimento, telefone, e-mail, observacoes.'),
+      _paragrafo('Nome, data de nascimento, telefone, e-mail, observações.'),
       _status('Campos opcionais, criptografia AES-256-CBC', true),
       pw.SizedBox(height: 14),
-      _subTitulo('4.3 Dados clinicos sensiveis'),
-      _paragrafo('Relato clinico, audio, transcricao, sintese IA, apontamentos.'),
-      _status('Protecao maxima, auditoria, revisao obrigatoria, criptografia', true),
+      _subTitulo('4.3 Dados clínicos sensíveis'),
+      _paragrafo('Relato clínico, áudio, transcrição, síntese IA, apontamentos.'),
+      _status('Proteção máxima, auditoria, revisão obrigatória, criptografia', true),
       pw.SizedBox(height: 14),
-      _subTitulo('4.4 Dados tecnicos'),
+      _subTitulo('4.4 Dados técnicos'),
       _paragrafo('Status de processamento, erros, datas.'),
-      _status('Logs tecnicos NAO contem conteudo clinico', true),
+      _status('Logs técnicos NÃO contêm conteúdo clínico', true),
     ]);
   }
 
@@ -200,35 +201,35 @@ class PdfArquiteturaLgpdService {
           borderRadius: pw.BorderRadius.circular(8),
         ),
         child: pw.Text(
-          'Audio pos-sessao limitado a 5 minutos para registro breve do relato do profissional.',
-          style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: _avisoTexto),
+          'Áudio pós-sessão limitado a 5 minutos para registro breve do relato do profissional.',
+          style: pw.TextStyle(fontSize: Tipografia.sm, fontWeight: pw.FontWeight.bold, color: _avisoTexto),
         ),
       ),
       pw.SizedBox(height: 14),
-      _subTitulo('Regras tecnicas'),
-      _check('Limitar gravacao a 5 minutos', true),
+      _subTitulo('Regras técnicas'),
+      _check('Limitar gravação a 5 minutos', true),
       _check('Exibir contador regressivo/progressivo', true),
-      _check('Impedir gravacao alem do limite', true),
+      _check('Impedir gravação alem do limite', true),
       _check('Pausar, retomar, ouvir, remover e regravar', true),
-      _check('Invalidar IA e revisao apos alteracao do audio', true),
-      _check('Registrar auditoria em gravacao/remocao/regravacao', true),
-      _check('Opcao futura de apagar audio apos transcricao', false),
+      _check('Invalidar IA e revisão após alteração do áudio', true),
+      _check('Registrar auditoria em gravação/remoção/regravação', true),
+      _check('Opcao futura de apagar áudio após transcrição', false),
       pw.SizedBox(height: 12),
       _subTitulo('Microtexto na tela'),
-      _paragrafo('"Relato breve do profissional apos a sessao. Limite: 5 minutos."'),
+      _paragrafo('"Relato breve do profissional após a sessão. Limite: 5 minutos."'),
     ]);
   }
 
   pw.Widget _conteudoSecao6() {
     return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-      _subTitulo('6.1 Psicologo autonomo'),
-      _paragrafo('Psicologo: Controlador dos dados. MentAll PRO: Operador tecnologico.'),
+      _subTitulo('6.1 Psicólogo autonomo'),
+      _paragrafo('Psicólogo: Controlador dos dados. MentAll PRO: Operador tecnologico.'),
       pw.SizedBox(height: 10),
-      _subTitulo('6.2 Clinica ou equipe'),
-      _paragrafo('Clinica: Controladora. Profissionais: Usuarios autorizados.'),
+      _subTitulo('6.2 Clínica ou equipe'),
+      _paragrafo('Clínica: Controladora. Profissionais: Usuarios autorizados.'),
       pw.SizedBox(height: 10),
       _subTitulo('6.3 Diretriz'),
-      _paragrafo('Decisao clinica e do profissional. IA nao substitui o psicologo.'),
+      _paragrafo('Decisão clínica e do profissional. IA não substitui o psicólogo.'),
       pw.SizedBox(height: 10),
       _status('Implementado', true),
     ]);
@@ -236,12 +237,12 @@ class PdfArquiteturaLgpdService {
 
   pw.Widget _conteudoSecao7() {
     return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-      _modulo('7.1 Privacidade e Seguranca', 'Tela central com PIN, politica, termos, audio, IA, retencao.', true),
-      _modulo('7.2 Consentimentos', 'Registro de ciencia sobre ferramenta digital e IA.', false),
-      _modulo('7.3 Auditoria', 'Registra criacao, edicao, audio, transcricao, IA, revisao.', true),
-      _modulo('7.4 Retencao e arquivamento', 'Arquivar em vez de excluir. Exclusao futura com protecao.', true),
-      _modulo('7.5 Exportacao segura', 'PDF de sessoes com aviso de dados sensiveis.', true),
-      _modulo('7.6 Solicitacoes LGPD', 'Tela futura para acesso, correcao, exportacao e eliminacao.', false),
+      _modulo('7.1 Privacidade e Segurança', 'Tela central com PIN, política, termos, áudio, IA, retenção.', true),
+      _modulo('7.2 Consentimentos', 'Registro de ciência sobre ferramenta digital e IA.', false),
+      _modulo('7.3 Auditoria', 'Registra criação, edição, áudio, transcrição, IA, revisão.', true),
+      _modulo('7.4 Retenção e arquivamento', 'Arquivar em vez de excluir. Exclusão futura com proteção.', true),
+      _modulo('7.5 Exportação segura', 'PDF de sessões com aviso de dados sensíveis.', true),
+      _modulo('7.6 Solicitações LGPD', 'Tela futura para acesso, correcao, exportação e eliminacao.', false),
     ]);
   }
 
@@ -250,21 +251,21 @@ class PdfArquiteturaLgpdService {
       pw.Container(
         padding: const pw.EdgeInsets.all(12),
         decoration: pw.BoxDecoration(color: _azulBg, borderRadius: pw.BorderRadius.circular(8), border: pw.Border.all(color: _azulClaro)),
-        child: pw.Text('A IA atua apenas como apoio documental. Todo conteudo gerado deve ser revisado pelo profissional.',
-            style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: _azul)),
+        child: pw.Text('A IA atua apenas como apoio documental. Todo conteúdo gerado deve ser revisado pelo profissional.',
+            style: pw.TextStyle(fontSize: Tipografia.sm, fontWeight: pw.FontWeight.bold, color: _azul)),
       ),
       pw.SizedBox(height: 14),
       _subTitulo('A IA pode'),
       _check('Organizar relatos', true),
-      _check('Gerar sintese objetiva', true),
-      _check('Sugerir pontos de atencao', true),
-      _check('Gerar apontamentos clinicos auxiliares', true),
+      _check('Gerar síntese objetiva', true),
+      _check('Sugerir pontos de atenção', true),
+      _check('Gerar apontamentos clínicos auxiliares', true),
       pw.SizedBox(height: 10),
-      _subTitulo('A IA nao pode'),
-      _check('Dar diagnostico definitivo', true),
+      _subTitulo('A IA não pode'),
+      _check('Dar diagnóstico definitivo', true),
       _check('Substituir julgamento profissional', true),
-      _check('Dispensar revisao humana', true),
-      _check('Assumir responsabilidade terapeutica', true),
+      _check('Dispensar revisão humana', true),
+      _check('Assumir responsabilidade terapêutica', true),
       pw.SizedBox(height: 10),
       _status('Regras operacionais implementadas', true),
     ]);
@@ -272,19 +273,19 @@ class PdfArquiteturaLgpdService {
 
   pw.Widget _conteudoSecao9() {
     return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-      _paragrafo('A sessao so e considerada finalizada quando revisada pelo profissional.'),
+      _paragrafo('A sessão só é considerada finalizada quando revisada pelo profissional.'),
       pw.SizedBox(height: 12),
-      _subTitulo('Eventos que tornam revisao pendente'),
-      _check('Nova gravacao, remocao ou regravacao de audio', true),
-      _check('Alteracao da transcricao', true),
-      _check('Alteracao do relato manual', true),
+      _subTitulo('Eventos que tornam revisão pendente'),
+      _check('Nova gravação, remoção ou regravação de áudio', true),
+      _check('Alteração da transcrição', true),
+      _check('Alteração do relato manual', true),
       _check('Nova geracao de IA', true),
-      _check('Edicao da sintese ou apontamentos', true),
+      _check('Edição da síntese ou apontamentos', true),
       pw.SizedBox(height: 12),
       _subTitulo('Fluxo de status'),
-      _paragrafo('manual → audio_gravado → transcrevendo → transcrito → ia_processando → ia_processada → revisado'),
+      _paragrafo('manual → áudio_gravado → transcrevendo → transcrito → ia_processando → ia_processada → revisado'),
       pw.SizedBox(height: 10),
-      _status('Dashboard de pendencias na Home', true),
+      _status('Dashboard de pendências na Home', true),
     ]);
   }
 
@@ -315,32 +316,32 @@ class PdfArquiteturaLgpdService {
   pw.Widget _conteudoSecao11() {
     return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
       _backlog('P0 - Antes de usar com dados reais', true, [
-        'Limitar audio a 5 minutos',
-        'Revisao profissional obrigatoria',
-        'Arquivamento em vez de exclusao',
-        'Logs sem conteudo clinico',
-        'Tela Privacidade e Seguranca',
+        'Limitar áudio a 5 minutos',
+        'Revisão profissional obrigatória',
+        'Arquivamento em vez de exclusão',
+        'Logs sem conteúdo clínico',
+        'Tela Privacidade e Segurança',
         'Bloqueio local por PIN',
         'Auditoria inicial',
-        'Invalidacao de IA apos alteracoes',
+        'Invalidação de IA após alterações',
       ]),
       pw.SizedBox(height: 14),
       _backlog('P1 - Antes de beta externo', false, [
         'Criptografia local (AES-256-CBC)',
-        'Registro de ciencia/consentimento',
-        'Exportacao segura (PDF)',
+        'Registro de ciência/consentimento',
+        'Exportação segura (PDF)',
         'Auditoria completa',
-        'Tela de solicitacoes LGPD',
-        'Politica de privacidade e termos de uso',
+        'Tela de solicitações LGPD',
+        'Política de privacidade e termos de uso',
       ]),
       pw.SizedBox(height: 14),
       _backlog('P2 - Antes de comercializar', false, [
-        'Revisao juridica completa',
+        'Revisão jurídica completa',
         'Acordo de tratamento de dados',
         'Backup criptografado',
-        'Sincronizacao segura',
+        'Sincronização segura',
         'Biometria',
-        'Gestao de incidentes',
+        'Gestão de incidentes',
       ]),
     ]);
   }
@@ -348,13 +349,13 @@ class PdfArquiteturaLgpdService {
   pw.Widget _conteudoSecao12() {
     return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
       _check('1. Arquitetura LGPD do MentAll PRO (este documento)', true),
-      _check('2. Politica de Privacidade', true),
+      _check('2. Política de Privacidade', true),
       _check('3. Termos de Uso', true),
       _check('4. Acordo de Tratamento de Dados', false),
-      _check('5. Politica de Seguranca da Informacao', false),
-      _check('6. Politica de Retencao e Exclusao', false),
-      _check('7. Politica de Uso de IA', false),
-      _check('8. Politica de Suboperadores', false),
+      _check('5. Política de Segurança da Informação', false),
+      _check('6. Política de Retenção e Exclusão', false),
+      _check('7. Política de Uso de IA', false),
+      _check('8. Política de Suboperadores', false),
       _check('9. Plano de Resposta a Incidentes', false),
     ]);
   }
@@ -365,10 +366,10 @@ class PdfArquiteturaLgpdService {
         padding: const pw.EdgeInsets.all(16),
         decoration: pw.BoxDecoration(color: _azulBg, borderRadius: pw.BorderRadius.circular(8), border: pw.Border.all(color: _azulClaro)),
         child: pw.Text(
-          'O MentAll PRO e um prontuario psicologico inteligente com privacidade desde '
-          'a concepcao, protecao reforcada de dados clinicos sensiveis, IA apenas '
-          'como apoio documental e revisao humana obrigatoria pelo profissional.',
-          style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: _azul),
+          'O MentAll PRO e um prontuário psicológico inteligente com privacidade desde '
+          'a concepção, proteção reforçada de dados clínicos sensíveis, IA apenas '
+          'como apoio documental e revisão humana obrigatória pelo profissional.',
+          style: pw.TextStyle(fontSize: Tipografia.smMd, fontWeight: pw.FontWeight.bold, color: _azul),
         ),
       ),
       pw.SizedBox(height: 20),
@@ -380,25 +381,25 @@ class PdfArquiteturaLgpdService {
     return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
       _paragrafo('A estrutura LGPD do MentAll PRO se apoia em sete pilares:'),
       pw.SizedBox(height: 16),
-      _pilar('1', 'Dados minimos', 'Coleta apenas do necessario para uso clinico.'),
-      _pilar('2', 'Protecao reforcada', 'Criptografia AES-256-CBC, controle via PIN.'),
-      _pilar('3', 'Audio 5 min', 'Audio pos-sessao limitado, com contador e parada automatica.'),
-      _pilar('4', 'IA como apoio', 'IA documental, nunca substitui julgamento clinico.'),
-      _pilar('5', 'Revisao obrigatoria', 'Sessoes finalizadas apenas apos revisao profissional.'),
-      _pilar('6', 'Arquivamento', 'Nunca exclusao impulsiva. Dados preservados.'),
-      _pilar('7', 'Auditoria', 'Registro LGPD, exportacao segura, transparencia.'),
+      _pilar('1', 'Dados mínimos', 'Coleta apenas do necessário para uso clínico.'),
+      _pilar('2', 'Proteção reforçada', 'Criptografia AES-256-CBC, controle via PIN.'),
+      _pilar('3', 'Áudio 5 min', 'Áudio pós-sessão limitado, com contador e parada automática.'),
+      _pilar('4', 'IA como apoio', 'IA documental, nunca substitui julgamento clínico.'),
+      _pilar('5', 'Revisão obrigatória', 'Sessões finalizadas apenas após revisão profissional.'),
+      _pilar('6', 'Arquivamento', 'Nunca exclusão impulsiva. Dados preservados.'),
+      _pilar('7', 'Auditoria', 'Registro LGPD, exportação segura, transparência.'),
     ]);
   }
 
   pw.Widget _paragrafo(String t) => pw.Padding(
       padding: const pw.EdgeInsets.only(bottom: 6),
-      child: pw.Text(t, style: const pw.TextStyle(fontSize: 10, color: _texto)));
+      child: pw.Text(t, style: const pw.TextStyle(fontSize: Tipografia.xxs, color: _texto)));
 
   pw.Widget _subTitulo(String t) => pw.Padding(
       padding: const pw.EdgeInsets.only(bottom: 6),
       child: pw.Text(t,
           style: pw.TextStyle(
-              fontSize: 12, fontWeight: pw.FontWeight.bold, color: _azul)));
+              fontSize: Tipografia.sm, fontWeight: pw.FontWeight.bold, color: _azul)));
 
   pw.Widget _check(String texto, bool ok) => pw.Padding(
       padding: const pw.EdgeInsets.only(bottom: 4, left: 4),
@@ -420,7 +421,7 @@ class PdfArquiteturaLgpdService {
         pw.Expanded(
             child: pw.Text(texto,
                 style: pw.TextStyle(
-                    fontSize: 10, color: ok ? _texto : _futuro))),
+                    fontSize: Tipografia.xxs, color: ok ? _texto : _futuro))),
       ]));
 
   pw.Widget _chip(String t, PdfColor cor, PdfColor bg) => pw.Container(
@@ -445,7 +446,7 @@ class PdfArquiteturaLgpdService {
         pw.Expanded(
             child: pw.Text(t,
                 style: pw.TextStyle(
-                    fontSize: 10,
+                    fontSize: Tipografia.xxs,
                     fontWeight: pw.FontWeight.bold,
                     color: ok ? _sucesso : _pendente))),
       ]));
@@ -472,13 +473,13 @@ class PdfArquiteturaLgpdService {
                 children: [
               pw.Text(t,
                   style: pw.TextStyle(
-                      fontSize: 12,
+                      fontSize: Tipografia.sm,
                       fontWeight: pw.FontWeight.bold,
                       color: _texto)),
               pw.SizedBox(height: 2),
               pw.Text(d,
                   style: const pw.TextStyle(
-                      fontSize: 10, color: _subtitulo)),
+                      fontSize: Tipografia.xxs, color: _subtitulo)),
             ])),
         pw.SizedBox(width: 8),
         _chip(ok ? 'OK' : 'PEND', ok ? _sucesso : _pendente,
@@ -492,7 +493,7 @@ class PdfArquiteturaLgpdService {
           pw.Expanded(
               child: pw.Text(t,
                   style: pw.TextStyle(
-                      fontSize: 13,
+                      fontSize: Tipografia.smMd,
                       fontWeight: pw.FontWeight.bold,
                       color: _texto))),
           _chip(ok ? 'Ativo' : 'Futuro', ok ? _sucesso : _futuro,
@@ -501,7 +502,7 @@ class PdfArquiteturaLgpdService {
         pw.SizedBox(height: 4),
         pw.Text(d,
             style:
-                const pw.TextStyle(fontSize: 10, color: _subtitulo)),
+                const pw.TextStyle(fontSize: Tipografia.xxs, color: _subtitulo)),
       ]));
 
   pw.Widget _backlog(String t, bool ok, List<String> itens) => pw.Container(
@@ -518,10 +519,10 @@ class PdfArquiteturaLgpdService {
               pw.Expanded(
                   child: pw.Text(t,
                       style: pw.TextStyle(
-                          fontSize: 13,
+                          fontSize: Tipografia.smMd,
                           fontWeight: pw.FontWeight.bold,
                           color: ok ? _sucesso : _avisoTexto))),
-              _chip(ok ? 'Concluido' : 'Pendente',
+              _chip(ok ? 'Concluído' : 'Pendente',
                   ok ? _sucesso : _pendente,
                   ok ? PdfColor.fromInt(0xFFC8E6C9) : PdfColor.fromInt(0xFFFFE0B2)),
             ]),
@@ -541,7 +542,7 @@ class PdfArquiteturaLgpdService {
             child: pw.Center(
                 child: pw.Text(num,
                     style: pw.TextStyle(
-                        fontSize: 16,
+                        fontSize: Tipografia.md,
                         fontWeight: pw.FontWeight.bold,
                         color: PdfColors.white)))),
         pw.SizedBox(width: 12),
@@ -551,13 +552,13 @@ class PdfArquiteturaLgpdService {
                 children: [
               pw.Text(t,
                   style: pw.TextStyle(
-                      fontSize: 13,
+                      fontSize: Tipografia.smMd,
                       fontWeight: pw.FontWeight.bold,
                       color: _texto)),
               pw.SizedBox(height: 2),
               pw.Text(d,
                   style: const pw.TextStyle(
-                      fontSize: 10, color: _subtitulo)),
+                      fontSize: Tipografia.xxs, color: _subtitulo)),
             ])),
       ]));
 
@@ -568,12 +569,12 @@ class PdfArquiteturaLgpdService {
             width: 80,
             child: pw.Text('$label:',
                 style: pw.TextStyle(
-                    fontSize: 11,
+                    fontSize: Tipografia.xs,
                     fontWeight: pw.FontWeight.bold,
                     color: _subtitulo))),
         pw.Expanded(
             child: pw.Text(valor,
                 style:
-                    const pw.TextStyle(fontSize: 11, color: _texto))),
+                    const pw.TextStyle(fontSize: Tipografia.xs, color: _texto))),
       ]));
 }

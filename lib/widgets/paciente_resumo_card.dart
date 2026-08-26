@@ -1,10 +1,11 @@
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
 import '../models/contrato_terapeutico.dart';
 import '../models/paciente.dart';
+import '../utils/imagem_cache.dart';
 import '../utils/mentall_colors.dart';
+import '../utils/raio.dart';
 import 'demo_badge.dart';
 import 'info_linha.dart';
 import 'status_paciente_chip.dart';
@@ -57,7 +58,7 @@ class PacienteResumoCard extends StatelessWidget {
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(Raio.xxl),
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -70,7 +71,7 @@ class PacienteResumoCard extends StatelessWidget {
                   radius: 28,
                   backgroundColor: context.corPrimaria.withValues(alpha: 0.12),
                   backgroundImage: paciente.possuiFoto
-                      ? MemoryImage(base64Decode(paciente.fotoBase64))
+                      ? fotoMemoria(paciente.fotoBase64)
                       : null,
                   child: paciente.possuiFoto
                       ? null
