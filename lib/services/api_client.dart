@@ -32,13 +32,20 @@ class ApiClient {
 
   static String? authToken;
 
+  // Fallback em memória para quando a criptografia não está disponível:
+  // evita persistir senha/JWT em texto puro no Hive.
+  static String _usernameMemoria = '';
+  static String _passwordMemoria = '';
+
   static String get username {
+    if (_usernameMemoria.isNotEmpty) return _usernameMemoria;
     final box = Hive.box<String>('app_config');
     final stored = box.get(_usernameKey);
     return (stored != null && stored.isNotEmpty) ? stored : '';
   }
 
   static String get password {
+    if (_passwordMemoria.isNotEmpty) return _passwordMemoria;
     final box = Hive.box<String>('app_config');
     final stored = box.get(_passwordKey);
     if (stored != null && stored.isNotEmpty) {
@@ -51,7 +58,17 @@ class ApiClient {
     final box = Hive.box<String>('app_config');
     await box.put(_usernameKey, username);
     final encrypted = EncryptionService.tryEncrypt(password);
-    await box.put(_passwordKey, encrypted ?? password);
+    if (encrypted == null) {
+      // Sem criptografia disponível: mantém apenas em memória (não persiste
+      // senha em texto puro no Hive).
+      _usernameMemoria = username;
+      _passwordMemoria = password;
+      await box.delete(_passwordKey);
+      return;
+    }
+    _usernameMemoria = '';
+    _passwordMemoria = '';
+    await box.put(_passwordKey, encrypted);
   }
 
   static String get _username => username;
@@ -129,8 +146,13 @@ class ApiClient {
         authToken = token;
         try {
           final encryptedToken = EncryptionService.tryEncrypt(token);
-          await Hive.box<String>('auth_meta')
-              .put('jwt_token', encryptedToken ?? token);
+          if (encryptedToken != null) {
+            await Hive.box<String>('auth_meta')
+                .put('jwt_token', encryptedToken);
+          } else {
+            // Sem criptografia disponível: mantém apenas em memória.
+            await Hive.box<String>('auth_meta').delete('jwt_token');
+          }
         } catch (_) {}
         return true;
       }
@@ -205,8 +227,13 @@ class ApiClient {
       }
       authToken = token;
       final encryptedToken = EncryptionService.tryEncrypt(token);
-      await Hive.box<String>('auth_meta')
-          .put('jwt_token', encryptedToken ?? token);
+      if (encryptedToken != null) {
+        await Hive.box<String>('auth_meta')
+            .put('jwt_token', encryptedToken);
+      } else {
+        // Sem criptografia disponível: mantém apenas em memória.
+        await Hive.box<String>('auth_meta').delete('jwt_token');
+      }
       await salvarConta(email);
       await setCredentials(email.trim(), senha);
       return {'sucesso': true};

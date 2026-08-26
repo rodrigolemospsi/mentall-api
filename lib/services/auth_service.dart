@@ -13,8 +13,6 @@ import 'package:http/http.dart' as http;
 class AuthService {
   static const String _authBoxName = 'auth_meta';
   static const String _tokenKey = 'jwt_token';
-  static const String _usernameKey = 'auth_username';
-  static const String _passwordKey = 'auth_password';
 
   // SecureStorage keys for server credentials (protected by device PIN/biometrics)
   static const String _serverUserKey = 'server_username';
@@ -37,21 +35,9 @@ class AuthService {
 
   EncryptionService get encryption => _encryptionService;
 
-  String get _username {
-    final box = Hive.box<String>('app_config');
-    final stored = box.get(_usernameKey);
-    if (stored != null && stored.isNotEmpty) return stored;
-    return '';
-  }
+  String get _username => ApiClient.username;
 
-  String get _password {
-    final box = Hive.box<String>('app_config');
-    final stored = box.get(_passwordKey);
-    if (stored != null && stored.isNotEmpty) {
-      return EncryptionService.tryDecrypt(stored);
-    }
-    return '';
-  }
+  String get _password => ApiClient.password;
 
   Future<void> inicializar() async {
     final token = _box.get(_tokenKey);
@@ -61,6 +47,9 @@ class AuthService {
   }
 
   bool get possuiTokenJwt {
+    if (ApiClient.authToken != null && ApiClient.authToken!.isNotEmpty) {
+      return true;
+    }
     final token = _box.get(_tokenKey);
     if (token == null || token.isEmpty) return false;
     final decrypted = EncryptionService.tryDecrypt(token);
@@ -68,6 +57,9 @@ class AuthService {
   }
 
   String? get tokenJwt {
+    if (ApiClient.authToken != null && ApiClient.authToken!.isNotEmpty) {
+      return ApiClient.authToken;
+    }
     final token = _box.get(_tokenKey);
     if (token == null || token.isEmpty) return null;
     return EncryptionService.tryDecrypt(token);
@@ -78,7 +70,7 @@ class AuthService {
       final user = _username;
       final pass = _password;
       if (user.isEmpty || pass.isEmpty) {
-        Log.erro('Credenciais do backend nao configuradas.', contexto: 'AuthService.autenticarBackend');
+        Log.erro('Credenciais do backend não configuradas.', contexto: 'AuthService.autenticarBackend');
         return false;
       }
       final response = await http

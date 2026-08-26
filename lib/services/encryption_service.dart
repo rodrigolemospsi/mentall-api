@@ -290,11 +290,12 @@ class EncryptionService {
 
   /// Valida o PIN sem modificar estado (não incrementa tentativas, não desbloqueia).
   /// Retorna true se o PIN estiver correto e a chave puder ser derivada.
+  ///
+  /// Observação: mesmo com a chave já em memória (`_key != null`), o PIN deve
+  /// ser verificado de verdade — nunca aceitar qualquer PIN por estar desbloqueado.
   Future<bool> validarPin(String pin) async {
     await inicializar();
     _verificarLockoutOuLancar();
-
-    if (_key != null) return true;
 
     final encryptedData = _box.get(_encryptedKeyKey);
     final ivBase64 = _box.get(_ivKey);

@@ -23,13 +23,19 @@ import 'services/demo_data_service.dart';
 import 'services/encryption_service.dart';
 import 'services/hive_migration_service.dart';
 import 'services/logger.dart';
+import 'utils/mentall_colors.dart';
+import 'utils/raio.dart';
+import 'utils/tipografia.dart';
 
 class _SecureHttpOverrides extends HttpOverrides {
   // SHA-256 fingerprints of allowed certificates (PEM format).
   // To obtain: openssl s_client -connect mentall-api.fly.dev:443 -servername mentall-api.fly.dev </dev/null 2>/dev/null | openssl x509 -fingerprint -sha256 -noout
   // Format: "SHA256 Fingerprint=XX:XX:XX:..."
   static const _certFingerprints = <String>[
-    // Produção Fly.io - mentall-api.fly.dev (Let's Encrypt, renova a cada ~90 dias)
+    // Produção Fly.io - mentall-api.fly.dev (Let's Encrypt, renova a cada ~90 dias).
+    // Manter os 2 últimos fingerprints (o anterior + o atual) para tolerância de
+    // transição durante a renovação.
+    'SHA256 Fingerprint=25:9A:3B:9C:DA:F4:BA:BB:BE:5E:B7:81:BE:23:8A:52:12:15:DF:90:AF:E8:F5:15:17:99:30:F2:A6:A8:59:B4',
     'SHA256 Fingerprint=F6:3E:15:49:6D:97:94:61:45:C9:E5:D5:CC:21:C8:3F:12:DD:2E:35:14:DD:9A:B2:21:40:85:69:53:71:9B:19',
   ];
 
@@ -37,8 +43,9 @@ class _SecureHttpOverrides extends HttpOverrides {
   HttpClient createHttpClient(SecurityContext? context) {
     final client = super.createHttpClient(context);
     client.badCertificateCallback = (cert, host, port) {
-      // Permite localhost e redes locais para desenvolvimento
-      if (host == 'localhost' || host.startsWith('192.168') || host == '127.0.0.1') {
+      // Permite loopback para desenvolvimento local (HTTP local já é liberado
+      // via network_security_config; aqui cobre HTTPS em 127.0.0.1).
+      if (host == 'localhost' || host == '127.0.0.1') {
         return true;
       }
       // Se não há pins configurados, usa validação padrão do sistema (não falha aberto)
@@ -132,7 +139,7 @@ void main() async {
             const Text(
               'Erro inesperado',
               style: TextStyle(
-                fontSize: 20,
+                fontSize: Tipografia.xl,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFFD32F2F),
               ),
@@ -147,7 +154,7 @@ void main() async {
               Text(
                 mensagemTecnica,
                 style: const TextStyle(
-                  fontSize: 12,
+                  fontSize: Tipografia.sm,
                   color: Colors.black45,
                   fontFamily: 'monospace',
                 ),
@@ -185,13 +192,13 @@ class MentAllApp extends ConsumerWidget {
       colorScheme: colorScheme,
       textTheme: const TextTheme(
         headlineLarge: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-        headlineMedium: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-        titleLarge: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-        titleMedium: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        bodyLarge: TextStyle(fontSize: 16),
-        bodyMedium: TextStyle(fontSize: 14),
-        bodySmall: TextStyle(fontSize: 12),
-        labelSmall: TextStyle(fontSize: 10),
+        headlineMedium: TextStyle(fontSize: Tipografia.xxl, fontWeight: FontWeight.bold),
+        titleLarge: TextStyle(fontSize: Tipografia.xl, fontWeight: FontWeight.w600),
+        titleMedium: TextStyle(fontSize: Tipografia.lg, fontWeight: FontWeight.w600),
+        bodyLarge: TextStyle(fontSize: Tipografia.md),
+        bodyMedium: TextStyle(fontSize: Tipografia.base),
+        bodySmall: TextStyle(fontSize: Tipografia.sm),
+        labelSmall: TextStyle(fontSize: Tipografia.xxs),
       ),
       useMaterial3: true,
       scaffoldBackgroundColor: colorScheme.surface,
@@ -203,25 +210,25 @@ class MentAllApp extends ConsumerWidget {
       ),
       navigationBarTheme: brightness == Brightness.light
           ? NavigationBarThemeData(
-              backgroundColor: const Color(0xFFE0AAFF),
-              indicatorColor: const Color(0xFF3C096C).withValues(alpha: 0.14),
+              backgroundColor: corSombraCard.withValues(alpha: 0.30),
+              indicatorColor: corAcaoFgClaro.withValues(alpha: 0.14),
               surfaceTintColor: Colors.transparent,
               iconTheme: WidgetStateProperty.resolveWith(
                 (states) => IconThemeData(
                   color: states.contains(WidgetState.selected)
-                      ? const Color(0xFF3C096C)
-                      : const Color(0xFF3C096C).withValues(alpha: 0.55),
+                      ? corAcaoFgClaro
+                      : corAcaoFgClaro.withValues(alpha: 0.55),
                 ),
               ),
               labelTextStyle: WidgetStateProperty.resolveWith(
                 (states) => TextStyle(
-                  fontSize: 12,
+                  fontSize: Tipografia.sm,
                   fontWeight: states.contains(WidgetState.selected)
                       ? FontWeight.w600
                       : FontWeight.w400,
                   color: states.contains(WidgetState.selected)
-                      ? const Color(0xFF3C096C)
-                      : const Color(0xFF3C096C).withValues(alpha: 0.6),
+                      ? corAcaoFgClaro
+                      : corAcaoFgClaro.withValues(alpha: 0.6),
                 ),
               ),
             )
@@ -232,14 +239,14 @@ class MentAllApp extends ConsumerWidget {
       ),
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(Raio.md),
         ),
       ),
       cardTheme: CardThemeData(
         elevation: brightness == Brightness.light ? 1 : 4,
         color: colorScheme.surface,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(Raio.xxl),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
@@ -248,21 +255,21 @@ class MentAllApp extends ConsumerWidget {
           foregroundColor: colorScheme.onPrimary,
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(Raio.lg),
           ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(Raio.lg),
           ),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(Raio.lg),
           ),
         ),
       ),
