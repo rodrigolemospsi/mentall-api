@@ -240,8 +240,7 @@ class _PacientesPageState extends ConsumerState<PacientesPage>
                 foregroundColor: context.corOnPrimaria.withValues(alpha: 0.85),
                 selectedForegroundColor: context.corPrimaria,
                 backgroundColor: Colors.transparent,
-                selectedBackgroundColor:
-                    context.corOnPrimaria.withValues(alpha: 0.12),
+                selectedBackgroundColor: context.corOnPrimaria,
                 side: BorderSide(
                   color: context.corOnPrimaria.withValues(alpha: 0.2),
                 ),
