@@ -16,6 +16,7 @@ import '../services/logger.dart';
 import '../services/pdf_export_service.dart';
 import '../services/sessao_service.dart';
 import '../services/transcricao_relato_service.dart';
+import '../utils/artigos_validacao.dart';
 import '../utils/mentall_colors.dart';
 import '../utils/raio.dart';
 import '../widgets/campo_texto_widget.dart';
@@ -331,7 +332,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
           _audioMantido = sessao.audioMantido;
           _revisadoPeloProfissional = sessao.revisadoPeloProfissional;
           _erroProcessamentoIa = sessao.erroProcessamentoIa;
-          _artigosSugeridos = sessao.artigosSugeridos;
+          _artigosSugeridos = limparArtigosAntigos(sessao.artigosSugeridos);
           _origemRelato = sessao.origemRelato;
           _modoEdicao = false;
           ref.read(_valorSessaoProvider.notifier).state = sessao.valorSessao;
@@ -1957,6 +1958,9 @@ if (!mounted || confirmar != true) return;
     String relatoClinico,
     String sinteseClinica,
   ) async {
+    // Guarda o id da sessão atual: se o usuário trocar de sessão durante a
+    // busca em background, a resposta não deve sobrescrever o card de outra.
+    final sessaoIdDaBusca = _sessaoId;
     _buscandoArtigos = true;
     _triggerRebuild();
 
@@ -1970,6 +1974,7 @@ if (!mounted || confirmar != true) return;
     );
 
     if (!mounted) return;
+    if (_sessaoId != sessaoIdDaBusca) return;
     _buscandoArtigos = false;
     if (artigos != null && artigos.trim().isNotEmpty) {
       _artigosSugeridos = artigos;

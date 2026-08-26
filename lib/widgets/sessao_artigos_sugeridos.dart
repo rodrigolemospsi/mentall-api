@@ -64,58 +64,20 @@ class ArtigosSugeridosCard extends ConsumerWidget {
   InlineSpan _buildArtigosComLinks(BuildContext context, String texto) {
     final spans = <InlineSpan>[];
 
-    final blocos = texto.split(RegExp(r'\n(?=\d+\.\s)'));
+    // Separa blocos: artigos ("1. Título") ou buscas sugeridas ("Busca sugerida N:").
+    final blocos = texto.split(RegExp(r'\n(?=\d+\.\s|Busca sugerida)'));
 
     for (int b = 0; b < blocos.length; b++) {
       final bloco = blocos[b];
       if (bloco.trim().isEmpty) continue;
 
-      final urlMatch = RegExp(r'https?://[^\s\n]+').firstMatch(bloco);
-      final url = urlMatch?.group(0);
+      final ehBuscaSugerida =
+          RegExp(r'^Busca sugerida\s*\d*:').hasMatch(bloco.trim());
 
-      final linhas = bloco.split(RegExp(r'\r?\n'));
-
-      for (int i = 0; i < linhas.length; i++) {
-        final linha = linhas[i];
-        final trimmed = linha.trimLeft();
-
-        final isUrlLine = RegExp(r'^https?://').hasMatch(trimmed);
-        final isPlatformUrlLine =
-            RegExp(r'^[A-Za-z]+\s*:?\s*https?://').hasMatch(trimmed);
-
-        if (isUrlLine || isPlatformUrlLine) {
-          continue;
-        }
-
-        if (trimmed.isEmpty) {
-          if (i < linhas.length - 1) {
-            spans.add(const TextSpan(text: '\n'));
-          }
-          continue;
-        }
-
-        if (i == 0 && url != null) {
-          spans.add(TextSpan(
-            text: i < linhas.length - 1 ? '$trimmed\n' : trimmed,
-            style: TextStyle(
-              fontSize: Tipografia.smMd,
-              height: 1.5,
-              color: context.corPrimaria,
-              fontWeight: FontWeight.w600,
-              decoration: TextDecoration.underline,
-              decorationColor: context.corPrimaria,
-            ),
-            recognizer: TapGestureRecognizer()
-              ..onTap = () async {
-                final uri = Uri.tryParse(url);
-                if (uri != null) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                }
-              },
-          ));
-        } else {
-          spans.add(TextSpan(text: i < linhas.length - 1 ? '$trimmed\n' : trimmed));
-        }
+      if (ehBuscaSugerida) {
+        spans.add(_buildBlocoBuscaSugerida(context, bloco));
+      } else {
+        spans.add(_buildBlocoArtigo(context, bloco));
       }
 
       if (b < blocos.length - 1) {
@@ -125,6 +87,118 @@ class ArtigosSugeridosCard extends ConsumerWidget {
 
     if (spans.isEmpty) {
       spans.add(TextSpan(text: texto));
+    }
+
+    return TextSpan(children: spans);
+  }
+
+  /// Renderiza um bloco de busca sugerida (fallback determinístico do backend):
+  /// rótulo "Busca sugerida N: tema" como texto e cada plataforma como link
+  /// clicável com rótulo ("SciELO", "Periódicos CAPES", "Oasisbr").
+  InlineSpan _buildBlocoBuscaSugerida(BuildContext context, String bloco) {
+    final linhas = bloco.split(RegExp(r'\r?\n'));
+    final spans = <InlineSpan>[];
+
+    for (final linha in linhas) {
+      final trimmed = linha.trimLeft();
+      if (trimmed.isEmpty) continue;
+
+      // Linha do rótulo: "Busca sugerida 1: Tema"
+      if (RegExp(r'^Busca sugerida').hasMatch(trimmed)) {
+        spans.add(TextSpan(
+          text: '${trimmed.trim()}\n',
+          style: TextStyle(
+            fontSize: Tipografia.smMd,
+            height: 1.5,
+            color: context.corTextoBody,
+            fontWeight: FontWeight.w600,
+          ),
+        ));
+        continue;
+      }
+
+      // Linha de plataforma: "Nome: https://..."
+      final plataformaMatch =
+          RegExp(r'^(.+?):\s*(https?://\S+)').firstMatch(trimmed);
+      if (plataformaMatch != null) {
+        final nome = plataformaMatch.group(1)!.trim();
+        final url = plataformaMatch.group(2)!.trim();
+        spans.add(TextSpan(
+          text: '   $nome\n',
+          style: TextStyle(
+            fontSize: Tipografia.sm,
+            height: 1.5,
+            color: context.corPrimaria,
+            decoration: TextDecoration.underline,
+            decorationColor: context.corPrimaria,
+          ),
+          recognizer: TapGestureRecognizer()
+            ..onTap = () async {
+              final uri = Uri.tryParse(url);
+              if (uri != null) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+            },
+        ));
+        continue;
+      }
+
+      spans.add(TextSpan(text: '$trimmed\n'));
+    }
+
+    return TextSpan(children: spans);
+  }
+
+  /// Renderiza um bloco de artigo real (título clicável + metadados + link).
+  InlineSpan _buildBlocoArtigo(BuildContext context, String bloco) {
+    final spans = <InlineSpan>[];
+
+    final urlMatch = RegExp(r'https?://[^\s\n]+').firstMatch(bloco);
+    final url = urlMatch?.group(0);
+
+    final linhas = bloco.split(RegExp(r'\r?\n'));
+
+    for (int i = 0; i < linhas.length; i++) {
+      final linha = linhas[i];
+      final trimmed = linha.trimLeft();
+
+      final isUrlLine = RegExp(r'^https?://').hasMatch(trimmed);
+      final isPlatformUrlLine =
+          RegExp(r'^[^:]+:\s*https?://').hasMatch(trimmed);
+
+      if (isUrlLine || isPlatformUrlLine) {
+        continue;
+      }
+
+      if (trimmed.isEmpty) {
+        if (i < linhas.length - 1) {
+          spans.add(const TextSpan(text: '\n'));
+        }
+        continue;
+      }
+
+      if (i == 0 && url != null) {
+        spans.add(TextSpan(
+          text: i < linhas.length - 1 ? '$trimmed\n' : trimmed,
+          style: TextStyle(
+            fontSize: Tipografia.smMd,
+            height: 1.5,
+            color: context.corPrimaria,
+            fontWeight: FontWeight.w600,
+            decoration: TextDecoration.underline,
+            decorationColor: context.corPrimaria,
+          ),
+          recognizer: TapGestureRecognizer()
+            ..onTap = () async {
+              final uri = Uri.tryParse(url);
+              if (uri != null) {
+                await launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+            },
+        ));
+      } else {
+        spans.add(TextSpan(text: i < linhas.length - 1 ? '$trimmed\n' : trimmed));
+      }
     }
 
     return TextSpan(children: spans);

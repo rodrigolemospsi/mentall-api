@@ -249,6 +249,10 @@ def _montar_artigos(temas_pesquisa: list, contexto_clinico: str = "") -> str:
 
 
 def _montar_artigos_sugeridos(temas_pesquisa: list) -> str:
+    """Fallback determinístico: links de busca reais por tema (sem inventar artigos).
+
+    Usa rótulo 'Busca sugerida:' (e não um título numerado) para deixar claro ao
+    profissional que são buscas, não artigos — evita parecer artigo inventado."""
     temas_validos = [
         str(t).strip() for t in (temas_pesquisa or []) if str(t).strip()
     ][:2]
@@ -258,7 +262,7 @@ def _montar_artigos_sugeridos(temas_pesquisa: list) -> str:
     blocos = []
     for i, tema in enumerate(temas_validos, 1):
         consulta = quote_plus(tema)
-        linhas = [f"{i}. {tema.capitalize()}"]
+        linhas = [f"Busca sugerida {i}: {tema.capitalize()}"]
         for nome_base, url_template in BASES_PESQUISA:
             linhas.append(f"   {nome_base}: {url_template.format(consulta=consulta)}")
         blocos.append("\n".join(linhas))
