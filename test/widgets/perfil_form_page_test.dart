@@ -54,4 +54,59 @@ void main() {
 
     expect(find.text('Informe seu nome profissional.'), findsOneWidget);
   });
+
+  testWidgets('novo perfil: dropdown de abordagem sem pre-selecao e labels novos',
+      (tester) async {
+    tester.view.physicalSize = const Size(800, 2000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: PerfilProfissionalFormPage(),
+        ),
+      ),
+    );
+
+    await tester.pump();
+
+    // Placeholder de abordagem (sem valor selecionado)
+    expect(find.text('Definir sua abordagem clínica'), findsOneWidget);
+    // Labels renomeados
+    expect(find.text('Registro profissional - CRP'), findsOneWidget);
+    expect(find.text('Como se referir'), findsOneWidget);
+  });
+
+  testWidgets('salvar sem abordagem mostra snackbar de bloqueio',
+      (tester) async {
+    tester.view.physicalSize = const Size(800, 2000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: PerfilProfissionalFormPage(),
+        ),
+      ),
+    );
+
+    await tester.pump();
+
+    // Preenche nome (para passar na 1a validacao)
+    await tester.enterText(find.byType(TextField).first, 'Dr. Teste');
+    await tester.pump();
+
+    await tester.tap(find.byType(FilledButton));
+    await tester.pump();
+
+    expect(find.text('Defina sua abordagem clínica.'), findsOneWidget);
+  });
 }

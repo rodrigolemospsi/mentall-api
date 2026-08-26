@@ -17,7 +17,7 @@ import 'lgpd/politica_privacidade_page.dart';
 import 'lgpd/termos_uso_page.dart';
 import '../utils/tipografia.dart';
 
-final _abordagemProvider = StateProvider<String>((ref) => 'Integrativa');
+final _abordagemProvider = StateProvider<String>((ref) => '');
 final _termoProvider = StateProvider<String>((ref) => 'paciente');
 final _tratamentoProvider = StateProvider<String>((ref) => 'masculino');
 final _salvandoProvider = StateProvider<bool>((ref) => false);
@@ -192,6 +192,15 @@ class _PerfilProfissionalFormPageState
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Informe seu nome profissional.'),
+        ),
+      );
+      return;
+    }
+
+    if (ref.read(_abordagemProvider).trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Defina sua abordagem clínica.'),
         ),
       );
       return;
@@ -456,7 +465,7 @@ class _PerfilProfissionalFormPageState
               controller: _registroController,
               textCapitalization: TextCapitalization.characters,
               decoration: const InputDecoration(
-                labelText: 'Registro profissional',
+                labelText: 'Registro profissional - CRP',
                 hintText: 'Ex.: 00/00000',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.badge_outlined),
@@ -464,9 +473,12 @@ class _PerfilProfissionalFormPageState
             ),
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
-              initialValue: abordagemSelecionada,
+              initialValue: abordagemSelecionada.isEmpty
+                  ? null
+                  : abordagemSelecionada,
               decoration: const InputDecoration(
                 labelText: 'Abordagem clínica principal',
+                hintText: 'Definir sua abordagem clínica',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.account_tree_outlined),
               ),
@@ -487,7 +499,7 @@ class _PerfilProfissionalFormPageState
             DropdownButtonFormField<String>(
               initialValue: termoSelecionado,
               decoration: const InputDecoration(
-                labelText: 'Como se referir à pessoa atendida?',
+                labelText: 'Como se referir',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.record_voice_over_outlined),
               ),
