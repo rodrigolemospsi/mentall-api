@@ -9,6 +9,7 @@ import '../models/paciente.dart';
 import '../models/pacote.dart';
 import '../models/progresso_sessao.dart';
 import '../providers/service_providers.dart';
+import '../services/anamnese_labels.dart';
 import '../services/anamnese_templates.dart';
 import '../services/whatsapp_service.dart';
 import '../utils/mentall_colors.dart';
@@ -26,6 +27,21 @@ import '../utils/tipografia.dart';
 // Top-level async helpers (accept BuildContext + WidgetRef explicitly so that
 // they can be called from inside a ConsumerWidget's build closure).
 // ---------------------------------------------------------------------------
+
+Future<void> _sincronizarPendenciasFicha(WidgetRef ref, String pacienteId) async {
+  try {
+    final contratoService = ref.read(contratoServiceProvider);
+    final anamneseService = ref.read(anamneseEnviadaServiceProvider);
+    await Future.wait([
+      contratoService.sincronizarPendencias(pacienteId: pacienteId),
+      anamneseService.sincronizarPendencias(pacienteId: pacienteId),
+    ]);
+    ref.invalidate(contratoPorPacienteProvider(pacienteId));
+    ref.invalidate(anamnesePorPacienteProvider(pacienteId));
+  } catch (_) {
+    // Best-effort: falha de rede não deve quebrar o refresh.
+  }
+}
 
 Future<void> _enviarAnamneseWhatsApp({
   required BuildContext context,
@@ -119,6 +135,27 @@ Future<void> _criarEnviarAnamnese({
       );
     }
   }
+}
+
+Future<void> _atualizarStatusContrato({
+  required BuildContext context,
+  required WidgetRef ref,
+  required Paciente paciente,
+  required ContratoTerapeutico contrato,
+}) async {
+  final service = ref.read(contratoServiceProvider);
+  final atualizado = await service.verificarStatus(contrato);
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(atualizado
+            ? 'Acordo Terapêutico aceito!'
+            : 'Ainda aguardando o aceite do paciente.'),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+  ref.invalidate(contratoPorPacienteProvider(paciente.id));
 }
 
 Future<void> _verificarOuReenviarAnamnese({
@@ -307,47 +344,51 @@ class PacienteResumoTab extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: ListView(
-                    children: [
-                      PacienteResumoCard(
-                        paciente: paciente,
-                        termoSingular: termoSingular,
-                        usaPessoaAtendida: usaPessoaAtendida,
-                        quantidadeSessoes: quantidadeSessoes,
-                        quantidadeSessoesArquivadas: quantidadeSessoesArquivadas,
-                        contrato: contrato,
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: FilledButton.icon(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => SessaoFormPage(paciente: paciente),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.add),
-                              label: const Text('Nova sessão'),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: context.corPrimaria,
-                                foregroundColor: context.corOnPrimaria,
-                                padding: const EdgeInsets.symmetric(vertical: 14),
+                  child: RefreshIndicator(
+                    onRefresh: () => _sincronizarPendenciasFicha(ref, paciente.id),
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        PacienteResumoCard(
+                          paciente: paciente,
+                          termoSingular: termoSingular,
+                          usaPessoaAtendida: usaPessoaAtendida,
+                          quantidadeSessoes: quantidadeSessoes,
+                          quantidadeSessoesArquivadas: quantidadeSessoesArquivadas,
+                          contrato: contrato,
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: FilledButton.icon(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => SessaoFormPage(paciente: paciente),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.add),
+                                label: const Text('Nova sessão'),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: context.corPrimaria,
+                                  foregroundColor: context.corOnPrimaria,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(child: _botaoAnamnese(context, ref, paciente, anamnese)),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      _pacoteCard(context, ref, paciente, pacotes),
-                      _contratoCard(context, ref, paciente, contrato, termoSingular),
-                      const SizedBox(height: 60),
-                    ],
+                            const SizedBox(width: 10),
+                            Expanded(child: _botaoAnamnese(context, ref, paciente, anamnese)),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        _pacoteCard(context, ref, paciente, pacotes),
+                        _contratoCard(context, ref, paciente, contrato, termoSingular),
+                        const SizedBox(height: 60),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -372,17 +413,20 @@ class PacienteResumoTab extends ConsumerWidget {
             ),
           );
         }
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            PacienteResumoCard(
-              paciente: paciente,
-              termoSingular: termoSingular,
-              usaPessoaAtendida: usaPessoaAtendida,
-              quantidadeSessoes: quantidadeSessoes,
-              quantidadeSessoesArquivadas: quantidadeSessoesArquivadas,
-              contrato: contrato,
-            ),
+        return RefreshIndicator(
+          onRefresh: () => _sincronizarPendenciasFicha(ref, paciente.id),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            children: [
+              PacienteResumoCard(
+                paciente: paciente,
+                termoSingular: termoSingular,
+                usaPessoaAtendida: usaPessoaAtendida,
+                quantidadeSessoes: quantidadeSessoes,
+                quantidadeSessoesArquivadas: quantidadeSessoesArquivadas,
+                contrato: contrato,
+              ),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -425,6 +469,7 @@ class PacienteResumoTab extends ConsumerWidget {
             EscalasSection(pacienteId: paciente.id),
             const SizedBox(height: 60),
           ],
+          ),
         );
       },
     );
@@ -661,6 +706,17 @@ class PacienteResumoTab extends ConsumerWidget {
                     onPressed: () => _arquivarContrato(context, ref, paciente, contrato),
                   ),
                 ]
+                else if (contrato != null && contrato.isEnviado)
+                  TextButton.icon(
+                    onPressed: () => _atualizarStatusContrato(
+                      context: context,
+                      ref: ref,
+                      paciente: paciente,
+                      contrato: contrato,
+                    ),
+                    icon: Icon(Icons.refresh, size: 16, color: context.corPrimaria),
+                    label: Text('Atualizar', style: TextStyle(fontSize: Tipografia.smMd, color: context.corPrimaria)),
+                  )
                 else if (contrato != null)
                   TextButton.icon(
                     onPressed: () => _enviarContratoWhatsApp(
@@ -992,40 +1048,6 @@ class PacienteResumoTab extends ConsumerWidget {
   }
 
   String _labelResposta(String id) {
-    const labels = {
-      'nome': 'Nome',
-      'nascimento': 'Data de nascimento',
-      'telefone': 'Telefone',
-      'email': 'E-mail',
-      'cidade': 'Cidade',
-      'como_chamar': 'Como prefere ser chamado(a)',
-      'motivos': 'O que te trouxe à terapia',
-      'motivo_aberto': 'Motivo da procura',
-      'sofrimento': 'Nível de sofrimento (0-10)',
-      'frequencia': 'Frequência',
-      'afeta_rotina': 'Afeta rotina (0-10)',
-      'afeta_relacoes': 'Afeta relacionamentos (0-10)',
-      'afeta_trabalho': 'Afeta trabalho/estudos (0-10)',
-      'fez_terapia': 'Já fez terapia',
-      'foi_psiquiatra': 'Já foi ao psiquiatra',
-      'usa_medicacao': 'Usa medicação',
-      'tem_diagnostico': 'Tem diagnóstico',
-      'sono': 'Sono',
-      'substancias': 'Usa álcool/substâncias',
-      'situacoes_pioram': 'Situações que pioram',
-      'pensamentos': 'Pensamentos que aparecem',
-      'emocoes_frequentes': 'Emoções frequentes',
-      'quando_mal': 'O que faz quando se sente mal',
-      'evita': 'Evita situações',
-      'busca_confirmacao': 'Busca aprovação',
-      'se_cobra': 'Se cobra demais',
-      'o_que_mudar': 'O que gostaria de mudar',
-      'pensou_morte': 'Pensamentos de não querer viver',
-      'pensou_machucar': 'Pensou em se machucar',
-      'esta_seguro': 'Está em segurança',
-      'objetivos': 'Objetivos',
-      'expectativa': 'O que espera da terapia',
-    };
-    return labels[id] ?? id;
+    return anamneseLabels[id] ?? id;
   }
 }

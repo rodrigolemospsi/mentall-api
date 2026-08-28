@@ -1,14 +1,17 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../models/anamnese_enviada.dart';
 import '../models/contrato_terapeutico.dart';
 import '../models/paciente.dart';
 import '../models/perfil_profissional.dart';
 import '../models/sessao.dart';
 import '../providers/service_providers.dart';
+import '../services/anamnese_templates.dart';
 import '../services/pdf_export_service.dart';
 import '../utils/imagem_cache.dart';
 import '../utils/mentall_colors.dart';
@@ -57,6 +60,28 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
           ),
         );
       });
+    }
+    // Sincroniza o status de contrato/anamnese com o backend ao abrir a ficha,
+    // para que o aceite/resposta do paciente apareça sem ação manual.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _sincronizarPendenciasFicha();
+    });
+  }
+
+  Future<void> _sincronizarPendenciasFicha() async {
+    try {
+      final contratoService = ref.read(contratoServiceProvider);
+      final anamneseService = ref.read(anamneseEnviadaServiceProvider);
+      await Future.wait([
+        contratoService.sincronizarPendencias(pacienteId: widget.paciente.id),
+        anamneseService.sincronizarPendencias(pacienteId: widget.paciente.id),
+      ]);
+      if (!mounted) return;
+      ref.invalidate(contratoPorPacienteProvider(widget.paciente.id));
+      ref.invalidate(anamnesePorPacienteProvider(widget.paciente.id));
+    } catch (e) {
+      // Sincronização é best-effort: falha de rede não deve bloquear a ficha.
     }
   }
 
@@ -579,6 +604,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
     if (!mounted) return;
     await showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
@@ -586,6 +612,8 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
         exportService: exportService,
         sessoes: sessoes,
         perfil: perfil,
+        anamnese: ref.read(anamneseEnviadaServiceProvider)
+            .obterPorPaciente(widget.paciente.id),
         context: ctx,
       ),
     );
@@ -595,10 +623,32 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
     required PdfExportService exportService,
     required List<Sessao> sessoes,
     required PerfilProfissional perfil,
+    required AnamneseEnviada? anamnese,
     required BuildContext context,
   }) {
+    // Executa uma exportação protegendo contra erro não tratado e dando
+    // feedback ao profissional (o bottom sheet já foi fechado neste ponto).
+    void executarExport(Future<void> Function() acao) {
+      unawaited(() async {
+        try {
+          await acao();
+        } catch (_) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Não foi possível gerar o PDF. Verifique o conteúdo da sessão e tente novamente.',
+                ),
+                duration: Duration(seconds: 5),
+              ),
+            );
+          }
+        }
+      }());
+    }
+
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -619,11 +669,11 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
               child: OutlinedButton.icon(
                 onPressed: () {
                   Navigator.pop(context);
-                  exportService.exportarHistoricoPaciente(
-                    paciente: widget.paciente,
-                    sessoes: sessoes,
-                    perfil: perfil,
-                  );
+                  executarExport(() => exportService.exportarHistoricoPaciente(
+                        paciente: widget.paciente,
+                        sessoes: sessoes,
+                        perfil: perfil,
+                      ));
                 },
                 icon: const Icon(Icons.history_outlined),
                 label: const Text('Histórico completo'),
@@ -638,11 +688,11 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
               child: OutlinedButton.icon(
                 onPressed: () {
                   Navigator.pop(context);
-                  exportService.exportarRelatorioClinico(
-                    paciente: widget.paciente,
-                    sessoes: sessoes,
-                    perfil: perfil,
-                  );
+                  executarExport(() => exportService.exportarRelatorioClinico(
+                        paciente: widget.paciente,
+                        sessoes: sessoes,
+                        perfil: perfil,
+                      ));
                 },
                 icon: const Icon(Icons.assignment_outlined),
                 label: const Text('Relatório clínico'),
@@ -657,11 +707,11 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
               child: OutlinedButton.icon(
                 onPressed: () {
                   Navigator.pop(context);
-                  exportService.exportarSinteseRevisada(
-                    sessao: sessoes.first,
-                    paciente: widget.paciente,
-                    perfil: perfil,
-                  );
+                  executarExport(() => exportService.exportarSinteseRevisada(
+                        sessao: sessoes.first,
+                        paciente: widget.paciente,
+                        perfil: perfil,
+                      ));
                 },
                 icon: const Icon(Icons.rate_review_outlined),
                 label: const Text('Síntese revisada (última sessão)'),
@@ -676,11 +726,11 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
               child: OutlinedButton.icon(
                 onPressed: () {
                   Navigator.pop(context);
-                  exportService.exportarSessao(
-                    sessao: sessoes.first,
-                    paciente: widget.paciente,
-                    perfil: perfil,
-                  );
+                  executarExport(() => exportService.exportarSessao(
+                        sessao: sessoes.first,
+                        paciente: widget.paciente,
+                        perfil: perfil,
+                      ));
                 },
                 icon: const Icon(Icons.description_outlined),
                 label: const Text('Última sessão'),
@@ -695,15 +745,52 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
               child: FilledButton.icon(
                 onPressed: () {
                   Navigator.pop(context);
-                  exportService.exportarProntuarioCompleto(
-                    paciente: widget.paciente,
-                    sessoes: sessoes,
-                    perfil: perfil,
-                  );
+                  executarExport(() => exportService.exportarProntuarioCompleto(
+                        paciente: widget.paciente,
+                        sessoes: sessoes,
+                        perfil: perfil,
+                      ));
                 },
                 icon: const Icon(Icons.folder_zip_outlined),
                 label: const Text('Prontuário completo'),
                 style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  executarExport(() async {
+                    if (anamnese == null || !anamnese.isRespondido) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'O paciente ainda não respondeu a anamnese.',
+                            ),
+                            duration: Duration(seconds: 4),
+                          ),
+                        );
+                      }
+                      return;
+                    }
+                    await exportService.exportarAnamnese(
+                      paciente: widget.paciente,
+                      anamnese: anamnese,
+                      perfil: perfil,
+                      templateJson: AnamneseTemplates.templatePadrao(
+                        perfil.abordagemClinica,
+                      ),
+                    );
+                  });
+                },
+                icon: const Icon(Icons.assignment_outlined),
+                label: const Text('Anamnese'),
+                style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
               ),

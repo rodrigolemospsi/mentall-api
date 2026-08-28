@@ -101,6 +101,26 @@ class _HomePageState extends ConsumerState<HomePage> {
         canal: compromisso.canalLembrete,
       );
     };
+
+    // Sincroniza em lote o status de contratos/anamneses pendentes com o backend,
+    // para que o aceite/resposta do paciente apareça ao abrir o app.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _sincronizarPendenciasGlobais();
+    });
+  }
+
+  Future<void> _sincronizarPendenciasGlobais() async {
+    try {
+      final contratoService = ref.read(contratoServiceProvider);
+      final anamneseService = ref.read(anamneseEnviadaServiceProvider);
+      await Future.wait([
+        contratoService.sincronizarPendencias(),
+        anamneseService.sincronizarPendencias(),
+      ]);
+    } catch (_) {
+      // Best-effort: falha de rede não deve bloquear a Home.
+    }
   }
 
   @override

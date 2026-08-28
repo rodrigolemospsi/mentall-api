@@ -32,6 +32,25 @@ class AnamneseEnviadaService with EncryptedServiceMixin {
     return a;
   }
 
+  /// Consulta o backend o status das anamneses pendentes/enviadas e atualiza o
+  /// Hive quando o paciente responder. Se [pacienteId] for nulo, verifica todos
+  /// os pacientes. Retorna quantas foram atualizadas.
+  Future<int> sincronizarPendencias({String? pacienteId}) async {
+    var atualizadas = 0;
+    final pendentes = _box.values
+        .whereType<AnamneseEnviada>()
+        .where((a) =>
+            (pacienteId == null || a.pacienteId == pacienteId) &&
+            (a.status == 'pendente' || a.status == 'enviado'))
+        .toList();
+    for (final anamnese in pendentes) {
+      if (await verificarStatus(anamnese)) {
+        atualizadas++;
+      }
+    }
+    return atualizadas;
+  }
+
   Future<AnamneseEnviada> criar({
     required String pacienteId,
     required String abordagem,

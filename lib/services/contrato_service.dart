@@ -52,6 +52,24 @@ class ContratoService with EncryptedServiceMixin {
     return _box.values.where((c) => c.status == 'pendente' || c.status == 'enviado').length;
   }
 
+  /// Consulta o backend o status dos contratos pendentes/enviados e atualiza o
+  /// Hive quando o aceite ocorreu. Se [pacienteId] for nulo, verifica todos os
+  /// pacientes. Retorna quantos contratos foram atualizados.
+  Future<int> sincronizarPendencias({String? pacienteId}) async {
+    var atualizados = 0;
+    final pendentes = _box.values
+        .where((c) =>
+            (pacienteId == null || c.pacienteId == pacienteId) &&
+            (c.status == 'pendente' || c.status == 'enviado'))
+        .toList();
+    for (final contrato in pendentes) {
+      if (await verificarStatus(contrato)) {
+        atualizados++;
+      }
+    }
+    return atualizados;
+  }
+
   Future<ContratoTerapeutico> criarContrato({
     required Paciente paciente,
     required PerfilProfissional perfil,
