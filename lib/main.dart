@@ -216,8 +216,8 @@ class MentAllApp extends ConsumerWidget {
               iconTheme: WidgetStateProperty.resolveWith(
                 (states) => IconThemeData(
                   color: states.contains(WidgetState.selected)
-                      ? corAcaoFgClaro
-                      : corAcaoFgClaro.withValues(alpha: 0.55),
+                      ? _corPrimaria
+                      : _corPrimaria.withValues(alpha: 0.85),
                 ),
               ),
               labelTextStyle: WidgetStateProperty.resolveWith(
@@ -227,8 +227,8 @@ class MentAllApp extends ConsumerWidget {
                       ? FontWeight.w600
                       : FontWeight.w400,
                   color: states.contains(WidgetState.selected)
-                      ? corAcaoFgClaro
-                      : corAcaoFgClaro.withValues(alpha: 0.6),
+                      ? _corPrimaria
+                      : _corPrimaria.withValues(alpha: 0.85),
                 ),
               ),
             )
