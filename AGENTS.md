@@ -33,14 +33,11 @@
   - `corContainerPrimario` = `cs.primaryContainer` (roxo claro translúcido derivado do seed)
   - `corPrimaria` = `#8806CE` (french violet)
 
-### Barra fixa inferior (NavigationBar) — Início / Pacientes / Financeiro (APLICADO — agora cinza)
+### Barra fixa inferior (NavigationBar) — Início / Pacientes / Financeiro (APLICADO — cor da logo)
 - **Arquivo:** `lib/main.dart` → `navigationBarTheme` no tema claro (`brightness == light`).
-- **Estado anterior (roxo):**
-  - Fundo: `Color(0xFFE0AAFF)`
-  - Indicator: `#3C096C` a 14%
-  - Ícones/legendas: `#3C096C` (selecionado) / `#3C096C` 55-60% (não selecionado)
-- **APLICADO (25/08/2026):** fundo = **mesma cor da sombra** — `corSombraCard.withValues(alpha: 0.30)`; indicator = `corAcaoFgClaro` (`#64748B`) a 14%; ícones/legendas = `#64748B` (selecionado) / `#64748B` 55-60% (não selecionado). Novas constantes públicas em `mentall_colors.dart`: `corSombraCard` (`#94A3B8`) e `corAcaoFgClaro` (`#64748B`). Tema escuro inalterado (`null` → default do ColorScheme).
-- **Nota:** os botões de ação da Home (`corAcaoFundo`/`corAcaoFg`) já usam exatamente as mesmas cores do fundo/ícones da barra (mesmas constantes) — barra e botões são sincronizados.
+- **Estado anterior (cinza):** fundo `corSombraCard` a 30%; indicator `corAcaoFgClaro` (`#64748B`) a 14%; ícones/legendas `#64748B` (selecionado) / `#64748B` 55-60% (não selecionado).
+- **APLICADO (26/08/2026):** ícones/legendas = **cor da logo** — `_corPrimaria` (`#8806CE`, French violet) (selecionado) / `_corPrimaria.withValues(alpha: 0.85)` (não selecionado, 15% transparente). Fundo (`corSombraCard` a 30%), indicator (`corAcaoFgClaro` a 14%) e `surfaceTintColor` **inalterados** (decisão do dono). Tema escuro inalterado (`null` → default do ColorScheme).
+- **Nota:** os botões de ação da Home (`corAcaoFundo`/`corAcaoFg`) continuam usando `corSombraCard`/`corAcaoFgClaro` — NÃO foram sincronizados com esta mudança (escopo: só a barra inferior).
 
 ### Ícones da Atividade recente (Home) — (APLICADO — agora cinza)
 - **Arquivo:** `lib/widgets/home_dashboard.dart` → widget `_AtividadeItem` (chip circular 34px + ícone 17px).
@@ -149,6 +146,50 @@
   3. Novo `lib/utils/artigos_validacao.dart` — `limparArtigosAntigos()` detecta o formato legado (`Título:`/`Link:`/`Acesse:` ou numeração sem link confiável) e limpa ao abrir a sessão (`sessao_form_page.dart:334`).
   4. `_buscarArtigosEmBackground` guarda `_sessaoId` e descarta a resposta se a sessão mudou durante a busca.
 - **Testes:** backend `tests/test_artigos.py` (7: fallback rótulo, formato real, normalizar temas), Flutter `test/services/artigos_validacao_test.dart` (8) + `test/widgets/sessao_artigos_sugeridos_test.dart` (2). Backend 40/40, Flutter 111/111, `analyze` limpo.
+
+## Correções e Funcionalidades (27/08/2026) — SÍNTESE (MATERIAL+TEMA+TIMEOUTS), SINCRONIZAÇÃO CONTRATO/ANAMNESE, PDF PRONTUÁRIO, EXPORT ANAMNESE
+
+### Fix: síntese descartava material e nunca enviava o tema
+- **Sintoma:** a síntese usava só o relato manual OU a transcrição (descartava o outro); `tema_principal` nunca era enviado (sempre `''`); timeouts desalinhados causavam falso "serviço indisponível".
+- **Fix:**
+  1. **Material completo:** `gerar_sintese()` (`ia_clinica.py`) agora combina relato manual + transcrição com rótulos `RELATO DO PROFISSIONAL:` / `TRANSCRIÇÃO DO ÁUDIO:`. Anti-duplicação no app (`sessao_form_page.dart`): ao **regerar** (`_geradoComIa == true`), o campo relato contém a resposta anterior da IA e **não** volta como material (evita realimentação). Escrita manual em sessão nova continua sendo enviada.
+  2. **Tema descoberto pela IA (opção b):** `_montar_prompt_sintese` — sem `tema_principal`, o prompt instrui "Tema principal: identificar a partir do material clínico e usar para orientar toda a síntese." App deixou de enviar `temaPrincipal`; campo opcional no schema Pydantic (`default=""`).
+  3. **Timeouts alinhados:** app (`ia_clinica_service.dart`) timeout 90s→150s e retry 5xx 2→1 (backend já faz cascata de 3 provedores). Backend: síntese Gemini/OpenAI/DeepSeek 60s→45s cada → pior caso 135s < 150s do app. Timeouts de artigos/progresso inalterados.
+- **Arquivos:** `backend/services/ia_clinica.py`, `backend/models/schemas.py`, `lib/services/ia_clinica_service.dart`, `lib/screens/sessao_form_page.dart`.
+- **Testes:** novo `backend/tests/test_sintese.py` (8 testes: material combinado, só relato, só transcrição, sem material, tema identificado/informado). Backend 48/48, Flutter 117/117.
+
+### Fix: aceite do Acordo Terapêutico e resposta da Anamnese não retornavam ao app
+- **Sintoma:** paciente aceitava o contrato/responde a anamnese no link, mas o app continuava "Aguardando"/"Pendente" para sempre, mesmo reiniciando. O app nunca consultava o backend (fonte da verdade no Turso).
+- **Diagnóstico:** persistência Hive OK (boxes/adapters OK); backend grava aceite/resposta OK; mas `ContratoService.verificarStatus` **não tinha nenhum caller** no app, e a anamnese só verificava no botão manual "Reenviar anamnese". Sem polling, sem refresh, sem sincronização.
+- **Fix (sincronização em 3 níveis):**
+  1. **`sincronizarPendencias({String? pacienteId})`** em `ContratoService` e `AnamneseEnviadaService` — consulta o backend dos pendentes/enviados e atualiza o Hive (usa `verificarStatus` existente; retorna quantos atualizaram).
+  2. **Auto-sync ao abrir a ficha** (`paciente_detail_page.dart` initState postFrameCallback) + **pull-to-refresh** na ficha (telefone e tablet) + **sync em lote na Home** (initState). Providers reativos (`observar()`) atualizam o card automaticamente.
+  3. **Botão "Atualizar"** no card do contrato quando `isEnviado` (antes "Enviar" só reenviava WhatsApp, sem verificar). Anamnese mantém botão de reenvio (que também verifica).
+- **Testes:** novo `test/services/sincronizacao_pendencias_test.dart` (5 testes: filtra pendentes/enviados, ignora aceitos/respondidos, filtra por paciente, contagem).
+
+### Fix: exportar "Prontuário completo" travava (congelava) e não gerava PDF
+- **Sintoma:** clicava em "Prontuário completo" → tela congelava por um tempo e voltava sem gerar nada. Só acontecia com o **paciente modelo** (único com artigos sugeridos).
+- **Causa raiz:** `_secaoClinica` renderiza `sessao.artigosSugeridos` com URLs longas sem espaços (ex.: `periodicos.capes.gov.br/...?q=...`) em `pw.Text` com `textAlign: justify` → algoritmo de quebra de linha O(n²) no pacote `pdf` congela a main thread. Além disso, o caller do botão não tinha `try/catch` → exceção virava erro não tratado (voltava sem gerar).
+- **Fix:**
+  1. Novo helper `_quebrarTextosLongos` (`pdf_export_service.dart`, público `quebrarTextosLongos` para teste) que insere quebras em tokens > 60 chars; `textAlign: justify`→`left` nos 4 pontos de texto livre (relato, síntese, artigos, bloco de transcrição). Geração passa de minutos→segundos (validado por teste com timeout 20s).
+  2. Callers dos 5 botões de export agora usam helper `executarExport` (try/catch + `unawaited` + SnackBar de erro) — não há mais falha silenciosa.
+- **Testes:** novo `test/services/pdf_export_service_test.dart` (3 testes do quebra-texto + geração do prontuário com URL longa). Isolate para a geração foi **avaliado e adiado** (pw.Document/rootBundle não são transferíveis; exigiria serializar ~60 campos de 3 modelos).
+
+### Novo: item "Anamnese" no menu Exportar (respostas do paciente)
+- **Objetivo (dono):** exportar em PDF o questionário de anamnese **respondido pelo paciente** (`AnamneseEnviada`), com todas as seções/perguntas do template e os valores preenchidos.
+- **Implementação:**
+  1. Novo `lib/services/anamnese_labels.dart` — mapa `anamneseLabels` (rótulos pt-BR, extraídos de `_labelResposta` do `paciente_resumo_tab.dart`, que agora o reutiliza) + `formatarValorResposta` (List→"a, b", bool→"Sim/Não", vazio→"-"). Sem travessão "—" (fonte Helvetica do PDF não suporta, quebra o layout — padrão já documentado).
+  2. `PdfExportService.exportarAnamnese` + `_gerarPdfAnamnese` — PDF A4 no estilo dos demais (cabeçalho/rodapé, dados do paciente + profissional, data da resposta). Percorre o **template JSON** (`AnamneseTemplates.templatePadrao`) cruzando com `anamnese.respostas`: renderiza cada seção (Dados básicos, Motivo, Intensidade, Saúde, Bloco da abordagem, Segurança emocional, Objetivos) com perguntas + respostas; **segurança emocional em destaque** (alerta laranja em risco); campos condicionais (ex.: "Quais?" quando "Usa medicação=Sim") como sub-resposta; pergunta sem resposta → "-".
+  3. Item "Anamnese" no bottom sheet de export (`paciente_detail_page.dart`): se `anamnese == null || !isRespondido` mostra SnackBar "O paciente ainda não respondeu a anamnese." (não gera PDF vazio). Protegido pelo `executarExport`.
+- **Testes:** +2 em `test/services/pdf_export_service_test.dart` (com respostas completas e sem respostas, ambos com timeout 20s).
+
+### Fix: bottom sheet de Exportar não rolava (item "Anamnese" inacessível)
+- **Sintoma:** com 6 itens no menu Exportar, o último ("Anamnese") ficava cortado/inclicável em telas menores.
+- **Fix:** `showModalBottomSheet` ganhou `isScrollControlled: true` e o conteúdo (`SafeArea > Column`) foi envolvido em `SingleChildScrollView` — rola verticalmente quando não cabe. Visual inalterado onde cabe.
+
+### APK
+- Bumps nesta sessão: `1.0.22+23` → **`1.0.25+26`** (`MentAllPRO-v1.0.23.apk` → `v1.0.24.apk` → `v1.0.25.apk`, ~72 MB cada).
+- `flutter analyze` limpo (1 warning pré-existente em `tools/`); testes Flutter **122/122** (exceto flake conhecido do `sessao_form_page_test` no teardown); backend **48/48**.
 
 ## INFRAESTRUTURA LOCAL (25/08/2026) — Setup e automação
 
