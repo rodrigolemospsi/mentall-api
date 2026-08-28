@@ -1,12 +1,16 @@
+import 'dart:convert';
+
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../config/configuracao_abordagem_clinica.dart';
+import '../models/anamnese_enviada.dart';
 import '../models/paciente.dart';
 import '../models/perfil_profissional.dart';
 import '../models/sessao.dart';
+import 'anamnese_labels.dart';
 import 'logger.dart';
 import '../utils/tipografia.dart';
 
@@ -138,6 +142,31 @@ class PdfExportService {
       );
     } catch (e) {
       Log.erro(e, contexto: 'PdfExportService.exportarProntuarioCompleto');
+      rethrow;
+    }
+  }
+
+  /// Exporta o questionário de anamnese respondido pelo paciente, com todas
+  /// as seções/perguntas do template e as respostas preenchidas.
+  Future<void> exportarAnamnese({
+    required Paciente paciente,
+    required AnamneseEnviada anamnese,
+    required PerfilProfissional perfil,
+    required String templateJson,
+  }) async {
+    try {
+      final pdf = await _gerarPdfAnamnese(
+        paciente: paciente,
+        anamnese: anamnese,
+        perfil: perfil,
+        templateJson: templateJson,
+      );
+      await _salvarOuImprimir(
+        pdf: pdf,
+        nomeArquivo: 'anamnese_${paciente.nome}.pdf',
+      );
+    } catch (e) {
+      Log.erro(e, contexto: 'PdfExportService.exportarAnamnese');
       rethrow;
     }
   }
@@ -412,8 +441,8 @@ class PdfExportService {
                 ),
               ),
               child: pw.Text(
-                texto,
-                textAlign: pw.TextAlign.justify,
+                _quebrarTextosLongos(texto),
+                textAlign: pw.TextAlign.left,
                 style: const pw.TextStyle(
                   fontSize: Tipografia.xxs,
                   height: 1.5,
@@ -624,8 +653,8 @@ class PdfExportService {
             pw.SizedBox(height: 6),
             if (sessao.relatoPosSessao.trim().isNotEmpty)
               pw.Text(
-                sessao.relatoPosSessao,
-                textAlign: pw.TextAlign.justify,
+                _quebrarTextosLongos(sessao.relatoPosSessao),
+                textAlign: pw.TextAlign.left,
                 style: const pw.TextStyle(
                   fontSize: Tipografia.xxs,
                   height: 1.5,
@@ -871,6 +900,221 @@ class PdfExportService {
     return doc.save();
   }
 
+  Future<Uint8List> _gerarPdfAnamnese({
+    required Paciente paciente,
+    required AnamneseEnviada anamnese,
+    required PerfilProfissional perfil,
+    required String templateJson,
+  }) async {
+    final doc = pw.Document();
+    final respostas = anamnese.respostas;
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(28),
+        header: (context) => _cabecalhoPagina(perfil),
+        footer: (context) => _rodapePagina(context),
+        build: (context) => [
+          _tituloDocumento('Anamnese'),
+          pw.SizedBox(height: 4),
+          pw.Text(
+            paciente.nomeExibicao,
+            style: pw.TextStyle(
+              fontSize: Tipografia.md,
+              fontWeight: pw.FontWeight.bold,
+              color: _primaria,
+            ),
+          ),
+          pw.SizedBox(height: 8),
+          _dadosPaciente(paciente),
+          pw.SizedBox(height: 8),
+          _dadosProfissionalResumido(
+            perfil,
+            ConfiguracaoAbordagemClinica.porNome(perfil.abordagemClinica),
+          ),
+          pw.SizedBox(height: 4),
+          if (anamnese.dataResposta != null) ...[
+            pw.Text(
+              'Respondido em ${_formatarData(anamnese.dataResposta!)} às '
+                  '${_formatarHorario(anamnese.dataResposta!)}',
+              style: pw.TextStyle(
+                fontSize: Tipografia.xs,
+                color: _secundaria,
+              ),
+            ),
+          ],
+          pw.SizedBox(height: 8),
+          _linhaSeparadora(),
+          pw.SizedBox(height: 16),
+          ..._secoesAnamnesePdf(templateJson, respostas),
+          pw.SizedBox(height: 16),
+          _secaoExportacao(),
+        ],
+      ),
+    );
+    return doc.save();
+  }
+
+  /// Converte o template JSON da anamnese em widgets de seções, cruzando cada
+  /// pergunta com a resposta do paciente.
+  List<pw.Widget> _secoesAnamnesePdf(
+    String templateJson,
+    Map<String, dynamic> respostas,
+  ) {
+    List<Map<String, dynamic>> secoes;
+    try {
+      final decoded = jsonDecode(templateJson) as Map<String, dynamic>;
+      secoes = (decoded['secoes'] as List<dynamic>? ?? [])
+          .map((s) => s as Map<String, dynamic>)
+          .toList();
+    } catch (_) {
+      secoes = [];
+    }
+
+    if (secoes.isEmpty) {
+      return [
+        pw.Text(
+          'Nenhuma resposta disponível.',
+          style: pw.TextStyle(color: _secundaria, fontSize: Tipografia.sm),
+        ),
+      ];
+    }
+
+    final widgets = <pw.Widget>[];
+    for (final secao in secoes) {
+      final titulo = (secao['titulo'] as String? ?? '')
+          .toString()
+          .toUpperCase();
+      final perguntas = (secao['perguntas'] as List<dynamic>? ?? [])
+          .map((p) => p as Map<String, dynamic>)
+          .toList();
+
+      final ehSeguranca = titulo.toLowerCase().contains('seguran');
+
+      widgets.add(_tituloSecao(titulo));
+      widgets.add(pw.SizedBox(height: 6));
+
+      for (final pergunta in perguntas) {
+        final id = (pergunta['id'] as String? ?? '').toString();
+        final label = (pergunta['label'] as String? ?? anamneseLabels[id] ?? id)
+            .toString();
+        final valor = respostas[id];
+
+        // Campo condicional (ex.: "Quais?" quando a resposta anterior é Sim).
+        final condicional = pergunta['condicional_sim'];
+        final condId = condicional is Map
+            ? (condicional['id'] as String? ?? '').toString()
+            : '';
+        final condLabel = condicional is Map
+            ? (condicional['label'] as String? ?? anamneseLabels[condId] ?? condId)
+                .toString()
+            : '';
+
+        if (ehSeguranca) {
+          final isRisco = id != 'esta_seguro' && valor == true;
+          widgets.add(_campoRespostaSeguranca(
+            label: label,
+            valor: formatarValorResposta(valor),
+            isRisco: isRisco,
+          ));
+        } else {
+          widgets.add(_campoPerguntaResposta(
+            label: label,
+            valor: formatarValorResposta(valor),
+          ));
+        }
+
+        // Se a resposta do campo condicional existir, exibe como sub-resposta.
+        if (condId.isNotEmpty && condLabel.isNotEmpty && respostas.containsKey(condId)) {
+          widgets.add(_campoPerguntaResposta(
+            label: condLabel,
+            valor: formatarValorResposta(respostas[condId]),
+            indentado: true,
+          ));
+        }
+      }
+      widgets.add(pw.SizedBox(height: 12));
+    }
+    return widgets;
+  }
+
+  pw.Widget _campoPerguntaResposta({
+    required String label,
+    required String valor,
+    bool indentado = false,
+  }) {
+    return pw.Padding(
+      padding: pw.EdgeInsets.only(bottom: 8, left: indentado ? 16 : 0),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            label,
+            style: pw.TextStyle(
+              fontSize: Tipografia.xs,
+              fontWeight: pw.FontWeight.bold,
+              color: _secundaria,
+            ),
+          ),
+          pw.SizedBox(height: 2),
+          pw.Text(
+            _quebrarTextosLongos(valor),
+            textAlign: pw.TextAlign.left,
+            style: const pw.TextStyle(fontSize: Tipografia.xxs, height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _campoRespostaSeguranca({
+    required String label,
+    required String valor,
+    required bool isRisco,
+  }) {
+    final cor = isRisco ? PdfColors.orange : _secundaria;
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(bottom: 8),
+      padding: const pw.EdgeInsets.all(8),
+      decoration: pw.BoxDecoration(
+        color: isRisco
+            ? PdfColor.fromInt(0xFFFFF3E0)
+            : PdfColor.fromInt(0xFFF1F5F9),
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+      ),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Expanded(
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  label,
+                  style: pw.TextStyle(
+                    fontSize: Tipografia.xs,
+                    fontWeight: pw.FontWeight.bold,
+                    color: cor,
+                  ),
+                ),
+                pw.SizedBox(height: 2),
+                pw.Text(
+                  valor,
+                  style: pw.TextStyle(
+                    fontSize: Tipografia.xxs,
+                    fontWeight: isRisco ? pw.FontWeight.bold : pw.FontWeight.normal,
+                    color: isRisco ? PdfColors.orange : _secundaria,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   pw.Widget _dadosProfissionalResumido(
     PerfilProfissional perfil,
     ConfiguracaoAbordagemClinica config,
@@ -924,8 +1168,8 @@ class PdfExportService {
               ),
               pw.SizedBox(height: 4),
               pw.Text(
-                sintese,
-                textAlign: pw.TextAlign.justify,
+                _quebrarTextosLongos(sintese),
+                textAlign: pw.TextAlign.left,
                 style: const pw.TextStyle(fontSize: 9, height: 1.5),
               ),
             ],
@@ -1144,11 +1388,71 @@ class PdfExportService {
         ),
       ),
       child: pw.Text(
-        texto,
-        textAlign: pw.TextAlign.justify,
+        _quebrarTextosLongos(texto),
+        textAlign: pw.TextAlign.left,
         style: const pw.TextStyle(fontSize: Tipografia.xxs, height: 1.5),
       ),
     );
+  }
+
+  /// Quebra tokens longos sem espaço (ex.: URLs de artigos sugeridos) para o
+  /// layout do pacote `pdf` não cair em um algoritmo de quebra O(n²), que
+  /// congela a UI na geração do PDF (principalmente em "Prontuário completo").
+  /// Quebra tokens longos sem espaço (ex.: URLs de artigos sugeridos) para o
+  /// layout do pacote `pdf` não cair em um algoritmo de quebra O(n²), que
+  /// congela a UI na geração do PDF (principalmente em "Prontuário completo").
+  static String quebrarTextosLongos(String texto, {int limite = 60}) {
+    return _quebrarTextosLongos(texto, limite: limite);
+  }
+
+  /// Apenas para testes: gera os bytes do "Prontuário completo" sem abrir o
+  /// share sheet, permitindo validar o desempenho da geração.
+  static Future<Uint8List?> gerarPdfProntuarioCompletoParaTeste({
+    required Paciente paciente,
+    required List<Sessao> sessoes,
+    required PerfilProfissional perfil,
+  }) async {
+    return PdfExportService()._gerarPdfProntuarioCompleto(
+      paciente: paciente,
+      sessoes: sessoes,
+      perfil: perfil,
+    );
+  }
+
+  /// Apenas para testes: gera os bytes da "Anamnese" sem abrir o share sheet.
+  static Future<Uint8List?> gerarPdfAnamneseParaTeste({
+    required Paciente paciente,
+    required AnamneseEnviada anamnese,
+    required PerfilProfissional perfil,
+    required String templateJson,
+  }) async {
+    return PdfExportService()._gerarPdfAnamnese(
+      paciente: paciente,
+      anamnese: anamnese,
+      perfil: perfil,
+      templateJson: templateJson,
+    );
+  }
+
+  static String _quebrarTextosLongos(String texto, {int limite = 60}) {
+    if (texto.length <= limite * 2) return texto;
+    final partes = texto.split(RegExp(r'\s+'));
+    if (partes.length == 1) {
+      return _quebrarToken(partes.first, limite);
+    }
+    return partes.map((p) => p.length > limite ? _quebrarToken(p, limite) : p).join(' ');
+  }
+
+  static String _quebrarToken(String token, int limite) {
+    if (token.length <= limite) return token;
+    final sb = StringBuffer();
+    var i = 0;
+    while (i < token.length) {
+      if (i > 0) sb.write('\n');
+      sb.write(token.substring(i, i + limite > token.length ? token.length : i + limite));
+      i += limite;
+    }
+    return sb.toString();
   }
 
   String _formatarData(DateTime data) {
