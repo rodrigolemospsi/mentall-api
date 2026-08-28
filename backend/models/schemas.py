@@ -24,7 +24,7 @@ class SinteseRequest(BaseModel):
     abordagem_clinica: str = Field(max_length=100)
     transcricao_relato: str = Field(max_length=100_000)
     relato_manual: str = Field(max_length=100_000)
-    tema_principal: str = Field(max_length=200)
+    tema_principal: str = Field(default="", max_length=200)
 
 
 class SinteseResponse(BaseModel):

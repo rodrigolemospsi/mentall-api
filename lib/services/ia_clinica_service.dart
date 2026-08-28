@@ -84,11 +84,9 @@ class IaClinicaService {
     required String abordagemClinica,
     required String transcricaoRelato,
     required String relatoManual,
-    String temaPrincipal = '',
   }) async {
     final transcricaoLimpa = transcricaoRelato.trim();
     final relatoManualLimpo = relatoManual.trim();
-    final temaLimpo = temaPrincipal.trim();
     final termoLimpo = termoPessoaAtendida.trim();
     final abordagemLimpa = abordagemClinica.trim();
 
@@ -115,7 +113,6 @@ class IaClinicaService {
           'abordagem_clinica': abordagemLimpa.isNotEmpty ? abordagemLimpa : 'Integrativa',
           'transcricao_relato': transcricaoLimpa,
           'relato_manual': relatoManualLimpo,
-          'tema_principal': temaLimpo,
         },
       );
 
@@ -217,7 +214,7 @@ class IaClinicaService {
             headers: ApiClient.defaultHeaders(),
             body: jsonEncode(body),
           )
-          .timeout(const Duration(seconds: 90));
+          .timeout(const Duration(seconds: 150));
 
       if (response.statusCode == 401 && tentativa < 2) {
         return await _fazerRequisicaoComRetry(
@@ -230,7 +227,7 @@ class IaClinicaService {
             endpoint: endpoint, body: body, tentativa: tentativa + 1);
       }
 
-      if (response.statusCode >= 500 && tentativa < 2) {
+      if (response.statusCode >= 500 && tentativa < 1) {
         await Future.delayed(Duration(seconds: 2 * (tentativa + 1)));
         return await _fazerRequisicaoComRetry(
             endpoint: endpoint, body: body, tentativa: tentativa + 1);

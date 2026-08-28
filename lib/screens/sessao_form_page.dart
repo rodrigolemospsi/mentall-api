@@ -1191,6 +1191,11 @@ if (!mounted || confirmar != true) return;
     final relato = _relatoPosSessaoController.text.trim();
     final transcricao = _transcricaoRelatoController.text.trim();
 
+    // Se a sessão já foi gerada pela IA, o campo "Relato clínico organizado"
+    // contém a resposta anterior da IA — não deve voltar como material clínico
+    // (evita duplicação/realimentação ao regerar).
+    final relatoManual = _geradoComIa ? '' : relato;
+
     if (relato.isEmpty && transcricao.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1249,8 +1254,7 @@ if (!mounted || confirmar != true) return;
         termoPessoaAtendida: _termoSingular,
         abordagemClinica: _abordagemClinica,
         transcricaoRelato: transcricao,
-        relatoManual: relato,
-        temaPrincipal: '',
+        relatoManual: relatoManual,
       );
 
       if (!mounted) return;

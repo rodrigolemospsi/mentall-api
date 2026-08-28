@@ -289,7 +289,7 @@ def _gemini_client():
         return None
     return genai.Client(
         api_key=api_key,
-        http_options=types.HttpOptions(timeout=60000),
+        http_options=types.HttpOptions(timeout=45000),
     )
 
 
@@ -318,8 +318,12 @@ def _montar_prompt_sintese(
 ) -> str:
     termo = termo_pessoa_atendida or "paciente"
     nome = _sanitizar_prompt(nome_pessoa_atendida or "não informado")
-    tema = _sanitizar_prompt(tema_principal or "não informado")
     material = _sanitizar_prompt(material_base)
+
+    if tema_principal and tema_principal.strip():
+        linha_tema = f"Tema principal informado: {_sanitizar_prompt(tema_principal)}"
+    else:
+        linha_tema = "Tema principal: identificar a partir do material clínico e usar para orientar toda a síntese."
 
     return f"""
 {PROMPT_UNIVERSAL}
@@ -329,7 +333,7 @@ def _montar_prompt_sintese(
 --- DADOS DA SESSÃO ---
 Número da sessão: {numero_sessao}
 {termo.capitalize()}: {nome}
-Tema principal informado: {tema}
+{linha_tema}
 
 --- MATERIAL CLÍNICO ---
 {material}
@@ -488,7 +492,7 @@ def _gerar_sintese_deepseek(prompt: str) -> dict:
                 ],
                 "temperature": 0.3,
             },
-            timeout=60,
+            timeout=45,
         )
 
         if resp.status_code != 200:
@@ -529,7 +533,7 @@ def _gerar_sintese_openai_compat(client, prompt: str) -> dict:
             ],
             response_format={"type": "json_object"},
             temperature=0.3,
-            timeout=60,
+            timeout=45,
         )
 
         conteudo = response.choices[0].message.content
@@ -561,7 +565,12 @@ def gerar_sintese(
     try:
         prompt_abordagem = obter_prompt_abordagem(abordagem_clinica)
 
-        material_base = relato_manual if relato_manual.strip() else transcricao_relato
+        partes_material = []
+        if relato_manual.strip():
+            partes_material.append("RELATO DO PROFISSIONAL:\n" + relato_manual.strip())
+        if transcricao_relato.strip():
+            partes_material.append("TRANSCRIÇÃO DO ÁUDIO:\n" + transcricao_relato.strip())
+        material_base = "\n\n".join(partes_material)
 
         if not material_base.strip():
             log.warning("Síntese abortada: sem material clínico")
