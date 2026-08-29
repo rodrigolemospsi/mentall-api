@@ -63,6 +63,8 @@ class ContratoService with EncryptedServiceMixin {
             (c.status == 'pendente' || c.status == 'enviado'))
         .toList();
     for (final contrato in pendentes) {
+      // O box guarda token/url criptografados; descriptografa antes de usar.
+      _decryptContrato(contrato);
       if (await verificarStatus(contrato)) {
         atualizados++;
       }
@@ -123,6 +125,15 @@ class ContratoService with EncryptedServiceMixin {
 
     Log.erro('POST /contratos ${response.statusCode}: ${response.body}', contexto: 'ContratoService');
     throw Exception('Erro HTTP ${response.statusCode} do servidor: ${response.body}');
+  }
+
+  /// Persiste um contrato localmente (criptografa token/url antes de salvar).
+  /// Usado por testes e pelo fluxo de restauração quando não há roundtrip
+  /// com o backend.
+  Future<void> criarLocalmente(ContratoTerapeutico contrato) async {
+    _encryptContrato(contrato);
+    await _box.add(contrato);
+    _decryptContrato(contrato);
   }
 
   Future<bool> marcarComoEnviado(ContratoTerapeutico contrato) async {
@@ -210,10 +221,14 @@ class ContratoService with EncryptedServiceMixin {
 
   void _encryptContrato(ContratoTerapeutico c) {
     c.nomeAceite = _encrypt(c.nomeAceite);
+    c.token = _encrypt(c.token);
+    c.url = _encrypt(c.url);
   }
 
   void _decryptContrato(ContratoTerapeutico c) {
     c.nomeAceite = _decrypt(c.nomeAceite);
+    c.token = _decrypt(c.token);
+    c.url = _decrypt(c.url);
   }
 
   void _decryptContratos(List<ContratoTerapeutico> lista) {

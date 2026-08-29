@@ -20,6 +20,8 @@ class BackupService with EncryptedServiceMixin {
   String _encrypt(String value) => encrypt(value);
   String _decrypt(String value) => decrypt(value);
 
+  bool get _podeCifrar => encryption != null && encryption!.configurado;
+
   String exportarParaJson() {
     final pacientes = Hive.box<Paciente>('pacientes');
     final sessoes = Hive.box<Sessao>('sessoes');
@@ -57,7 +59,7 @@ class BackupService with EncryptedServiceMixin {
           if (p.dataAtualizacao != null)
             'data_atualizacao': p.dataAtualizacao!.toIso8601String(),
           'modo_atendimento': p.modoAtendimento,
-          'foto_base64': p.fotoBase64,
+          if (p.fotoBase64.isNotEmpty) 'foto_base64': _decrypt(p.fotoBase64),
           'tratamento': p.tratamento,
           if (p.enderecoJson.isNotEmpty) 'endereco_json': _decrypt(p.enderecoJson),
           'valor_sessao': p.valorSessao,
@@ -109,7 +111,7 @@ class BackupService with EncryptedServiceMixin {
           return {
             'id': c.id,
             'paciente_id': c.pacienteId,
-            'token': c.token,
+            'token': _decrypt(c.token),
             'data_criacao': c.dataCriacao.toIso8601String(),
             if (c.dataEnvio != null)
               'data_envio': c.dataEnvio!.toIso8601String(),
@@ -117,7 +119,7 @@ class BackupService with EncryptedServiceMixin {
               'data_aceite': c.dataAceite!.toIso8601String(),
             'status': c.status,
             'nome_aceite': _decrypt(c.nomeAceite),
-            'url': c.url,
+            'url': _decrypt(c.url),
             'arquivado': c.arquivado,
           };
         }).toList(),
@@ -149,7 +151,17 @@ class BackupService with EncryptedServiceMixin {
     };
 
     const encoder = JsonEncoder.withIndent('  ');
-    return encoder.convert(dados);
+    final jsonClaro = encoder.convert(dados);
+
+    if (_podeCifrar) {
+      final envelope = encryption!.criptografarEnvelope(jsonClaro);
+      if (envelope != null) {
+        // Formata com indentação para leitura humana, mantendo o envelope.
+        final envJson = jsonDecode(envelope) as Map<String, dynamic>;
+        return const JsonEncoder.withIndent('  ').convert(envJson);
+      }
+    }
+    return jsonClaro;
   }
 
   Future<void> _salvarSobrescrevendo<T>(
@@ -169,6 +181,27 @@ class BackupService with EncryptedServiceMixin {
   }
 
   Future<String> importarDeJson(String jsonString) async {
+    try {
+      // Detecta e abre envelope criptografado (AES-GCM + HMAC) quando houver.
+      final brutoDecodificado = jsonDecode(jsonString) as Map<String, dynamic>?;
+      if (brutoDecodificado != null && brutoDecodificado['tipo'] == 'mentall_backup_v1') {
+        if (!_podeCifrar) {
+          return 'Backup criptografado: configure o PIN ou desbloqueie o app para restaurar.';
+        }
+        final jsonClaro = encryption!.descriptografarEnvelope(jsonString);
+        if (jsonClaro == null) {
+          return 'Arquivo de backup inválido: integridade comprometida.';
+        }
+        return await _importarJsonClaro(jsonClaro);
+      }
+
+      return await _importarJsonClaro(jsonString);
+    } catch (e) {
+      return 'Erro ao importar: $e';
+    }
+  }
+
+  Future<String> _importarJsonClaro(String jsonString) async {
     try {
       final dados = jsonDecode(jsonString) as Map<String, dynamic>;
 
@@ -235,7 +268,7 @@ class BackupService with EncryptedServiceMixin {
               ? DateTime.parse(map['data_atualizacao'] as String)
               : null,
           modoAtendimento: map['modo_atendimento'] as String? ?? '',
-          fotoBase64: map['foto_base64'] as String? ?? '',
+          fotoBase64: _encrypt(map['foto_base64'] as String? ?? ''),
           tratamento: map['tratamento'] as String? ?? 'masculino',
           enderecoJson: _encrypt(map['endereco_json'] as String? ?? ''),
           valorSessao: (map['valor_sessao'] as num?)?.toDouble() ?? 0.0,
@@ -354,7 +387,7 @@ class BackupService with EncryptedServiceMixin {
         final contrato = ContratoTerapeutico(
           id: map['id'] as String,
           pacienteId: map['paciente_id'] as String,
-          token: map['token'] as String,
+          token: _encrypt(map['token'] as String? ?? ''),
           dataCriacao: map['data_criacao'] != null
               ? DateTime.parse(map['data_criacao'] as String)
               : DateTime.now(),
@@ -366,7 +399,7 @@ class BackupService with EncryptedServiceMixin {
               : null,
           status: map['status'] as String? ?? 'pendente',
           nomeAceite: _encrypt(map['nome_aceite'] as String? ?? ''),
-          url: map['url'] as String? ?? '',
+          url: _encrypt(map['url'] as String? ?? ''),
           arquivado: map['arquivado'] as bool? ?? false,
         );
 

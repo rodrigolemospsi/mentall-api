@@ -1,4 +1,17 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+def validar_senha(senha: str) -> str:
+    """Senha forte: >= 10 chars com letra maiuscula, minuscula e numero."""
+    if len(senha) < 10:
+        raise ValueError("A senha deve ter pelo menos 10 caracteres.")
+    if not any(c.isupper() for c in senha):
+        raise ValueError("A senha deve conter pelo menos uma letra maiuscula.")
+    if not any(c.islower() for c in senha):
+        raise ValueError("A senha deve conter pelo menos uma letra minuscula.")
+    if not any(c.isdigit() for c in senha):
+        raise ValueError("A senha deve conter pelo menos um numero.")
+    return senha
 
 
 class TranscricaoRequest(BaseModel):
@@ -73,8 +86,10 @@ class LoginResponse(BaseModel):
 
 class RegistrarRequest(BaseModel):
     email: str = Field(min_length=5, max_length=200)
-    senha: str = Field(min_length=6, max_length=200)
+    senha: str = Field(min_length=10, max_length=200)
     nome: str = Field(default="", max_length=120)
+
+    _validar_senha = field_validator("senha")(validar_senha)
 
 
 class RegistrarResponse(BaseModel):
@@ -220,7 +235,7 @@ class RegistrarRecuperacaoRequest(BaseModel):
 
 class VerificarCodigoRequest(BaseModel):
     email: str = Field(min_length=5, max_length=200)
-    codigo: str = Field(min_length=6, max_length=6)
+    codigo: str = Field(min_length=6, max_length=12)
 
 
 class VerificarCodigoResponse(BaseModel):

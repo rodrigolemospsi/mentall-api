@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:isolate';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_ce/hive.dart';
@@ -388,6 +389,84 @@ class EncryptionService {
       Log.erro(e, contexto: 'EncryptionService.criptografar');
       rethrow;
     }
+  }
+
+  /// Cifra um JSON de backup em envelope AES-GCM + HMAC-SHA256.
+  ///
+  /// Formato do envelope (JSON): `{tipo, nonce, cifrado, mac}` onde `mac` é
+  /// HMAC-SHA256 sobre (nonce || cifrado) com chave derivada da chave mestra.
+  /// Retorna `null` se a chave não estiver configurada (sem PIN).
+  String? criptografarEnvelope(String jsonClaro) {
+    if (_key == null || jsonClaro.isEmpty) return null;
+    try {
+      final nonce = encrypt.IV.fromSecureRandom(12);
+      final nonceBytes = Uint8List.fromList(nonce.bytes);
+      final cifrado = _gcm.encrypt(jsonClaro, iv: nonce);
+      final cifradoBytes = Uint8List.fromList(cifrado.bytes);
+      final mac = _hmacBackup(nonceBytes, cifradoBytes);
+      return jsonEncode({
+        'tipo': 'mentall_backup_v1',
+        'nonce': base64Encode(nonceBytes),
+        'cifrado': base64Encode(cifradoBytes),
+        'mac': base64Encode(mac),
+      });
+    } catch (e) {
+      Log.erro(e, contexto: 'EncryptionService.criptografarEnvelope');
+      return null;
+    }
+  }
+
+  /// Abre um envelope de backup: verifica o HMAC e descriptografa o JSON.
+  ///
+  /// Retorna o JSON claro original, ou `null` se a chave não estiver
+  /// configurada, o formato for inválido ou a integridade falhar.
+  String? descriptografarEnvelope(String envelopeJson) {
+    if (_key == null || envelopeJson.isEmpty) return null;
+    try {
+      final env = jsonDecode(envelopeJson) as Map<String, dynamic>;
+      if (env['tipo'] != 'mentall_backup_v1') return null;
+
+      final nonce = base64Decode(env['nonce'] as String);
+      final cifrado = base64Decode(env['cifrado'] as String);
+      final macEsperado = base64Decode(env['mac'] as String);
+      final macCalculado = _hmacBackup(Uint8List.fromList(nonce), Uint8List.fromList(cifrado));
+
+      // Comparação em tempo constante para evitar timing attacks.
+      if (macCalculado.length != macEsperado.length ||
+          !_constEq(macCalculado, macEsperado)) {
+        return null;
+      }
+
+      return _gcm.decrypt(
+        encrypt.Encrypted(Uint8List.fromList(cifrado)),
+        iv: encrypt.IV(nonce),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// HMAC-SHA256 sobre (nonce || cifrado) usando chave derivada da chave mestra.
+  Uint8List _hmacBackup(Uint8List nonce, Uint8List cifrado) {
+    final derivado = _derivarChaveMacEnvelope();
+    final hmac = Hmac(sha256, derivado);
+    final dados = Uint8List.fromList([...nonce, ...cifrado]);
+    return Uint8List.fromList(hmac.convert(dados).bytes);
+  }
+
+  /// Chave MAC derivada da chave mestra com contexto (não reusa a chave AES).
+  Uint8List _derivarChaveMacEnvelope() {
+    final ctx = utf8.encode('mentall-backup-mac-v1:');
+    return Uint8List.fromList(sha256.convert([...ctx, ..._key!.bytes]).bytes);
+  }
+
+  bool _constEq(List<int> a, List<int> b) {
+    if (a.length != b.length) return false;
+    var diff = 0;
+    for (var i = 0; i < a.length; i++) {
+      diff |= a[i] ^ b[i];
+    }
+    return diff == 0;
   }
 
   String descriptografar(String texto) {

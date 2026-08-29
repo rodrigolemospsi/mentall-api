@@ -194,6 +194,8 @@ class PacienteService with EncryptedServiceMixin {
     p.contato = _encrypt(p.contato);
     p.email = _encrypt(p.email);
     p.observacoes = _encrypt(p.observacoes);
+    p.fotoBase64 = _encrypt(p.fotoBase64);
+    p.enderecoJson = _encrypt(p.enderecoJson);
   }
 
   void _decryptPaciente(Paciente p) {
@@ -201,6 +203,8 @@ class PacienteService with EncryptedServiceMixin {
     p.contato = _decrypt(p.contato);
     p.email = _decrypt(p.email);
     p.observacoes = _decrypt(p.observacoes);
+    p.fotoBase64 = _decrypt(p.fotoBase64);
+    p.enderecoJson = _decrypt(p.enderecoJson);
   }
 
   void _decryptPacientes(List<Paciente> pacientes) {

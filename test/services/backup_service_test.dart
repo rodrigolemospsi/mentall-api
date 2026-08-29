@@ -78,19 +78,17 @@ void main() {
         artigosSugeridos: 'Artigos',
       );
 
-  test('export gera JSON em texto claro mesmo com PIN', () async {
+  test('export com PIN gera envelope cifrado (nao texto claro)', () async {
     await pacienteService.adicionarPaciente(novoPaciente());
     await sessaoService.adicionarSessao(novaSessao());
 
     final json = jsonDecode(backup.exportarParaJson()) as Map<String, dynamic>;
 
-    final paciente = (json['pacientes'] as List).single;
-    expect(paciente['nome'], 'Original');
-    expect(paciente['contato'], '11999999999');
-
-    final sessao = (json['sessoes'] as List).single;
-    expect(sessao['relato_pos_sessao'], 'Relato');
-    expect(sessao['artigos_sugeridos'], 'Artigos');
+    // O backup com PIN é um envelope cifrado (AES-GCM + HMAC), não JSON claro.
+    expect(json['tipo'], 'mentall_backup_v1');
+    expect(json['cifrado'], isNotEmpty);
+    expect(json['mac'], isNotEmpty);
+    expect(backup.exportarParaJson(), isNot(contains('Original')));
   });
 
   test('import sobrescreve registro existente com mesmo ID', () async {

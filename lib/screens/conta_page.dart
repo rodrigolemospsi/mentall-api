@@ -26,6 +26,10 @@ class _ContaPageState extends ConsumerState<ContaPage> {
   String? _erro;
   String? _mensagem;
 
+  bool _temMaiuscula(String s) => s.contains(RegExp(r'[A-Z]'));
+  bool _temMinuscula(String s) => s.contains(RegExp(r'[a-z]'));
+  bool _temNumero(String s) => s.contains(RegExp(r'[0-9]'));
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -49,8 +53,12 @@ class _ContaPageState extends ConsumerState<ContaPage> {
       setState(() => _erro = 'Informe um e-mail valido.');
       return;
     }
-    if (senha.length < 6) {
-      setState(() => _erro = 'A senha deve ter pelo menos 6 caracteres.');
+    if (senha.length < 10) {
+      setState(() => _erro = 'A senha deve ter pelo menos 10 caracteres.');
+      return;
+    }
+    if (!_temMaiuscula(senha) || !_temMinuscula(senha) || !_temNumero(senha)) {
+      setState(() => _erro = 'A senha deve conter maiusculas, minusculas e numeros.');
       return;
     }
 

@@ -191,6 +191,60 @@
 - Bumps nesta sessão: `1.0.22+23` → **`1.0.25+26`** (`MentAllPRO-v1.0.23.apk` → `v1.0.24.apk` → `v1.0.25.apk`, ~72 MB cada).
 - `flutter analyze` limpo (1 warning pré-existente em `tools/`); testes Flutter **122/122** (exceto flake conhecido do `sessao_form_page_test` no teardown); backend **48/48**.
 
+## Correções e Funcionalidades (28/08/2026) — PENTEST STRIX (1º SCAN) + GH CLI + SKILLS
+
+### GitHub CLI (`gh`) instalado e autenticado
+- **Binário:** `~/.local/bin/gh` (v2.98.0, baixado do release oficial — sem Homebrew). **Já autenticado** na conta `rodrigolemospsi` (device flow).
+- **Uso:** `gh secret list`, `gh run list`, `gh repo view` (ex.: `gh run list -R rodrigolemospsi/mentall-api --limit 5`). Se o token expirar: `gh auth login --hostname github.com --git-protocol https --web`.
+- **Verificação real (28/08):** repo `rodrigolemospsi/mentall-api` **público**, branch default `master`, branches `master` + `gh-pages`. Secret `FLY_API_TOKEN` presente (criado 24/08). CI: 2 falhas históricas (22/08 e 24/08 17:21) — **todas anteriores** à criação do `FLY_API_TOKEN` (24/08 17:26); desde então 100% success (último: 28/08, deploy Fly em 57s).
+
+### Strix — AI pentest (primeiro scan executado)
+- **Ferramenta:** Strix (AI penetration testing agentic, open-source). CLI já instalado em `~/.strix/bin/strix` (v1.5.3). Repo: `github.com/usestrix/strix` (59k stars). Docs: `docs.strix.ai`, `docs.app.strix.ai`.
+- **9 skills instaladas em `.opencode/skills/`:** `penetration-testing-with-strix`, `managed-pentesting-with-strix`, `fix-security-vulnerabilities-with-strix`, `ci-security-scanning-with-strix`, `application-security-testing`, `web-app-penetration-testing`, `api-security-testing`, `owasp-top-10-testing`, `find-security-vulnerabilities-in-code` (instaladas manualmente via curl — sem Node/npx no sistema).
+- **Config:** `~/.strix/cli-config.json` no formato `{"env": {"STRIX_LLM": "deepseek/deepseek-v4-flash", "LLM_API_KEY": "<DEEPSEEK_API_KEY do backend/.env>", "STRIX_TELEMETRY": "0"}}`. Modelo escolhido: **DeepSeek** `deepseek-v4-flash` (o mesmo do backend; confirmado disponível na conta). Modelos alternativos disponíveis: OpenAI `gpt-4.1` (conta NÃO tem gpt-5.x), Gemini `gemini-3.7-flash`.
+- **⚠️ Regra de segurança no uso:** `strix -t <dir>` monta o alvo **writable** no sandbox e os agentes **leem todos os arquivos** (inclusive `.env`!). **Sempre rodar contra checkout limpo** (`git archive HEAD | tar -x -C /tmp/strix-target` + remover `auditoria/`), nunca contra o diretório de trabalho com secrets.
+
+### Resultado do 1º scan (28/08/2026)
+- **Comando:** `strix -n -t /tmp/strix-target --scan-mode standard --max-budget 10` (~40 min, **US$ 1.37** de US$ 10).
+- **Resultados em:** `/tmp/strix_runs/strix-target_e366/` (`penetration_test_report.md` executivo + `vulnerabilities/*.md` com PoC + `findings.sarif` + `vulnerabilities.csv`).
+- **Total: 20 achados validados** (6 High, 11 Medium, 3 Low).
+
+#### 🔴 High (6) — corrigir primeiro
+1. **IDOR em `/lembretes`** — `POST /lembretes` usa `compromisso_id` do cliente como PK via `INSERT OR REPLACE` e `DELETE /lembretes/{compromisso_id}` apaga por chave sem checar `owner_id` (`backend/services/lembrete_service.py`). Profissional B pode apagar/sequestrar lembrete de A (IDs = microsegundos previsíveis).
+2. **PIN-recovery brute-forcável** — `_gerar_codigo()` usa 6 dígitos com SHA-256 **sem salt** (crack offline ~0.06s); `/auth/verificar-recuperacao` sem contador de tentativas + **query quebrada `SELECT codigo`** (coluna inexistente) que deixa o fluxo não-funcional; enumeração de e-mail via respostas distintas em `/auth/solicitar-recuperacao`.
+3. **4 CVEs de dependências:** `python-jose==3.3.0` (CVE-2024-33663/33664 — mitigado na prática pelo HS256 pinado, mas latente), `python-multipart==0.0.18` (7 CVEs: path traversal, DoS — alcançável via `form()` no webhook WhatsApp), `requests==2.32.3` (2 CVEs), `python-dotenv==1.0.1` (symlink overwrite).
+
+#### 🟠 Medium (11) — destaques
+- **Stored XSS** em `/anamneses/{token}` — `dados_extra` (incl. `abordagem`) injetado sem escape via `json.dumps` em bloco `<script>`; CSP permite `unsafe-inline`. Confirmado executando em Chromium. (Contrato validado como seguro.)
+- **Rate-limit bypass** — `_rate_limit_check` chaveia em `request.client.host`; com `--proxy-headers` no Dockerfile o IP vira o `X-Forwarded-For` do atacante (11 logins com XFF rotativo burlam 429). Bucket único compartilhado entre rotas.
+- **Badge "✓ Verificado" CRP falseável** — `crp_verificado` vem do cliente e é renderizado em páginas públicas mesmo quando o endpoint do servidor reporta CRP inativo.
+- **Backup plaintext** — `BackupService.exportarParaJson` grava DB clínico completo (fotos, transcrições, áudio, tokens de contrato) em JSON claro sem MAC; import valida só a chave `versao` (backup adulterado injeta/edita registros). Gate de PIN ineficaz (dead code).
+- **Foto/endereço/token de contrato sem criptografia no Hive** — criptografia cobre só `nome`/`contato`/`email`/`observacoes`.
+- **Senha fraca** — `RegistrarRequest.senha` min_length=6 sem complexidade; combinado com rate-limit bypass viabiliza brute-force online (registro com `123456` aceito).
+
+#### ✅ Validado como seguro
+Sem SQL injection (queries parametrizadas), SSRF (URLs fixas), template injection, JWT algorithm confusion (HS256 pinado), mass assignment (Pydantic v2), CORS misconfig, enumeração de usuário no login, XSS no contrato, e-mail-confirmation tokens ok.
+
+### Recomendações do relatório (ordem de prioridade)
+1. **Immediate:** autorização por `owner_id` nos lembretes + `compromisso_id` gerado no servidor · endurecer PIN-recovery (entropia 8+ alfanumérica CSPRNG, hash lento com salt bcrypt/argon2, lockout por conta, respostas genéricas, corrigir `SELECT codigo`) · corrigir rate limiter (IP real, buckets por rota/conta) · escapar saída em script-context + remover `unsafe-inline` · subir deps (`python-jose>=3.4.0`, `python-multipart>=0.0.31`, `requests>=2.33.0`, `python-dotenv>=1.2.2`) · senha mínima 10 chars + complexidade.
+2. **Short-term:** backup criptografado AES-GCM + HMAC envelope verificado no import · criptografar `fotoBase64`/`enderecoJson`/token de contrato no Hive · `crp_verificado` derivado no servidor · erros genéricos no contrato.
+3. **Medium-term:** tamper-resistance na auditoria (hash chain/HMAC) · normalizar cert pinning + inactivity timeout · endurecer webhook WhatsApp.
+
+### CORREÇÕES DO PENTEST — ACHADOS HIGH (29/08/2026, skill fix-security-vulnerabilities-with-strix)
+Re-verificados no HEAD atual e corrigidos (TDD — testes RED antes de cada fix):
+- **IDOR lembretes (High):** `agendar_lembrete` agora gera o `id` no servidor (`uuid`), nunca usa `compromisso_id` como PK (`INSERT OR REPLACE` removido). Upsert por `(owner_id, compromisso_id)`. `cancelar_lembrete` e o `DELETE /lembretes/{id}` filtram por `owner_id` (o handler agora extrai `auth`). Tests: `backend/tests/test_lembrete_idor.py` (4).
+- **PIN-recovery (High):** código 8 alfanuméricos CSPRNG (era 6 dígitos); hash bcrypt com salt (`_hash_codigo`, com fallback `_hash_codigo_legado` sha256 para hashes antigos); contador de tentativas + lockout de 15 min por conta (`MAX_TENTATIVAS_RECUPERACAO=5`); respostas genéricas em `solicitar-recuperacao` (anti enumeração de e-mail); **corrigida a query quebrada `SELECT codigo` → `codigo_hash`**. Colunas novas `tentativas`/`bloqueio_ate` em `recuperacoes` (CREATE TABLE + `_garantir_coluna`). `VerificarCodigoRequest.codigo` 6-12. Tests: `backend/tests/test_recuperacao_pin.py` (14).
+- **Dependências com CVEs (High):** `requirements.txt` — `python-jose 3.3.0→3.4.0`, `python-multipart 0.0.18→0.0.31`, `requests 2.32.3→2.33.0`, `python-dotenv 1.0.1→1.2.2` (CRLF normalizado para LF). Instaladas no venv e validadas no boot + `TestClient` (health, recuperação, webhook form/json).
+### CORREÇÕES DO PENTEST — ACHADOS MEDIUM (29/08/2026, skills security-and-hardening + test-driven-development)
+TDD (testes RED antes de cada fix). Re-verificados no HEAD e corrigidos:
+- **Stored XSS na anamnese (Medium):** `dados_extra` (incl. `abordagem`) era injetado via `json.dumps` sem escape em `<script>` (CSP com `unsafe-inline`). Novo `_json_script_seguro` (escapa `&<>` + U+2028/29 como `\uXXXX`) e `_montar_pagina_anamnese_script`; o template agora recebe JSON seguro para `DADOS_PROFISSIONAL` e `TEMPLATE`. Tests: `backend/tests/test_anamnese_xss.py` (4).
+- **Rate-limit bypass (Medium):** bucket era global por `client.host` (XFF do atacante, burlava 429 com IP rotativo e consumia o orçamento de todas as rotas). `_rate_limit_check` agora recebe o `Request`: deriva IP real via último XFF (`_cliente_ip`) e chaveia por `{rota}|{ip}` ou `{rota}|{chave_extra}` (conta) nos endpoints de auth (login, registrar, verificar-crp, recuperação). Tests: `backend/tests/test_rate_limit.py` (7).
+- **Badge CRP falseável (Medium):** `crp_verificado` vinha do cliente e era renderizado nas páginas públicas. Novo `_crp_verificado_servidor(registro, cliente_afirma)`: consulta o CFP no servidor na criação do contrato/anamnese; sem registro, sem afirmação ou falha de rede → False (fail-closed). Tests: `backend/tests/test_crp_selo.py` (5).
+- **Senha fraca (Medium):** `RegistrarRequest.senha` era min 6 sem complexidade. Schema agora valida ≥10 chars + maiúscula + minúscula + número (`validar_senha` via `field_validator`); endpoint usa `_validar_registro_ou_raise`; app `conta_page.dart` alinhado (validação 10+complexidade antes de enviar). Tests: `backend/tests/test_senha_fraca.py` (7).
+- **Backup plaintext (Medium):** `BackupService` exportava DB clínico em JSON claro sem MAC; import validava só `versao`. Novo envelope `mentall_backup_v1` (`EncryptionService.criptografarEnvelope`/`descriptografarEnvelope`): AES-GCM + HMAC-SHA256 (chave derivada, comparação em tempo constante). Export com PIN gera envelope; import verifica MAC antes de restaurar (rejeita adulteração), requer PIN se cifrado, mantém compat com JSON claro legado. Tests: `test/services/backup_envelope_test.dart` (7) + `backup_service_test.dart` atualizado.
+- **Criptografia parcial Hive (Medium):** `Paciente.fotoBase64`/`enderecoJson` e `ContratoTerapeutico.token`/`url` passaram a ser cifrados em repouso (`_encryptPaciente`/`_decryptPaciente`, `_encryptContrato`/`_decryptContrato`). `sincronizarPendencias` descriptografa antes de `verificarStatus`; novo `ContratoService.criarLocalmente`; backup export/import ajustado (foto, endereco, token, url). Tests: `test/services/campos_criptografados_test.dart` (4).
+- **Verificação:** backend **89/89**; Flutter **133/133** nos arquivos não-flake (`sessao_form_page_test` travou no teardown — flake conhecido de file-lock, documentado); `flutter analyze` limpo (1 warning pré-existente em `tools/`).
+
 ## INFRAESTRUTURA LOCAL (25/08/2026) — Setup e automação
 
 ### Localização do projeto (MOVIDA!)
@@ -212,6 +266,7 @@
 - **Backend venv**: `~/mentall-pro-app/backend/.venv` (Python 3.12). Ativar/rodar: `./.venv/bin/python -m uvicorn main:app --port 8000`.
 - **Importante**: `main.py` usa f-strings que exigem **Python 3.12+** (o 3.9 do sistema não compila).
 - **Go** (para compilar wuzapi): `~/go-local/bin/go`.
+- **GitHub CLI (`gh`)**: binário `~/.local/bin/gh` (v2.98.0, baixado do release oficial — sem Homebrew). **Já autenticado** na conta `rodrigolemospsi` (device flow em 28/08/2026). Usar `gh` para consultar secrets/actions/PRs: `gh secret list`, `gh run list`, `gh repo view`. Ex.: `gh run list -R rodrigolemospsi/mentall-api --limit 5`. Se o token expirar: `gh auth login --hostname github.com --git-protocol https --web`.
 
 ### wuzapi
 - Binário compilado: `~/wuzapi/wuzapi` (v1.0.8). Config: `~/wuzapi/.env` (`WUZAPI_ADMIN_TOKEN`).
@@ -455,7 +510,7 @@
 ### Pendências
 - Bug do áudio "duração errada ao reabrir" (instrumentado; aguarda reprodução do dono + logs).
 - Fase 2+ (telemetria, painel admin, cobrança) — `tasks/plan.md`.
-- (Opcional) ferramentas avaliadas e **não** instaladas: Jerico (orquestrador multi-agente, só macOS) e Strix (AI pentest, exige Docker + chave LLM).
+- (Opcional) ferramentas avaliadas e **não** instaladas: Jerico (orquestrador multi-agente, só macOS). **Strix já instalado e em uso desde 28/08/2026** — ver seção "PENTEST STRIX" no topo.
 
 ## Correções e Funcionalidades (14/08/2026) — UI + PLANO DE VENDA RECORRENTE (FASE 1: CONTAS)
 

@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import time
+import uuid
 from datetime import datetime, timezone, timedelta
 
 import requests
@@ -272,20 +273,47 @@ async def parar_scheduler() -> None:
 async def agendar_lembrete(compromisso_id: str, telefone: str, mensagem: str,
                            horario_envio: str, canal: str = "whatsapp",
                            owner_id: str = "") -> str:
-    rid = compromisso_id
+    """Agenda (ou re-agenda) um lembrete para o compromisso.
+
+    O id do lembrete é gerado no servidor (uuid) — o `compromisso_id` enviado
+    pelo cliente NUNCA é usado como chave primária (fix IDOR do pentest).
+    Reagendar o mesmo (owner_id, compromisso_id) atualiza o registro existente
+    em vez de duplicar; owners diferentes nunca se sobrescrevem."""
     async with _LOCK:
+        cur = executar(
+            "SELECT id FROM lembretes WHERE compromisso_id = ? AND owner_id = ?",
+            (compromisso_id, owner_id),
+        )
+        linha = cur.fetchone()
+        agora = datetime.now(timezone.utc).isoformat()
+
+        if linha:
+            rid = linha["id"]
+            executar(
+                "UPDATE lembretes SET telefone = ?, mensagem = ?, horario_envio = ?, "
+                "canal = ?, status = 'pendente', criado_em = ? "
+                "WHERE id = ? AND owner_id = ?",
+                (telefone, mensagem, horario_envio, canal, agora, rid, owner_id),
+            ).commit()
+            log.info("Lembrete re-agendado: %s para %s", rid[:8], horario_envio)
+            return rid
+
+        rid = str(uuid.uuid4())
         executar(
-            "INSERT OR REPLACE INTO lembretes (id, compromisso_id, telefone, mensagem, horario_envio, canal, status, owner_id, criado_em) "
+            "INSERT INTO lembretes (id, compromisso_id, telefone, mensagem, horario_envio, canal, status, owner_id, criado_em) "
             "VALUES (?, ?, ?, ?, ?, ?, 'pendente', ?, ?)",
-            (rid, compromisso_id, telefone, mensagem, horario_envio, canal, owner_id, datetime.now(timezone.utc).isoformat()),
+            (rid, compromisso_id, telefone, mensagem, horario_envio, canal, owner_id, agora),
         ).commit()
     log.info("Lembrete agendado: %s para %s", rid[:8], horario_envio)
     return rid
 
 
-async def cancelar_lembrete(compromisso_id: str) -> bool:
+async def cancelar_lembrete(compromisso_id: str, owner_id: str = "") -> bool:
     async with _LOCK:
-        cur = executar("DELETE FROM lembretes WHERE compromisso_id = ?", (compromisso_id,))
+        cur = executar(
+            "DELETE FROM lembretes WHERE compromisso_id = ? AND owner_id = ?",
+            (compromisso_id, owner_id),
+        )
         cur.commit()
         deletado = cur.rowcount > 0
         if deletado:

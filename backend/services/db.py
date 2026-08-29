@@ -193,6 +193,8 @@ _tabelas = [
         recovery_token TEXT NOT NULL DEFAULT '',
         codigo_hash TEXT,
         codigo_expiracao TEXT,
+        tentativas INTEGER NOT NULL DEFAULT 0,
+        bloqueio_ate TEXT,
         criado_em TEXT NOT NULL
     )""",
     """CREATE TABLE IF NOT EXISTS usuarios (
@@ -249,6 +251,8 @@ def _garantir_coluna(tabela: str, coluna: str, tipo: str) -> None:
 _garantir_coluna("usuarios", "email_verificacao_token_hash", "TEXT")
 _garantir_coluna("usuarios", "email_verificacao_expiracao", "TEXT")
 _garantir_coluna("recuperacoes", "codigo_hash", "TEXT")
+_garantir_coluna("recuperacoes", "tentativas", "INTEGER NOT NULL DEFAULT 0")
+_garantir_coluna("recuperacoes", "bloqueio_ate", "TEXT")
 _garantir_coluna("lembretes", "tentativas", "INTEGER NOT NULL DEFAULT 0")
 _garantir_coluna("lembretes", "ultima_tentativa_em", "TEXT")
 _garantir_coluna("lembretes", "mensagem_id", "TEXT")

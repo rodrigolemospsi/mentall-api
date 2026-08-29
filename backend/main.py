@@ -92,21 +92,53 @@ from services.transcricao import transcrever_audio
 _rate_limit_store: dict[str, list[float]] = {}
 
 
+def _cliente_ip(request: Request) -> str:
+    """Retorna o IP real do cliente, confiando no X-Forwarded-For do proxy.
+
+    Atrás do Fly (uvicorn --proxy-headers) o `client.host` é o valor do
+    X-Forwarded-For do atacante — ele controla o cabeçalho e pode rotacioná-lo
+    para burlar rate limit. O proxy confiável ADICIONA o IP real do cliente ao
+    FINAL da cadeia XFF; portanto usamos o último valor válido."""
+    try:
+        xff = request.headers.get("x-forwarded-for", "")
+        if xff:
+            partes = [p.strip() for p in xff.split(",") if p.strip()]
+            if partes:
+                return partes[-1]
+    except Exception:
+        pass
+    if request.client:
+        return request.client.host or "unknown"
+    return "unknown"
+
+
 def _limpar_rate_limits(agora: float) -> None:
-    for ip in list(_rate_limit_store.keys()):
-        _rate_limit_store[ip] = [t for t in _rate_limit_store[ip] if agora - t < 60.0]
-        if not _rate_limit_store[ip]:
-            del _rate_limit_store[ip]
+    for chave in list(_rate_limit_store.keys()):
+        _rate_limit_store[chave] = [t for t in _rate_limit_store[chave] if agora - t < 60.0]
+        if not _rate_limit_store[chave]:
+            del _rate_limit_store[chave]
 
 
-def _rate_limit_check(ip: str, max_requests: int) -> None:
+def _rate_limit_check(request: Request, max_requests: int, chave_extra: str = "") -> None:
+    """Rate limit por (rota, chave_extra) ou (rota, ip).
+
+    Antes o bucket era global por `client.host` (XFF do atacante): um endpoint
+    consumia o orçamento de todos e XFF rotativo burlava o 429. Agora a chave
+    é `{rota}|{chave_extra}` (conta — rotacionar IP não ajuda) ou
+    `{rota}|{ip}` (IP real = último valor do XFF adicionado pelo proxy)."""
     agora = time.time()
     _limpar_rate_limits(agora)
-    timestamps = _rate_limit_store.get(ip, [])
+    rota = request.url.path or "unknown"
+    if chave_extra:
+        chave = f"{rota}|{chave_extra}"
+    else:
+        ip = _cliente_ip(request)
+        chave = f"{rota}|{ip}"
+    timestamps = _rate_limit_store.get(chave, [])
     if len(timestamps) >= max_requests:
         raise HTTPException(status_code=429, detail="Muitas requisicoes. Aguarde um momento.")
     timestamps.append(agora)
-    _rate_limit_store[ip] = timestamps
+    _rate_limit_store[chave] = timestamps
 
 
 JWT_SECRET = os.getenv("JWT_SECRET")
@@ -438,6 +470,32 @@ def _verificar_senha(senha: str) -> bool:
         return False
 
 
+def _senha_forte(senha: str) -> bool:
+    """Senha forte: >= 10 chars com maiuscula, minuscula e numero."""
+    if len(senha) < 10:
+        return False
+    if not any(c.isupper() for c in senha):
+        return False
+    if not any(c.islower() for c in senha):
+        return False
+    if not any(c.isdigit() for c in senha):
+        return False
+    return True
+
+
+def _validar_registro_ou_raise(request) -> None:
+    """Valida e-mail e senha do cadastro (fail-closed antes de persistir).
+
+    Combate a senha fraca (ex: '123456') que, junto com o rate-limit
+    burlavel, permitia brute-force online de contas."""
+    email = request.email.strip().lower()
+    if "@" not in email or "." not in email.split("@")[-1]:
+        raise HTTPException(status_code=422, detail="Email invalido.")
+    if not _senha_forte(request.senha):
+        raise HTTPException(
+            status_code=422,
+            detail="A senha deve ter pelo menos 10 caracteres, com letras maiusculas, minusculas e numeros.",
+        )
 def _criar_token_jwt(username: str, owner_id: str) -> str:
     expiracao = datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRATION)
     payload = {"sub": username, "exp": expiracao, "owner": owner_id}
@@ -541,15 +599,14 @@ def health():
 
 @app.post("/auth/login", response_model=LoginResponse, tags=["Autenticação"])
 def login(request: LoginRequest, _req: Request):
-    ip = _req.client.host if _req.client else "unknown"
-    _rate_limit_check(ip, max_requests=10)
+    _rate_limit_check(_req, max_requests=10, chave_extra="conta:" + request.username.strip().lower())
 
     username = request.username.strip()
 
     # 1) Admin legado (owner fixo, preserva dados existentes)
     if username == APP_USERNAME and _verificar_senha(request.password):
         token = _criar_token_jwt(username, APP_USER_ID)
-        log.info("Login admin legado bem-sucedido (IP: %s)", ip)
+        log.info("Login admin legado bem-sucedido (IP: %s)", _cliente_ip(_req))
         return LoginResponse(
             access_token=token,
             usuario_id=APP_USER_ID,
@@ -563,7 +620,7 @@ def login(request: LoginRequest, _req: Request):
 
     usuario = autenticar(username, request.password)
     if usuario is None:
-        log.warning("Falha de autenticação para usuário '%s' (IP: %s)", _mascarar_contato(username), ip)
+        log.warning("Falha de autenticação para usuário '%s' (IP: %s)", _mascarar_contato(username), _cliente_ip(_req))
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Credenciais inválidas.",
@@ -577,7 +634,7 @@ def login(request: LoginRequest, _req: Request):
 
     registrar_acesso(usuario["id"])
     token = _criar_token_jwt(usuario["email"], usuario["id"])
-    log.info("Login bem-sucedido para usuário '%s' (IP: %s)", _mascarar_contato(usuario["email"]), ip)
+    log.info("Login bem-sucedido para usuário '%s' (IP: %s)", _mascarar_contato(usuario["email"]), _cliente_ip(_req))
     return LoginResponse(
         access_token=token,
         usuario_id=usuario["id"],
@@ -589,12 +646,10 @@ def login(request: LoginRequest, _req: Request):
 
 @app.post("/auth/registrar", response_model=RegistrarResponse, tags=["Autenticação"])
 async def registrar(request: RegistrarRequest, _req: Request):
-    ip = _req.client.host if _req.client else "unknown"
-    _rate_limit_check(ip, max_requests=5)
+    _rate_limit_check(_req, max_requests=5, chave_extra="conta:" + request.email.strip().lower())
 
+    _validar_registro_ou_raise(request)
     email = request.email.strip().lower()
-    if "@" not in email or "." not in email.split("@")[-1]:
-        raise HTTPException(status_code=400, detail="Email invalido.")
 
     from services.usuarios import criar_usuario_pendente, obter_por_email, regenerar_token
 
@@ -631,8 +686,7 @@ text-decoration:none;border-radius:8px;">Confirmar meu cadastro</a></p>
 
 @app.get("/auth/confirmar-email", response_class=HTMLResponse, tags=["Autenticação"])
 def confirmar_email(token: str, _req: Request):
-    ip = _req.client.host if _req.client else "unknown"
-    _rate_limit_check(ip, max_requests=30)
+    _rate_limit_check(_req, max_requests=30)
 
     from services.usuarios import confirmar_email as _confirmar
 
@@ -669,8 +723,7 @@ font-size:32px;display:flex;align-items:center;justify-content:center;margin:0 a
     dependencies=[Depends(_verificar_token)],
 )
 def verificar_crp(request: VerificarCrpRequest, _req: Request):
-    ip = _req.client.host if _req.client else "unknown"
-    _rate_limit_check(ip, max_requests=5)
+    _rate_limit_check(_req, max_requests=5, chave_extra="crp:" + request.registro.strip().lower())
 
     log.info("Verificacao de CRP solicitada: %s", request.registro[:8])
     resultado = verificar_crp_online(request.registro)
@@ -691,8 +744,7 @@ def verificar_crp(request: VerificarCrpRequest, _req: Request):
     dependencies=[Depends(_verificar_token)],
 )
 async def transcrever(request: TranscricaoRequest, req: Request):
-    ip = req.client.host if req.client else "unknown"
-    _rate_limit_check(ip, max_requests=10)
+    _rate_limit_check(req, max_requests=10)
 
     content_length = req.headers.get("content-length")
     max_body = 35 * 1024 * 1024  # 35MB (25MB audio + base64 overhead + JSON)
@@ -723,8 +775,7 @@ async def transcrever(request: TranscricaoRequest, req: Request):
     dependencies=[Depends(_verificar_token)],
 )
 async def sintese(request: SinteseRequest, _req: Request):
-    ip = _req.client.host if _req.client else "unknown"
-    _rate_limit_check(ip, max_requests=30)
+    _rate_limit_check(_req, max_requests=30)
 
     log.info(
         "Solicitação de síntese - sessao_id=%s sessão=%d abordagem=%s",
@@ -772,8 +823,7 @@ async def sintese(request: SinteseRequest, _req: Request):
     dependencies=[Depends(_verificar_token)],
 )
 async def artigos(request: ArtigosRequest, _req: Request):
-    ip = _req.client.host if _req.client else "unknown"
-    _rate_limit_check(ip, max_requests=30)
+    _rate_limit_check(_req, max_requests=30)
 
     if not request.temas_pesquisa:
         return ArtigosResponse(
@@ -805,8 +855,7 @@ async def artigos(request: ArtigosRequest, _req: Request):
     dependencies=[Depends(_verificar_token)],
 )
 async def progresso(request: ProgressoRequest, _req: Request):
-    ip = _req.client.host if _req.client else "unknown"
-    _rate_limit_check(ip, max_requests=30)
+    _rate_limit_check(_req, max_requests=30)
 
     log.info(
         "Solicitação de progresso - paciente=%s sessão=%d",
@@ -848,8 +897,7 @@ async def progresso(request: ProgressoRequest, _req: Request):
     dependencies=[Depends(_verificar_token)],
 )
 def enviar_whatsapp(request: WhatsAppRequest, _req: Request, auth: tuple = Depends(_verificar_token)):
-    ip = _req.client.host if _req.client else "unknown"
-    _rate_limit_check(ip, max_requests=10)
+    _rate_limit_check(_req, max_requests=10)
     if not request.telefone.strip():
         raise HTTPException(status_code=400, detail="Telefone não informado.")
     if not request.mensagem.strip():
@@ -875,8 +923,7 @@ def enviar_whatsapp(request: WhatsAppRequest, _req: Request, auth: tuple = Depen
     dependencies=[Depends(_verificar_token)],
 )
 def configurar_wuzapi(request: WuzapiConfigRequest, _req: Request, auth: tuple = Depends(_verificar_token)):
-    ip = _req.client.host if _req.client else "unknown"
-    _rate_limit_check(ip, max_requests=10)
+    _rate_limit_check(_req, max_requests=10)
     _, owner_id = auth
 
     if not request.wuzapi_token.strip():
@@ -907,8 +954,7 @@ async def webhook_wuzapi(request: Request):
     para autenticacao. Em modo form (padrao), o payload chega no campo
     ``jsonData``; em modo json, no corpo.
     """
-    ip = request.client.host if request.client else "unknown"
-    _rate_limit_check(ip, max_requests=120)
+    _rate_limit_check(request, max_requests=120)
 
     esperado = os.getenv("WUZAPI_WEBHOOK_TOKEN", "").strip()
     recebido = request.query_params.get("token", "")
@@ -964,8 +1010,7 @@ async def _global_exception_handler(request: Request, exc: Exception):
     dependencies=[Depends(_verificar_token)],
 )
 def criar_contrato_endpoint(request: ContratoRequest, _req: Request, auth: tuple = Depends(_verificar_token)):
-    ip = _req.client.host if _req.client else "unknown"
-    _rate_limit_check(ip, max_requests=10)
+    _rate_limit_check(_req, max_requests=10)
     _, owner_id = auth
     if not request.nome_paciente.strip():
         raise HTTPException(status_code=400, detail="Nome do paciente não informado.")
@@ -979,7 +1024,7 @@ def criar_contrato_endpoint(request: ContratoRequest, _req: Request, auth: tuple
         "termo_pessoa": request.termo_pessoa.strip() or "paciente",
         "template_contrato": request.template_contrato.strip(),
         "tratamento": request.tratamento.strip() or "masculino",
-        "crp_verificado": request.crp_verificado,
+        "crp_verificado": _crp_verificado_servidor(request.registro_profissional, request.crp_verificado),
     }
 
     token = criar_contrato(dados, owner_id)
@@ -1005,8 +1050,7 @@ def pagina_contrato(token: str, _req: Request):
 
 
 def _pagina_contrato(token: str, _req: Request):
-    ip = _req.client.host if _req.client else "unknown"
-    _rate_limit_check(ip, max_requests=30)
+    _rate_limit_check(_req, max_requests=30)
     contrato = obter_contrato(token)
     if contrato is None:
         return HTMLResponse(
@@ -1084,8 +1128,7 @@ def _pagina_contrato(token: str, _req: Request):
 
 @app.post("/contratos/{token}/aceitar", response_model=ContratoStatusResponse, tags=["Contratos"])
 def aceitar_contrato(token: str, request: ContratoAceiteRequest, _req: Request):
-    ip = _req.client.host if _req.client else "unknown"
-    _rate_limit_check(ip, max_requests=10)
+    _rate_limit_check(_req, max_requests=10)
     log.info("Aceite de contrato %s por %s", token[:12], _mascarar_contato(request.nome[:30]))
     if not request.nome.strip() or len(request.nome.strip()) < 3:
         raise HTTPException(status_code=400, detail="Nome invalido. Digite seu nome completo.")
@@ -1109,8 +1152,7 @@ def aceitar_contrato(token: str, request: ContratoAceiteRequest, _req: Request):
     dependencies=[Depends(_verificar_token)],
 )
 def status_contrato(token: str, _req: Request):
-    ip = _req.client.host if _req.client else "unknown"
-    _rate_limit_check(ip, max_requests=30)
+    _rate_limit_check(_req, max_requests=30)
     contrato = obter_contrato(token)
     if contrato is None:
         return ContratoStatusResponse(sucesso=False, erro="Contrato não encontrado.")
@@ -1131,8 +1173,7 @@ def status_contrato(token: str, _req: Request):
 )
 async def criar_lembrete(request: LembreteRequest, _req: Request, auth: tuple = Depends(_verificar_token)):
     _, owner_id = auth
-    ip = _req.client.host if _req.client else "unknown"
-    _rate_limit_check(ip, max_requests=10)
+    _rate_limit_check(_req, max_requests=10)
     if not request.telefone.strip():
         raise HTTPException(status_code=400, detail="Telefone não informado.")
     if not request.mensagem.strip():
@@ -1157,11 +1198,11 @@ async def criar_lembrete(request: LembreteRequest, _req: Request, auth: tuple = 
     tags=["Lembretes"],
     dependencies=[Depends(_verificar_token)],
 )
-async def remover_lembrete(compromisso_id: str, _req: Request):
-    ip = _req.client.host if _req.client else "unknown"
-    _rate_limit_check(ip, max_requests=10)
+async def remover_lembrete(compromisso_id: str, _req: Request, auth: tuple = Depends(_verificar_token)):
+    _rate_limit_check(_req, max_requests=10)
+    _, owner_id = auth
     log.info("Remocao de lembrete: %s", compromisso_id[:20])
-    ok = await cancelar_lembrete(compromisso_id)
+    ok = await cancelar_lembrete(compromisso_id, owner_id)
     if not ok:
         return LembreteResponse(sucesso=False, erro="Lembrete não encontrado.")
     return LembreteResponse(sucesso=True, id=compromisso_id)
@@ -1174,8 +1215,7 @@ async def remover_lembrete(compromisso_id: str, _req: Request):
     dependencies=[Depends(_verificar_token)],
 )
 def criar_anamnese_endpoint(request: AnamneseRequest, _req: Request, auth: tuple = Depends(_verificar_token)):
-    ip = _req.client.host if _req.client else "unknown"
-    _rate_limit_check(ip, max_requests=10)
+    _rate_limit_check(_req, max_requests=10)
     _, owner_id = auth
     if not request.template_json.strip():
         raise HTTPException(status_code=400, detail="Template não informado.")
@@ -1188,7 +1228,7 @@ def criar_anamnese_endpoint(request: AnamneseRequest, _req: Request, auth: tuple
         "registro": html.escape(request.registro.strip()),
         "abordagem": request.abordagem.strip(),
         "tratamento": request.tratamento.strip() or "masculino",
-        "crp_verificado": request.crp_verificado,
+        "crp_verificado": _crp_verificado_servidor(request.registro, request.crp_verificado),
     }
 
     token = criar_anamnese(request.template_json, owner_id, dados_extra)
@@ -1202,8 +1242,7 @@ def criar_anamnese_endpoint(request: AnamneseRequest, _req: Request, auth: tuple
 
 @app.get("/anamneses/{token}", response_class=HTMLResponse, tags=["Anamnese"])
 def pagina_anamnese(token: str, _req: Request):
-    ip = _req.client.host if _req.client else "unknown"
-    _rate_limit_check(ip, max_requests=30)
+    _rate_limit_check(_req, max_requests=30)
     anamnese = obter_anamnese(token)
     if anamnese is None:
         return HTMLResponse(
@@ -1259,12 +1298,11 @@ p {{ color:#64748B; font-size:15px; }}
         )
 
     html = html_base.replace("{{TOKEN}}", token)
-    html = html.replace("{{DADOS_PROFISSIONAL}}", json.dumps(dados, ensure_ascii=False))
     template_json = (anamnese.get("template_json") or "{}").strip()
-    if not template_json or not template_json.startswith("{"):
-        template_json = "{}"
-    template_json = template_json.replace("</", "<\\/")
-    html = html.replace("{{TEMPLATE}}", template_json)
+    bloco_script = _montar_pagina_anamnese_script(dados, template_json)
+    html = html.replace("const DADOS_PROFISSIONAL = {{DADOS_PROFISSIONAL}};",
+                        bloco_script)
+    html = html.replace("const TEMPLATE = {{TEMPLATE}};", "")
 
     return HTMLResponse(content=html)
 
@@ -1275,8 +1313,7 @@ p {{ color:#64748B; font-size:15px; }}
     tags=["Anamnese"],
 )
 def responder_anamnese(token: str, request: ResponderAnamneseRequest, _req: Request):
-    ip = _req.client.host if _req.client else "unknown"
-    _rate_limit_check(ip, max_requests=10)
+    _rate_limit_check(_req, max_requests=10)
     log.info("Resposta de anamnese %s", token[:12])
     if not request.respostas.strip():
         raise HTTPException(status_code=400, detail="Respostas não informadas.")
@@ -1300,8 +1337,7 @@ def responder_anamnese(token: str, request: ResponderAnamneseRequest, _req: Requ
     dependencies=[Depends(_verificar_token)],
 )
 def status_anamnese(token: str, _req: Request):
-    ip = _req.client.host if _req.client else "unknown"
-    _rate_limit_check(ip, max_requests=30)
+    _rate_limit_check(_req, max_requests=30)
     anamnese = obter_anamnese(token)
     if anamnese is None:
         return AnamneseStatusResponse(sucesso=False, erro="Anamnese não encontrada.")
@@ -1314,8 +1350,69 @@ def status_anamnese(token: str, _req: Request):
     )
 
 
+CODIGO_RECUPERACAO_COMPRIMENTO = 8
+MAX_TENTATIVAS_RECUPERACAO = 5
+BLOQUEIO_RECUPERACAO_MINUTOS = 15
+
+
 def _gerar_codigo() -> str:
-    return ''.join(secrets.choice(string.digits) for _ in range(6))
+    """Gera um codigo de recuperacao com entropia alta (8+ alfanumericos CSPRNG).
+
+    Antes eram 6 digitos (10^6 = brute-force viavel) com hash sha256 sem salt
+    (crack offline ~0.06s). Agora: 36^8 (~2.8e12) + hash lento com salt (bcrypt)."""
+    alfabeto = string.ascii_uppercase + string.digits
+    return ''.join(secrets.choice(alfabeto) for _ in range(CODIGO_RECUPERACAO_COMPRIMENTO))
+
+
+def _crp_verificado_servidor(registro: str, cliente_afirma: bool) -> bool:
+    """Deriva o selo de CRP verificado no servidor (anti badge falseavel).
+
+    O `crp_verificado` enviado pelo cliente nao e confiavel: antes era
+    renderizado nas paginas publicas mesmo quando o CFP reportava CRP
+    inativo. Agora so retorna True se a verificacao real (consulta ao CFP)
+    confirmar registro ativo. Sem registro, sem afirmacao do cliente ou
+    falha de rede -> False (fail-closed)."""
+    registro = (registro or "").strip()
+    if not registro or not cliente_afirma:
+        return False
+    try:
+        resultado = verificar_crp_online(registro)
+        return bool(resultado.get("ativo"))
+    except Exception:
+        log.warning("Falha ao verificar CRP no servidor; selo negado (fail-closed).")
+        return False
+
+
+def _json_script_seguro(obj) -> str:
+    """Serializa para JSON seguro para ser embutido dentro de `<script>`.
+
+    `json.dumps` escapa aspas, mas NÃO escapa `<`, `>` nem `&` — um valor com
+    `</script>` quebraria o bloco e permitiria XSS. Este helper converte esses
+    caracteres para escapes unicode (semanticamente idênticos em JS)."""
+    s = json.dumps(obj, ensure_ascii=False)
+    return (s
+            .replace("&", "\\u0026")
+            .replace("<", "\\u003c")
+            .replace(">", "\\u003e")
+            .replace("\u2028", "\\u2028")
+            .replace("\u2029", "\\u2029"))
+
+
+def _montar_pagina_anamnese_script(dados: dict, template_json: str = "") -> str:
+    """Monta o bloco `<script>` da anamnese com JSON seguro (anti XSS).
+
+    Retorna apenas o trecho do script com os placeholders substituidos,
+    usando `_json_script_seguro` para `DADOS_PROFISSIONAL` e `TEMPLATE`."""
+    dados_seguros = _json_script_seguro(dados)
+    template = (template_json or "{}").strip()
+    if not template.startswith("{"):
+        template = "{}"
+    template_obj = json.loads(template) if template.startswith("{") else {}
+    template_seguro = _json_script_seguro(template_obj)
+    return (
+        "const DADOS_PROFISSIONAL = " + dados_seguros + ";\n"
+        "const TEMPLATE = " + template_seguro + ";"
+    )
 
 
 def _hash_email(email: str) -> str:
@@ -1323,7 +1420,23 @@ def _hash_email(email: str) -> str:
 
 
 def _hash_codigo(codigo: str) -> str:
+    """Hash lento com salt (bcrypt) — resistente a brute-force offline."""
+    return pwd_context.hash(codigo)
+
+
+def _hash_codigo_legado(codigo: str) -> str:
+    """Formato antigo (sha256 sem salt) mantido só para fallback de hashes
+    já persistidos antes do endurecimento."""
     return hashlib.sha256(codigo.encode()).hexdigest()
+
+
+def _verificar_codigo(codigo: str, codigo_hash: str | None) -> bool:
+    if not codigo_hash:
+        return False
+    try:
+        return pwd_context.verify(codigo, codigo_hash)
+    except Exception:
+        return _hash_codigo_legado(codigo) == codigo_hash
 
 
 async def _enviar_email(destinatario: str, assunto: str, corpo: str) -> bool:
@@ -1362,13 +1475,10 @@ def _enviar_email_sync(msg, destinatario: str):
     tags=["Recuperacao"],
 )
 async def solicitar_recuperacao(request: RecuperacaoRequest, _req: Request):
-    ip = _req.client.host if _req.client else "unknown"
-    _rate_limit_check(ip, max_requests=3)
+    _rate_limit_check(_req, max_requests=3, chave_extra="conta:" + request.email.strip().lower())
 
     email = request.email.strip().lower()
     email_hash = _hash_email(email)
-    codigo = _gerar_codigo()
-    agora = datetime.now(timezone.utc).isoformat()
 
     from services.db import executar
     existente = executar(
@@ -1376,16 +1486,21 @@ async def solicitar_recuperacao(request: RecuperacaoRequest, _req: Request):
         (email_hash,),
     ).fetchone()
 
-    if existente:
-        executar(
-            "UPDATE recuperacoes SET codigo_hash = ?, codigo_expiracao = ? WHERE email_hash = ?",
-            (_hash_codigo(codigo), (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat(), email_hash),
-        ).commit()
-    else:
-        return RecuperacaoResponse(
-            sucesso=False,
-            erro="Nenhum registro de recuperação encontrado para este e-mail. Configure o PIN primeiro.",
-        )
+    # Resposta genérica idêntica para e-mail cadastrado ou não (anti enumeração).
+    mensagem_generica = (
+        "Se o e-mail estiver cadastrado, você receberá o código de recuperação."
+    )
+
+    if not existente:
+        return RecuperacaoResponse(sucesso=True, mensagem=mensagem_generica)
+
+    codigo = _gerar_codigo()
+    expiracao = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
+    executar(
+        "UPDATE recuperacoes SET codigo_hash = ?, codigo_expiracao = ?, "
+        "tentativas = 0, bloqueio_ate = NULL WHERE email_hash = ?",
+        (_hash_codigo(codigo), expiracao, email_hash),
+    ).commit()
 
     corpo = f"""<html><body style="font-family:sans-serif;padding:20px;">
 <h2>MentAll PRO - Recuperacao de PIN</h2>
@@ -1409,8 +1524,7 @@ async def solicitar_recuperacao(request: RecuperacaoRequest, _req: Request):
     tags=["Recuperacao"],
 )
 def verificar_recuperacao(request: VerificarCodigoRequest, _req: Request):
-    ip = _req.client.host if _req.client else "unknown"
-    _rate_limit_check(ip, max_requests=5)
+    _rate_limit_check(_req, max_requests=5, chave_extra="conta:" + request.email.strip().lower())
 
     email = request.email.strip().lower()
     email_hash = _hash_email(email)
@@ -1418,19 +1532,43 @@ def verificar_recuperacao(request: VerificarCodigoRequest, _req: Request):
 
     from services.db import executar
     registro = executar(
-        "SELECT codigo, codigo_expiracao, recovery_token FROM recuperacoes WHERE email_hash = ?",
+        "SELECT codigo_hash, codigo_expiracao, recovery_token, "
+        "tentativas, bloqueio_ate FROM recuperacoes WHERE email_hash = ?",
         (email_hash,),
     ).fetchone()
 
     if not registro:
-        return VerificarCodigoResponse(sucesso=False, erro="Nenhuma solicitação de recuperação encontrada.")
-
-    codigo_armazenado = registro.get("codigo_hash", "")
-    expiracao_str = registro.get("codigo_expiracao", "")
-
-    if _hash_codigo(codigo) != codigo_armazenado:
+        # Resposta genérica para não revelar se o e-mail está cadastrado.
         return VerificarCodigoResponse(sucesso=False, erro="Codigo invalido.")
 
+    bloqueio_ate = registro.get("bloqueio_ate") or ""
+    if bloqueio_ate:
+        try:
+            if datetime.now(timezone.utc) < datetime.fromisoformat(bloqueio_ate):
+                return VerificarCodigoResponse(
+                    sucesso=False,
+                    erro="Muitas tentativas. Aguarde alguns minutos.",
+                )
+        except Exception:
+            pass
+
+    codigo_armazenado = registro.get("codigo_hash", "") or ""
+    if not _verificar_codigo(codigo, codigo_armazenado):
+        tentativas = (registro.get("tentativas") or 0) + 1
+        if tentativas >= MAX_TENTATIVAS_RECUPERACAO:
+            bloqueio = (datetime.now(timezone.utc) + timedelta(minutes=BLOQUEIO_RECUPERACAO_MINUTOS)).isoformat()
+            executar(
+                "UPDATE recuperacoes SET tentativas = ?, bloqueio_ate = ? WHERE email_hash = ?",
+                (tentativas, bloqueio, email_hash),
+            ).commit()
+        else:
+            executar(
+                "UPDATE recuperacoes SET tentativas = ? WHERE email_hash = ?",
+                (tentativas, email_hash),
+            ).commit()
+        return VerificarCodigoResponse(sucesso=False, erro="Codigo invalido.")
+
+    expiracao_str = registro.get("codigo_expiracao", "") or ""
     if expiracao_str:
         try:
             expiracao = datetime.fromisoformat(expiracao_str)
@@ -1440,7 +1578,8 @@ def verificar_recuperacao(request: VerificarCodigoRequest, _req: Request):
             pass
 
     executar(
-        "UPDATE recuperacoes SET codigo_hash = NULL, codigo_expiracao = NULL WHERE email_hash = ?",
+        "UPDATE recuperacoes SET codigo_hash = NULL, codigo_expiracao = NULL, "
+        "tentativas = 0, bloqueio_ate = NULL WHERE email_hash = ?",
         (email_hash,),
     ).commit()
 
@@ -1457,8 +1596,7 @@ def verificar_recuperacao(request: VerificarCodigoRequest, _req: Request):
     dependencies=[Depends(_verificar_token)],
 )
 def registrar_recuperacao(request: RegistrarRecuperacaoRequest, _req: Request):
-    ip = _req.client.host if _req.client else "unknown"
-    _rate_limit_check(ip, max_requests=5)
+    _rate_limit_check(_req, max_requests=5, chave_extra="conta:" + request.email.strip().lower())
 
     email = request.email.strip().lower()
     email_hash = _hash_email(email)
