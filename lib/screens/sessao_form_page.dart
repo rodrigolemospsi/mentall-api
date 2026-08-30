@@ -142,9 +142,6 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   set _progressoSintomas(List<Map<String, dynamic>> v) =>
       ref.read(sessaoProgressoSintomasProvider.notifier).state = v;
 
-  set _progressoMetas(List<Map<String, dynamic>> v) =>
-      ref.read(sessaoProgressoMetasProvider.notifier).state = v;
-
   set _progressoAvaliacaoGeral(String v) =>
       ref.read(sessaoProgressoGeralProvider.notifier).state = v;
 
@@ -514,32 +511,12 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
     });
   }
 
-  void _iniciarContadorGravacao() {
+  void _iniciarContadorGravacao({bool resetarDuracao = false}) {
     _timerGravacao?.cancel();
 
-    ref.read(duracaoGravacaoProvider.notifier).state = Duration.zero;
-
-    _timerGravacao = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
-
-      final novaDuracao =
-          ref.read(duracaoGravacaoProvider) + const Duration(seconds: 1);
-      ref.read(duracaoGravacaoProvider.notifier).state = novaDuracao;
-      _triggerRebuild();
-
-      if (novaDuracao >= _duracaoMaximaAudio) {
-        _pararGravacaoRelato();
-      }
-    });
-  }
-
-  void _pausarContadorGravacao() {
-    _timerGravacao?.cancel();
-    _timerGravacao = null;
-  }
-
-  void _retomarContadorGravacao() {
-    _timerGravacao?.cancel();
+    if (resetarDuracao) {
+      ref.read(duracaoGravacaoProvider.notifier).state = Duration.zero;
+    }
 
     _timerGravacao = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
@@ -662,7 +639,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
       await _audioRelatoService.iniciarGravacao(sessaoId: _sessaoId);
 
-      _iniciarContadorGravacao();
+      _iniciarContadorGravacao(resetarDuracao: true);
 
       if (!mounted) return;
 
@@ -716,7 +693,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
     try {
       await _audioRelatoService.pausarGravacao();
-      _pausarContadorGravacao();
+      _pararContadorGravacao();
 
       if (!mounted) return;
 
@@ -743,7 +720,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
     try {
       await _audioRelatoService.retomarGravacao();
-      _retomarContadorGravacao();
+      _iniciarContadorGravacao();
 
       if (!mounted) return;
 
@@ -1394,42 +1371,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
       if (_editando) {
         final sessao = widget.sessaoExistente!;
-
-        sessao.numeroSessao = _numeroSessao;
-        sessao.data = dataSessao;
-        sessao.temaPrincipal = '';
-        sessao.relatoPosSessao = _relatoPosSessaoController.text.trim();
-        sessao.transcricaoRelato = _transcricaoRelatoController.text.trim();
-        sessao.eventosImportantes = _sinteseController.text.trim();
-        sessao.evolucaoClinica = '';
-        sessao.observacoes = '';
-        sessao.pensamentosAutomaticos = _formulacaoController.text.trim();
-        sessao.emocoes = '';
-        sessao.comportamentos = '';
-        sessao.intervencoes = _intervencoesController.text.trim();
-        sessao.tecnicasTcc = '';
-        sessao.tarefaCasa = '';
-        sessao.planoProximaSessao = _planoProximaSessaoController.text.trim();
-        sessao.apontamentosCopiloto = _apontamentosController.text.trim();
-
-        sessao.audioRelatoPath = _audioRelatoPath;
-        sessao.audioRelatoBase64 = kIsWeb ? _audioRelatoBase64 : '';
-        sessao.dataProcessamentoIa = _dataProcessamentoIa;
-        sessao.geradoComIa = _geradoComIa;
-        sessao.statusProcessamento = _statusProcessamento;
-        sessao.audioMantido = _audioMantido;
-        sessao.revisadoPeloProfissional = _revisadoPeloProfissional;
-        sessao.erroProcessamentoIa = _erroProcessamentoIa;
-        sessao.origemRelato = _origemRelato;
-        sessao.artigosSugeridos = _artigosSugeridos;
-        sessao.valorSessao = _valorSessao;
-        sessao.statusPagamento = _statusPagamento;
-        sessao.dataPagamento = _statusPagamento == 'pago'
-            ? _dataPagamento
-            : null;
-        sessao.metodoPagamento = _statusPagamento == 'pago'
-            ? _metodoPagamento
-            : '';
+        _aplicarDadosComuns(sessao);
 
         await _sessaoService.atualizarSessao(sessao);
         if (_statusPagamento == 'pacote') {
@@ -1437,41 +1379,13 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
         }
         _modoEdicao = false;
       } else {
-        final dataSessao = ref.read(sessaoDataProvider);
-
         final novaSessao = Sessao(
           id: _sessaoId,
           pacienteId: widget.paciente.id,
           numeroSessao: _numeroSessao,
           data: dataSessao,
-          temaPrincipal: '',
-          relatoPosSessao: _relatoPosSessaoController.text.trim(),
-          transcricaoRelato: _transcricaoRelatoController.text.trim(),
-          eventosImportantes: _sinteseController.text.trim(),
-          evolucaoClinica: '',
-          observacoes: '',
-          pensamentosAutomaticos: _formulacaoController.text.trim(),
-          emocoes: '',
-          comportamentos: '',
-          intervencoes: _intervencoesController.text.trim(),
-          tecnicasTcc: '',
-          tarefaCasa: '',
-          planoProximaSessao: _planoProximaSessaoController.text.trim(),
-          apontamentosCopiloto: _apontamentosController.text.trim(),
-          audioRelatoPath: _audioRelatoPath,
-          audioRelatoBase64: kIsWeb ? _audioRelatoBase64 : '',
-          dataProcessamentoIa: _dataProcessamentoIa,
-          statusProcessamento: _statusProcessamento,
-          audioMantido: _audioMantido,
-          revisadoPeloProfissional: _revisadoPeloProfissional,
-          erroProcessamentoIa: _erroProcessamentoIa,
-          origemRelato: _origemRelato,
-          artigosSugeridos: _artigosSugeridos,
-          valorSessao: _valorSessao,
-          statusPagamento: _statusPagamento,
-          dataPagamento: _statusPagamento == 'pago' ? _dataPagamento : null,
-          metodoPagamento: _statusPagamento == 'pago' ? _metodoPagamento : '',
         );
+        _aplicarDadosComuns(novaSessao);
 
         await _sessaoService.adicionarSessao(novaSessao);
         if (_statusPagamento == 'pacote') {
@@ -1501,6 +1415,42 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
         ref.read(sessaoSalvandoProvider.notifier).state = false;
       }
     }
+  }
+
+  /// Preenche os campos editáveis da sessão a partir do estado do formulário.
+  /// Usado tanto na edição quanto na criação (evita duplicação de mapeamento).
+  void _aplicarDadosComuns(Sessao sessao) {
+    sessao.numeroSessao = _numeroSessao;
+    sessao.data = ref.read(sessaoDataProvider);
+    sessao.temaPrincipal = '';
+    sessao.relatoPosSessao = _relatoPosSessaoController.text.trim();
+    sessao.transcricaoRelato = _transcricaoRelatoController.text.trim();
+    sessao.eventosImportantes = _sinteseController.text.trim();
+    sessao.evolucaoClinica = '';
+    sessao.observacoes = '';
+    sessao.pensamentosAutomaticos = _formulacaoController.text.trim();
+    sessao.emocoes = '';
+    sessao.comportamentos = '';
+    sessao.intervencoes = _intervencoesController.text.trim();
+    sessao.tecnicasTcc = '';
+    sessao.tarefaCasa = '';
+    sessao.planoProximaSessao = _planoProximaSessaoController.text.trim();
+    sessao.apontamentosCopiloto = _apontamentosController.text.trim();
+
+    sessao.audioRelatoPath = _audioRelatoPath;
+    sessao.audioRelatoBase64 = kIsWeb ? _audioRelatoBase64 : '';
+    sessao.dataProcessamentoIa = _dataProcessamentoIa;
+    sessao.geradoComIa = _geradoComIa;
+    sessao.statusProcessamento = _statusProcessamento;
+    sessao.audioMantido = _audioMantido;
+    sessao.revisadoPeloProfissional = _revisadoPeloProfissional;
+    sessao.erroProcessamentoIa = _erroProcessamentoIa;
+    sessao.origemRelato = _origemRelato;
+    sessao.artigosSugeridos = _artigosSugeridos;
+    sessao.valorSessao = _valorSessao;
+    sessao.statusPagamento = _statusPagamento;
+    sessao.dataPagamento = _statusPagamento == 'pago' ? _dataPagamento : null;
+    sessao.metodoPagamento = _statusPagamento == 'pago' ? _metodoPagamento : '';
   }
 
   @override
@@ -1759,7 +1709,10 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
         padding: const EdgeInsets.all(18),
         child: Text(
           'SESSÃO $_numeroSessao',
-          style: const TextStyle(fontSize: 21, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontSize: Tipografia.xl,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );
@@ -1912,7 +1865,6 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
       if (resultado.sucesso) {
         _progressoSintomas = resultado.sintomas;
-        _progressoMetas = resultado.metas;
         _progressoAvaliacaoGeral = resultado.avaliacaoGeral;
         _progressoTendencia = resultado.tendencia;
 

@@ -63,11 +63,6 @@ final sessaoMetodoPagamentoProvider = StateProvider<String>((ref) => '');
 final sessaoProgressoSintomasProvider =
     StateProvider<List<Map<String, dynamic>>>((ref) => []);
 
-/// Metas da evolução (IA).
-final sessaoProgressoMetasProvider = StateProvider<List<Map<String, dynamic>>>(
-  (ref) => [],
-);
-
 /// Avaliação geral da evolução.
 final sessaoProgressoGeralProvider = StateProvider<String>((ref) => '');
 
