@@ -33,7 +33,9 @@ void main() {
   });
 
   Compromisso novoCompromisso(String id, {String status = 'agendado'}) {
-    final agora = DateTime.now();
+    // Horário fixo do meio-dia: evita falha intermitente perto da meia-noite
+    // (agora + 1h cruzaria para o dia seguinte e listarPorData(hoje) falharia).
+    final agora = DateTime(2026, 8, 25, 12, 0);
     return Compromisso(
       id: id,
       pacienteId: 'paciente-1',
@@ -50,7 +52,7 @@ void main() {
   test('marcarComoRealizado persiste o status na box', () async {
     await service.adicionar(novoCompromisso('c1'));
 
-    final lidos = service.listarPorData(DateTime.now());
+    final lidos = service.listarPorData(DateTime(2026, 8, 25));
     expect(lidos, hasLength(1));
 
     await service.marcarComoRealizado(lidos.first);
@@ -63,7 +65,7 @@ void main() {
   test('marcarComoCancelado persiste o status na box', () async {
     await service.adicionar(novoCompromisso('c1'));
 
-    final lidos = service.listarPorData(DateTime.now());
+    final lidos = service.listarPorData(DateTime(2026, 8, 25));
     await service.marcarComoCancelado(lidos.first);
 
     final relido = service.obterPorId('c1');
@@ -73,7 +75,7 @@ void main() {
   test('marcarComoFaltou persiste o status na box', () async {
     await service.adicionar(novoCompromisso('c1'));
 
-    final lidos = service.listarPorData(DateTime.now());
+    final lidos = service.listarPorData(DateTime(2026, 8, 25));
     await service.marcarComoFaltou(lidos.first);
 
     final relido = service.obterPorId('c1');
@@ -83,7 +85,7 @@ void main() {
   test('marcarComoAgendado restaura o status agendado', () async {
     await service.adicionar(novoCompromisso('c1', status: 'realizado'));
 
-    final lidos = service.listarPorData(DateTime.now());
+    final lidos = service.listarPorData(DateTime(2026, 8, 25));
     await service.marcarComoAgendado(lidos.first);
 
     final relido = service.obterPorId('c1');
@@ -93,7 +95,7 @@ void main() {
   test('remover apaga o compromisso da box', () async {
     await service.adicionar(novoCompromisso('c1'));
 
-    final lidos = service.listarPorData(DateTime.now());
+    final lidos = service.listarPorData(DateTime(2026, 8, 25));
     await service.remover(lidos.first);
 
     expect(service.obterPorId('c1'), isNull);
@@ -102,7 +104,7 @@ void main() {
   test('atualizar persiste as alterações usando a key do registro', () async {
     await service.adicionar(novoCompromisso('c1'));
 
-    final lidos = service.listarPorData(DateTime.now());
+    final lidos = service.listarPorData(DateTime(2026, 8, 25));
     final editado = Compromisso(
       id: lidos.first.id,
       pacienteId: lidos.first.pacienteId,

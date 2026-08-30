@@ -100,7 +100,7 @@
 
 ### Auditoria completa do app (25/08/2026) — relatório
 - Revisão multi-eixo (código, segurança, performance, dependências, serviços). Estado geral saudável: `flutter analyze` limpo (1 warning pré-existente), testes Flutter 95/95 + backend 31/31, serviços no ar, criptografia AES-GCM + PBKDF2 100k ok, SQL parameterizado, XSS escapado, CORS restrito, security headers presentes.
-- Achados críticos corrigidos abaixo; restam como pendência: arquivos gigantes (`sessao_form_page` 2438 linhas — seções acopladas ao estado), e descriptografia em lote via Isolate para listagens completas.
+- Achados críticos corrigidos abaixo; restam como pendência: descriptografia em lote via Isolate para listagens completas. (Arquivo gigante `sessao_form_page` **resolvido em 29/08/2026** — ver seção "REFATORAÇÃO DO SESSÃO_FORM_PAGE".)
 
 ### Fix crítico 1: scheduler do backend bloqueava o event loop (disponibilidade)
 - **Problema:** `_scheduler` (a cada 30s) chamava `_enviar_whatsapp_via_wuzapi` (com `requests.post timeout=20`) **direto no event loop** — cada envio podia travar todos os requests HTTP do backend por até 20s.
@@ -130,7 +130,7 @@
 - **Credenciais sem PIN em texto puro (eliminado):** `ApiClient.setCredentials`/JWT **não persistem mais em texto puro** quando a criptografia não está disponível — mantêm apenas em memória (campos `_usernameMemoria`/`_passwordMemoria`), getters consultam memória primeiro. `AuthService._username/_password` delegam a `ApiClient`. Testes: novos `test/services/api_client_test.dart` (2 testes: persiste criptografado com chave; não persiste em claro sem chave).
 - **Certificate pinning:** removido o **bypass genérico de `192.168.x.x`** (qualquer host da rede local aceitava qualquer cert = MITM); agora só `localhost`/`127.0.0.1` são liberados para dev. Adicionado o fingerprint **atual** do cert Fly (renovação Let's Encrypt) ao lado do anterior — o pin só age quando a validação padrão falha, então manter os 2 últimos evita quebra na transição.
 - **Descriptografia síncrona na UI thread (contadores sem decrypt):** novos `SessaoService.contarSessoesAtivasUltimos30Dias()` e `somarFinanceiroPorPeriodo(inicio, fim)` que **não descriptografam** campos clínicos (só contam/somam campos não-cifrados como `data`, `statusPagamento`, `valorSessao`). Usados em `dashboardKpisSessoesProvider` (antes decrypt de tudo) e `_sessoesDoMesHomeProvider` da Home. `PacienteResumoTab` passou a usar `contarSessoesDoPaciente`/`contarSessoesArquivadasDoPaciente` (eram listagens com decrypt só para `.length`).
-- **Arquivo gigante `sessao_form_page.dart`:** extraídos 3 widgets autocontidos para `lib/widgets/sessao_form_widgets.dart` — `CardBuscandoArtigos`, `AudioMantidoSwitch`, `BotaoSalvarSessao`. Seções altamente acopladas ao estado (`_secaoFinanceira`, `_secaoProgresso`, `_secaoRelatoIa`) **ficam como pendência** — extraí-las relocaria complexidade (passagem de ~10 callbacks/setters) sem reduzi-la.
+- **Arquivo gigante `sessao_form_page.dart`:** extraídos 3 widgets autocontidos para `lib/widgets/sessao_form_widgets.dart` — `CardBuscandoArtigos`, `AudioMantidoSwitch`, `BotaoSalvarSessao`. Seções altamente acopladas ao estado (`_secaoFinanceira`, `_secaoProgresso`, `_secaoRelatoIa`) **resolvido em 29/08/2026** via providers públicos + `ConsumerWidget` autocontidos (ver seção "REFATORAÇÃO DO SESSÃO_FORM_PAGE" — não foi preciso passar callbacks/setters soltos).
 - **Testes:** Flutter 99/99 (novos: api_client_test + encryption_service_test), backend 33/33, `analyze` limpo.
 
 ### Correção anti-alucinação nas indicações de artigos (26/08/2026)
@@ -244,6 +244,32 @@ TDD (testes RED antes de cada fix). Re-verificados no HEAD e corrigidos:
 - **Backup plaintext (Medium):** `BackupService` exportava DB clínico em JSON claro sem MAC; import validava só `versao`. Novo envelope `mentall_backup_v1` (`EncryptionService.criptografarEnvelope`/`descriptografarEnvelope`): AES-GCM + HMAC-SHA256 (chave derivada, comparação em tempo constante). Export com PIN gera envelope; import verifica MAC antes de restaurar (rejeita adulteração), requer PIN se cifrado, mantém compat com JSON claro legado. Tests: `test/services/backup_envelope_test.dart` (7) + `backup_service_test.dart` atualizado.
 - **Criptografia parcial Hive (Medium):** `Paciente.fotoBase64`/`enderecoJson` e `ContratoTerapeutico.token`/`url` passaram a ser cifrados em repouso (`_encryptPaciente`/`_decryptPaciente`, `_encryptContrato`/`_decryptContrato`). `sincronizarPendencias` descriptografa antes de `verificarStatus`; novo `ContratoService.criarLocalmente`; backup export/import ajustado (foto, endereco, token, url). Tests: `test/services/campos_criptografados_test.dart` (4).
 - **Verificação:** backend **89/89**; Flutter **133/133** nos arquivos não-flake (`sessao_form_page_test` travou no teardown — flake conhecido de file-lock, documentado); `flutter analyze` limpo (1 warning pré-existente em `tools/`).
+
+## REFATORAÇÃO DO SESSÃO_FORM_PAGE (29/08/2026) — 2388 → 1901 LINHAS
+
+Pendência histórica do AGENTS.md resolvida em 6 fases (1 commit cada, TDD). Plano completo em `tasks/plan_sessao_form_refactor.md` + `tasks/todo_sessao_form_refactor.md`.
+
+### Resultado
+- `lib/screens/sessao_form_page.dart`: **2388 → 1901 linhas** (−20%), com lógica de negócio de áudio/IA/salvar mantida no State (decisão do dono).
+- **Flake do `sessao_form_page_test` CORRIGIDO** (causa raiz): `Hive.box.put()` pendura quando chamado no corpo de `testWidgets` (FakeAsync não avança I/O). Setup das sessões movido para o `setUp()` do grupo. Agora **12/12 em ~1s** (antes travava por minutos).
+- **Testes: 153/153** (melhor marca do projeto; antes 133/133 não-flake). Inclui fix de bug pré-existente em `compromisso_service_test` (usava `DateTime.now()` com compromisso `agora+1h`, falhava perto da meia-noite — agora horário fixo).
+
+### Fases (commits `3690f41`..`1c7c804` + `sessao_form_refactor`)
+1. **Fase 0 — rede de segurança:** flake corrigido (put no corpo de testWidgets), novo `audioPlayerProvider` injetável (`service_providers.dart`) com `_FakeAudioPlayer` no teste (o `AudioPlayer` real pendura o teardown), `dart format` no arquivo (corrige indentações quebradas).
+2. **Fase 1 — estado compartilhado:** novo `lib/providers/sessao_form_providers.dart` com os 21 `StateProvider` migrados do topo do arquivo (nomes públicos `sessao*`, importáveis por qualquer widget). Getters/setters espelhados mantidos como camada fina do State.
+3. **Fase 2 — seções de UI extraídas (widgets autocontidos):**
+   - `lib/widgets/sessao_progresso_widget.dart` — `SecaoProgressoWidget` (ConsumerWidget lendo providers de progresso) + `corTendencia()` utilitária.
+   - `lib/widgets/sessao_financeiro_widget.dart` — `SecaoFinanceiroWidget` (ConsumerWidget lendo/escrevendo providers financeiros + pacoteService; recebe `pacienteId` + `valorController`).
+   - `lib/widgets/sessao_relato_ia_widget.dart` — `SecaoRelatoIaWidget` (ConsumerWidget lendo providers globais de áudio/IA) + `SessaoFormActions` (objeto que agrupa os 13 callbacks, evitando 15+ parâmetros soltos).
+4. **Fase 3 — helpers de lógica pura:** novo `lib/utils/sessao_form_helpers.dart` (`concatenarSintese`, `concatenarFormulacao`, `formatarData`, `formatarHorario`, `nomeEscala`, `obterObjetivosTerapeuticos/obterQueixaPrincipal/obterEscalasRecentes` — estes recebem `ref`+`pacienteId`). **Decisão do dono:** métodos de áudio/transcrição/síntese/salvar permanecem no State (acoplados a `context`/`mounted`/controllers; extrair relocaria complexidade).
+5. **Fase 4 — qualidade:** contadores de gravação unificados (`_iniciarContadorGravacao({resetarDuracao})`, `_pararContadorGravacao`), `_progressoMetas` morto + `sessaoProgressoMetasProvider` removidos, `_salvarSessao` com `_aplicarDadosComuns(Sessao)` (elimina ~75 ln duplicadas editar/criar), `fontSize:21` → `Tipografia.xl`.
+6. **Fase 5 — verificação:** `flutter analyze` limpo (1 warning pré-existente em `tools/`), **153/153 testes**, commit final.
+
+### Padrão consolidado para telas grandes (seguir daqui em diante)
+- Estado em **providers públicos** (`lib/providers/`) → seções de UI como **ConsumerWidget autocontidos** lendo os providers (sem callbacks soltos; agrupar em objeto `*Actions` quando necessário).
+- **NÃO usar `part files` + extension** (já falho em 01/08/2026 — métodos de instância têm precedência).
+- Lógica pura (sem UI) → `lib/utils/*_helpers.dart` testável isoladamente.
+- Lógica acoplada a `context`/`mounted`/controllers → permanece no State.
 
 ## INFRAESTRUTURA LOCAL (25/08/2026) — Setup e automação
 
@@ -761,7 +787,7 @@ lib/
 │   ├── home_page.dart                      # Lista de pacientes + botão servidor + Privacidade
 │   ├── login_page.dart                     # Tela de PIN (configurar/desbloquear)
 │   ├── paciente_detail_page.dart           # Detalhes + sessões + acesso última sessão ~720 linhas
-│   ├── sessao_form_page.dart               # Formulário de sessão ~2090 linhas (+ error handling)
+│   ├── sessao_form_page.dart               # Formulário de sessão ~1901 linhas (+ error handling)
 │   ├── backup_restore_page.dart            # Export/import JSON (conditional import)
 │   ├── backup_restore_page_web.dart        # Web: Blob download + FileUpload
 │   ├── backup_restore_page_io.dart         # Mobile/desktop: share_plus (export) + file_picker (import)
@@ -774,7 +800,8 @@ lib/
 │       ├── politica_privacidade_page.dart   # Política de Privacidade
 │       └── termos_uso_page.dart             # Termos de Uso
 ├── providers/
-│   └── service_providers.dart              # 12 providers (Stream com async* para emitir valor inicial)
+│   ├── service_providers.dart              # 12 providers (Stream com async* para emitir valor inicial)
+│   └── sessao_form_providers.dart          # 21 StateProviders públicos da tela de sessão (fase 1 do refactor)
 ├── services/
 │   ├── api_client.dart                     # URL dinâmica via Hive + credenciais no Hive + ensureAuthenticated() + timeout 120s
 │   ├── paciente_service.dart               # + criptografia AES nos campos sensíveis + cascade delete
@@ -805,8 +832,12 @@ lib/
   │   ├── paciente_card_home.dart            # Card de paciente na lista (avatar, status, WhatsApp)
   │   ├── paciente_resumo_card.dart          # Card de resumo na ficha do paciente (+ status contrato)
   │   ├── sessao_card.dart                   # Card de sessão na lista
-  │   ├── sessao_audio_controls.dart         # Controles de áudio extraídos do SessaoFormPage
+  │   ├── sessao_audio_controls.dart         # Controles de áudio extraídos do SessaoFormPage (+ 12 providers de áudio/IA)
   │   ├── sessao_artigos_sugeridos.dart      # Card de artigos sugeridos extraído do SessaoFormPage
+  │   ├── sessao_form_widgets.dart           # CardBuscandoArtigos + AudioMantidoSwitch + BotaoSalvarSessao
+  │   ├── sessao_progresso_widget.dart       # SecaoProgressoWidget (evolução clínica) — fase 2 do refactor
+  │   ├── sessao_financeiro_widget.dart      # SecaoFinanceiroWidget — fase 2 do refactor
+  │   ├── sessao_relato_ia_widget.dart       # SecaoRelatoIaWidget + SessaoFormActions — fase 2 do refactor
   │   ├── secao_campos_clinicos_widget.dart   # 4 seções clínicas simplificadas
   │   └── lgpd/
   │       └── aviso_privacidade_ia_card.dart
