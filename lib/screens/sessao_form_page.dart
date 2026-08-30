@@ -20,6 +20,7 @@ import '../services/transcricao_relato_service.dart';
 import '../utils/artigos_validacao.dart';
 import '../utils/mentall_colors.dart';
 import '../utils/raio.dart';
+import '../utils/sessao_form_helpers.dart';
 import '../widgets/secao_campos_clinicos_widget.dart';
 import '../widgets/sessao_artigos_sugeridos.dart';
 import '../widgets/sessao_audio_controls.dart';
@@ -255,34 +256,6 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
     return _transcricaoRelatoController.text.trim().isNotEmpty;
   }
 
-  String _concatenarSintese(Sessao s) {
-    final partes = <String>[];
-    if (s.eventosImportantes.trim().isNotEmpty) {
-      partes.add(s.eventosImportantes.trim());
-    }
-    if (s.evolucaoClinica.trim().isNotEmpty) {
-      partes.add(s.evolucaoClinica.trim());
-    }
-    if (s.observacoes.trim().isNotEmpty) {
-      partes.add(s.observacoes.trim());
-    }
-    return partes.join('\n\n');
-  }
-
-  String _concatenarFormulacao(Sessao s) {
-    final partes = <String>[];
-    if (s.pensamentosAutomaticos.trim().isNotEmpty) {
-      partes.add(s.pensamentosAutomaticos.trim());
-    }
-    if (s.emocoes.trim().isNotEmpty) {
-      partes.add(s.emocoes.trim());
-    }
-    if (s.comportamentos.trim().isNotEmpty) {
-      partes.add(s.comportamentos.trim());
-    }
-    return partes.join('\n\n');
-  }
-
   @override
   void initState() {
     super.initState();
@@ -313,8 +286,8 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
         _relatoPosSessaoController.text = sessao.relatoPosSessao;
         _transcricaoRelatoController.text = sessao.transcricaoRelato;
-        _sinteseController.text = _concatenarSintese(sessao);
-        _formulacaoController.text = _concatenarFormulacao(sessao);
+        _sinteseController.text = concatenarSintese(sessao);
+        _formulacaoController.text = concatenarFormulacao(sessao);
         _intervencoesController.text = sessao.intervencoes;
         _apontamentosController.text = sessao.apontamentosCopiloto;
         _planoProximaSessaoController.text = sessao.planoProximaSessao;
@@ -1530,21 +1503,6 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
     }
   }
 
-  String _formatarData(DateTime data) {
-    final dia = data.day.toString().padLeft(2, '0');
-    final mes = data.month.toString().padLeft(2, '0');
-    final ano = data.year.toString();
-
-    return '$dia/$mes/$ano';
-  }
-
-  String _formatarHorario(DateTime data) {
-    final hora = data.hour.toString().padLeft(2, '0');
-    final minuto = data.minute.toString().padLeft(2, '0');
-
-    return '$hora:$minuto';
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_erroInicializacao != null) {
@@ -1827,7 +1785,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.calendar_today_outlined),
                 ),
-                child: Text(_formatarData(ref.watch(sessaoDataProvider))),
+                child: Text(formatarData(ref.watch(sessaoDataProvider))),
               ),
             ),
             const SizedBox(height: 16),
@@ -1840,7 +1798,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.schedule_outlined),
                 ),
-                child: Text(_formatarHorario(ref.watch(sessaoDataProvider))),
+                child: Text(formatarHorario(ref.watch(sessaoDataProvider))),
               ),
             ),
           ],
@@ -1942,9 +1900,12 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
               .toIso8601String()
               .substring(0, 10),
         },
-        objetivosTerapeuticos: _obterObjetivosTerapeuticos(),
-        queixaPrincipal: _obterQueixaPrincipal(),
-        escalas: _obterEscalasRecentes(),
+        objetivosTerapeuticos: obterObjetivosTerapeuticos(
+          ref,
+          widget.paciente.id,
+        ),
+        queixaPrincipal: obterQueixaPrincipal(ref, widget.paciente.id),
+        escalas: obterEscalasRecentes(ref, widget.paciente.id),
       );
 
       if (!mounted) return;
@@ -1979,61 +1940,6 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       _progressoGerando = false;
       _triggerRebuild();
     }
-  }
-
-  String _obterObjetivosTerapeuticos() {
-    try {
-      final avaliacao = ref
-          .read(avaliacaoInicialServiceProvider)
-          .obterPorPaciente(widget.paciente.id);
-      return avaliacao?.objetivosTerapeuticos ?? '';
-    } catch (_) {
-      return '';
-    }
-  }
-
-  String _obterQueixaPrincipal() {
-    try {
-      final avaliacao = ref
-          .read(avaliacaoInicialServiceProvider)
-          .obterPorPaciente(widget.paciente.id);
-      return avaliacao?.queixaPrincipal ?? '';
-    } catch (_) {
-      return '';
-    }
-  }
-
-  List<Map<String, dynamic>> _obterEscalasRecentes() {
-    try {
-      final escalas = ref
-          .read(escalaServiceProvider)
-          .listarPorPaciente(widget.paciente.id);
-      final agrupadas = <String, List<Map<String, dynamic>>>{};
-      for (final e in escalas) {
-        agrupadas.putIfAbsent(e.escalaId, () => []);
-        agrupadas[e.escalaId]!.add({
-          'data': e.dataAplicacao.toIso8601String().substring(0, 10),
-          'pontuacao': e.pontuacao,
-          'interpretacao': e.interpretacao,
-        });
-      }
-      return agrupadas.entries
-          .map(
-            (entry) => {'nome': _nomeEscala(entry.key), 'datas': entry.value},
-          )
-          .toList();
-    } catch (_) {
-      return [];
-    }
-  }
-
-  String _nomeEscala(String id) {
-    const nomes = {
-      'phq9': 'PHQ-9 (Depressão)',
-      'gad7': 'GAD-7 (Ansiedade)',
-      'dass21': 'DASS-21',
-    };
-    return nomes[id] ?? id;
   }
 
   Widget _botaoSalvar() {
