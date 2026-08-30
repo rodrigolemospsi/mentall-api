@@ -10,6 +10,7 @@ import '../config/configuracao_abordagem_clinica.dart';
 import '../models/paciente.dart';
 import '../models/sessao.dart';
 import '../providers/service_providers.dart';
+import '../providers/sessao_form_providers.dart';
 import '../services/audio_relato_service.dart';
 import '../services/ia_clinica_service.dart';
 import '../services/logger.dart';
@@ -26,34 +27,6 @@ import '../widgets/sessao_artigos_sugeridos.dart';
 import '../widgets/sessao_audio_controls.dart';
 import '../widgets/sessao_form_widgets.dart';
 import '../utils/tipografia.dart';
-
-final _salvandoProvider = StateProvider<bool>((ref) => false);
-final _dataSessaoProvider = StateProvider<DateTime>((ref) => DateTime.now());
-final _formRebuildProvider = StateProvider<int>((ref) => 0);
-final _statusProcessamentoProvider = StateProvider<String>((ref) => 'manual');
-final _revisadoPeloProfissionalProvider = StateProvider<bool>((ref) => false);
-final _geradoComIaProvider = StateProvider<bool>((ref) => false);
-final _dataProcessamentoIaProvider = StateProvider<DateTime?>((ref) => null);
-final _avisoInvalidacaoTranscricaoExibidoProvider = StateProvider<bool>(
-  (ref) => false,
-);
-final _audioMantidoProvider = StateProvider<bool>((ref) => false);
-final _origemRelatoProvider = StateProvider<String>((ref) => 'manual');
-final _modoEdicaoProvider = StateProvider<bool>((ref) => false);
-final _valorSessaoProvider = StateProvider<double>((ref) => 0.0);
-final _statusPagamentoProvider = StateProvider<String>((ref) => 'pendente');
-final _dataPagamentoProvider = StateProvider<DateTime?>((ref) => null);
-final _metodoPagamentoProvider = StateProvider<String>((ref) => '');
-final _progressoSintomasProvider = StateProvider<List<Map<String, dynamic>>>(
-  (ref) => [],
-);
-final _progressoMetasProvider = StateProvider<List<Map<String, dynamic>>>(
-  (ref) => [],
-);
-final _progressoGeralProvider = StateProvider<String>((ref) => '');
-final _progressoTendenciaProvider = StateProvider<String>((ref) => 'estavel');
-final _progressoGerandoProvider = StateProvider<bool>((ref) => false);
-final _buscandoArtigosProvider = StateProvider<bool>((ref) => false);
 
 class SessaoFormPage extends ConsumerStatefulWidget {
   final Paciente paciente;
@@ -106,91 +79,94 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   set _gerandoSinteseIa(bool v) =>
       ref.read(gerandoSinteseIaProvider.notifier).state = v;
 
-  String get _statusProcessamento => ref.read(_statusProcessamentoProvider);
+  String get _statusProcessamento =>
+      ref.read(sessaoStatusProcessamentoProvider);
   set _statusProcessamento(String v) =>
-      ref.read(_statusProcessamentoProvider.notifier).state = v;
+      ref.read(sessaoStatusProcessamentoProvider.notifier).state = v;
 
   String get _erroProcessamentoIa => ref.read(erroProcessamentoIaProvider);
   set _erroProcessamentoIa(String v) =>
       ref.read(erroProcessamentoIaProvider.notifier).state = v;
 
-  bool get _revisadoPeloProfissional =>
-      ref.read(_revisadoPeloProfissionalProvider);
+  bool get _revisadoPeloProfissional => ref.read(sessaoRevisadoProvider);
   set _revisadoPeloProfissional(bool v) =>
-      ref.read(_revisadoPeloProfissionalProvider.notifier).state = v;
+      ref.read(sessaoRevisadoProvider.notifier).state = v;
 
-  bool get _geradoComIa => ref.read(_geradoComIaProvider);
-  set _geradoComIa(bool v) => ref.read(_geradoComIaProvider.notifier).state = v;
+  bool get _geradoComIa => ref.read(sessaoGeradoComIaProvider);
+  set _geradoComIa(bool v) =>
+      ref.read(sessaoGeradoComIaProvider.notifier).state = v;
 
-  DateTime? get _dataProcessamentoIa => ref.read(_dataProcessamentoIaProvider);
+  DateTime? get _dataProcessamentoIa =>
+      ref.read(sessaoDataProcessamentoIaProvider);
   set _dataProcessamentoIa(DateTime? v) =>
-      ref.read(_dataProcessamentoIaProvider.notifier).state = v;
+      ref.read(sessaoDataProcessamentoIaProvider.notifier).state = v;
 
   bool get _avisoInvalidacaoTranscricaoExibido =>
-      ref.read(_avisoInvalidacaoTranscricaoExibidoProvider);
+      ref.read(sessaoAvisoInvalidacaoProvider);
   set _avisoInvalidacaoTranscricaoExibido(bool v) =>
-      ref.read(_avisoInvalidacaoTranscricaoExibidoProvider.notifier).state = v;
+      ref.read(sessaoAvisoInvalidacaoProvider.notifier).state = v;
 
-  bool get _audioMantido => ref.read(_audioMantidoProvider);
+  bool get _audioMantido => ref.read(sessaoAudioMantidoProvider);
   set _audioMantido(bool v) =>
-      ref.read(_audioMantidoProvider.notifier).state = v;
+      ref.read(sessaoAudioMantidoProvider.notifier).state = v;
 
-  String get _origemRelato => ref.read(_origemRelatoProvider);
+  String get _origemRelato => ref.read(sessaoOrigemRelatoProvider);
   set _origemRelato(String v) =>
-      ref.read(_origemRelatoProvider.notifier).state = v;
+      ref.read(sessaoOrigemRelatoProvider.notifier).state = v;
 
   String get _artigosSugeridos => ref.read(artigosSugeridosProvider);
   set _artigosSugeridos(String v) =>
       ref.read(artigosSugeridosProvider.notifier).state = v;
 
-  bool get _buscandoArtigos => ref.read(_buscandoArtigosProvider);
+  bool get _buscandoArtigos => ref.read(sessaoBuscandoArtigosProvider);
   set _buscandoArtigos(bool v) =>
-      ref.read(_buscandoArtigosProvider.notifier).state = v;
+      ref.read(sessaoBuscandoArtigosProvider.notifier).state = v;
 
-  bool get _modoEdicao => ref.read(_modoEdicaoProvider);
-  set _modoEdicao(bool v) => ref.read(_modoEdicaoProvider.notifier).state = v;
+  bool get _modoEdicao => ref.read(sessaoModoEdicaoProvider);
+  set _modoEdicao(bool v) =>
+      ref.read(sessaoModoEdicaoProvider.notifier).state = v;
 
-  double get _valorSessao => ref.read(_valorSessaoProvider);
+  double get _valorSessao => ref.read(sessaoValorSessaoProvider);
   set _valorSessao(double v) =>
-      ref.read(_valorSessaoProvider.notifier).state = v;
+      ref.read(sessaoValorSessaoProvider.notifier).state = v;
 
-  String get _statusPagamento => ref.read(_statusPagamentoProvider);
+  String get _statusPagamento => ref.read(sessaoStatusPagamentoProvider);
   set _statusPagamento(String v) =>
-      ref.read(_statusPagamentoProvider.notifier).state = v;
+      ref.read(sessaoStatusPagamentoProvider.notifier).state = v;
 
-  DateTime? get _dataPagamento => ref.read(_dataPagamentoProvider);
+  DateTime? get _dataPagamento => ref.read(sessaoDataPagamentoProvider);
   set _dataPagamento(DateTime? v) =>
-      ref.read(_dataPagamentoProvider.notifier).state = v;
+      ref.read(sessaoDataPagamentoProvider.notifier).state = v;
 
-  String get _metodoPagamento => ref.read(_metodoPagamentoProvider);
+  String get _metodoPagamento => ref.read(sessaoMetodoPagamentoProvider);
   set _metodoPagamento(String v) =>
-      ref.read(_metodoPagamentoProvider.notifier).state = v;
+      ref.read(sessaoMetodoPagamentoProvider.notifier).state = v;
 
   bool get _controleFinanceiroAtivo =>
       ref.read(configuracoesServiceProvider).controleFinanceiroAtivo;
 
   List<Map<String, dynamic>> get _progressoSintomas =>
-      ref.read(_progressoSintomasProvider);
+      ref.read(sessaoProgressoSintomasProvider);
   set _progressoSintomas(List<Map<String, dynamic>> v) =>
-      ref.read(_progressoSintomasProvider.notifier).state = v;
+      ref.read(sessaoProgressoSintomasProvider.notifier).state = v;
 
   set _progressoMetas(List<Map<String, dynamic>> v) =>
-      ref.read(_progressoMetasProvider.notifier).state = v;
+      ref.read(sessaoProgressoMetasProvider.notifier).state = v;
 
-  String get _progressoAvaliacaoGeral => ref.read(_progressoGeralProvider);
+  String get _progressoAvaliacaoGeral => ref.read(sessaoProgressoGeralProvider);
   set _progressoAvaliacaoGeral(String v) =>
-      ref.read(_progressoGeralProvider.notifier).state = v;
+      ref.read(sessaoProgressoGeralProvider.notifier).state = v;
 
-  String get _progressoTendencia => ref.read(_progressoTendenciaProvider);
+  String get _progressoTendencia => ref.read(sessaoProgressoTendenciaProvider);
   set _progressoTendencia(String v) =>
-      ref.read(_progressoTendenciaProvider.notifier).state = v;
+      ref.read(sessaoProgressoTendenciaProvider.notifier).state = v;
 
-  bool get _progressoGerando => ref.read(_progressoGerandoProvider);
+  bool get _progressoGerando => ref.read(sessaoProgressoGerandoProvider);
   set _progressoGerando(bool v) =>
-      ref.read(_progressoGerandoProvider.notifier).state = v;
+      ref.read(sessaoProgressoGerandoProvider.notifier).state = v;
 
   void _triggerRebuild() {
-    if (mounted) ref.read(_formRebuildProvider.notifier).state++;
+    if (mounted) ref.read(sessaoFormRebuildProvider.notifier).state++;
   }
 
   void _registrarAuditoria(String tipo, String descricao) {
@@ -356,7 +332,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          ref.read(_dataSessaoProvider.notifier).state = sessao.data;
+          ref.read(sessaoDataProvider.notifier).state = sessao.data;
           ref.read(audioRelatoPathProvider.notifier).state =
               sessao.audioRelatoPath;
           ref.read(audioRelatoBase64Provider.notifier).state =
@@ -370,12 +346,13 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
           _artigosSugeridos = limparArtigosAntigos(sessao.artigosSugeridos);
           _origemRelato = sessao.origemRelato;
           _modoEdicao = false;
-          ref.read(_valorSessaoProvider.notifier).state = sessao.valorSessao;
-          ref.read(_statusPagamentoProvider.notifier).state =
+          ref.read(sessaoValorSessaoProvider.notifier).state =
+              sessao.valorSessao;
+          ref.read(sessaoStatusPagamentoProvider.notifier).state =
               sessao.statusPagamento;
-          ref.read(_dataPagamentoProvider.notifier).state =
+          ref.read(sessaoDataPagamentoProvider.notifier).state =
               sessao.dataPagamento;
-          ref.read(_metodoPagamentoProvider.notifier).state =
+          ref.read(sessaoMetodoPagamentoProvider.notifier).state =
               sessao.metodoPagamento;
           _valorController.text = sessao.valorSessao > 0
               ? sessao.valorSessao.toStringAsFixed(2).replaceAll('.', ',')
@@ -388,7 +365,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
         _numeroSessao = _sessaoService.proximoNumeroSessao(widget.paciente.id);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          ref.read(_dataSessaoProvider.notifier).state = DateTime.now();
+          ref.read(sessaoDataProvider.notifier).state = DateTime.now();
           _modoEdicao = true;
 
           final config = ref.read(configuracoesServiceProvider);
@@ -401,21 +378,21 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
           if (temPacoteAtivo) {
             final valorPorSessao =
                 pacoteService.valorPorSessaoAtivo(widget.paciente.id) ?? 0.0;
-            ref.read(_valorSessaoProvider.notifier).state = valorPorSessao;
-            ref.read(_statusPagamentoProvider.notifier).state = 'pacote';
+            ref.read(sessaoValorSessaoProvider.notifier).state = valorPorSessao;
+            ref.read(sessaoStatusPagamentoProvider.notifier).state = 'pacote';
           } else {
             double valorInicial = widget.paciente.valorSessao;
             if (valorInicial <= 0) {
               valorInicial = config.valorPadraoSessao;
             }
-            ref.read(_valorSessaoProvider.notifier).state = valorInicial;
-            ref.read(_statusPagamentoProvider.notifier).state = 'pendente';
+            ref.read(sessaoValorSessaoProvider.notifier).state = valorInicial;
+            ref.read(sessaoStatusPagamentoProvider.notifier).state = 'pendente';
           }
-          ref.read(_dataPagamentoProvider.notifier).state = null;
-          ref.read(_metodoPagamentoProvider.notifier).state = '';
-          _valorController.text = ref.read(_valorSessaoProvider) > 0
+          ref.read(sessaoDataPagamentoProvider.notifier).state = null;
+          ref.read(sessaoMetodoPagamentoProvider.notifier).state = '';
+          _valorController.text = ref.read(sessaoValorSessaoProvider) > 0
               ? ref
-                    .read(_valorSessaoProvider)
+                    .read(sessaoValorSessaoProvider)
                     .toStringAsFixed(2)
                     .replaceAll('.', ',')
               : '';
@@ -561,18 +538,17 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       ref.read(erroAudioProvider.notifier).state = '';
       ref.read(transcrevendoRelatoProvider.notifier).state = false;
       ref.read(gerandoSinteseIaProvider.notifier).state = false;
-      ref.read(_statusProcessamentoProvider.notifier).state = 'manual';
+      ref.read(sessaoStatusProcessamentoProvider.notifier).state = 'manual';
       ref.read(erroProcessamentoIaProvider.notifier).state = '';
-      ref.read(_revisadoPeloProfissionalProvider.notifier).state = false;
-      ref.read(_geradoComIaProvider.notifier).state = false;
-      ref.read(_dataProcessamentoIaProvider.notifier).state = null;
-      ref.read(_avisoInvalidacaoTranscricaoExibidoProvider.notifier).state =
-          false;
-      ref.read(_audioMantidoProvider.notifier).state = false;
-      ref.read(_origemRelatoProvider.notifier).state = 'manual';
+      ref.read(sessaoRevisadoProvider.notifier).state = false;
+      ref.read(sessaoGeradoComIaProvider.notifier).state = false;
+      ref.read(sessaoDataProcessamentoIaProvider.notifier).state = null;
+      ref.read(sessaoAvisoInvalidacaoProvider.notifier).state = false;
+      ref.read(sessaoAudioMantidoProvider.notifier).state = false;
+      ref.read(sessaoOrigemRelatoProvider.notifier).state = 'manual';
       ref.read(artigosSugeridosProvider.notifier).state = '';
-      ref.read(_salvandoProvider.notifier).state = false;
-      ref.read(_formRebuildProvider.notifier).state = 0;
+      ref.read(sessaoSalvandoProvider.notifier).state = false;
+      ref.read(sessaoFormRebuildProvider.notifier).state = 0;
     });
   }
 
@@ -666,7 +642,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   }
 
   Future<void> _selecionarData() async {
-    final dataAtual = ref.read(_dataSessaoProvider);
+    final dataAtual = ref.read(sessaoDataProvider);
     final dataEscolhida = await showDatePicker(
       context: context,
       initialDate: dataAtual,
@@ -676,7 +652,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
     if (!mounted || dataEscolhida == null) return;
 
-    ref.read(_dataSessaoProvider.notifier).state = DateTime(
+    ref.read(sessaoDataProvider.notifier).state = DateTime(
       dataEscolhida.year,
       dataEscolhida.month,
       dataEscolhida.day,
@@ -686,7 +662,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   }
 
   Future<void> _selecionarHorario() async {
-    final dataAtual = ref.read(_dataSessaoProvider);
+    final dataAtual = ref.read(sessaoDataProvider);
     final horarioAtual = TimeOfDay(
       hour: dataAtual.hour,
       minute: dataAtual.minute,
@@ -705,7 +681,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
     if (!mounted || horarioEscolhido == null) return;
 
-    ref.read(_dataSessaoProvider.notifier).state = DateTime(
+    ref.read(sessaoDataProvider.notifier).state = DateTime(
       dataAtual.year,
       dataAtual.month,
       dataAtual.day,
@@ -1428,7 +1404,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   }
 
   Future<void> _salvarSessao() async {
-    if (ref.read(_salvandoProvider)) return;
+    if (ref.read(sessaoSalvandoProvider)) return;
 
     if (_existeAcaoEmAndamento) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1449,10 +1425,10 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       _reproduzindoAudio = false;
       _triggerRebuild();
     }
-    ref.read(_salvandoProvider.notifier).state = true;
+    ref.read(sessaoSalvandoProvider.notifier).state = true;
 
     try {
-      final dataSessao = ref.read(_dataSessaoProvider);
+      final dataSessao = ref.read(sessaoDataProvider);
 
       if (_editando) {
         final sessao = widget.sessaoExistente!;
@@ -1499,7 +1475,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
         }
         _modoEdicao = false;
       } else {
-        final dataSessao = ref.read(_dataSessaoProvider);
+        final dataSessao = ref.read(sessaoDataProvider);
 
         final novaSessao = Sessao(
           id: _sessaoId,
@@ -1560,7 +1536,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       );
     } finally {
       if (mounted) {
-        ref.read(_salvandoProvider.notifier).state = false;
+        ref.read(sessaoSalvandoProvider.notifier).state = false;
       }
     }
   }
@@ -1639,7 +1615,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       );
     }
 
-    ref.watch(_formRebuildProvider);
+    ref.watch(sessaoFormRebuildProvider);
     final configuracao = _configuracaoAbordagem;
 
     return PopScope(
@@ -1859,7 +1835,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.calendar_today_outlined),
                 ),
-                child: Text(_formatarData(ref.watch(_dataSessaoProvider))),
+                child: Text(_formatarData(ref.watch(sessaoDataProvider))),
               ),
             ),
             const SizedBox(height: 16),
@@ -1872,7 +1848,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.schedule_outlined),
                 ),
-                child: Text(_formatarHorario(ref.watch(_dataSessaoProvider))),
+                child: Text(_formatarHorario(ref.watch(sessaoDataProvider))),
               ),
             ),
           ],
@@ -2060,7 +2036,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
           'relato': _relatoPosSessaoController.text.trim(),
           'intervencoes': _intervencoesController.text.trim(),
           'data': ref
-              .read(_dataSessaoProvider)
+              .read(sessaoDataProvider)
               .toIso8601String()
               .substring(0, 10),
         },
@@ -2518,7 +2494,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   }
 
   Widget _botaoSalvar() {
-    final salvando = ref.watch(_salvandoProvider);
+    final salvando = ref.watch(sessaoSalvandoProvider);
     return BotaoSalvarSessao(salvando: salvando, onPressed: _salvarSessao);
   }
 }
