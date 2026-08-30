@@ -20,12 +20,13 @@ import '../services/transcricao_relato_service.dart';
 import '../utils/artigos_validacao.dart';
 import '../utils/mentall_colors.dart';
 import '../utils/raio.dart';
-import '../widgets/campo_texto_widget.dart';
 import '../widgets/secao_campos_clinicos_widget.dart';
-import '../widgets/secao_formulario.dart';
 import '../widgets/sessao_artigos_sugeridos.dart';
 import '../widgets/sessao_audio_controls.dart';
+import '../widgets/sessao_financeiro_widget.dart';
 import '../widgets/sessao_form_widgets.dart';
+import '../widgets/sessao_progresso_widget.dart';
+import '../widgets/sessao_relato_ia_widget.dart';
 import '../utils/tipografia.dart';
 
 class SessaoFormPage extends ConsumerStatefulWidget {
@@ -127,37 +128,25 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       ref.read(sessaoModoEdicaoProvider.notifier).state = v;
 
   double get _valorSessao => ref.read(sessaoValorSessaoProvider);
-  set _valorSessao(double v) =>
-      ref.read(sessaoValorSessaoProvider.notifier).state = v;
 
   String get _statusPagamento => ref.read(sessaoStatusPagamentoProvider);
-  set _statusPagamento(String v) =>
-      ref.read(sessaoStatusPagamentoProvider.notifier).state = v;
 
   DateTime? get _dataPagamento => ref.read(sessaoDataPagamentoProvider);
-  set _dataPagamento(DateTime? v) =>
-      ref.read(sessaoDataPagamentoProvider.notifier).state = v;
 
   String get _metodoPagamento => ref.read(sessaoMetodoPagamentoProvider);
-  set _metodoPagamento(String v) =>
-      ref.read(sessaoMetodoPagamentoProvider.notifier).state = v;
 
   bool get _controleFinanceiroAtivo =>
       ref.read(configuracoesServiceProvider).controleFinanceiroAtivo;
 
-  List<Map<String, dynamic>> get _progressoSintomas =>
-      ref.read(sessaoProgressoSintomasProvider);
   set _progressoSintomas(List<Map<String, dynamic>> v) =>
       ref.read(sessaoProgressoSintomasProvider.notifier).state = v;
 
   set _progressoMetas(List<Map<String, dynamic>> v) =>
       ref.read(sessaoProgressoMetasProvider.notifier).state = v;
 
-  String get _progressoAvaliacaoGeral => ref.read(sessaoProgressoGeralProvider);
   set _progressoAvaliacaoGeral(String v) =>
       ref.read(sessaoProgressoGeralProvider.notifier).state = v;
 
-  String get _progressoTendencia => ref.read(sessaoProgressoTendenciaProvider);
   set _progressoTendencia(String v) =>
       ref.read(sessaoProgressoTendenciaProvider.notifier).state = v;
 
@@ -1716,11 +1705,14 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
                         ],
                         if (_controleFinanceiroAtivo) ...[
                           const SizedBox(height: 16),
-                          _secaoFinanceira(),
+                          SecaoFinanceiroWidget(
+                            pacienteId: widget.paciente.id,
+                            valorController: _valorController,
+                          ),
                         ],
                         if (_geradoComIa && _numeroSessao >= 2) ...[
                           const SizedBox(height: 16),
-                          _secaoProgresso(),
+                          const SecaoProgressoWidget(),
                         ],
                       ],
                     ),
@@ -1858,113 +1850,23 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   }
 
   Widget _secaoRelatoIa() {
-    return SecaoFormulario(
-      children: [
-        const TimerGravacaoWidget(),
-        const ProcessamentoIaWidget(),
-        ErroProcessamentoIaWidget(onLimparErro: _limparErroProcessamento),
-        ErroAudioWidget(onLimparErro: _limparErroAudio),
-        BotoesAudioWidget(
-          existeAcaoEmAndamento: _existeAcaoEmAndamento,
-          onGravar: _iniciarGravacaoRelato,
-          onPausar: _pausarGravacaoRelato,
-          onRetomar: _retomarGravacaoRelato,
-          onFinalizar: _pararGravacaoRelato,
-          onCancelar: _cancelarGravacaoRelato,
-          onOuvirParar: _ouvirOuPararAudioRelato,
-          onRemover: _removerAudioRelato,
-        ),
-        _audioInfoWidget(),
-        if (_possuiAudioRelato && !_transcrevendoRelato) ...[
-          const SizedBox(height: 12),
-          Semantics(
-            label: 'Transcrever áudio',
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _existeAcaoEmAndamento ? null : _transcreverRelato,
-                icon: const Icon(Icons.subtitles_rounded),
-                label: const Text('Transcrever com IA'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: context.corPrimaria,
-                  foregroundColor: context.corOnPrimaria,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-              ),
-            ),
-          ),
-        ],
-        const SizedBox(height: 12),
-        CampoTextoWidget(
-          controller: _transcricaoRelatoController,
-          label: 'Transcrição',
-        ),
-        if (_possuiTranscricaoRelato) ...[
-          const SizedBox(height: 12),
-          Semantics(
-            label: 'Gerar síntese',
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _existeAcaoEmAndamento ? null : _gerarSinteseComIa,
-                icon: _gerandoSinteseIa
-                    ? SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: context.corOnPrimaria,
-                        ),
-                      )
-                    : const Icon(Icons.auto_awesome_outlined),
-                label: Text(_gerandoSinteseIa ? 'Gerando...' : 'Gerar síntese'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: context.corPrimaria,
-                  foregroundColor: context.corOnPrimaria,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-              ),
-            ),
-          ),
-        ],
-        if (_geradoComIa) ...[
-          const SizedBox(height: 12),
-          CampoTextoWidget(
-            controller: _relatoPosSessaoController,
-            label: 'Relato clínico organizado',
-          ),
-        ],
-        if (!_revisadoPeloProfissional && _geradoComIa) ...[
-          const SizedBox(height: 4),
-          Semantics(
-            label: 'Marcar como revisado',
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _existeAcaoEmAndamento ? null : _marcarComoRevisado,
-                icon: const Icon(Icons.verified_outlined),
-                label: const Text('Marcar como revisado'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: context.corPrimaria,
-                  foregroundColor: context.corOnPrimaria,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _audioInfoWidget() {
-    if (!_possuiAudioRelato) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: AudioMantidoSwitch(
-        valor: _audioMantido,
-        desabilitado: _existeAcaoEmAndamento,
-        onChanged: (value) {
+    return SecaoRelatoIaWidget(
+      transcricaoController: _transcricaoRelatoController,
+      relatoPosSessaoController: _relatoPosSessaoController,
+      acoes: SessaoFormActions(
+        onLimparErroProcessamento: _limparErroProcessamento,
+        onLimparErroAudio: _limparErroAudio,
+        onGravar: _iniciarGravacaoRelato,
+        onPausar: _pausarGravacaoRelato,
+        onRetomar: _retomarGravacaoRelato,
+        onFinalizar: _pararGravacaoRelato,
+        onCancelar: _cancelarGravacaoRelato,
+        onOuvirParar: _ouvirOuPararAudioRelato,
+        onRemover: _removerAudioRelato,
+        onTranscrever: _transcreverRelato,
+        onGerarSintese: _gerarSinteseComIa,
+        onMarcarRevisado: _marcarComoRevisado,
+        onAudioMantidoChanged: (value) {
           _audioMantido = value;
           _triggerRebuild();
         },
@@ -2132,365 +2034,6 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       'dass21': 'DASS-21',
     };
     return nomes[id] ?? id;
-  }
-
-  Widget _secaoProgresso() {
-    if (_progressoGerando) {
-      return Card(
-        margin: EdgeInsets.zero,
-        color: context.corCard,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(Raio.lg),
-        ),
-        child: const Padding(
-          padding: EdgeInsets.all(14),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-              SizedBox(width: 10),
-              Text(
-                'Gerando análise de evolução...',
-                style: TextStyle(fontSize: Tipografia.smMd),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (_progressoSintomas.isEmpty) return const SizedBox.shrink();
-
-    final corTendencia = _corTendencia(_progressoTendencia);
-
-    return Card(
-      margin: EdgeInsets.zero,
-      color: context.corCard,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(Raio.lg),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.trending_up, color: corTendencia, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  'Evolução Clínica',
-                  style: TextStyle(
-                    fontSize: Tipografia.base,
-                    fontWeight: FontWeight.w700,
-                    color: context.corTextoHeading,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            ..._progressoSintomas
-                .take(4)
-                .map(
-                  (s) => Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Row(
-                      children: [
-                        Icon(
-                          s['tendencia'] == 'melhora'
-                              ? Icons.arrow_downward
-                              : s['tendencia'] == 'piora'
-                              ? Icons.arrow_upward
-                              : Icons.remove,
-                          size: 14,
-                          color: s['tendencia'] == 'melhora'
-                              ? context.corSuccess
-                              : s['tendencia'] == 'piora'
-                              ? context.corError
-                              : context.corTextoMuted,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            '${s['nome']} — ${s['intensidade']}/10',
-                            style: TextStyle(
-                              fontSize: Tipografia.sm,
-                              color: context.corTextoBody,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            if (_progressoAvaliacaoGeral.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: corTendencia.withAlpha(15),
-                  borderRadius: BorderRadius.circular(Raio.xxs),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.insights, size: 14, color: corTendencia),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        _progressoAvaliacaoGeral,
-                        style: TextStyle(
-                          fontSize: Tipografia.xs,
-                          color: corTendencia,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Color _corTendencia(String tendencia) {
-    switch (tendencia) {
-      case 'melhora':
-        return context.corSuccess;
-      case 'piora':
-        return context.corError;
-      case 'mista':
-        return context.corWarning;
-      default:
-        return context.corScheduled;
-    }
-  }
-
-  Widget _secaoFinanceira() {
-    final pacoteService = ref.read(pacoteServiceProvider);
-    final sessoesRestantes = pacoteService.totalSessoesRestantes(
-      widget.paciente.id,
-    );
-    final temPacoteAtivo = sessoesRestantes > 0;
-    final ehPacote = _statusPagamento == 'pacote';
-
-    return Card(
-      margin: EdgeInsets.zero,
-      color: context.corCard,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(Raio.lg),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.payments_outlined,
-                  color: context.corPrimaria,
-                  size: 18,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Financeiro',
-                  style: TextStyle(
-                    fontSize: Tipografia.base,
-                    fontWeight: FontWeight.w700,
-                    color: context.corTextoHeading,
-                  ),
-                ),
-              ],
-            ),
-            if (temPacoteAtivo) ...[
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: context.corPacote.withAlpha(20),
-                  borderRadius: BorderRadius.circular(Raio.xs),
-                  border: Border.all(color: context.corPacote.withAlpha(60)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.inventory_2_outlined,
-                      size: 16,
-                      color: context.corPacote,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Pacote ativo: $sessoesRestantes ${sessoesRestantes == 1 ? 'sessão restante' : 'sessões restantes'}',
-                      style: TextStyle(
-                        fontSize: Tipografia.sm,
-                        fontWeight: FontWeight.w600,
-                        color: context.corPacote,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            const SizedBox(height: 12),
-            IgnorePointer(
-              ignoring: ehPacote,
-              child: TextField(
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: const InputDecoration(
-                  labelText: 'Valor da sessão (R\$)',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                ),
-                controller: _valorController,
-                onChanged: (v) {
-                  final parsed = double.tryParse(v.replaceAll(',', '.'));
-                  if (parsed != null) {
-                    _valorSessao = parsed;
-                  }
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: _statusPagamento,
-              decoration: const InputDecoration(
-                labelText: 'Status do pagamento',
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-              ),
-              items: [
-                const DropdownMenuItem(
-                  value: 'pendente',
-                  child: Text('Pendente'),
-                ),
-                const DropdownMenuItem(value: 'pago', child: Text('Pago')),
-                const DropdownMenuItem(
-                  value: 'convenio',
-                  child: Text('Convênio'),
-                ),
-                if (temPacoteAtivo || ehPacote)
-                  const DropdownMenuItem(
-                    value: 'pacote',
-                    child: Text('Pacote'),
-                  ),
-              ],
-              onChanged: (v) {
-                if (v != null) {
-                  _statusPagamento = v;
-                  if (v == 'pago') {
-                    _dataPagamento = DateTime.now();
-                  } else if (v == 'pacote') {
-                    _dataPagamento = null;
-                    _metodoPagamento = '';
-                    final valorPorSessao =
-                        pacoteService.valorPorSessaoAtivo(widget.paciente.id) ??
-                        0.0;
-                    if (valorPorSessao > 0) {
-                      _valorSessao = valorPorSessao;
-                    }
-                  } else {
-                    _dataPagamento = null;
-                    _metodoPagamento = '';
-                  }
-                  _triggerRebuild();
-                }
-              },
-            ),
-            if (_statusPagamento == 'pago') ...[
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: _metodoPagamento.isEmpty
-                    ? null
-                    : _metodoPagamento,
-                decoration: const InputDecoration(
-                  labelText: 'Método de pagamento',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'pix', child: Text('Pix')),
-                  DropdownMenuItem(value: 'dinheiro', child: Text('Dinheiro')),
-                  DropdownMenuItem(
-                    value: 'cartao_credito',
-                    child: Text('Cartão de crédito'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'cartao_debito',
-                    child: Text('Cartão de débito'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'transferencia',
-                    child: Text('Transferência'),
-                  ),
-                ],
-                onChanged: (v) {
-                  _metodoPagamento = v ?? '';
-                  _triggerRebuild();
-                },
-              ),
-              const SizedBox(height: 12),
-              InkWell(
-                onTap: () async {
-                  final date = await showDatePicker(
-                    context: context,
-                    initialDate: _dataPagamento ?? DateTime.now(),
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime.now(),
-                    cancelText: 'Cancelar',
-                    confirmText: 'OK',
-                  );
-                  if (date != null) {
-                    _dataPagamento = date;
-                    _triggerRebuild();
-                  }
-                },
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Data do pagamento',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                  ),
-                  child: Text(
-                    _dataPagamento != null
-                        ? '${_dataPagamento!.day.toString().padLeft(2, '0')}/${_dataPagamento!.month.toString().padLeft(2, '0')}/${_dataPagamento!.year}'
-                        : 'Selecionar data',
-                    style: TextStyle(
-                      fontSize: Tipografia.base,
-                      color: _dataPagamento != null
-                          ? context.corTextoBody
-                          : context.corTextoMuted,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
   }
 
   Widget _botaoSalvar() {
