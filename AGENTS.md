@@ -271,6 +271,9 @@ Pendência histórica do AGENTS.md resolvida em 6 fases (1 commit cada, TDD). Pl
 - Lógica pura (sem UI) → `lib/utils/*_helpers.dart` testável isoladamente.
 - Lógica acoplada a `context`/`mounted`/controllers → permanece no State.
 
+### APK
+- `1.0.25+26` → **`1.0.26+27`**; APK `MentAllPRO-v1.0.26.apk` (72 MB). Push **seguro** (sem deploy) — código fica local.
+
 ## INFRAESTRUTURA LOCAL (25/08/2026) — Setup e automação
 
 ### Localização do projeto (MOVIDA!)
