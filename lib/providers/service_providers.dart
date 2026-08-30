@@ -1,3 +1,4 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/anamnese_enviada.dart';
@@ -91,6 +92,12 @@ final pacientesArquivadosProvider = StreamProvider<List<Paciente>>((ref) async* 
 
 final audioRelatoServiceProvider = Provider<AudioRelatoService>((ref) {
   return AudioRelatoService();
+});
+
+/// Player de áudio compartilhado. Provider permite sobrescrever em testes com
+/// um fake (o `AudioPlayer` real pendura o teardown em `testWidgets`).
+final audioPlayerProvider = Provider<AudioPlayer>((ref) {
+  return AudioPlayer();
 });
 
 final transcricaoRelatoServiceProvider = Provider<TranscricaoRelatoService>((ref) {

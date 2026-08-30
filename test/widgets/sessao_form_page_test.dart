@@ -2,6 +2,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:prontuario_tcc/hive_registrar.g.dart';
 import 'package:prontuario_tcc/models/paciente.dart';
 import 'package:prontuario_tcc/models/pacote.dart';
@@ -24,6 +25,24 @@ class _FakeAudioRelatoService implements AudioRelatoService {
   @override Future<void> removerAudioAtual() async {}
   @override String? get caminhoAudioAtual => null;
   @override Future<void> dispose() async {}
+}
+
+/// O `AudioPlayer` real do audioplayers pendura o teardown em `testWidgets`
+/// (chamadas nativas sem handler no ambiente de teste). Este fake sobrescreve
+/// todos os métodos usados pela página para que o dispose não trave.
+class _FakeAudioPlayer extends AudioPlayer {
+  @override
+  Stream<void> get onPlayerComplete => const Stream<void>.empty();
+  @override
+  Future<void> release() async {}
+  @override
+  Future<void> stop() async {}
+  @override
+  Future<void> play(Source source, {double? volume, double? balance, AudioContext? ctx, Duration? position, PlayerMode? mode}) async {}
+  @override
+  Future<void> setSource(Source source) async {}
+  @override
+  Future<void> dispose() async {}
 }
 
 void main() {
@@ -67,7 +86,10 @@ void main() {
   });
 
   Widget app({Sessao? sessao}) => ProviderScope(
-    overrides: [audioRelatoServiceProvider.overrideWithValue(fakeAudio)],
+    overrides: [
+      audioRelatoServiceProvider.overrideWithValue(fakeAudio),
+      audioPlayerProvider.overrideWithValue(_FakeAudioPlayer()),
+    ],
     child: MaterialApp(home: SessaoFormPage(paciente: paciente, sessaoExistente: sessao)),
   );
 
@@ -183,8 +205,12 @@ void main() {
   });
 
   group('Botao Marcar como revisado', () {
-    testWidgets('nao aparece quando ha apenas transcricao (sem sintese)', (tester) async {
-      final sessao = Sessao(
+    late Sessao semSintese;
+    late Sessao comSintese;
+    late Sessao jaRevisada;
+
+    setUp(() async {
+      semSintese = Sessao(
         id: 's3', pacienteId: 'p1', numeroSessao: 5,
         data: DateTime(2026, 7, 20, 10, 0),
         relatoPosSessao: 'Relato teste',
@@ -193,15 +219,7 @@ void main() {
         statusProcessamento: 'transcrito',
         revisadoPeloProfissional: false,
       );
-      await Hive.box<Sessao>('sessoes').put('s3', sessao);
-
-      await pump(tester, sessao: sessao);
-
-      expect(find.text('Marcar como revisado'), findsNothing);
-    });
-
-    testWidgets('aparece quando a sintese foi gerada', (tester) async {
-      final sessao = Sessao(
+      comSintese = Sessao(
         id: 's4', pacienteId: 'p1', numeroSessao: 6,
         data: DateTime(2026, 7, 21, 10, 0),
         relatoPosSessao: 'Relato teste',
@@ -211,15 +229,7 @@ void main() {
         statusProcessamento: 'ia_processada',
         revisadoPeloProfissional: false,
       );
-      await Hive.box<Sessao>('sessoes').put('s4', sessao);
-
-      await pump(tester, sessao: sessao);
-
-      expect(find.text('Marcar como revisado'), findsOneWidget);
-    });
-
-    testWidgets('nao aparece quando a sessao ja foi revisada', (tester) async {
-      final sessao = Sessao(
+      jaRevisada = Sessao(
         id: 's5', pacienteId: 'p1', numeroSessao: 7,
         data: DateTime(2026, 7, 22, 10, 0),
         relatoPosSessao: 'Relato teste',
@@ -229,9 +239,27 @@ void main() {
         statusProcessamento: 'revisado',
         revisadoPeloProfissional: true,
       );
-      await Hive.box<Sessao>('sessoes').put('s5', sessao);
+      await Hive.box<Sessao>('sessoes').putAll({
+        's3': semSintese,
+        's4': comSintese,
+        's5': jaRevisada,
+      });
+    });
 
-      await pump(tester, sessao: sessao);
+    testWidgets('nao aparece quando ha apenas transcricao (sem sintese)', (tester) async {
+      await pump(tester, sessao: semSintese);
+
+      expect(find.text('Marcar como revisado'), findsNothing);
+    });
+
+    testWidgets('aparece quando a sintese foi gerada', (tester) async {
+      await pump(tester, sessao: comSintese);
+
+      expect(find.text('Marcar como revisado'), findsOneWidget);
+    });
+
+    testWidgets('nao aparece quando a sessao ja foi revisada', (tester) async {
+      await pump(tester, sessao: jaRevisada);
 
       expect(find.text('Marcar como revisado'), findsNothing);
     });

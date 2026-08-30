@@ -34,7 +34,9 @@ final _statusProcessamentoProvider = StateProvider<String>((ref) => 'manual');
 final _revisadoPeloProfissionalProvider = StateProvider<bool>((ref) => false);
 final _geradoComIaProvider = StateProvider<bool>((ref) => false);
 final _dataProcessamentoIaProvider = StateProvider<DateTime?>((ref) => null);
-final _avisoInvalidacaoTranscricaoExibidoProvider = StateProvider<bool>((ref) => false);
+final _avisoInvalidacaoTranscricaoExibidoProvider = StateProvider<bool>(
+  (ref) => false,
+);
 final _audioMantidoProvider = StateProvider<bool>((ref) => false);
 final _origemRelatoProvider = StateProvider<String>((ref) => 'manual');
 final _modoEdicaoProvider = StateProvider<bool>((ref) => false);
@@ -42,8 +44,12 @@ final _valorSessaoProvider = StateProvider<double>((ref) => 0.0);
 final _statusPagamentoProvider = StateProvider<String>((ref) => 'pendente');
 final _dataPagamentoProvider = StateProvider<DateTime?>((ref) => null);
 final _metodoPagamentoProvider = StateProvider<String>((ref) => '');
-final _progressoSintomasProvider = StateProvider<List<Map<String, dynamic>>>((ref) => []);
-final _progressoMetasProvider = StateProvider<List<Map<String, dynamic>>>((ref) => []);
+final _progressoSintomasProvider = StateProvider<List<Map<String, dynamic>>>(
+  (ref) => [],
+);
+final _progressoMetasProvider = StateProvider<List<Map<String, dynamic>>>(
+  (ref) => [],
+);
 final _progressoGeralProvider = StateProvider<String>((ref) => '');
 final _progressoTendenciaProvider = StateProvider<String>((ref) => 'estavel');
 final _progressoGerandoProvider = StateProvider<bool>((ref) => false);
@@ -68,7 +74,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   late final AudioRelatoService _audioRelatoService;
   late final TranscricaoRelatoService _transcricaoRelatoService;
   late final IaClinicaService _iaClinicaService;
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  late final AudioPlayer _audioPlayer;
   String? _erroInicializacao;
 
   StreamSubscription<void>? _audioPlayerCompleteSubscription;
@@ -79,10 +85,8 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       TextEditingController();
   final TextEditingController _sinteseController = TextEditingController();
   final TextEditingController _formulacaoController = TextEditingController();
-  final TextEditingController _intervencoesController =
-      TextEditingController();
-  final TextEditingController _apontamentosController =
-      TextEditingController();
+  final TextEditingController _intervencoesController = TextEditingController();
+  final TextEditingController _apontamentosController = TextEditingController();
   final TextEditingController _planoProximaSessaoController =
       TextEditingController();
   final TextEditingController _valorController = TextEditingController();
@@ -95,55 +99,72 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   static const Duration _duracaoMaximaAudio = Duration(minutes: 5);
 
   bool get _transcrevendoRelato => ref.read(transcrevendoRelatoProvider);
-  set _transcrevendoRelato(bool v) => ref.read(transcrevendoRelatoProvider.notifier).state = v;
+  set _transcrevendoRelato(bool v) =>
+      ref.read(transcrevendoRelatoProvider.notifier).state = v;
 
   bool get _gerandoSinteseIa => ref.read(gerandoSinteseIaProvider);
-  set _gerandoSinteseIa(bool v) => ref.read(gerandoSinteseIaProvider.notifier).state = v;
+  set _gerandoSinteseIa(bool v) =>
+      ref.read(gerandoSinteseIaProvider.notifier).state = v;
 
   String get _statusProcessamento => ref.read(_statusProcessamentoProvider);
-  set _statusProcessamento(String v) => ref.read(_statusProcessamentoProvider.notifier).state = v;
+  set _statusProcessamento(String v) =>
+      ref.read(_statusProcessamentoProvider.notifier).state = v;
 
   String get _erroProcessamentoIa => ref.read(erroProcessamentoIaProvider);
-  set _erroProcessamentoIa(String v) => ref.read(erroProcessamentoIaProvider.notifier).state = v;
+  set _erroProcessamentoIa(String v) =>
+      ref.read(erroProcessamentoIaProvider.notifier).state = v;
 
-  bool get _revisadoPeloProfissional => ref.read(_revisadoPeloProfissionalProvider);
-  set _revisadoPeloProfissional(bool v) => ref.read(_revisadoPeloProfissionalProvider.notifier).state = v;
+  bool get _revisadoPeloProfissional =>
+      ref.read(_revisadoPeloProfissionalProvider);
+  set _revisadoPeloProfissional(bool v) =>
+      ref.read(_revisadoPeloProfissionalProvider.notifier).state = v;
 
   bool get _geradoComIa => ref.read(_geradoComIaProvider);
   set _geradoComIa(bool v) => ref.read(_geradoComIaProvider.notifier).state = v;
 
   DateTime? get _dataProcessamentoIa => ref.read(_dataProcessamentoIaProvider);
-  set _dataProcessamentoIa(DateTime? v) => ref.read(_dataProcessamentoIaProvider.notifier).state = v;
+  set _dataProcessamentoIa(DateTime? v) =>
+      ref.read(_dataProcessamentoIaProvider.notifier).state = v;
 
-  bool get _avisoInvalidacaoTranscricaoExibido => ref.read(_avisoInvalidacaoTranscricaoExibidoProvider);
-  set _avisoInvalidacaoTranscricaoExibido(bool v) => ref.read(_avisoInvalidacaoTranscricaoExibidoProvider.notifier).state = v;
+  bool get _avisoInvalidacaoTranscricaoExibido =>
+      ref.read(_avisoInvalidacaoTranscricaoExibidoProvider);
+  set _avisoInvalidacaoTranscricaoExibido(bool v) =>
+      ref.read(_avisoInvalidacaoTranscricaoExibidoProvider.notifier).state = v;
 
   bool get _audioMantido => ref.read(_audioMantidoProvider);
-  set _audioMantido(bool v) => ref.read(_audioMantidoProvider.notifier).state = v;
+  set _audioMantido(bool v) =>
+      ref.read(_audioMantidoProvider.notifier).state = v;
 
   String get _origemRelato => ref.read(_origemRelatoProvider);
-  set _origemRelato(String v) => ref.read(_origemRelatoProvider.notifier).state = v;
+  set _origemRelato(String v) =>
+      ref.read(_origemRelatoProvider.notifier).state = v;
 
   String get _artigosSugeridos => ref.read(artigosSugeridosProvider);
-  set _artigosSugeridos(String v) => ref.read(artigosSugeridosProvider.notifier).state = v;
+  set _artigosSugeridos(String v) =>
+      ref.read(artigosSugeridosProvider.notifier).state = v;
 
   bool get _buscandoArtigos => ref.read(_buscandoArtigosProvider);
-  set _buscandoArtigos(bool v) => ref.read(_buscandoArtigosProvider.notifier).state = v;
+  set _buscandoArtigos(bool v) =>
+      ref.read(_buscandoArtigosProvider.notifier).state = v;
 
   bool get _modoEdicao => ref.read(_modoEdicaoProvider);
   set _modoEdicao(bool v) => ref.read(_modoEdicaoProvider.notifier).state = v;
 
   double get _valorSessao => ref.read(_valorSessaoProvider);
-  set _valorSessao(double v) => ref.read(_valorSessaoProvider.notifier).state = v;
+  set _valorSessao(double v) =>
+      ref.read(_valorSessaoProvider.notifier).state = v;
 
   String get _statusPagamento => ref.read(_statusPagamentoProvider);
-  set _statusPagamento(String v) => ref.read(_statusPagamentoProvider.notifier).state = v;
+  set _statusPagamento(String v) =>
+      ref.read(_statusPagamentoProvider.notifier).state = v;
 
   DateTime? get _dataPagamento => ref.read(_dataPagamentoProvider);
-  set _dataPagamento(DateTime? v) => ref.read(_dataPagamentoProvider.notifier).state = v;
+  set _dataPagamento(DateTime? v) =>
+      ref.read(_dataPagamentoProvider.notifier).state = v;
 
   String get _metodoPagamento => ref.read(_metodoPagamentoProvider);
-  set _metodoPagamento(String v) => ref.read(_metodoPagamentoProvider.notifier).state = v;
+  set _metodoPagamento(String v) =>
+      ref.read(_metodoPagamentoProvider.notifier).state = v;
 
   bool get _controleFinanceiroAtivo =>
       ref.read(configuracoesServiceProvider).controleFinanceiroAtivo;
@@ -156,18 +177,15 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   set _progressoMetas(List<Map<String, dynamic>> v) =>
       ref.read(_progressoMetasProvider.notifier).state = v;
 
-  String get _progressoAvaliacaoGeral =>
-      ref.read(_progressoGeralProvider);
+  String get _progressoAvaliacaoGeral => ref.read(_progressoGeralProvider);
   set _progressoAvaliacaoGeral(String v) =>
       ref.read(_progressoGeralProvider.notifier).state = v;
 
-  String get _progressoTendencia =>
-      ref.read(_progressoTendenciaProvider);
+  String get _progressoTendencia => ref.read(_progressoTendenciaProvider);
   set _progressoTendencia(String v) =>
       ref.read(_progressoTendenciaProvider.notifier).state = v;
 
-  bool get _progressoGerando =>
-      ref.read(_progressoGerandoProvider);
+  bool get _progressoGerando => ref.read(_progressoGerandoProvider);
   set _progressoGerando(bool v) =>
       ref.read(_progressoGerandoProvider.notifier).state = v;
 
@@ -177,7 +195,9 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
   void _registrarAuditoria(String tipo, String descricao) {
     try {
-      ref.read(auditoriaServiceProvider).registrar(
+      ref
+          .read(auditoriaServiceProvider)
+          .registrar(
             tipoEvento: tipo,
             descricao: descricao,
             pacienteId: widget.paciente.id,
@@ -272,17 +292,29 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
   String _concatenarSintese(Sessao s) {
     final partes = <String>[];
-    if (s.eventosImportantes.trim().isNotEmpty) partes.add(s.eventosImportantes.trim());
-    if (s.evolucaoClinica.trim().isNotEmpty) partes.add(s.evolucaoClinica.trim());
-    if (s.observacoes.trim().isNotEmpty) partes.add(s.observacoes.trim());
+    if (s.eventosImportantes.trim().isNotEmpty) {
+      partes.add(s.eventosImportantes.trim());
+    }
+    if (s.evolucaoClinica.trim().isNotEmpty) {
+      partes.add(s.evolucaoClinica.trim());
+    }
+    if (s.observacoes.trim().isNotEmpty) {
+      partes.add(s.observacoes.trim());
+    }
     return partes.join('\n\n');
   }
 
   String _concatenarFormulacao(Sessao s) {
     final partes = <String>[];
-    if (s.pensamentosAutomaticos.trim().isNotEmpty) partes.add(s.pensamentosAutomaticos.trim());
-    if (s.emocoes.trim().isNotEmpty) partes.add(s.emocoes.trim());
-    if (s.comportamentos.trim().isNotEmpty) partes.add(s.comportamentos.trim());
+    if (s.pensamentosAutomaticos.trim().isNotEmpty) {
+      partes.add(s.pensamentosAutomaticos.trim());
+    }
+    if (s.emocoes.trim().isNotEmpty) {
+      partes.add(s.emocoes.trim());
+    }
+    if (s.comportamentos.trim().isNotEmpty) {
+      partes.add(s.comportamentos.trim());
+    }
     return partes.join('\n\n');
   }
 
@@ -295,15 +327,16 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       _audioRelatoService = ref.read(audioRelatoServiceProvider);
       _transcricaoRelatoService = ref.read(transcricaoRelatoServiceProvider);
       _iaClinicaService = ref.read(iaClinicaServiceProvider);
+      _audioPlayer = ref.read(audioPlayerProvider);
 
-      _audioPlayerCompleteSubscription = _audioPlayer.onPlayerComplete.listen(
-        (_) {
-          if (!mounted) return;
+      _audioPlayerCompleteSubscription = _audioPlayer.onPlayerComplete.listen((
+        _,
+      ) {
+        if (!mounted) return;
 
-          _reproduzindoAudio = false;
-          _triggerRebuild();
-        },
-      );
+        _reproduzindoAudio = false;
+        _triggerRebuild();
+      });
 
       final sessao = widget.sessaoExistente;
 
@@ -324,8 +357,10 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           ref.read(_dataSessaoProvider.notifier).state = sessao.data;
-          ref.read(audioRelatoPathProvider.notifier).state = sessao.audioRelatoPath;
-          ref.read(audioRelatoBase64Provider.notifier).state = sessao.audioRelatoBase64;
+          ref.read(audioRelatoPathProvider.notifier).state =
+              sessao.audioRelatoPath;
+          ref.read(audioRelatoBase64Provider.notifier).state =
+              sessao.audioRelatoBase64;
           _dataProcessamentoIa = sessao.dataProcessamentoIa;
           _geradoComIa = sessao.geradoComIa;
           _statusProcessamento = sessao.statusProcessamento;
@@ -336,9 +371,12 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
           _origemRelato = sessao.origemRelato;
           _modoEdicao = false;
           ref.read(_valorSessaoProvider.notifier).state = sessao.valorSessao;
-          ref.read(_statusPagamentoProvider.notifier).state = sessao.statusPagamento;
-          ref.read(_dataPagamentoProvider.notifier).state = sessao.dataPagamento;
-          ref.read(_metodoPagamentoProvider.notifier).state = sessao.metodoPagamento;
+          ref.read(_statusPagamentoProvider.notifier).state =
+              sessao.statusPagamento;
+          ref.read(_dataPagamentoProvider.notifier).state =
+              sessao.dataPagamento;
+          ref.read(_metodoPagamentoProvider.notifier).state =
+              sessao.metodoPagamento;
           _valorController.text = sessao.valorSessao > 0
               ? sessao.valorSessao.toStringAsFixed(2).replaceAll('.', ',')
               : '';
@@ -355,11 +393,14 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
           final config = ref.read(configuracoesServiceProvider);
           final pacoteService = ref.read(pacoteServiceProvider);
-          final sessoesRestantes = pacoteService.totalSessoesRestantes(widget.paciente.id);
+          final sessoesRestantes = pacoteService.totalSessoesRestantes(
+            widget.paciente.id,
+          );
           final temPacoteAtivo = sessoesRestantes > 0;
 
           if (temPacoteAtivo) {
-            final valorPorSessao = pacoteService.valorPorSessaoAtivo(widget.paciente.id) ?? 0.0;
+            final valorPorSessao =
+                pacoteService.valorPorSessaoAtivo(widget.paciente.id) ?? 0.0;
             ref.read(_valorSessaoProvider.notifier).state = valorPorSessao;
             ref.read(_statusPagamentoProvider.notifier).state = 'pacote';
           } else {
@@ -373,7 +414,10 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
           ref.read(_dataPagamentoProvider.notifier).state = null;
           ref.read(_metodoPagamentoProvider.notifier).state = '';
           _valorController.text = ref.read(_valorSessaoProvider) > 0
-              ? ref.read(_valorSessaoProvider).toStringAsFixed(2).replaceAll('.', ',')
+              ? ref
+                    .read(_valorSessaoProvider)
+                    .toStringAsFixed(2)
+                    .replaceAll('.', ',')
               : '';
 
           _triggerRebuild();
@@ -473,9 +517,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
     try {
       _transcricaoRelatoController.value = TextEditingValue(
         text: textoLimpo,
-        selection: TextSelection.collapsed(
-          offset: textoLimpo.length,
-        ),
+        selection: TextSelection.collapsed(offset: textoLimpo.length),
       );
 
       _ultimaTranscricaoControlada = textoLimpo;
@@ -524,7 +566,8 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       ref.read(_revisadoPeloProfissionalProvider.notifier).state = false;
       ref.read(_geradoComIaProvider.notifier).state = false;
       ref.read(_dataProcessamentoIaProvider.notifier).state = null;
-      ref.read(_avisoInvalidacaoTranscricaoExibidoProvider.notifier).state = false;
+      ref.read(_avisoInvalidacaoTranscricaoExibidoProvider.notifier).state =
+          false;
       ref.read(_audioMantidoProvider.notifier).state = false;
       ref.read(_origemRelatoProvider.notifier).state = 'manual';
       ref.read(artigosSugeridosProvider.notifier).state = '';
@@ -538,21 +581,18 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
     ref.read(duracaoGravacaoProvider.notifier).state = Duration.zero;
 
-    _timerGravacao = Timer.periodic(
-      const Duration(seconds: 1),
-      (_) {
-        if (!mounted) return;
+    _timerGravacao = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
 
-        final novaDuracao =
-            ref.read(duracaoGravacaoProvider) + const Duration(seconds: 1);
-        ref.read(duracaoGravacaoProvider.notifier).state = novaDuracao;
-        _triggerRebuild();
+      final novaDuracao =
+          ref.read(duracaoGravacaoProvider) + const Duration(seconds: 1);
+      ref.read(duracaoGravacaoProvider.notifier).state = novaDuracao;
+      _triggerRebuild();
 
-        if (novaDuracao >= _duracaoMaximaAudio) {
-          _pararGravacaoRelato();
-        }
-      },
-    );
+      if (novaDuracao >= _duracaoMaximaAudio) {
+        _pararGravacaoRelato();
+      }
+    });
   }
 
   void _pausarContadorGravacao() {
@@ -563,21 +603,18 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   void _retomarContadorGravacao() {
     _timerGravacao?.cancel();
 
-    _timerGravacao = Timer.periodic(
-      const Duration(seconds: 1),
-      (_) {
-        if (!mounted) return;
+    _timerGravacao = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
 
-        final novaDuracao =
-            ref.read(duracaoGravacaoProvider) + const Duration(seconds: 1);
-        ref.read(duracaoGravacaoProvider.notifier).state = novaDuracao;
-        _triggerRebuild();
+      final novaDuracao =
+          ref.read(duracaoGravacaoProvider) + const Duration(seconds: 1);
+      ref.read(duracaoGravacaoProvider.notifier).state = novaDuracao;
+      _triggerRebuild();
 
-        if (novaDuracao >= _duracaoMaximaAudio) {
-          _pararGravacaoRelato();
-        }
-      },
-    );
+      if (novaDuracao >= _duracaoMaximaAudio) {
+        _pararGravacaoRelato();
+      }
+    });
   }
 
   void _pararContadorGravacao() {
@@ -607,7 +644,9 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
     }
 
     try {
-      final tempPath = await AudioRelatoService.prepararAudioParaPlayback(caminho);
+      final tempPath = await AudioRelatoService.prepararAudioParaPlayback(
+        caminho,
+      );
       return DeviceFileSource(tempPath);
     } catch (_) {
       return null;
@@ -615,7 +654,9 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   }
 
   Source? _criarFonteAudioBase64() {
-    final base64Audio = _normalizarAudioBase64(ref.read(audioRelatoBase64Provider));
+    final base64Audio = _normalizarAudioBase64(
+      ref.read(audioRelatoBase64Provider),
+    );
 
     if (base64Audio.isEmpty) {
       return null;
@@ -656,9 +697,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       initialTime: horarioAtual,
       builder: (context, child) {
         return MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            alwaysUse24HourFormat: true,
-          ),
+          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
           child: child ?? const SizedBox.shrink(),
         );
       },
@@ -683,9 +722,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
         await _audioPlayer.stop();
       }
 
-      await _audioRelatoService.iniciarGravacao(
-        sessaoId: _sessaoId,
-      );
+      await _audioRelatoService.iniciarGravacao(sessaoId: _sessaoId);
 
       _iniciarContadorGravacao();
 
@@ -698,7 +735,10 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       ref.read(reproduzindoAudioProvider.notifier).state = false;
       _triggerRebuild();
 
-      _registrarAuditoria('Gravação de áudio', 'Início da gravação do relato - sessão $_numeroSessao');
+      _registrarAuditoria(
+        'Gravação de áudio',
+        'Início da gravação do relato - sessão $_numeroSessao',
+      );
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -732,7 +772,9 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   }
 
   Future<void> _pausarGravacaoRelato() async {
-    if (!ref.read(gravandoAudioProvider) || ref.read(audioPausadoProvider)) return;
+    if (!ref.read(gravandoAudioProvider) || ref.read(audioPausadoProvider)) {
+      return;
+    }
 
     try {
       await _audioRelatoService.pausarGravacao();
@@ -744,11 +786,9 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       ref.read(erroAudioProvider.notifier).state = '';
       _triggerRebuild();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Gravação pausada.'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Gravação pausada.')));
     } catch (erro) {
       if (!mounted) return;
 
@@ -759,7 +799,9 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   }
 
   Future<void> _retomarGravacaoRelato() async {
-    if (!ref.read(gravandoAudioProvider) || !ref.read(audioPausadoProvider)) return;
+    if (!ref.read(gravandoAudioProvider) || !ref.read(audioPausadoProvider)) {
+      return;
+    }
 
     try {
       await _audioRelatoService.retomarGravacao();
@@ -771,11 +813,9 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       ref.read(erroAudioProvider.notifier).state = '';
       _triggerRebuild();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Gravação retomada.'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Gravação retomada.')));
     } catch (erro) {
       if (!mounted) return;
 
@@ -786,77 +826,77 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   }
 
   Future<void> _pararGravacaoRelato() async {
-  if (!ref.read(gravandoAudioProvider)) return;
-
-  try {
-    final caminho = await _audioRelatoService.pararGravacao();
-
-    String audioBase64 = '';
+    if (!ref.read(gravandoAudioProvider)) return;
 
     try {
-      audioBase64 = await _audioRelatoService.obterAudioAtualBase64();
-    } catch (erroBase64) {
-      audioBase64 = '';
+      final caminho = await _audioRelatoService.pararGravacao();
 
-      if (mounted) {
-        ref.read(erroAudioProvider.notifier).state =
-            'O áudio foi gravado, mas não foi possível criar o backup interno em Base64. Detalhes: $erroBase64';
+      String audioBase64 = '';
+
+      try {
+        audioBase64 = await _audioRelatoService.obterAudioAtualBase64();
+      } catch (erroBase64) {
+        audioBase64 = '';
+
+        if (mounted) {
+          ref.read(erroAudioProvider.notifier).state =
+              'O áudio foi gravado, mas não foi possível criar o backup interno em Base64. Detalhes: $erroBase64';
+        }
       }
-    }
 
-    _pararContadorGravacao();
+      _pararContadorGravacao();
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    if (caminho != null && caminho.trim().isNotEmpty) {
-      ref.read(audioRelatoPathProvider.notifier).state = caminho.trim();
-    }
+      if (caminho != null && caminho.trim().isNotEmpty) {
+        ref.read(audioRelatoPathProvider.notifier).state = caminho.trim();
+      }
 
-    ref.read(audioRelatoBase64Provider.notifier).state = audioBase64.trim();
+      ref.read(audioRelatoBase64Provider.notifier).state = audioBase64.trim();
 
-    _origemRelato = 'audio';
-    _statusProcessamento = 'audio_gravado';
-    _audioMantido = true;
+      _origemRelato = 'audio';
+      _statusProcessamento = 'audio_gravado';
+      _audioMantido = true;
 
-    _revisadoPeloProfissional = false;
-    _geradoComIa = false;
-    _dataProcessamentoIa = null;
-    _erroProcessamentoIa = '';
+      _revisadoPeloProfissional = false;
+      _geradoComIa = false;
+      _dataProcessamentoIa = null;
+      _erroProcessamentoIa = '';
 
-    if (ref.read(audioRelatoBase64Provider).trim().isNotEmpty) {
-      ref.read(erroAudioProvider.notifier).state = '';
-    }
+      if (ref.read(audioRelatoBase64Provider).trim().isNotEmpty) {
+        ref.read(erroAudioProvider.notifier).state = '';
+      }
 
-    _atualizarTranscricaoProgramaticamente('');
-    _limparCamposGeradosPelaIa();
+      _atualizarTranscricaoProgramaticamente('');
+      _limparCamposGeradosPelaIa();
 
-    ref.read(gravandoAudioProvider.notifier).state = false;
-    ref.read(audioPausadoProvider.notifier).state = false;
-    _triggerRebuild();
+      ref.read(gravandoAudioProvider.notifier).state = false;
+      ref.read(audioPausadoProvider.notifier).state = false;
+      _triggerRebuild();
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _possuiAudioRelatoBase64
-              ? 'Gravação finalizada e salva.'
-              : (kIsWeb
-                  ? 'Gravação finalizada, mas o backup Base64 não foi gerado.'
-                  : 'Gravação finalizada.'),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _possuiAudioRelatoBase64
+                ? 'Gravação finalizada e salva.'
+                : (kIsWeb
+                      ? 'Gravação finalizada, mas o backup Base64 não foi gerado.'
+                      : 'Gravação finalizada.'),
+          ),
         ),
-      ),
-    );
-  } catch (erro) {
-    _pararContadorGravacao();
+      );
+    } catch (erro) {
+      _pararContadorGravacao();
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    ref.read(erroAudioProvider.notifier).state =
-        'Não foi possível finalizar a gravação. Detalhes: $erro';
-    ref.read(gravandoAudioProvider.notifier).state = false;
-    ref.read(audioPausadoProvider.notifier).state = false;
-    _triggerRebuild();
+      ref.read(erroAudioProvider.notifier).state =
+          'Não foi possível finalizar a gravação. Detalhes: $erro';
+      ref.read(gravandoAudioProvider.notifier).state = false;
+      ref.read(audioPausadoProvider.notifier).state = false;
+      _triggerRebuild();
+    }
   }
-}   
 
   Future<void> _cancelarGravacaoRelato() async {
     try {
@@ -879,11 +919,9 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
       _triggerRebuild();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Gravação cancelada.'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Gravação cancelada.')));
     } catch (erro) {
       if (!mounted) return;
 
@@ -932,7 +970,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
       final devePreferirBase64 =
           _possuiAudioRelatoBase64 &&
-              (caminhoAudio.isEmpty || caminhoAudio.startsWith('blob:'));
+          (caminhoAudio.isEmpty || caminhoAudio.startsWith('blob:'));
 
       ref.read(preparandoAudioProvider.notifier).state = true;
       _triggerRebuild();
@@ -941,7 +979,8 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
         if (devePreferirBase64) {
           fonteAudio = _criarFonteAudioBase64();
         } else {
-          fonteAudio = await _criarFonteAudioPorCaminho(caminhoAudio) ??
+          fonteAudio =
+              await _criarFonteAudioPorCaminho(caminhoAudio) ??
               _criarFonteAudioBase64();
         }
       } finally {
@@ -999,30 +1038,30 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
     if (!_possuiAudioRelato || _existeAcaoEmAndamento) return;
 
     final confirmar = await showDialog<bool>(
-  context: context,
-  builder: (dialogContext) {
-    return AlertDialog(
-      title: const Text('Remover áudio?'),
-      content: const Text(
-        'O áudio gravado será desvinculado desta sessão. '
-        'A transcrição e os apontamentos gerados a partir dele também serão limpos. '
-        'A sessão permanecerá salva e poderá receber um novo relato.',
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(dialogContext).pop(false),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(dialogContext).pop(true),
-          child: const Text('Remover áudio'),
-        ),
-      ],
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Remover áudio?'),
+          content: const Text(
+            'O áudio gravado será desvinculado desta sessão. '
+            'A transcrição e os apontamentos gerados a partir dele também serão limpos. '
+            'A sessão permanecerá salva e poderá receber um novo relato.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Remover áudio'),
+            ),
+          ],
+        );
+      },
     );
-  },
-);
 
-if (!mounted || confirmar != true) return;
+    if (!mounted || confirmar != true) return;
 
     try {
       if (ref.read(reproduzindoAudioProvider)) {
@@ -1057,9 +1096,7 @@ if (!mounted || confirmar != true) return;
       _triggerRebuild();
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Áudio removido da sessão.'),
-        ),
+        const SnackBar(content: Text('Áudio removido da sessão.')),
       );
     } catch (erro) {
       if (!mounted) return;
@@ -1133,7 +1170,10 @@ if (!mounted || confirmar != true) return;
         _avisoInvalidacaoTranscricaoExibido = false;
         _triggerRebuild();
 
-        _registrarAuditoria('Transcrição concluída', 'Transcrição do áudio realizada - sessão $_numeroSessao');
+        _registrarAuditoria(
+          'Transcrição concluída',
+          'Transcrição do áudio realizada - sessão $_numeroSessao',
+        );
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1150,9 +1190,7 @@ if (!mounted || confirmar != true) return;
       _triggerRebuild();
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Não foi possível transcrever o relato.'),
-        ),
+        const SnackBar(content: Text('Não foi possível transcrever o relato.')),
       );
     } catch (erro) {
       if (!mounted) return;
@@ -1164,9 +1202,7 @@ if (!mounted || confirmar != true) return;
       _triggerRebuild();
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Não foi possível transcrever o relato.'),
-        ),
+        const SnackBar(content: Text('Não foi possível transcrever o relato.')),
       );
     }
   }
@@ -1179,9 +1215,7 @@ if (!mounted || confirmar != true) return;
 
     controller.value = TextEditingValue(
       text: textoLimpo,
-      selection: TextSelection.collapsed(
-        offset: textoLimpo.length,
-      ),
+      selection: TextSelection.collapsed(offset: textoLimpo.length),
     );
   }
 
@@ -1207,7 +1241,8 @@ if (!mounted || confirmar != true) return;
       return;
     }
 
-    if (_geradoComIa || _sinteseController.text.isNotEmpty ||
+    if (_geradoComIa ||
+        _sinteseController.text.isNotEmpty ||
         _formulacaoController.text.isNotEmpty ||
         _intervencoesController.text.isNotEmpty ||
         _apontamentosController.text.isNotEmpty) {
@@ -1301,7 +1336,10 @@ if (!mounted || confirmar != true) return;
         _avisoInvalidacaoTranscricaoExibido = false;
         _triggerRebuild();
 
-        _registrarAuditoria('Síntese gerada por IA', 'IA gerou síntese clínica - sessão $_numeroSessao');
+        _registrarAuditoria(
+          'Síntese gerada por IA',
+          'IA gerou síntese clínica - sessão $_numeroSessao',
+        );
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1311,7 +1349,9 @@ if (!mounted || confirmar != true) return;
           ),
         );
 
-        final sugerirArtigos = ref.read(configuracoesServiceProvider).sugerirArtigos;
+        final sugerirArtigos = ref
+            .read(configuracoesServiceProvider)
+            .sugerirArtigos;
         if (sugerirArtigos && resultado.temasPesquisa.isNotEmpty) {
           _buscarArtigosEmBackground(
             resultado.temasPesquisa,
@@ -1328,8 +1368,7 @@ if (!mounted || confirmar != true) return;
       }
 
       _gerandoSinteseIa = false;
-      _statusProcessamento =
-          _possuiTranscricaoRelato ? 'transcrito' : 'manual';
+      _statusProcessamento = _possuiTranscricaoRelato ? 'transcrito' : 'manual';
       _erroProcessamentoIa = resultado.erro;
       _triggerRebuild();
 
@@ -1342,8 +1381,7 @@ if (!mounted || confirmar != true) return;
       if (!mounted) return;
 
       _gerandoSinteseIa = false;
-      _statusProcessamento =
-          _possuiTranscricaoRelato ? 'transcrito' : 'manual';
+      _statusProcessamento = _possuiTranscricaoRelato ? 'transcrito' : 'manual';
       _erroProcessamentoIa =
           'Serviço de IA temporariamente indisponível. Tente novamente em instantes.';
       _triggerRebuild();
@@ -1362,7 +1400,10 @@ if (!mounted || confirmar != true) return;
     _triggerRebuild();
     ref.read(erroAudioProvider.notifier).state = '';
 
-    _registrarAuditoria('Revisão profissional', 'Sessão $_numeroSessao marcada como revisada');
+    _registrarAuditoria(
+      'Revisão profissional',
+      'Sessão $_numeroSessao marcada como revisada',
+    );
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -1375,8 +1416,9 @@ if (!mounted || confirmar != true) return;
     _erroProcessamentoIa = '';
 
     if (_statusProcessamento == 'erro') {
-      _statusProcessamento =
-          _origemRelato == 'audio' ? 'audio_gravado' : 'manual';
+      _statusProcessamento = _origemRelato == 'audio'
+          ? 'audio_gravado'
+          : 'manual';
     }
     _triggerRebuild();
   }
@@ -1444,8 +1486,12 @@ if (!mounted || confirmar != true) return;
         sessao.artigosSugeridos = _artigosSugeridos;
         sessao.valorSessao = _valorSessao;
         sessao.statusPagamento = _statusPagamento;
-        sessao.dataPagamento = _statusPagamento == 'pago' ? _dataPagamento : null;
-        sessao.metodoPagamento = _statusPagamento == 'pago' ? _metodoPagamento : '';
+        sessao.dataPagamento = _statusPagamento == 'pago'
+            ? _dataPagamento
+            : null;
+        sessao.metodoPagamento = _statusPagamento == 'pago'
+            ? _metodoPagamento
+            : '';
 
         await _sessaoService.atualizarSessao(sessao);
         if (_statusPagamento == 'pacote') {
@@ -1623,106 +1669,108 @@ if (!mounted || confirmar != true) return;
         }
       },
       child: Scaffold(
-      backgroundColor: context.corFundo,
-      appBar: AppBar(
-        title: Text(_editando ? 'Sessão $_numeroSessao' : 'Nova sessão'),
-        backgroundColor: context.corPrimaria,
-        foregroundColor: context.corOnPrimaria,
-        actions: _editando
-            ? [
-                if (_modoEdicao)
-                  Semantics(
-                    label: 'Salvar sessão',
-                    child: IconButton(
-                      tooltip: 'Salvar',
-                      icon: const Icon(Icons.check),
-                      onPressed: _salvarSessao,
+        backgroundColor: context.corFundo,
+        appBar: AppBar(
+          title: Text(_editando ? 'Sessão $_numeroSessao' : 'Nova sessão'),
+          backgroundColor: context.corPrimaria,
+          foregroundColor: context.corOnPrimaria,
+          actions: _editando
+              ? [
+                  if (_modoEdicao)
+                    Semantics(
+                      label: 'Salvar sessão',
+                      child: IconButton(
+                        tooltip: 'Salvar',
+                        icon: const Icon(Icons.check),
+                        onPressed: _salvarSessao,
+                      ),
+                    ),
+                  IconButton(
+                    tooltip: 'Exportar PDF',
+                    icon: const Icon(Icons.file_download_outlined),
+                    onPressed: _exportarSessao,
+                  ),
+                  if (!_modoEdicao)
+                    TextButton.icon(
+                      onPressed: () {
+                        _modoEdicao = true;
+                        _triggerRebuild();
+                      },
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: const Text('Editar'),
+                    ),
+                ]
+              : null,
+        ),
+        body: Stack(
+          children: [
+            ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _cardCabecalho(configuracao),
+                const SizedBox(height: 16),
+                IgnorePointer(
+                  ignoring: _editando && !_modoEdicao,
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 250),
+                    opacity: (_editando && !_modoEdicao) ? 0.85 : 1.0,
+                    child: Column(
+                      children: [
+                        _cardInformacoesGerais(),
+                        const SizedBox(height: 16),
+                        _secaoRelatoIa(),
+                        if (_editando || _geradoComIa) ...[
+                          const SizedBox(height: 16),
+                          SecaoCamposClinicosWidget(
+                            configuracao: configuracao,
+                            sinteseController: _sinteseController,
+                            formulacaoController: _formulacaoController,
+                            intervencoesController: _intervencoesController,
+                            apontamentosController: _apontamentosController,
+                            planoProximaSessaoController:
+                                _planoProximaSessaoController,
+                          ),
+                        ],
+                        if (_buscandoArtigos) ...[
+                          const SizedBox(height: 16),
+                          _cardBuscandoArtigos(),
+                        ] else if (_artigosSugeridos.trim().isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          const ArtigosSugeridosCard(),
+                        ],
+                        if (_controleFinanceiroAtivo) ...[
+                          const SizedBox(height: 16),
+                          _secaoFinanceira(),
+                        ],
+                        if (_geradoComIa && _numeroSessao >= 2) ...[
+                          const SizedBox(height: 16),
+                          _secaoProgresso(),
+                        ],
+                      ],
                     ),
                   ),
-                IconButton(
-                  tooltip: 'Exportar PDF',
-                  icon: const Icon(Icons.file_download_outlined),
-                  onPressed: _exportarSessao,
                 ),
-                if (!_modoEdicao)
-                  TextButton.icon(
-                    onPressed: () {
-                      _modoEdicao = true;
-                      _triggerRebuild();
-                    },
-                    icon: const Icon(Icons.edit_outlined, size: 18),
-                    label: const Text('Editar'),
-                  ),
-              ]
-            : null,
-      ),
-      body: Stack(
-        children: [
-          ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _cardCabecalho(configuracao),
-              const SizedBox(height: 16),
-              IgnorePointer(
-                ignoring: _editando && !_modoEdicao,
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 250),
-                  opacity: (_editando && !_modoEdicao) ? 0.85 : 1.0,
-                  child: Column(
-                  children: [
-                    _cardInformacoesGerais(),
-                    const SizedBox(height: 16),
-                    _secaoRelatoIa(),
-                    if (_editando || _geradoComIa) ...[
-                      const SizedBox(height: 16),
-                      SecaoCamposClinicosWidget(
-                        configuracao: configuracao,
-                        sinteseController: _sinteseController,
-                        formulacaoController: _formulacaoController,
-                        intervencoesController: _intervencoesController,
-                        apontamentosController: _apontamentosController,
-                        planoProximaSessaoController: _planoProximaSessaoController,
-                      ),
-                    ],
-                    if (_buscandoArtigos) ...[
-                      const SizedBox(height: 16),
-                      _cardBuscandoArtigos(),
-                    ] else if (_artigosSugeridos.trim().isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      const ArtigosSugeridosCard(),
-                    ],
-                    if (_controleFinanceiroAtivo) ...[
-                      const SizedBox(height: 16),
-                      _secaoFinanceira(),
-                    ],
-                    if (_geradoComIa && _numeroSessao >= 2) ...[
-                      const SizedBox(height: 16),
-                      _secaoProgresso(),
-                    ],
-                  ],
-                ),
-              ),
-              ),
-              if (_modoEdicao || (!_editando && _possuiTranscricaoRelato)) ...[
-                const SizedBox(height: 16),
-                _botaoSalvar(),
+                if (_modoEdicao ||
+                    (!_editando && _possuiTranscricaoRelato)) ...[
+                  const SizedBox(height: 16),
+                  _botaoSalvar(),
+                ],
+                const SizedBox(height: 24),
               ],
-              const SizedBox(height: 24),
-            ],
-          ),
-          if (_editando && !_modoEdicao)
-            Positioned.fill(
-              child: Semantics(
-                button: true,
-                label: 'Toque duas vezes para editar esta sessão',
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onTap: _mostrarDialogoEditar,
+            ),
+            if (_editando && !_modoEdicao)
+              Positioned.fill(
+                child: Semantics(
+                  button: true,
+                  label: 'Toque duas vezes para editar esta sessão',
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: _mostrarDialogoEditar,
+                  ),
                 ),
               ),
-            ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
@@ -1732,8 +1780,10 @@ if (!mounted || confirmar != true) return;
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Sessão bloqueada'),
-        content: const Text('Esta sessão está em modo de visualização. '
-            'Deseja habilitar a edição? Ao editar, a síntese por IA e a revisão poderão ser invalidadas.'),
+        content: const Text(
+          'Esta sessão está em modo de visualização. '
+          'Deseja habilitar a edição? Ao editar, a síntese por IA e a revisão poderão ser invalidadas.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -1767,9 +1817,7 @@ if (!mounted || confirmar != true) return;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Não foi possível exportar o PDF.'),
-          ),
+          const SnackBar(content: Text('Não foi possível exportar o PDF.')),
         );
       }
     }
@@ -1785,10 +1833,7 @@ if (!mounted || confirmar != true) return;
         padding: const EdgeInsets.all(18),
         child: Text(
           'SESSÃO $_numeroSessao',
-          style: const TextStyle(
-            fontSize: 21,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 21, fontWeight: FontWeight.bold),
         ),
       ),
     );
@@ -1841,12 +1886,8 @@ if (!mounted || confirmar != true) return;
       children: [
         const TimerGravacaoWidget(),
         const ProcessamentoIaWidget(),
-        ErroProcessamentoIaWidget(
-          onLimparErro: _limparErroProcessamento,
-        ),
-        ErroAudioWidget(
-          onLimparErro: _limparErroAudio,
-        ),
+        ErroProcessamentoIaWidget(onLimparErro: _limparErroProcessamento),
+        ErroAudioWidget(onLimparErro: _limparErroAudio),
         BotoesAudioWidget(
           existeAcaoEmAndamento: _existeAcaoEmAndamento,
           onGravar: _iniciarGravacaoRelato,
@@ -1900,9 +1941,7 @@ if (!mounted || confirmar != true) return;
                         ),
                       )
                     : const Icon(Icons.auto_awesome_outlined),
-                label: Text(
-                  _gerandoSinteseIa ? 'Gerando...' : 'Gerar síntese',
-                ),
+                label: Text(_gerandoSinteseIa ? 'Gerando...' : 'Gerar síntese'),
                 style: FilledButton.styleFrom(
                   backgroundColor: context.corPrimaria,
                   foregroundColor: context.corOnPrimaria,
@@ -1968,9 +2007,10 @@ if (!mounted || confirmar != true) return;
     _buscandoArtigos = true;
     _triggerRebuild();
 
-    final contexto = [relatoClinico, sinteseClinica]
-        .where((t) => t.trim().isNotEmpty)
-        .join(' ');
+    final contexto = [
+      relatoClinico,
+      sinteseClinica,
+    ].where((t) => t.trim().isNotEmpty).join(' ');
 
     final artigos = await _iaClinicaService.gerarArtigos(
       temasPesquisa: temasPesquisa,
@@ -2000,11 +2040,13 @@ if (!mounted || confirmar != true) return;
       final sessoesAnteriores = sessaoService
           .listarSessoesRecentes(widget.paciente.id, limite: 5)
           .where((s) => s.id != _sessaoId)
-          .map((s) => {
-                'numero': s.numeroSessao,
-                'sintese': s.eventosImportantes,
-                'data': s.data.toIso8601String().substring(0, 10),
-              })
+          .map(
+            (s) => {
+              'numero': s.numeroSessao,
+              'sintese': s.eventosImportantes,
+              'data': s.data.toIso8601String().substring(0, 10),
+            },
+          )
           .toList();
 
       if (sessoesAnteriores.isEmpty) return;
@@ -2017,7 +2059,10 @@ if (!mounted || confirmar != true) return;
           'sintese': _sinteseController.text.trim(),
           'relato': _relatoPosSessaoController.text.trim(),
           'intervencoes': _intervencoesController.text.trim(),
-          'data': ref.read(_dataSessaoProvider).toIso8601String().substring(0, 10),
+          'data': ref
+              .read(_dataSessaoProvider)
+              .toIso8601String()
+              .substring(0, 10),
         },
         objetivosTerapeuticos: _obterObjetivosTerapeuticos(),
         queixaPrincipal: _obterQueixaPrincipal(),
@@ -2032,7 +2077,9 @@ if (!mounted || confirmar != true) return;
         _progressoAvaliacaoGeral = resultado.avaliacaoGeral;
         _progressoTendencia = resultado.tendencia;
 
-        ref.read(progressoServiceProvider).salvar(
+        ref
+            .read(progressoServiceProvider)
+            .salvar(
               pacienteId: widget.paciente.id,
               sessaoId: _sessaoId,
               numeroSessao: _numeroSessao,
@@ -2042,7 +2089,10 @@ if (!mounted || confirmar != true) return;
               tendencia: resultado.tendencia,
             );
 
-        _registrarAuditoria('Progresso gerado por IA', 'IA gerou tracking de evolução - sessão $_numeroSessao');
+        _registrarAuditoria(
+          'Progresso gerado por IA',
+          'IA gerou tracking de evolução - sessão $_numeroSessao',
+        );
       }
 
       _progressoGerando = false;
@@ -2055,7 +2105,9 @@ if (!mounted || confirmar != true) return;
 
   String _obterObjetivosTerapeuticos() {
     try {
-      final avaliacao = ref.read(avaliacaoInicialServiceProvider).obterPorPaciente(widget.paciente.id);
+      final avaliacao = ref
+          .read(avaliacaoInicialServiceProvider)
+          .obterPorPaciente(widget.paciente.id);
       return avaliacao?.objetivosTerapeuticos ?? '';
     } catch (_) {
       return '';
@@ -2064,7 +2116,9 @@ if (!mounted || confirmar != true) return;
 
   String _obterQueixaPrincipal() {
     try {
-      final avaliacao = ref.read(avaliacaoInicialServiceProvider).obterPorPaciente(widget.paciente.id);
+      final avaliacao = ref
+          .read(avaliacaoInicialServiceProvider)
+          .obterPorPaciente(widget.paciente.id);
       return avaliacao?.queixaPrincipal ?? '';
     } catch (_) {
       return '';
@@ -2073,7 +2127,9 @@ if (!mounted || confirmar != true) return;
 
   List<Map<String, dynamic>> _obterEscalasRecentes() {
     try {
-      final escalas = ref.read(escalaServiceProvider).listarPorPaciente(widget.paciente.id);
+      final escalas = ref
+          .read(escalaServiceProvider)
+          .listarPorPaciente(widget.paciente.id);
       final agrupadas = <String, List<Map<String, dynamic>>>{};
       for (final e in escalas) {
         agrupadas.putIfAbsent(e.escalaId, () => []);
@@ -2083,10 +2139,11 @@ if (!mounted || confirmar != true) return;
           'interpretacao': e.interpretacao,
         });
       }
-      return agrupadas.entries.map((entry) => {
-            'nome': _nomeEscala(entry.key),
-            'datas': entry.value,
-          }).toList();
+      return agrupadas.entries
+          .map(
+            (entry) => {'nome': _nomeEscala(entry.key), 'datas': entry.value},
+          )
+          .toList();
     } catch (_) {
       return [];
     }
@@ -2106,7 +2163,9 @@ if (!mounted || confirmar != true) return;
       return Card(
         margin: EdgeInsets.zero,
         color: context.corCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Raio.lg)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(Raio.lg),
+        ),
         child: const Padding(
           padding: EdgeInsets.all(14),
           child: Row(
@@ -2117,7 +2176,10 @@ if (!mounted || confirmar != true) return;
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
               SizedBox(width: 10),
-              Text('Gerando análise de evolução...', style: TextStyle(fontSize: Tipografia.smMd)),
+              Text(
+                'Gerando análise de evolução...',
+                style: TextStyle(fontSize: Tipografia.smMd),
+              ),
             ],
           ),
         ),
@@ -2131,7 +2193,9 @@ if (!mounted || confirmar != true) return;
     return Card(
       margin: EdgeInsets.zero,
       color: context.corCard,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Raio.lg)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Raio.lg),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -2143,38 +2207,49 @@ if (!mounted || confirmar != true) return;
                 const SizedBox(width: 8),
                 Text(
                   'Evolução Clínica',
-                  style: TextStyle(fontSize: Tipografia.base, fontWeight: FontWeight.w700, color: context.corTextoHeading),
+                  style: TextStyle(
+                    fontSize: Tipografia.base,
+                    fontWeight: FontWeight.w700,
+                    color: context.corTextoHeading,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 10),
-            ..._progressoSintomas.take(4).map((s) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    children: [
-                      Icon(
-                        s['tendencia'] == 'melhora'
-                            ? Icons.arrow_downward
-                            : s['tendencia'] == 'piora'
-                                ? Icons.arrow_upward
-                                : Icons.remove,
-                        size: 14,
-                        color: s['tendencia'] == 'melhora'
-                            ? context.corSuccess
-                            : s['tendencia'] == 'piora'
-                                ? context.corError
-                                : context.corTextoMuted,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          '${s['nome']} — ${s['intensidade']}/10',
-                          style: TextStyle(fontSize: Tipografia.sm, color: context.corTextoBody),
+            ..._progressoSintomas
+                .take(4)
+                .map(
+                  (s) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        Icon(
+                          s['tendencia'] == 'melhora'
+                              ? Icons.arrow_downward
+                              : s['tendencia'] == 'piora'
+                              ? Icons.arrow_upward
+                              : Icons.remove,
+                          size: 14,
+                          color: s['tendencia'] == 'melhora'
+                              ? context.corSuccess
+                              : s['tendencia'] == 'piora'
+                              ? context.corError
+                              : context.corTextoMuted,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            '${s['nome']} — ${s['intensidade']}/10',
+                            style: TextStyle(
+                              fontSize: Tipografia.sm,
+                              color: context.corTextoBody,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                )),
+                ),
             if (_progressoAvaliacaoGeral.isNotEmpty) ...[
               const SizedBox(height: 8),
               Container(
@@ -2190,7 +2265,11 @@ if (!mounted || confirmar != true) return;
                     Expanded(
                       child: Text(
                         _progressoAvaliacaoGeral,
-                        style: TextStyle(fontSize: Tipografia.xs, color: corTendencia, fontStyle: FontStyle.italic),
+                        style: TextStyle(
+                          fontSize: Tipografia.xs,
+                          color: corTendencia,
+                          fontStyle: FontStyle.italic,
+                        ),
                       ),
                     ),
                   ],
@@ -2218,14 +2297,18 @@ if (!mounted || confirmar != true) return;
 
   Widget _secaoFinanceira() {
     final pacoteService = ref.read(pacoteServiceProvider);
-    final sessoesRestantes = pacoteService.totalSessoesRestantes(widget.paciente.id);
+    final sessoesRestantes = pacoteService.totalSessoesRestantes(
+      widget.paciente.id,
+    );
     final temPacoteAtivo = sessoesRestantes > 0;
     final ehPacote = _statusPagamento == 'pacote';
 
     return Card(
       margin: EdgeInsets.zero,
       color: context.corCard,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Raio.lg)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Raio.lg),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -2233,18 +2316,29 @@ if (!mounted || confirmar != true) return;
           children: [
             Row(
               children: [
-                Icon(Icons.payments_outlined, color: context.corPrimaria, size: 18),
+                Icon(
+                  Icons.payments_outlined,
+                  color: context.corPrimaria,
+                  size: 18,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Financeiro',
-                  style: TextStyle(fontSize: Tipografia.base, fontWeight: FontWeight.w700, color: context.corTextoHeading),
+                  style: TextStyle(
+                    fontSize: Tipografia.base,
+                    fontWeight: FontWeight.w700,
+                    color: context.corTextoHeading,
+                  ),
                 ),
               ],
             ),
             if (temPacoteAtivo) ...[
               const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: context.corPacote.withAlpha(20),
                   borderRadius: BorderRadius.circular(Raio.xs),
@@ -2252,11 +2346,19 @@ if (!mounted || confirmar != true) return;
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.inventory_2_outlined, size: 16, color: context.corPacote),
+                    Icon(
+                      Icons.inventory_2_outlined,
+                      size: 16,
+                      color: context.corPacote,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'Pacote ativo: $sessoesRestantes ${sessoesRestantes == 1 ? 'sessão restante' : 'sessões restantes'}',
-                      style: TextStyle(fontSize: Tipografia.sm, fontWeight: FontWeight.w600, color: context.corPacote),
+                      style: TextStyle(
+                        fontSize: Tipografia.sm,
+                        fontWeight: FontWeight.w600,
+                        color: context.corPacote,
+                      ),
                     ),
                   ],
                 ),
@@ -2266,11 +2368,16 @@ if (!mounted || confirmar != true) return;
             IgnorePointer(
               ignoring: ehPacote,
               child: TextField(
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: const InputDecoration(
                   labelText: 'Valor da sessão (R\$)',
                   border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                 ),
                 controller: _valorController,
                 onChanged: (v) {
@@ -2287,14 +2394,26 @@ if (!mounted || confirmar != true) return;
               decoration: const InputDecoration(
                 labelText: 'Status do pagamento',
                 border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
               ),
               items: [
-                const DropdownMenuItem(value: 'pendente', child: Text('Pendente')),
+                const DropdownMenuItem(
+                  value: 'pendente',
+                  child: Text('Pendente'),
+                ),
                 const DropdownMenuItem(value: 'pago', child: Text('Pago')),
-                const DropdownMenuItem(value: 'convenio', child: Text('Convênio')),
+                const DropdownMenuItem(
+                  value: 'convenio',
+                  child: Text('Convênio'),
+                ),
                 if (temPacoteAtivo || ehPacote)
-                  const DropdownMenuItem(value: 'pacote', child: Text('Pacote')),
+                  const DropdownMenuItem(
+                    value: 'pacote',
+                    child: Text('Pacote'),
+                  ),
               ],
               onChanged: (v) {
                 if (v != null) {
@@ -2304,7 +2423,9 @@ if (!mounted || confirmar != true) return;
                   } else if (v == 'pacote') {
                     _dataPagamento = null;
                     _metodoPagamento = '';
-                    final valorPorSessao = pacoteService.valorPorSessaoAtivo(widget.paciente.id) ?? 0.0;
+                    final valorPorSessao =
+                        pacoteService.valorPorSessaoAtivo(widget.paciente.id) ??
+                        0.0;
                     if (valorPorSessao > 0) {
                       _valorSessao = valorPorSessao;
                     }
@@ -2319,18 +2440,32 @@ if (!mounted || confirmar != true) return;
             if (_statusPagamento == 'pago') ...[
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                initialValue: _metodoPagamento.isEmpty ? null : _metodoPagamento,
+                initialValue: _metodoPagamento.isEmpty
+                    ? null
+                    : _metodoPagamento,
                 decoration: const InputDecoration(
                   labelText: 'Método de pagamento',
                   border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                 ),
                 items: const [
                   DropdownMenuItem(value: 'pix', child: Text('Pix')),
                   DropdownMenuItem(value: 'dinheiro', child: Text('Dinheiro')),
-                  DropdownMenuItem(value: 'cartao_credito', child: Text('Cartão de crédito')),
-                  DropdownMenuItem(value: 'cartao_debito', child: Text('Cartão de débito')),
-                  DropdownMenuItem(value: 'transferencia', child: Text('Transferência')),
+                  DropdownMenuItem(
+                    value: 'cartao_credito',
+                    child: Text('Cartão de crédito'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'cartao_debito',
+                    child: Text('Cartão de débito'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'transferencia',
+                    child: Text('Transferência'),
+                  ),
                 ],
                 onChanged: (v) {
                   _metodoPagamento = v ?? '';
@@ -2357,7 +2492,10 @@ if (!mounted || confirmar != true) return;
                   decoration: const InputDecoration(
                     labelText: 'Data do pagamento',
                     border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                   ),
                   child: Text(
                     _dataPagamento != null
@@ -2365,7 +2503,9 @@ if (!mounted || confirmar != true) return;
                         : 'Selecionar data',
                     style: TextStyle(
                       fontSize: Tipografia.base,
-                      color: _dataPagamento != null ? context.corTextoBody : context.corTextoMuted,
+                      color: _dataPagamento != null
+                          ? context.corTextoBody
+                          : context.corTextoMuted,
                     ),
                   ),
                 ),
@@ -2379,10 +2519,6 @@ if (!mounted || confirmar != true) return;
 
   Widget _botaoSalvar() {
     final salvando = ref.watch(_salvandoProvider);
-    return BotaoSalvarSessao(
-      salvando: salvando,
-      onPressed: _salvarSessao,
-    );
+    return BotaoSalvarSessao(salvando: salvando, onPressed: _salvarSessao);
   }
 }
-
