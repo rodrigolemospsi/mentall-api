@@ -287,6 +287,30 @@ TDD (testes RED antes de cada fix). Re-verificados no HEAD e corrigidos:
 3. ~~Re-verificação Strix scoped das correções~~ ✅ **concluída em 30/08** (`strix_runs/strix-target_d751/`): 0 vulnerabilidades restantes.
 4. **`TRUSTED_PROXIES` no deploy:** `.env`/secrets do Fly precisam ganhar os IPs do edge do Fly (rate-limit por IP atrás do proxy). Sem isso, o rate-limit perde a distinção por IP real no deploy.
 
+## Correções e Funcionalidades (31/08/2026) — SUPPLY-CHAIN (TRAIL OF BITS) + DEPENDÊNCIAS (fastapi/starlette/google-genai)
+
+### Nova skill: Trail of Bits `supply-chain-risk-auditor` (vendored, local)
+- Skill do marketplace **`trailofbits/skills`** (CC BY-SA 4.0) copiada para `.opencode/skills/supply-chain-risk-auditor/` (SKILL.md + scripts/ com pyproject/uv.lock + assets + agents). **Só essa** foi instalada (as demais — smart-contracts, C/Rust, YARA, DWARF — irrelevantes para o stack Flutter/Python).
+- **Atenção — o opencode NÃO tem `/plugin marketplace`:** skills são lidas de `**/SKILL.md` sob `skills.paths` (padrão `.opencode/skills`; NADA mudou no `opencode.json` — só o `permission.skill: allow`).
+- `.opencode/` é **gitignored** (linha 7) → a skill fica **local**, como as do Strix (não entra no repo). **Reiniciar o opencode** para ativar.
+- `DEVREADME.md` no diretório da skill com a atribuição CC BY-SA 4.0 (Trail of Bits).
+- **Decisão do dono (31/08):** instalar só a supply-chain; `static-analysis`/semgrep **só se** virar gate de CI; `modern-python` e `second-opinion` **adiadas** (a segunda bloqueada: sem `codex`/`gemini` CLI e usa `--yolo` auto-approve em app clínico).
+
+### Auditoria de supply-chain — achado REAL revelado pelo pin exato
+- Rodada inicial (antes dos fixes): 16 deps diretas; **`google-genai==1.12.0` yanked** no PyPI (único achado que chegava a produção) + 6 deps em range avaliadas contra o "latest" em vez do instalado.
+- **⚠️ Correção à memória de 30/08:** a nota "starlette CVEs **todos resolvidos** via fastapi 0.120.1 + `starlette>=0.49.1`" estava **incompleta/incorreta**. Com pino exato + OSV: **`starlette 0.49.3` (linha 0.x) ainda tem 10 advisories** (StaticFiles SSRF/NTLM via UNC, Host-header poisoning, HTTP method dispatch arbitrário em `HTTPEndpoint`, `request.form()` limits ignorados). A linha 0.x (até 0.50.0) **nunca** é corrigida — o fix está **só na 1.x** (1.6.0 = 0). `fastapi==0.120.1` travava `starlette<0.50.0`, bloqueando o upgrade.
+- **Fix aplicado (Fase 2):** `fastapi 0.120.1→0.135.0` (**menor** versão que solta o teto; `starlette>=0.46.0` sem teto) + `starlette 0.49.3→1.6.0` (= **0 advisories**). O "no topo" (`0.141.1`/`2.20.0`) foi descartado por salto maior; escolhido o mínimo (mesmo resultado). `google-genai 1.12.0→1.75.0` (des-yank; última 1.x não-yanked; mesmo major = risco mínimo de API). Imports `from google import genai` / `import google.genai.types` validados.
+- **Fase 1:** deps que estavam em range → pins nas versões instaladas (`openai==1.109.1`, `groq==1.6.0`, `PyJWT==2.13.0`, `Pillow==12.3.0`, `libsql==0.1.11`, `starlette`). `PyJWT` mantido (não voltar p/ `python-jose` — pyasn1/ecdsa com CVEs).
+- **Portão de verificação:** `uv pip check` 49/49 OK · boot/import `main` OK (Turso) · suíte backend **132/132** · `test_sintese` 8/8 · chamada real **DeepSeek** OK (`{"sintese":"teste ok"}`) — Gemini deu 503 transitório de "high demand" (comportamento conhecido, NÃO é regressão) · **webhook `/wuzapi/webhook` processou `Message` em runtime** (valida o caminho `form()` do starlette 1.x).
+- **Re-auditoria final:** **0 dependências com flag** — "No known advisory affects any of the 16 direct dependencies, checked at the versions this project resolves".
+- Backend local reiniciado (`launchctl kickstart -k gui/$(id -u)/com.mentall.backend`) — serviço saudável (Turso, scheduler, uvicorn, webhook).
+- **Gap remanescente:** árvore transitiva ainda não examinada (sem `uv.lock`). **Decisão do dono: ADIADO** (plano separado com `modern-python`/pyproject).
+
+### Commits (31/08, locais, SEM push)
+1. `9b10b21` `security(backend): fortalece dependencias e zera CVEs de supply-chain` (Fase 1+2).
+2. `1f7a833` `security: corrige achados do 2o pentest Strix + auditoria (30/08)` (26 arquivos código/testes pendentes; escolha do dono "só código/testes").
+3. `ee0d244` `chore: remove arquivos de referencia/marketing obsoletos` (10 deleções: LGPD txt, logos, apresentação, PROMPT `.lnk`/`.txt`, ACORDO docx, `security_fixes_2026_08.md`, `flutter_01.png` — recuperáveis via `git restore`).
+
 ## Checklist de publicação nas lojas de app (Google Play / App Store)
 - **Pendências de segurança pendentes ANTES de publicar** (ver `tasks/lojas_app.md`): fail-closed de criptografia (vuln-0013) + indicador de proteção; CSP `unsafe-inline` no backend; `TRUSTED_PROXIES` no Fly; normalizar `render.yaml`/`start_backend.sh` para `--proxy-headers`; definir `TRUSTED_PROXIES` no `.env`.
 - **Pendências técnicas de loja:** ícone adaptativo/legacy atualizado, telas de captura (screenshots), descrição, categorias, política de privacidade, termos de uso, nota da LGPD (dados sensíveis de saúde), CPI da conta de desenvolvedor, assinatura do release (keystore), plano de assinatura/RevenueCat (Fase 1 do plano de negócio).
