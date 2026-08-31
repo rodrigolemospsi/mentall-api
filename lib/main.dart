@@ -119,7 +119,22 @@ void main() async {
   final auth = AuthService(encryption);
   await auth.inicializar();
   if (!encryption.possuiChaveProtegida) {
-    await auth.gerarChave();
+    final chaveDuravel = await auth.gerarChave();
+    if (!chaveDuravel) {
+      // Proteção de dados em repouso indisponível (ex.: dispositivo sem
+      // bloqueio de tela/biometria). A chave fica só em memória e dados
+      // clínicos são persistidos em texto puro enquanto isso. Aviso visível
+      // para o profissional (LGPD).
+      debugPrint(
+        'AVISO: criptografia não durável — dados clínicos podem ser '
+        'persistidos em texto puro neste dispositivo.',
+      );
+      Log.auditoria(
+        'Criptografia não durável: dados clínicos podem ficar em texto puro '
+        'neste dispositivo (sem bloqueio de tela/biometria).',
+        contexto: 'Seguranca',
+      );
+    }
   }
   debugPrint('[startup] auth: ${sw.elapsedMilliseconds}ms');
 
@@ -293,7 +308,11 @@ class MentAllApp extends ConsumerWidget {
               maxScaleFactor: 1.5,
             ),
           ),
-          child: child!,
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (_) => AppStartPage.onUserActivity?.call(),
+            child: child!,
+          ),
         );
       },
       theme: _criarTema(Brightness.light),

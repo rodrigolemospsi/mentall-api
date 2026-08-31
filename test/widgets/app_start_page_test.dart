@@ -13,6 +13,10 @@ import 'package:prontuario_tcc/models/progresso_sessao.dart';
 import 'package:prontuario_tcc/models/sessao.dart';
 import 'package:prontuario_tcc/providers/service_providers.dart';
 import 'package:prontuario_tcc/screens/app_start_page.dart';
+import 'package:prontuario_tcc/screens/login_page.dart';
+import 'package:prontuario_tcc/services/auth_service.dart';
+import 'package:prontuario_tcc/services/encryption_service.dart';
+import 'package:prontuario_tcc/services/perfil_profissional_service.dart';
 
 void main() {
   setUpAll(() async {
@@ -103,4 +107,60 @@ void main() {
     expect(find.text('Bem-vindo ao MentAll PRO'), findsNothing);
     expect(find.textContaining('Dr. Teste'), findsOneWidget);
   });
+
+  testWidgets('bloqueia por inatividade apos 5 minutos desbloqueado',
+      (tester) async {
+    var bloqueado = false;
+    final authFake = _FakeAuthService(
+      onBloquear: () => bloqueado = true,
+      desbloqueado: true,
+      requerAutenticacao: true,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authServiceProvider.overrideWithValue(authFake),
+          perfilProfissionalServiceProvider.overrideWith(
+            (_) => PerfilProfissionalService(encryption: null),
+          ),
+          pacientesAtivosProvider.overrideWith(
+            (ref) => Stream<List<Paciente>>.value([]),
+          ),
+          pacientesArquivadosProvider.overrideWith(
+            (ref) => Stream<List<Paciente>>.value([]),
+          ),
+        ],
+        child: const MaterialApp(home: AppStartPage()),
+      ),
+    );
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump();
+
+    expect(find.byType(LoginPage), findsNothing);
+    expect(bloqueado, isFalse);
+
+    // Nenhum toque por 5 minutos dispara o bloqueio por inatividade.
+    await tester.pump(const Duration(minutes: 5));
+    await tester.pump();
+    expect(bloqueado, isTrue);
+  });
+}
+
+class _FakeAuthService extends AuthService {
+  _FakeAuthService({
+    required this.onBloquear,
+    required this.desbloqueado,
+    required this.requerAutenticacao,
+  }) : super(EncryptionService());
+
+  final void Function() onBloquear;
+  @override
+  final bool desbloqueado;
+  @override
+  final bool requerAutenticacao;
+
+  @override
+  Future<void> bloquear() async => onBloquear();
 }

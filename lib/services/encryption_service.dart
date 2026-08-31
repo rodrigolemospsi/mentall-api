@@ -199,10 +199,16 @@ class EncryptionService {
     _setKey(newKey);
     _iv = newIv;
 
+    var persistida = false;
     try {
       await _secureStoragePin.write(key: _secureKeyName, value: newKey.base64);
+      persistida = true;
     } catch (_) {
-      // Em plataformas sem secure storage, a chave fica em memória.
+      // Sem secure storage (ex.: dispositivo sem bloqueio de tela/biometria):
+      // a chave fica apenas em memoria e NAO sobrevive ao restart.
+    }
+    if (!persistida) {
+      return false;
     }
     try {
       await _box.put(_chaveGeradaKey, 'true');

@@ -71,11 +71,11 @@ void main() {
     await Hive.box<PerfilProfissional>('perfil_profissional').put('1', perfil);
   });
 
-  Widget criarApp() {
+  Widget criarApp({Size tamanho = const Size(400, 800)}) {
     return ProviderScope(
       child: MaterialApp(
         home: MediaQuery(
-          data: const MediaQueryData(size: Size(400, 800)),
+          data: MediaQueryData(size: tamanho),
           child: PacienteDetailPage(paciente: paciente),
         ),
       ),
@@ -142,6 +142,48 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.textContaining('Sessão 1'), findsOneWidget);
+  });
+
+  testWidgets(
+      'deve exibir abas Ativas/Arquivadas sem erro quando ha sessao arquivada',
+      (tester) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+    });
+
+    await tester.runAsync(() async {
+      await Hive.box<Sessao>('sessoes').put('1', Sessao(
+        id: '1',
+        pacienteId: '1',
+        numeroSessao: 1,
+        data: DateTime.now(),
+        temaPrincipal: 'Ansiedade',
+      ));
+      await Hive.box<Sessao>('sessoes').put('2', Sessao(
+        id: '2',
+        pacienteId: '1',
+        numeroSessao: 2,
+        data: DateTime.now(),
+        temaPrincipal: 'Estresse',
+        arquivada: true,
+      ));
+    });
+
+    await tester.pumpWidget(criarApp());
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.textContaining('Sessões ('));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Ativas (1)'), findsOneWidget);
+    expect(find.text('Arquivadas (1)'), findsOneWidget);
   });
 
   testWidgets('deve abrir dialog de edicao ao tocar em editar', (tester) async {

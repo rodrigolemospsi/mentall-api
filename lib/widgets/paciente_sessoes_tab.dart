@@ -60,7 +60,9 @@ Future<void> _confirmarArquivamentoSessao(
     Log.erro(erro, contexto: 'paciente_sessoes_tab:arquivarSessao');
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Não foi possível arquivar a sessão. Tente novamente.')),
+        const SnackBar(
+          content: Text('Não foi possível arquivar a sessão. Tente novamente.'),
+        ),
       );
     }
   }
@@ -114,7 +116,11 @@ Future<void> _confirmarRestauracaoSessao(
     Log.erro(erro, contexto: 'paciente_sessoes_tab:restaurarSessao');
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Não foi possível restaurar a sessão. Tente novamente.')),
+        const SnackBar(
+          content: Text(
+            'Não foi possível restaurar a sessão. Tente novamente.',
+          ),
+        ),
       );
     }
   }
@@ -171,16 +177,18 @@ class PacienteSessoesTab extends ConsumerWidget {
           child: StreamBuilder(
             stream: sessaoService.observarSessoes(),
             builder: (context, snapshot) {
-              final sessoesAtivas =
-                  sessaoService.listarSessoesDoPaciente(paciente.id);
-              final sessoesArquivadas =
-                  sessaoService.listarSessoesArquivadasDoPaciente(paciente.id);
+              final sessoesAtivas = sessaoService.listarSessoesDoPaciente(
+                paciente.id,
+              );
+              final sessoesArquivadas = sessaoService
+                  .listarSessoesArquivadasDoPaciente(paciente.id);
 
               if (sessoesArquivadas.isEmpty) {
                 return Card(
                   elevation: 1,
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(Raio.xxl)),
+                    borderRadius: BorderRadius.circular(Raio.xxl),
+                  ),
                   child: SizedBox(
                     height: MediaQuery.of(context).size.height * 0.55,
                     child: ListaSessoesAtivas(
@@ -195,48 +203,57 @@ class PacienteSessoesTab extends ConsumerWidget {
                 );
               }
 
-              return Card(
-                elevation: 1,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18)),
-                child: Column(
-                  children: [
-                    TabBar(
-                      labelColor: context.corPrimaria,
-                      unselectedLabelColor:
-                          context.corOnSurface.withValues(alpha: 0.38),
-                      indicatorColor: context.corPrimaria,
-                      indicatorWeight: 3,
-                      tabs: [
-                        Tab(text: 'Ativas (${sessoesAtivas.length})'),
-                        Tab(text: 'Arquivadas (${sessoesArquivadas.length})'),
-                      ],
-                    ),
-                    SizedBox(
-                      height: MediaQuery.of(context).size.height * 0.55,
-                      child: TabBarView(
-                        children: [
-                          ListaSessoesAtivas(
-                            sessoes: sessoesAtivas,
-                            paciente: paciente,
-                            termoSingular: termoSingular,
-                            doOuDa: doOuDa,
-                            onArquivar: (s) =>
-                                _confirmarArquivamentoSessao(context, ref, s),
-                          ),
-                          ListaSessoesArquivadas(
-                            sessoes: sessoesArquivadas,
-                            paciente: paciente,
-                            termoSingular: termoSingular,
-                            desteOuDesta: desteOuDesta,
-                            onRestaurar: (s) =>
-                                _confirmarRestauracaoSessao(context, ref, s,
-                                    doOuDa, termoSingular),
-                          ),
+              return DefaultTabController(
+                length: 2,
+                child: Card(
+                  elevation: 1,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Column(
+                    children: [
+                      TabBar(
+                        labelColor: context.corPrimaria,
+                        unselectedLabelColor: context.corOnSurface.withValues(
+                          alpha: 0.38,
+                        ),
+                        indicatorColor: context.corPrimaria,
+                        indicatorWeight: 3,
+                        tabs: [
+                          Tab(text: 'Ativas (${sessoesAtivas.length})'),
+                          Tab(text: 'Arquivadas (${sessoesArquivadas.length})'),
                         ],
                       ),
-                    ),
-                  ],
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.55,
+                        child: TabBarView(
+                          children: [
+                            ListaSessoesAtivas(
+                              sessoes: sessoesAtivas,
+                              paciente: paciente,
+                              termoSingular: termoSingular,
+                              doOuDa: doOuDa,
+                              onArquivar: (s) =>
+                                  _confirmarArquivamentoSessao(context, ref, s),
+                            ),
+                            ListaSessoesArquivadas(
+                              sessoes: sessoesArquivadas,
+                              paciente: paciente,
+                              termoSingular: termoSingular,
+                              desteOuDesta: desteOuDesta,
+                              onRestaurar: (s) => _confirmarRestauracaoSessao(
+                                context,
+                                ref,
+                                s,
+                                doOuDa,
+                                termoSingular,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             },

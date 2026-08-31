@@ -37,16 +37,37 @@ class FakeRequest:
 
 
 class TestClienteIp(unittest.TestCase):
+    def setUp(self):
+        main._rate_limit_store.clear()
+
     def test_sem_xff_usa_client_host(self):
         req = FakeRequest(xff="")
         self.assertEqual(main._cliente_ip(req), "1.2.3.4")
 
-    def test_usa_ultimo_xff_como_ip_real(self):
-        req = FakeRequest(xff="200.0.0.1, 177.50.1.2")
+    def test_peer_publico_ignora_xff(self):
+        # Socket peer publico = cliente direto; XFF e controlado pelo atacante
+        # e NÃO pode ser usado como chave de rate limit.
+        req = FakeRequest(xff="198.51.100.1, 177.50.1.2")
+        self.assertEqual(main._cliente_ip(req), "1.2.3.4")
+
+    def test_peer_privado_confia_no_ultimo_xff(self):
+        # Socket peer privado (ex.: edge do Fly na rede interna) = proxy que
+        # anexa o IP real do cliente ao final do XFF.
+        req = FakeRequest(xff="198.51.100.1, 177.50.1.2", host="10.0.0.1")
+        self.assertEqual(main._cliente_ip(req), "177.50.1.2")
+
+    def test_peer_privado_xff_invalido_usa_peer(self):
+        req = FakeRequest(xff="nao-eh-ip", host="10.0.0.1")
+        self.assertEqual(main._cliente_ip(req), "10.0.0.1")
+
+    def test_peer_em_trusted_proxies_confia_no_xff(self):
+        main.TRUSTED_PROXIES = {"203.0.113.9"}
+        self.addCleanup(lambda: setattr(main, "TRUSTED_PROXIES", set()))
+        req = FakeRequest(xff="198.51.100.1, 177.50.1.2", host="203.0.113.9")
         self.assertEqual(main._cliente_ip(req), "177.50.1.2")
 
     def test_ignora_valores_vazios_no_xff(self):
-        req = FakeRequest(xff="200.0.0.1, , 177.50.1.2")
+        req = FakeRequest(xff="200.0.0.1, , 177.50.1.2", host="10.0.0.1")
         self.assertEqual(main._cliente_ip(req), "177.50.1.2")
 
     def test_sem_client_retorna_unknown(self):
@@ -91,6 +112,26 @@ class TestRateLimitPorRota(unittest.TestCase):
         req6 = FakeRequest(path="/auth/login", xff="10.0.0.4")
         with self.assertRaises(HTTPException):
             main._rate_limit_check(req6, max_requests=5, chave_extra="conta:alvo@x.com")
+
+    def test_xff_rotativo_em_endpoint_por_ip_nao_burla(self):
+        # Endpoint sem chave_extra (ex.: /transcrever) usa o IP do socket peer
+        # público. Rotacionar X-Forwarded-For não reseta o bucket.
+        for _ in range(10):
+            req = FakeRequest(path="/transcrever", xff=f"198.51.100.{_ % 12 + 1}")
+            main._rate_limit_check(req, max_requests=10)
+        req_final = FakeRequest(path="/transcrever", xff="198.51.100.99")
+        with self.assertRaises(HTTPException):
+            main._rate_limit_check(req_final, max_requests=10)
+
+    def test_peer_publico_xff_rotativo_nao_burla_limite(self):
+        # Cenário exato do Strix: socket peer público + XFF rotativo.
+        for i in range(1, 13):
+            req = FakeRequest(path="/transcrever", xff=f"198.51.100.{i}")
+            if i <= 10:
+                main._rate_limit_check(req, max_requests=10)
+            else:
+                with self.assertRaises(HTTPException):
+                    main._rate_limit_check(req, max_requests=10)
 
 
 if __name__ == "__main__":

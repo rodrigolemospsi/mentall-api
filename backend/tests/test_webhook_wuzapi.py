@@ -11,6 +11,12 @@ import unittest
 from datetime import datetime, timezone
 from unittest import mock
 
+os.environ.setdefault("JWT_SECRET", "teste-segredo")
+os.environ.setdefault("APP_PASSWORD_HASH", "teste-hash")
+os.environ.setdefault("SMTP_HOST", "")
+os.environ.setdefault("WUZAPI_BASE_URL", "")
+
+import main  # noqa: E402
 import services.lembrete_service as mod
 
 
@@ -74,6 +80,46 @@ class FakeCursor:
 
     def commit(self):
         pass
+
+
+class FakeWebhookRequest:
+    def __init__(self, headers=None, query_token=""):
+        self._headers = headers or {}
+        self._query_token = query_token
+
+    @property
+    def headers(self):
+        return self._headers
+
+    @property
+    def query_params(self):
+        return {"token": self._query_token}
+
+
+class TestTokenWebhook(unittest.TestCase):
+    def test_extrai_bearer_do_header(self):
+        req = FakeWebhookRequest(headers={"authorization": "Bearer segredo-123"})
+        self.assertEqual(main._extrair_token_webhook(req), "segredo-123")
+
+    def test_header_prioritario_sobre_query(self):
+        req = FakeWebhookRequest(headers={"authorization": "Bearer do-header"}, query_token="da-query")
+        self.assertEqual(main._extrair_token_webhook(req), "do-header")
+
+    def test_sem_header_usa_query_string(self):
+        req = FakeWebhookRequest(headers={}, query_token="da-query")
+        self.assertEqual(main._extrair_token_webhook(req), "da-query")
+
+    def test_sem_token_retorna_vazio(self):
+        req = FakeWebhookRequest(headers={}, query_token="")
+        self.assertEqual(main._extrair_token_webhook(req), "")
+
+    def test_token_valido_true(self):
+        self.assertTrue(main._token_webhook_valido("abc", "abc"))
+
+    def test_token_invalido_false(self):
+        self.assertFalse(main._token_webhook_valido("abc", "abd"))
+        self.assertFalse(main._token_webhook_valido("", "abd"))
+        self.assertFalse(main._token_webhook_valido("abc", ""))
 
 
 class TestRegistrarReceipt(unittest.TestCase):

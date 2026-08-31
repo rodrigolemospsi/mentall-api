@@ -21,12 +21,14 @@ class CompromissoService with EncryptedServiceMixin {
   Compromisso _decryptCompromisso(Compromisso c) {
     c.titulo = _decrypt(c.titulo);
     c.observacoes = _decrypt(c.observacoes);
+    c.mensagemLembrete = _decrypt(c.mensagemLembrete);
     return c;
   }
 
   void _encryptCompromisso(Compromisso c) {
     c.titulo = _encrypt(c.titulo);
     c.observacoes = _encrypt(c.observacoes);
+    c.mensagemLembrete = _encrypt(c.mensagemLembrete);
   }
 
   List<Compromisso> listarTodos() {
@@ -152,7 +154,7 @@ class CompromissoService with EncryptedServiceMixin {
       dataAtualizacao: compromisso.dataAtualizacao,
       lembreteAtivado: compromisso.lembreteAtivado,
       minutosAntecedencia: compromisso.minutosAntecedencia,
-      mensagemLembrete: compromisso.mensagemLembrete,
+      mensagemLembrete: _encrypt(compromisso.mensagemLembrete),
       recorrencia: compromisso.recorrencia,
       dataLimiteRecorrencia: compromisso.dataLimiteRecorrencia,
       compromissoPaiId: compromisso.compromissoPaiId,
@@ -198,7 +200,7 @@ class CompromissoService with EncryptedServiceMixin {
         dataCriacao: DateTime.now(),
         lembreteAtivado: compromisso.lembreteAtivado,
         minutosAntecedencia: compromisso.minutosAntecedencia,
-        mensagemLembrete: compromisso.mensagemLembrete,
+        mensagemLembrete: _encrypt(compromisso.mensagemLembrete),
         recorrencia: '',
         compromissoPaiId: compromisso.id,
         canalLembrete: compromisso.canalLembrete,
@@ -253,7 +255,7 @@ class CompromissoService with EncryptedServiceMixin {
         dataAtualizacao: compromisso.dataAtualizacao,
         lembreteAtivado: compromisso.lembreteAtivado,
         minutosAntecedencia: compromisso.minutosAntecedencia,
-        mensagemLembrete: compromisso.mensagemLembrete,
+        mensagemLembrete: _encrypt(compromisso.mensagemLembrete),
         recorrencia: compromisso.recorrencia,
         dataLimiteRecorrencia: compromisso.dataLimiteRecorrencia,
         compromissoPaiId: compromisso.compromissoPaiId,
@@ -337,13 +339,13 @@ class CompromissoService with EncryptedServiceMixin {
             dataHoraFim: c.dataHoraFim,
             titulo: _decrypt(c.titulo),
             observacoes: _decrypt(c.observacoes),
+            mensagemLembrete: _decrypt(c.mensagemLembrete),
             status: c.status,
             sessaoId: c.sessaoId,
             dataCriacao: c.dataCriacao,
             dataAtualizacao: c.dataAtualizacao,
             lembreteAtivado: c.lembreteAtivado,
             minutosAntecedencia: c.minutosAntecedencia,
-            mensagemLembrete: c.mensagemLembrete,
             recorrencia: c.recorrencia,
             dataLimiteRecorrencia: c.dataLimiteRecorrencia,
             compromissoPaiId: c.compromissoPaiId,

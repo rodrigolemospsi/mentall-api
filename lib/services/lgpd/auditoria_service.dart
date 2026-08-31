@@ -83,7 +83,9 @@ class AuditoriaService with EncryptedServiceMixin {
 
       await _box.add(registro);
       await _trimExcesso();
-      Log.auditoria('$tipoEvento: $descricao', contexto: 'Auditoria');
+      // Loga apenas o tipo de evento no log técnico (a descrição completa
+      // contém identificadores de pacientes e fica só no box criptografado).
+      Log.auditoria(tipoEvento, contexto: 'Auditoria');
     } catch (e) {
       Log.erro(e, contexto: 'AuditoriaService.registrar');
     }

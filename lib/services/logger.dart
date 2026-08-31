@@ -18,21 +18,21 @@ class Log {
   static Future<void> erro(Object erro, {String? contexto}) async {
     final prefixo = contexto != null ? '[$contexto]' : '';
     final mensagem = '$prefixo ERRO: $erro';
-    debugPrint(mensagem);
+    if (kDebugMode) debugPrint(mensagem);
     await _persistir(mensagem);
   }
 
   static Future<void> info(String mensagem, {String? contexto}) async {
     final prefixo = contexto != null ? '[$contexto]' : '';
     final msg = '$prefixo INFO: $mensagem';
-    debugPrint(msg);
+    if (kDebugMode) debugPrint(msg);
     await _persistir(msg);
   }
 
   static Future<void> auditoria(String mensagem, {String? contexto}) async {
     final prefixo = contexto != null ? '[$contexto]' : '';
     final msg = '$prefixo AUDITORIA: $mensagem';
-    debugPrint(msg);
+    if (kDebugMode) debugPrint(msg);
     await _persistir(msg);
   }
 
@@ -41,14 +41,28 @@ class Log {
       final timestamp = DateTime.now().toIso8601String();
       final linha = '[$timestamp] $mensagem';
 
+      // Criptografa a linha para o box Hive (sem nunca logar PII em claro
+      // quando a proteção está ativa). O arquivo continua sendo cifrado
+      // individualmente por _persistirArquivo.
+      String linhaParaBox = linha;
+      final enc = _encryptionService;
+      if (enc != null && enc.configurado && linha.isNotEmpty) {
+        try {
+          linhaParaBox = enc.criptografar(linha);
+        } catch (_) {
+          // Se a criptografia falhar, mantém a linha original (o box de logs
+          // é técnico; a auditoria PII já fica cifrada no box de auditoria).
+        }
+      }
+
       if (kIsWeb) {
-        _persistirWeb(linha);
+        _persistirWeb(linhaParaBox);
         return;
       }
 
       final box = Hive.box<String>(_boxName);
       final linhas = (box.get('log') ?? '').split('\n').where((l) => l.isNotEmpty).toList();
-      linhas.add(linha);
+      linhas.add(linhaParaBox);
       if (linhas.length > _maxLogLines) {
         linhas.removeRange(0, linhas.length - _maxLogLines);
       }

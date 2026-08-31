@@ -19,7 +19,8 @@ from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import InvalidTokenError as JWTError
 from passlib.context import CryptContext
 
 load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
@@ -91,25 +92,72 @@ from services.transcricao import transcrever_audio
 
 _rate_limit_store: dict[str, list[float]] = {}
 
+# IPs/CIDRs de proxies confiáveis que têm permissão de anexar o IP real do
+# cliente ao final de X-Forwarded-For (ex.: edge do Fly). Separados por vírgula.
+# Vazio = NUNCA confiar em X-Forwarded-For (usa o socket peer).
+def _parse_trusted_proxies() -> set[str]:
+    import ipaddress as _ip
+    raw = os.getenv("TRUSTED_PROXIES", "").strip()
+    if not raw:
+        return set()
+    resultado = set()
+    for item in raw.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        resultado.add(item)
+        try:
+            resultado.add(str(_ip.ip_address(item)))
+        except ValueError:
+            try:
+                rede = _ip.ip_network(item, strict=False)
+                resultado.add(str(rede))
+            except ValueError:
+                pass
+    return resultado
+
+
+TRUSTED_PROXIES = _parse_trusted_proxies()
+
 
 def _cliente_ip(request: Request) -> str:
-    """Retorna o IP real do cliente, confiando no X-Forwarded-For do proxy.
+    """Retorna o IP real do cliente para chaves de rate limit.
 
-    Atrás do Fly (uvicorn --proxy-headers) o `client.host` é o valor do
-    X-Forwarded-For do atacante — ele controla o cabeçalho e pode rotacioná-lo
-    para burlar rate limit. O proxy confiável ADICIONA o IP real do cliente ao
-    FINAL da cadeia XFF; portanto usamos o último valor válido."""
+    Só confia em ``X-Forwarded-For`` quando o socket peer está em
+    ``TRUSTED_PROXIES`` (proxy conhecido). Caso contrário usa o socket peer,
+    que o atacante não controla — impede bypass por rotação do header.
+    """
+    peer = request.client.host if request.client else ""
+    if not peer:
+        return "unknown"
+
+    import ipaddress as _ip
+
+    if peer not in TRUSTED_PROXIES and not _peer_eh_proxy(peer):
+        return peer
+
     try:
         xff = request.headers.get("x-forwarded-for", "")
         if xff:
             partes = [p.strip() for p in xff.split(",") if p.strip()]
             if partes:
-                return partes[-1]
+                ultimo = partes[-1]
+                _ip.ip_address(ultimo)  # valida formato; levanta ValueError se inválido
+                return ultimo
     except Exception:
         pass
-    if request.client:
-        return request.client.host or "unknown"
-    return "unknown"
+    return peer or "unknown"
+
+
+def _peer_eh_proxy(peer: str) -> bool:
+    """Considera IPs privados/link-local como possíveis proxies da rede interna
+    (ex.: edge do Fly na rede 6PN) — um socket peer público nunca é proxy."""
+    import ipaddress as _ip
+    try:
+        addr = _ip.ip_address(peer)
+    except ValueError:
+        return False
+    return addr.is_private or addr.is_link_local or addr.is_loopback
 
 
 def _limpar_rate_limits(agora: float) -> None:
@@ -941,6 +989,22 @@ def configurar_wuzapi(request: WuzapiConfigRequest, _req: Request, auth: tuple =
     )
 
 
+def _extrair_token_webhook(request: Request) -> str:
+    """Extrai o token do webhook do wuzapi: header Authorization preferido,
+    query string como fallback de transicao."""
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.lower().startswith("bearer "):
+        return auth_header[7:].strip()
+    return request.query_params.get("token", "")
+
+
+def _token_webhook_valido(recebido: str, esperado: str) -> bool:
+    import secrets as _secrets
+    if not esperado or not recebido:
+        return False
+    return _secrets.compare_digest(recebido, esperado)
+
+
 @app.post("/wuzapi/webhook", tags=["Mensagens"])
 async def webhook_wuzapi(request: Request):
     """Recebe os webhooks do wuzapi (ReadReceipt/Message).
@@ -950,15 +1014,16 @@ async def webhook_wuzapi(request: Request):
     entrega/leitura das mensagens de lembrete, correlacionando pelo
     ``mensagem_id`` gravado no envio.
 
-    A URL do webhook deve incluir ``?token=...`` (env WUZAPI_WEBHOOK_TOKEN)
-    para autenticacao. Em modo form (padrao), o payload chega no campo
-    ``jsonData``; em modo json, no corpo.
+    Autenticacao via header ``Authorization: Bearer <token>`` (preferido,
+    nao aparece em access logs). Por compatibilidade de transicao o token
+    tambem e aceito em ``?token=...`` (query string), mas o uso do header e
+    recomendado para nao vazar o segredo em logs.
     """
     _rate_limit_check(request, max_requests=120)
 
     esperado = os.getenv("WUZAPI_WEBHOOK_TOKEN", "").strip()
-    recebido = request.query_params.get("token", "")
-    if not esperado or recebido != esperado:
+    recebido = _extrair_token_webhook(request)
+    if not _token_webhook_valido(recebido, esperado):
         log.warning("Webhook wuzapi rejeitado: token invalido.")
         raise HTTPException(status_code=403, detail="Token invalido.")
 
@@ -1149,12 +1214,12 @@ def aceitar_contrato(token: str, request: ContratoAceiteRequest, _req: Request):
     "/contratos/{token}/status",
     response_model=ContratoStatusResponse,
     tags=["Contratos"],
-    dependencies=[Depends(_verificar_token)],
 )
-def status_contrato(token: str, _req: Request):
+def status_contrato(token: str, _req: Request, auth: tuple = Depends(_verificar_token)):
     _rate_limit_check(_req, max_requests=30)
+    _, owner_id = auth
     contrato = obter_contrato(token)
-    if contrato is None:
+    if contrato is None or contrato.get("owner_id") != owner_id:
         return ContratoStatusResponse(sucesso=False, erro="Contrato não encontrado.")
 
     return ContratoStatusResponse(
@@ -1334,12 +1399,12 @@ def responder_anamnese(token: str, request: ResponderAnamneseRequest, _req: Requ
     "/anamneses/{token}/status",
     response_model=AnamneseStatusResponse,
     tags=["Anamnese"],
-    dependencies=[Depends(_verificar_token)],
 )
-def status_anamnese(token: str, _req: Request):
+def status_anamnese(token: str, _req: Request, auth: tuple = Depends(_verificar_token)):
     _rate_limit_check(_req, max_requests=30)
+    _, owner_id = auth
     anamnese = obter_anamnese(token)
-    if anamnese is None:
+    if anamnese is None or anamnese.get("owner_id") != owner_id:
         return AnamneseStatusResponse(sucesso=False, erro="Anamnese não encontrada.")
 
     return AnamneseStatusResponse(
@@ -1593,12 +1658,21 @@ def verificar_recuperacao(request: VerificarCodigoRequest, _req: Request):
     "/auth/registrar-recuperacao",
     response_model=RecuperacaoResponse,
     tags=["Recuperacao"],
-    dependencies=[Depends(_verificar_token)],
 )
-def registrar_recuperacao(request: RegistrarRecuperacaoRequest, _req: Request):
+def registrar_recuperacao(
+    request: RegistrarRecuperacaoRequest,
+    _req: Request,
+    auth: tuple = Depends(_verificar_token),
+):
     _rate_limit_check(_req, max_requests=5, chave_extra="conta:" + request.email.strip().lower())
 
+    username, _owner_id = auth
     email = request.email.strip().lower()
+    if email != username.strip().lower():
+        raise HTTPException(
+            status_code=403,
+            detail="E-mail não pertence à conta autenticada.",
+        )
     email_hash = _hash_email(email)
     agora = datetime.now(timezone.utc).isoformat()
 

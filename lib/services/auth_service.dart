@@ -64,8 +64,7 @@ class AuthService {
     if (token == null || token.isEmpty) return null;
     return EncryptionService.tryDecrypt(token);
   }
-
-  Future<bool> autenticarBackend() async {
+  Future<bool> autenticarBackend({http.Client? client}) async {
     try {
       final user = _username;
       final pass = _password;
@@ -73,7 +72,9 @@ class AuthService {
         Log.erro('Credenciais do backend não configuradas.', contexto: 'AuthService.autenticarBackend');
         return false;
       }
-      final response = await http
+
+      final httpClient = client ?? http.Client();
+      final response = await httpClient
           .post(
             Uri.parse('${ApiClient.baseUrl}/auth/login'),
             headers: {'Content-Type': 'application/json'},
@@ -89,7 +90,13 @@ class AuthService {
         final token = data['access_token'] as String?;
         if (token == null || token.isEmpty) return false;
         final encryptedToken = EncryptionService.tryEncrypt(token);
-        await _box.put(_tokenKey, encryptedToken ?? token);
+        if (encryptedToken != null) {
+          await _box.put(_tokenKey, encryptedToken);
+        } else {
+          // Sem criptografia disponível: mantém o token apenas em memória,
+          // nunca persiste o JWT em texto puro (mesmo padrão do ApiClient).
+          await _box.delete(_tokenKey);
+        }
         ApiClient.authToken = token;
         return true;
       }

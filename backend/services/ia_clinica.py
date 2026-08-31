@@ -8,9 +8,11 @@ from google import genai
 from google.genai import types
 from openai import OpenAI
 
-from prompts.abordagens import PROMPT_UNIVERSAL, PROMPT_PROGRESSO, obter_prompt_abordagem
+from prompts.abordagens import PROMPTS_ABORDAGEM, PROMPT_UNIVERSAL, PROMPT_PROGRESSO, obter_prompt_abordagem
 
 log = logging.getLogger("mentall.ia_clinica")
+
+TERMOS_PESSOA_ATENDIDA = {"paciente", "cliente", "pessoa atendida"}
 
 BASES_PESQUISA = [
     ("SciELO", "https://search.scielo.org/?q={consulta}&lang=pt"),
@@ -22,11 +24,17 @@ MAX_ARTIGOS_TOTAL = 3
 MAX_CANDIDATOS_POR_TEMA = 5
 MAX_PROMPT_CHARS = 50000
 INJECAO_PADROES = [
-    r"(?i)ignore\s+all\s+(previous|prior)\s+instructions",
-    r"(?i)disregard\s+(all\s+)?(previous|prior)\s+instructions",
+    r"(?i)ignore\s+(?:all|the|any|these|those)?\s*(?:previous|prior|above|earlier|other|given)?\s*instructions?",
+    r"(?i)forget\s+(?:all|the|any)?\s*(?:previous|prior|above|earlier|other)?\s*instructions?",
+    r"(?i)ignore\s+everything\s+(above|before|previously|you\s+sent)",
+    r"(?i)disregard\s+(all\s+)?(previous|prior|above|earlier)?\s*instructions?",
+    r"(?i)(ignore|disregard|forget)\s+(?:the|your|my)?\s*system\s*prompt",
+    r"(?i)(output|reveal|print|show|repeat|return|display)\s+(?:the|your|my)?\s*(?:full\s+)?system\s*prompt",
+    r"(?i)(answer|respond|act|behave|reply)\s+as\s+(an?\s+|the\s+)?(unrestricted|generic|general|powerful|regular|new|different)\s+(assistant|bot|ai|chatbot|model)",
+    r"(?i)you\s+are\s+now\s+[^.\n]*(assistant|bot|ai|chatbot|model)",
     r"(?i)system\s*prompt\s*:",
-    r"(?i)you\s+are\s+now\s+(a\s+)?\w+\s*(assistant|bot|ai)",
     r"(?i)new\s+instructions?\s*:",
+    r"(?i)override\s+(your|the)\s+(system\s+)?prompt",
 ]
 OPENALEX_FILTROS_BASE = "language:pt,type:article,from_publication_date:2010-01-01"
 OPENALEX_FILTRO_PSICOLOGIA = "primary_topic.field.id:fields/32"
@@ -169,7 +177,7 @@ def _rerankear_artigos(candidatos: list, contexto_clinico: str) -> list:
     prompt = f"""Você é um assistente de pesquisa clínica em psicologia.
 
 CONTEXTO CLÍNICO DA SESSÃO:
-{contexto_clinico[:1500]}
+{_sanitizar_prompt(contexto_clinico[:1500])}
 
 ARTIGOS CANDIDATOS:
 {chr(10).join(linhas)}
@@ -316,7 +324,13 @@ def _montar_prompt_sintese(
     tema_principal: str,
     prompt_abordagem: str,
 ) -> str:
-    termo = termo_pessoa_atendida or "paciente"
+    termo = (termo_pessoa_atendida or "paciente").strip().lower()
+    if termo not in TERMOS_PESSOA_ATENDIDA:
+        termo = "paciente"
+    if abordagem_clinica in PROMPTS_ABORDAGEM:
+        abordagem = abordagem_clinica
+    else:
+        abordagem = "Integrativa"
     nome = _sanitizar_prompt(nome_pessoa_atendida or "não informado")
     material = _sanitizar_prompt(material_base)
 
@@ -344,8 +358,8 @@ Com base no material acima, gere um JSON válido com a seguinte estrutura (sem m
     "relato_clinico_organizado": "Síntese clínica organizada em texto corrido, com estilo profissional, pronta para compor o prontuário. Deve incluir: contexto trazido pelo {termo}, temas trabalhados, intervenções realizadas, evolução observada e encaminhamentos/foco. Escreva de forma coesa, como se fosse um relato clínico completo.",
     "apontamentos_copiloto": "Apontamentos do Copiloto para revisão profissional. Tópicos com observações clínicas, hipóteses a investigar, padrões identificados e sugestões de foco. Use marcas de atenção como 'Pode indicar...', 'Sugere-se investigar...', 'Hipótese clínica...'",
     "sintese_clinica": "Síntese clínica combinada: eventos ou conteúdos centrais trazidos na sessão, avaliação da evolução do {termo} em relação a sessões anteriores (se aplicável) e observações relevantes para o prontuário (dados contextuais, cuidados éticos, riscos, potencialidades).",
-    "formulacao_clinica": "Formulação clínica combinada, compatível com a abordagem {abordagem_clinica}: pensamentos ou cognições, emoções ou afetos e comportamentos relevantes mencionados ou observados.",
-    "intervencoes": "Intervenções realizadas pelo profissional e técnicas ou recursos clínicos utilizados, compatíveis com a abordagem {abordagem_clinica}.",
+    "formulacao_clinica": "Formulação clínica combinada, compatível com a abordagem {abordagem}: pensamentos ou cognições, emoções ou afetos e comportamentos relevantes mencionados ou observados.",
+    "intervencoes": "Intervenções realizadas pelo profissional e técnicas ou recursos clínicos utilizados, compatíveis com a abordagem {abordagem}.",
     "plano_proxima_sessao": "Foco, temas pendentes ou objetivos para a próxima sessão. Se não houver, deixe vazio.",
     "temas_pesquisa": [
         {{"especifico": "expressão de busca específica", "amplo": "expressão de busca ampla"}},
@@ -358,7 +372,7 @@ No campo "temas_pesquisa", extraia exatamente 2 temas de busca científica a par
 - "especifico": expressão de busca específica (4 a 6 palavras) combinando o problema clínico central com contexto, população ou intervenção. Ex: "terapia cognitiva ansiedade social adultos".
 - "amplo": versão reduzida da mesma busca (2 a 3 palavras), para uso como alternativa caso a específica não retorne resultados. Ex: "ansiedade social".
 Critérios:
-1. O primeiro tema deve focar no problema clínico central da sessão; o segundo pode combinar outro tema relevante da sessão com a abordagem {abordagem_clinica}.
+1. O primeiro tema deve focar no problema clínico central da sessão; o segundo pode combinar outro tema relevante da sessão com a abordagem {abordagem}.
 2. Use termos consagrados na literatura científica em português, como seriam digitados em uma base de dados científica.
 3. NÃO inclua o nome do {termo} nem qualquer dado que identifique a pessoa atendida.
 4. NÃO invente títulos de artigos nem links - apenas expressões de busca.
@@ -645,15 +659,20 @@ def gerar_progresso(
     max_sessoes = 10
     for s in sessoes_anteriores[-max_sessoes:]:
         sintese = _sanitizar_prompt(str(s.get('sintese', '')))
-        historico += f"Sessão {s.get('numero')} ({s.get('data', '')}):\n{sintese}\n\n"
+        numero = _sanitizar_prompt(str(s.get('numero', '') or ''))
+        data = _sanitizar_prompt(str(s.get('data', '') or ''))
+        historico += f"Sessão {numero} ({data}):\n{sintese}\n\n"
 
     dados_escalas = ""
     if escalas:
         for e in escalas:
-            nome = e.get("nome", "")
+            nome = _sanitizar_prompt(str(e.get("nome", "")))
             dados_escalas += f"- {nome}:\n"
             for d in e.get("datas", []):
-                dados_escalas += f"  {d.get('data', '')}: {d.get('pontuacao', '?')} pontos ({d.get('interpretacao', '')})\n"
+                interpretacao = _sanitizar_prompt(str(d.get('interpretacao', '')))
+                data_escala = _sanitizar_prompt(str(d.get('data', '') or ''))
+                pontuacao = _sanitizar_prompt(str(d.get('pontuacao', '?')))
+                dados_escalas += f"  {data_escala}: {pontuacao} pontos ({interpretacao})\n"
 
     prompt = f"""{PROMPT_PROGRESSO}
 
@@ -667,10 +686,10 @@ Objetivos terapeuticos: {_sanitizar_prompt(objetivos_terapeuticos) or 'Nao infor
 SESSOES ANTERIORES:
 {historico}
 
-SESSAO ATUAL (numero {numero_sessao}, {sessao_atual.get('data', '')}):
-{sessao_atual.get('sintese', '')}
-Relato: {sessao_atual.get('relato', '')}
-Intervencoes: {sessao_atual.get('intervencoes', '')}
+SESSAO ATUAL (numero {numero_sessao}, {_sanitizar_prompt(str(sessao_atual.get('data', '') or ''))}):
+{_sanitizar_prompt(str(sessao_atual.get('sintese', '')))}
+Relato: {_sanitizar_prompt(str(sessao_atual.get('relato', '')))}
+Intervencoes: {_sanitizar_prompt(str(sessao_atual.get('intervencoes', '')))}
 
 Retorne um JSON com o seguinte formato:
 {{

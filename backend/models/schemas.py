@@ -1,5 +1,9 @@
 from pydantic import BaseModel, Field, field_validator
 
+from prompts.abordagens import PROMPTS_ABORDAGEM
+
+TERMOS_PESSOA_ATENDIDA = {"paciente", "cliente", "pessoa atendida"}
+
 
 def validar_senha(senha: str) -> str:
     """Senha forte: >= 10 chars com letra maiuscula, minuscula e numero."""
@@ -38,6 +42,26 @@ class SinteseRequest(BaseModel):
     transcricao_relato: str = Field(max_length=100_000)
     relato_manual: str = Field(max_length=100_000)
     tema_principal: str = Field(default="", max_length=200)
+
+    @field_validator("termo_pessoa_atendida")
+    @classmethod
+    def _validar_termo_pessoa_atendida(cls, v: str) -> str:
+        if v.strip().lower() not in TERMOS_PESSOA_ATENDIDA:
+            raise ValueError(
+                "termo_pessoa_atendida deve ser um dos termos permitidos: "
+                + ", ".join(sorted(TERMOS_PESSOA_ATENDIDA))
+            )
+        return v.strip().lower()
+
+    @field_validator("abordagem_clinica")
+    @classmethod
+    def _validar_abordagem_clinica(cls, v: str) -> str:
+        if v.strip() not in PROMPTS_ABORDAGEM:
+            raise ValueError(
+                "abordagem_clinica deve ser uma abordagem suportada: "
+                + ", ".join(sorted(PROMPTS_ABORDAGEM))
+            )
+        return v.strip()
 
 
 class SinteseResponse(BaseModel):
@@ -194,6 +218,72 @@ class ProgressoRequest(BaseModel):
     objetivos_terapeuticos: str = Field(default="", max_length=10_000)
     queixa_principal: str = Field(default="", max_length=5_000)
     escalas: list = Field(default_factory=list)
+
+    @field_validator("sessoes_anteriores")
+    @classmethod
+    def _validar_sessoes_anteriores(cls, v):
+        if not v:
+            return v
+        if not isinstance(v, list):
+            raise ValueError("sessoes_anteriores deve ser uma lista.")
+        for item in v:
+            if not isinstance(item, dict):
+                raise ValueError("Cada sessão anterior deve ser um objeto.")
+            numero = item.get("numero")
+            if numero is not None:
+                try:
+                    int(numero)
+                except (TypeError, ValueError):
+                    raise ValueError("numero da sessão anterior deve ser numérico.")
+            data = item.get("data")
+            if data is not None and data != "":
+                cls._validar_data_iso(data, "data da sessão anterior")
+        return v
+
+    @field_validator("sessao_atual")
+    @classmethod
+    def _validar_sessao_atual(cls, v):
+        if not isinstance(v, dict):
+            raise ValueError("sessao_atual deve ser um objeto.")
+        data = v.get("data")
+        if data is not None and data != "":
+            cls._validar_data_iso(data, "data da sessão atual")
+        return v
+
+    @field_validator("escalas")
+    @classmethod
+    def _validar_escalas(cls, v):
+        if not v:
+            return v
+        if not isinstance(v, list):
+            raise ValueError("escalas deve ser uma lista.")
+        for escala in v:
+            if not isinstance(escala, dict):
+                raise ValueError("Cada escala deve ser um objeto.")
+            for d in escala.get("datas", []) or []:
+                if not isinstance(d, dict):
+                    raise ValueError("Cada aplicação de escala deve ser um objeto.")
+                data = d.get("data")
+                if data is not None and data != "":
+                    cls._validar_data_iso(data, "data da escala")
+                pontuacao = d.get("pontuacao")
+                if pontuacao is not None and pontuacao != "":
+                    try:
+                        float(pontuacao)
+                    except (TypeError, ValueError):
+                        raise ValueError("pontuacao da escala deve ser numérica.")
+        return v
+
+    @staticmethod
+    def _validar_data_iso(valor, campo: str) -> None:
+        import datetime
+        if isinstance(valor, datetime.date):
+            return
+        texto = str(valor).strip()
+        try:
+            datetime.date.fromisoformat(texto[:10])
+        except ValueError:
+            raise ValueError(f"{campo} deve ser uma data ISO (AAAA-MM-DD).")
 
 
 class ProgressoResponse(BaseModel):

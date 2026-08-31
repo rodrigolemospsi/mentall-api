@@ -353,7 +353,7 @@ function renderForm(template) {
 
 function esc(texto) {
   if (!texto) return '';
-  return String(texto).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return String(texto).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function renderPergunta(q) {
@@ -392,8 +392,11 @@ function renderPergunta(q) {
       html += '</div>';
       break;
     case 'scale':
-      var min = q.min || 0;
-      var max = q.max || 10;
+      var min = parseInt(q.min, 10);
+      if (isNaN(min)) min = 0;
+      var max = parseInt(q.max, 10);
+      if (isNaN(max)) max = 10;
+      if (min > max) { var tmp = min; min = max; max = tmp; }
       html += '<div class="scale-container">';
       html += '<span style="font-size:12px;color:#94A3B8">' + min + '</span>';
       html += '<input type="range" name="' + id + '" min="' + min + '" max="' + max + '" value="' + Math.floor((max - min) / 2) + '">';
@@ -406,8 +409,8 @@ function renderPergunta(q) {
       break;
     case 'yesno':
       html += '<div class="btn-sim-nao">';
-      html += '<button type="button" class="btn-sim" onclick="toggleYn(\'' + id + '\', true, this)">Sim</button>';
-      html += '<button type="button" class="btn-nao selecionado" onclick="toggleYn(\'' + id + '\', false, this)">Não</button>';
+      html += '<button type="button" class="btn-sim" onclick="toggleYn(this, true)">Sim</button>';
+      html += '<button type="button" class="btn-nao selecionado" onclick="toggleYn(this, false)">Não</button>';
       html += '</div>';
       respostasYn[id] = false;
       if (q.condicional_sim) {
@@ -438,7 +441,9 @@ function renderCondicional(c) {
   return html;
 }
 
-function toggleYn(id, valor, btn) {
+function toggleYn(btn, valor) {
+  var pergunta = btn.closest('.pergunta');
+  var id = pergunta ? pergunta.getAttribute('data-id') : '';
   respostasYn[id] = valor;
   var container = btn.parentElement;
   container.querySelector('.btn-sim').classList.toggle('selecionado', valor === true);
