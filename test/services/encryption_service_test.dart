@@ -37,4 +37,24 @@ void main() {
     // (bug corrigido: antes retornava true incondicionalmente quando _key != null).
     expect(await encryption.validarPin('senha-qualquer'), isFalse);
   });
+
+  test('protecaoDuravel inicia false sem chave persistida de forma duravel', () {
+    expect(encryption.protecaoDuravel, isFalse);
+  });
+
+  test('gerarChave falha (retorna false) sem persistencia duravel, sinal de fail-closed',
+      () async {
+    // Em ambiente sem secure storage de plataforma, a persistencia dura ta
+    // indisponivel. gerarChave nao deve reportar durabilidade (retorna false),
+    // permitindo que o fluxo de boot bloqueie em vez de gravar texto puro.
+    final ok = await encryption.gerarChave();
+    expect(ok, isFalse);
+    expect(encryption.protecaoDuravel, isFalse);
+  });
+
+  test('protecaoDuravel reflete marcador de persistencia duravel', () {
+    // Quando a persistencia duravel foi confirmada, o getter reflete true.
+    Hive.box<String>('encryption_meta').put('chave_duravel', 'true');
+    expect(encryption.protecaoDuravel, isTrue);
+  });
 }

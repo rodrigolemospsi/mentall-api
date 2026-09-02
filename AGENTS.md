@@ -282,7 +282,7 @@ TDD (testes RED antes de cada fix). Re-verificados no HEAD e corrigidos:
 - APK: **`1.0.27+28` → `1.0.28+29`** (`MentAllPRO-v1.0.28.apk` gerado). Checklist de loja criado em `tasks/lojas_app.md`.
 
 ### Pendências (decisão do dono)
-1. **Fail-closed de criptografia (vuln-0013):** bloquear app sem proteção durável + indicador de proteção ativa/inativa na Home e Configurações. **Bloqueia publicação nas lojas** (dados clínicos podem ficar em texto puro em dispositivos sem biometria/tela bloqueada).
+1. ~~**Fail-closed de criptografia (vuln-0013):** bloquear app sem proteção durável + indicador de proteção ativa/inativa na Home e Configurações.~~ ✅ **implementado em 02/09/2026** (cofre durável Keystore sem exigir biometria + fail-closed + indicador). Não bloqueia mais publicação neste ponto.
 2. **CSP `script-src 'unsafe-inline'`** no backend (recomendação do relatório para harden futuro).
 3. ~~Re-verificação Strix scoped das correções~~ ✅ **concluída em 30/08** (`strix_runs/strix-target_d751/`): 0 vulnerabilidades restantes.
 4. **`TRUSTED_PROXIES` no deploy:** `.env`/secrets do Fly precisam ganhar os IPs do edge do Fly (rate-limit por IP atrás do proxy). Sem isso, o rate-limit perde a distinção por IP real no deploy.
@@ -311,8 +311,43 @@ TDD (testes RED antes de cada fix). Re-verificados no HEAD e corrigidos:
 2. `1f7a833` `security: corrige achados do 2o pentest Strix + auditoria (30/08)` (26 arquivos código/testes pendentes; escolha do dono "só código/testes").
 3. `ee0d244` `chore: remove arquivos de referencia/marketing obsoletos` (10 deleções: LGPD txt, logos, apresentação, PROMPT `.lnk`/`.txt`, ACORDO docx, `security_fixes_2026_08.md`, `flutter_01.png` — recuperáveis via `git restore`).
 
+## Correções e Funcionalidades (02/09/2026) — FAIL-CLOSED DE CRIPTOGRAFIA (VULN-0013) + INDICADOR DE PROTEÇÃO
+
+**Pendência de produto (dono) resolvida.** Decisões documentadas antes de implementar (pesquisa com fontes: `flutter_secure_storage` docs, Bitwarden KDF/unlock-with-PIN, OWASP Password Storage Cheat Sheet).
+
+### Contexto (por que a vuln existia)
+- A chave mestra era persistida só em `_secureStoragePin`/`_secureStorageBiometria` com `AndroidOptions.biometric(enforceBiometrics: true)`. Em dispositivo **sem biometria/tela bloqueada**, o `write` lançava exceção → `gerarChave()` retornava `false` → chave só em memória → `tryEncrypt` devolvia `null` → **dados clínicos em texto puro** (fail-open) naquele dispositivo. Era o cenário "tablet de clínica compartilhado".
+
+### Pesquisa (resumo das fontes)
+- **`flutter_secure_storage`:** `AndroidOptions()` (default) usa **RSA OAEP + AES-GCM no Android Keystore** e **NÃO exige biometria** — funciona em qualquer aparelho e continua hardware-backed/rápido. `enforceBiometrics: true` exige biometria e **lança exceção** se não houver (é a causa do fail-open).
+- **Bitwarden:** a derivação cara (KDF/PBKDF2) é para o **login**; o **desbloqueio diário** lê a chave do cofre do sistema (rápido, sem KDF). Padrão de "envelope encryption". Também documenta o trade-off: PIN pode enfraquecer a proteção local.
+- **OWASP:** hash de senha deve levar < 1 segundo; o custo alto (vários segundos) da versão antiga de PIN vinha de PBKDF2 repetido a cada abertura na UI.
+
+### Implementação
+- **`lib/services/encryption_service.dart`:**
+  - Novo cofre durável `_secureStorageDuravel = FlutterSecureStorage(aOptions: AndroidOptions())` (Keystore sem exigir biometria — RSA OAEP + AES-GCM).
+  - `gerarChave()` agora persiste a chave **obrigatoriamente** no cofre durável (funciona sem biometria); o `_secureStoragePin` (com prompt) vira **gate opcional** (best-effort). Retorna `true` só com persistência durável.
+  - `carregarChaveDoSecureStorage()` tenta biometria → credencial do dispositivo → **fallback durável** (cobre aparelhos onde os 2 primeiros falham). Sempre consegue carregar a chave → nunca mais texto puro.
+  - `migrarChaveDoPinLegado()` e `limpar()` também passam a gravar/remover no cofre durável.
+  - Novo getter `bool get protecaoDuravel` (marcador `chave_duravel`) + `marcarProtecaoDuravel()` + `observar()` (stream p/ providers).
+- **Fail-closed (`lib/main.dart`):** quando `gerarChave()` não consegue durabilidade → `EncryptionService.protecaoIndisponivel = true` (não grava em texto puro). Instalações antigas (chave já existe) → `marcarProtecaoDuravel()` (backfill, evita falso bloqueio no upgrade).
+  - **`lib/screens/app_start_page.dart`:** tela de bloqueio "Proteção de dados indisponível" com botão "Tentar novamente" quando `protecaoIndisponivel`.
+- **Indicador de proteção (ativa/inativa):**
+  - `protecaoDuravelProvider` (StreamProvider reativo via `encryption_meta`) em `lib/providers/service_providers.dart`.
+  - **Configurações → Segurança:** chip "Proteção de dados" (verde ativa / laranja inativa).
+  - **Home:** chip "Proteção de dados ativa/inativa" (toca → abre Configurações) logo abaixo da saudação.
+
+### Segurança/performance
+- Sem KDF na UI: desbloqueio continua lendo a chave do cofre do sistema (rápido). A durabilidade não depende mais de o aparelho ter biometria/tela bloqueada.
+- Trade-off aceito (padrão Bitwarden): em dispositivo sem tela bloqueada, a chave no Keystore protege contra acesso offline ao storage (nada de texto puro), mas não há "gate" de biometria — o gate só existe para aparelhos que suportam.
+
+### Verificação
+- Testes novos em `test/services/encryption_service_test.dart` (3: `protecaoDuravel` inicial false; `gerarChave` retorna false sem persistência durável = sinal de fail-closed; `protecaoDuravel` reflete marcador).
+- `flutter analyze`: limpo (1 warning pré-existente em `tools/gerar_prompts_ia_pdf.dart`).
+- Suíte Flutter: **159/159** (era 156; +3 da criptografia). `sessao_form_page_test`: flake conhecido do tap (warn), não é falha.
+
 ## Checklist de publicação nas lojas de app (Google Play / App Store)
-- **Pendências de segurança pendentes ANTES de publicar** (ver `tasks/lojas_app.md`): fail-closed de criptografia (vuln-0013) + indicador de proteção; CSP `unsafe-inline` no backend; `TRUSTED_PROXIES` no Fly; normalizar `render.yaml`/`start_backend.sh` para `--proxy-headers`; definir `TRUSTED_PROXIES` no `.env`.
+- **Pendências de segurança pendentes ANTES de publicar** (ver `tasks/lojas_app.md`): ~~fail-closed de criptografia (vuln-0013) + indicador de proteção~~ ✅ **implementado em 02/09/2026**; CSP `unsafe-inline` no backend; `TRUSTED_PROXIES` no Fly; normalizar `render.yaml`/`start_backend.sh` para `--proxy-headers`; definir `TRUSTED_PROXIES` no `.env`.
 - **Pendências técnicas de loja:** ícone adaptativo/legacy atualizado, telas de captura (screenshots), descrição, categorias, política de privacidade, termos de uso, nota da LGPD (dados sensíveis de saúde), CPI da conta de desenvolvedor, assinatura do release (keystore), plano de assinatura/RevenueCat (Fase 1 do plano de negócio).
 - **Detalhes completos em `tasks/lojas_app.md`.**
 

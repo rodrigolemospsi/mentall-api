@@ -121,20 +121,26 @@ void main() async {
   if (!encryption.possuiChaveProtegida) {
     final chaveDuravel = await auth.gerarChave();
     if (!chaveDuravel) {
-      // Proteção de dados em repouso indisponível (ex.: dispositivo sem
-      // bloqueio de tela/biometria). A chave fica só em memória e dados
-      // clínicos são persistidos em texto puro enquanto isso. Aviso visível
-      // para o profissional (LGPD).
+      // Proteção de dados em repouso indisponível. Em vez de gravar dados
+      // clínicos em texto puro (falha fail-open da vuln-0013), sinalizamos o
+      // fail-closed: o AppStartPage irá bloquear o uso até o dispositivo ser
+      // configurado (biometria/tela bloqueada).
+      EncryptionService.protecaoIndisponivel = true;
       debugPrint(
-        'AVISO: criptografia não durável — dados clínicos podem ser '
-        'persistidos em texto puro neste dispositivo.',
+        'AVISO: criptografia não durável — dados clínicos NÃO serão persistidos '
+        'em texto puro neste dispositivo.',
       );
       Log.auditoria(
-        'Criptografia não durável: dados clínicos podem ficar em texto puro '
-        'neste dispositivo (sem bloqueio de tela/biometria).',
+        'Criptografia não durável: uso bloqueado para não gravar dados clínicos '
+        'em texto puro (sem bloqueio de tela/biometria).',
         contexto: 'Seguranca',
       );
     }
+  } else if (!encryption.protecaoDuravel) {
+    // Instalações antigas (pré-vuln-0013): a chave já persiste (ex.: cofre
+    // protegido por biometria/tela bloqueada). Considera proteção durável para
+    // não gerar falso fail-closed no upgrade.
+    await encryption.marcarProtecaoDuravel();
   }
   debugPrint('[startup] auth: ${sw.elapsedMilliseconds}ms');
 

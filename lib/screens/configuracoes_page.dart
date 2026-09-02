@@ -52,6 +52,8 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
 
     final config = ref.read(configuracoesServiceProvider);
     final authService = ref.read(authServiceProvider);
+    final protecaoAtiva =
+        ref.watch(protecaoDuravelProvider).valueOrNull ?? false;
 
     return Scaffold(
       backgroundColor: context.corFundo,
@@ -91,6 +93,19 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
           context,
             titulo: 'Segurança',
             children: [
+              ListTile(
+                leading: Icon(
+                  protecaoAtiva ? Icons.verified_user_outlined : Icons.warning_amber,
+                  color: protecaoAtiva ? context.corSuccess : context.corWarning,
+                ),
+                title: const Text('Proteção de dados'),
+                subtitle: Text(
+                  protecaoAtiva
+                      ? 'Criptografia ativa: seus dados são cifrados em repouso.'
+                      : 'Inativa: os dados podem ficar em texto puro neste dispositivo.',
+                ),
+              ),
+              const Divider(indent: 16),
               if (_biometriaDisponivel) ...[
                 SwitchListTile(
                   secondary: Icon(Icons.fingerprint, color: context.corPrimaria),

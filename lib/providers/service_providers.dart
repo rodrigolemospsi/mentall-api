@@ -42,6 +42,17 @@ final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService(encryption);
 });
 
+/// Indica se a proteção dos dados em repouso está ativa (chave criptográfica
+/// persistida de forma durável). Reativo via `encryption_meta` — alimenta o
+/// indicador de "Proteção de dados: Ativa/Inativa" na Home e em Configurações.
+final protecaoDuravelProvider = StreamProvider<bool>((ref) async* {
+  final encryption = ref.watch(encryptionServiceProvider);
+  yield encryption.protecaoDuravel;
+  await for (final _ in encryption.observar()) {
+    yield encryption.protecaoDuravel;
+  }
+});
+
 final pacienteServiceProvider = Provider<PacienteService>((ref) {
   final encryption = ref.watch(encryptionServiceProvider);
   return PacienteService(encryption: encryption);

@@ -424,6 +424,12 @@ class _HomePageState extends ConsumerState<HomePage> {
               ),
             ),
           ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: const _IndicadorProtecao(),
+            ),
+          ),
           const SliverToBoxAdapter(child: SizedBox(height: 14)),
           SliverToBoxAdapter(
             child: Padding(
@@ -481,6 +487,53 @@ class _HomePageState extends ConsumerState<HomePage> {
         ],
       ),
     ),
+    );
+  }
+}
+
+class _IndicadorProtecao extends ConsumerWidget {
+  const _IndicadorProtecao();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ativa = ref.watch(protecaoDuravelProvider).valueOrNull ?? false;
+    final cor = ativa ? context.corSuccess : context.corWarning;
+    final icon = ativa ? Icons.lock_outline : Icons.warning_amber;
+    final texto =
+        ativa ? 'Proteção de dados ativa' : 'Proteção de dados inativa';
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ConfiguracoesPage()),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: cor.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.max,
+          children: [
+            Icon(icon, size: 18, color: cor),
+            const SizedBox(width: 8),
+            Text(
+              texto,
+              style: TextStyle(
+                fontSize: 12,
+                color: cor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const Spacer(),
+            const Icon(Icons.chevron_right, size: 18, color: Color(0xFF94A3B8)),
+          ],
+        ),
+      ),
     );
   }
 }

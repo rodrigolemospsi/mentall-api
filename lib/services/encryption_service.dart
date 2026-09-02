@@ -60,6 +60,18 @@ class EncryptionService {
   );
 
   static const _secureKeyName = 'aes_master_key';
+  static const _secureKeyDuravel = 'aes_master_key_duravel';
+  static const _chaveDuravelKey = 'chave_duravel';
+
+  /// Cofre durável (Android Keystore RSA OAEP + AES-GCM / iOS Keychain) que
+  /// NÃO exige biometria/tela bloqueada. É a persistência obrigatória da chave
+  /// mestra: garante que os dados clínicos sejam sempre cifrados, mesmo em um
+  /// dispositivo sem bloqueio configurado (correção da falha fail-open da
+  /// vuln-0013). A biometria/credencial continua sendo um GATE de acesso
+  /// opcional (ver [carregarChaveDoSecureStorage]), não um pré-requisito.
+  static const _secureStorageDuravel = FlutterSecureStorage(
+    aOptions: AndroidOptions(),
+  );
 
   late final Box<String> _box = Hive.box<String>(_boxName);
   encrypt.Key? _key;
@@ -86,6 +98,11 @@ class EncryptionService {
   EncryptionService();
 
   static EncryptionService? _instance;
+
+  /// Sinal de fail-closed definido no boot (`main.dart`): quando a chave
+  /// mestra não pôde ser persistida de forma durável, o app deve bloquear em
+  /// vez de gravar dados clínicos em texto puro.
+  static bool protecaoIndisponivel = false;
 
   static void setInstance(EncryptionService instance) {
     _instance = instance;
@@ -191,6 +208,31 @@ class EncryptionService {
     }
   }
 
+  /// Indica se a chave mestra está persistida de forma durável (cofre de
+  /// hardware sem exigir biometria/tela bloqueada). Se false, os dados podem
+  /// ser gravados em texto puro — o fluxo de boot deve bloquear (fail-closed).
+  bool get protecaoDuravel {
+    try {
+      return _box.get(_chaveDuravelKey) == 'true';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Propaga o marcador de persistência durável para instalações antigas que
+  /// já possuem uma chave (ex.: cofre protegido por biometria/tela bloqueada).
+  /// Evita falso fail-closed em upgrades de versões anteriores à vuln-0013.
+  Future<void> marcarProtecaoDuravel() async {
+    try {
+      await _box.put(_chaveDuravelKey, 'true');
+    } catch (_) {
+      // Melhor esforço.
+    }
+  }
+
+  /// Observa mudanças no cofre de metadados (usado por providers reativos).
+  Stream<BoxEvent> observar() => _box.watch();
+
   Future<bool> gerarChave() async {
     await inicializar();
 
@@ -199,19 +241,35 @@ class EncryptionService {
     _setKey(newKey);
     _iv = newIv;
 
-    var persistida = false;
+    // 1) Persistência durável (OBRIGATÓRIA). Usa o cofre de hardware SEM
+    //    exigir biometria/tela bloqueada, então funciona em qualquer aparelho.
+    //    Só grava texto puro se nem isso for possível (fail-closed no boot).
+    var duravel = false;
+    try {
+      await _secureStorageDuravel.write(
+        key: _secureKeyDuravel,
+        value: newKey.base64,
+      );
+      duravel = true;
+    } catch (_) {
+      // Keystore/Keychain indisponível (raro): chave fica só em memória.
+    }
+
+    // 2) Gate opcional por biometria/credencial do dispositivo (UX de acesso).
+    //    Se existir, a chave também fica nesse cofre (que exige o prompt);
+    //    se não, o desbloqueio usa a cópia durável. Nunca é pré-requisito.
     try {
       await _secureStoragePin.write(key: _secureKeyName, value: newKey.base64);
-      persistida = true;
     } catch (_) {
-      // Sem secure storage (ex.: dispositivo sem bloqueio de tela/biometria):
-      // a chave fica apenas em memoria e NAO sobrevive ao restart.
+      // Sem biometria/tela bloqueada -> seguimos com a cópia durável.
     }
-    if (!persistida) {
+
+    if (!duravel) {
       return false;
     }
     try {
       await _box.put(_chaveGeradaKey, 'true');
+      await _box.put(_chaveDuravelKey, 'true');
     } catch (_) {
       // A flag é apenas otimização de detecção; a chave em memória é o que importa.
     }
@@ -242,8 +300,22 @@ class EncryptionService {
       _resetarTentativas();
       return true;
     } catch (_) {
-      return false;
+      // Sem biometria/credencial -> tenta o cofre durável.
     }
+
+    // 3º passo: cofre durável (sem exigir biometria). Cobre dispositivos sem
+    // tela bloqueada/biometria, onde os passos acima falham ou não existem.
+    try {
+      final keyBase64 = await _secureStorageDuravel.read(key: _secureKeyDuravel);
+      if (keyBase64 != null && keyBase64.isNotEmpty) {
+        _setKey(encrypt.Key.fromBase64(keyBase64));
+        _resetarTentativas();
+        return true;
+      }
+    } catch (_) {
+      // Keystore indisponível -> falha (desbloqueio sem chave persistida).
+    }
+    return false;
   }
 
   Future<bool> migrarChaveDoPinLegado(String pin) async {
@@ -284,8 +356,18 @@ class EncryptionService {
       _setKey(encrypt.Key(Uint8List.fromList(keyBytes)));
       _iv = iv;
       await _secureStoragePin.write(key: _secureKeyName, value: _key!.base64);
+      try {
+        await _secureStorageDuravel.write(
+          key: _secureKeyDuravel,
+          value: _key!.base64,
+        );
+      } catch (_) {
+        // Sem persistência durável: não migra para um estado sem proteção.
+        return false;
+      }
       await _box.clear();
       await _box.put(_chaveGeradaKey, 'true');
+      await _box.put(_chaveDuravelKey, 'true');
       _resetarTentativas();
       return true;
     } catch (e) {
@@ -533,6 +615,7 @@ class EncryptionService {
     _iv = null;
     _limparCacheCripto();
     await _secureStoragePin.delete(key: _secureKeyName);
+    await _secureStorageDuravel.delete(key: _secureKeyDuravel);
     await _box.clear();
   }
 

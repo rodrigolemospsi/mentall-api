@@ -5,12 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/service_providers.dart';
 import '../services/api_client.dart';
+import '../services/encryption_service.dart';
 import 'conta_page.dart';
 import 'login_page.dart';
 import 'main_shell.dart';
 import 'perfil_profissional_form_page.dart';
 
 import '../utils/mentall_colors.dart';
+import '../utils/tipografia.dart';
 
 class AppStartPage extends ConsumerStatefulWidget {
   const AppStartPage({super.key});
@@ -132,6 +134,12 @@ class _AppStartPageState extends ConsumerState<AppStartPage>
       return _buildSplash(context);
     }
 
+    // Fail-closed (vuln-0013): sem proteção durável, bloqueia o uso em vez de
+    // gravar dados clínicos em texto puro.
+    if (EncryptionService.protecaoIndisponivel) {
+      return _buildProtecaoIndisponivel(context);
+    }
+
     ref.watch(contaRevisaoProvider);
 
     final authService = ref.read(authServiceProvider);
@@ -165,7 +173,6 @@ class _AppStartPageState extends ConsumerState<AppStartPage>
 
   Widget _buildSplash(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return GestureDetector(
       onTap: _pularSplash,
       child: AnimatedBuilder(
@@ -187,6 +194,59 @@ class _AppStartPageState extends ConsumerState<AppStartPage>
                 cacheHeight: 256,
                 semanticLabel: 'Logo MentAll PRO',
               ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProtecaoIndisponivel(BuildContext context) {
+    return Scaffold(
+      backgroundColor: context.corFundo,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.gpp_maybe_outlined,
+                    size: 64, color: Color(0xFFE65100)),
+                const SizedBox(height: 20),
+                Text(
+                  'Proteção de dados indisponível',
+                  style: TextStyle(
+                    fontSize: Tipografia.xl,
+                    fontWeight: FontWeight.bold,
+                    color: context.corTextoHeading,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Este dispositivo não permite armazenar a chave de '
+                  'criptografia de forma segura (sem biometria ou tela '
+                  'bloqueada). Para proteger o prontuário, configure o '
+                  'bloqueio de tela/biometria no aparelho e reinicie o app.',
+                  style: TextStyle(
+                    color: context.corTextoBody,
+                    fontSize: Tipografia.base,
+                    height: 1.4,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    // Reavalia para permitir novo boot após configurar o aparelho.
+                    EncryptionService.protecaoIndisponivel = false;
+                    setState(() {});
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Tentar novamente'),
+                ),
+              ],
+            ),
           ),
         ),
       ),
