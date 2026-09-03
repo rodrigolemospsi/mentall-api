@@ -78,7 +78,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pump();
 
-    expect(find.text('Bem-vindo ao MentAll PRO'), findsOneWidget);
+    expect(
+      find.text(
+          'O app MentAll Pro valoriza a abordagem psicológica que você atua! Configure agora o seu perfil profissional:'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('com perfil mostra HomePage', (tester) async {
@@ -104,7 +108,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pump();
 
-    expect(find.text('Bem-vindo ao MentAll PRO'), findsNothing);
+    expect(
+      find.text(
+          'O app MentAll Pro valoriza a abordagem psicológica que você atua! Configure agora o seu perfil profissional:'),
+      findsNothing,
+    );
     expect(find.textContaining('Dr. Teste'), findsOneWidget);
   });
 

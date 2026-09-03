@@ -18,8 +18,8 @@ import 'lgpd/termos_uso_page.dart';
 import '../utils/tipografia.dart';
 
 final _abordagemProvider = StateProvider<String>((ref) => '');
-final _termoProvider = StateProvider<String>((ref) => 'paciente');
-final _tratamentoProvider = StateProvider<String>((ref) => 'masculino');
+final _termoProvider = StateProvider<String>((ref) => '');
+final _tratamentoProvider = StateProvider<String>((ref) => '');
 final _salvandoProvider = StateProvider<bool>((ref) => false);
 final _aceitouTermosProvider = StateProvider<bool>((ref) => false);
 final _fotoProvider = StateProvider<String>((ref) => '');
@@ -400,12 +400,9 @@ class _PerfilProfissionalFormPageState
                 ),
               ),
               const SizedBox(height: 10),
-              const Text('Bem-vindo ao MentAll PRO',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
               Text(
-                'Antes de cadastrar pessoas atendidas, configure seu perfil profissional e suas preferências clínicas.',
-                textAlign: TextAlign.justify,
+                'O app MentAll Pro valoriza a abordagem psicológica que você atua! Configure agora o seu perfil profissional:',
+                textAlign: TextAlign.center,
                 style: TextStyle(color: context.corTextoSecondary, height: 1.4),
               ),
               const SizedBox(height: 22),
@@ -456,6 +453,7 @@ class _PerfilProfissionalFormPageState
               decoration: const InputDecoration(
                 labelText: 'Nome profissional',
                 hintText: 'Ex.: Rodrigo Silva',
+                floatingLabelBehavior: FloatingLabelBehavior.always,
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.person_outline),
               ),
@@ -466,7 +464,8 @@ class _PerfilProfissionalFormPageState
               textCapitalization: TextCapitalization.characters,
               decoration: const InputDecoration(
                 labelText: 'Registro profissional - CRP',
-                hintText: 'Ex.: 00/00000',
+                hintText: 'Ex.: 00/000000',
+                floatingLabelBehavior: FloatingLabelBehavior.always,
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.badge_outlined),
               ),
@@ -478,10 +477,13 @@ class _PerfilProfissionalFormPageState
                   : abordagemSelecionada,
               decoration: const InputDecoration(
                 labelText: 'Abordagem clínica principal',
-                hintText: 'Definir sua abordagem clínica',
+                hintText: 'Escolher',
+                floatingLabelBehavior: FloatingLabelBehavior.always,
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.account_tree_outlined),
               ),
+              style: TextStyle(fontSize: Tipografia.base,
+                  color: context.corTextoBody),
               items: abordagensOrdenadas
                   .map((a) => DropdownMenuItem<String>(
                         value: a.value,
@@ -497,12 +499,16 @@ class _PerfilProfissionalFormPageState
             ),
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
-              initialValue: termoSelecionado,
+              initialValue: termoSelecionado.isEmpty ? null : termoSelecionado,
               decoration: const InputDecoration(
                 labelText: 'Como se referir',
+                hintText: 'Escolher',
+                floatingLabelBehavior: FloatingLabelBehavior.always,
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.record_voice_over_outlined),
               ),
+              style: TextStyle(fontSize: Tipografia.base,
+                  color: context.corTextoBody),
               items: PerfilProfissional.termosPessoaAtendidaDisponiveis
                   .map((t) => DropdownMenuItem<String>(
                         value: t.value,
@@ -518,12 +524,18 @@ class _PerfilProfissionalFormPageState
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              initialValue: ref.watch(_tratamentoProvider),
+              initialValue: ref.watch(_tratamentoProvider).isEmpty
+                  ? null
+                  : ref.watch(_tratamentoProvider),
               decoration: const InputDecoration(
                 labelText: 'Tratamento',
+                hintText: 'Escolher',
+                floatingLabelBehavior: FloatingLabelBehavior.always,
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.person_outline),
               ),
+              style: TextStyle(fontSize: Tipografia.base,
+                  color: context.corTextoBody),
               items: const [
                 DropdownMenuItem(
                     value: 'masculino', child: Text('Masculino')),

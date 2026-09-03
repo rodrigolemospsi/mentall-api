@@ -36,6 +36,19 @@
 ### Pendência relacionada (não incluída neste fix — combinar depois)
 - O login de conta (`ApiClient.entrarComEmailSenha`) grava credenciais no `app_config` mas **não chama `AuthService.salvarCredenciaisServidor()`** (SecureStorage), que é o que `tentarAutoLoginServidor()` lê. Não é o sintoma reportado e o fluxo real de reautenticação funciona via `ensureAuthenticated` (evidência: 3× re-login 200). Incluir exigiria refactor de fronteira (injetar storage/http) sem teste.
 
+## Correções e Funcionalidades (03/09/2026) — UI DA TELA DE PERFIL PROFISSIONAL
+
+### Ajustes solicitados (dono)
+- **Cabeçalho (perfil novo):** removido "Bem-vindo ao MentAll PRO"; novo texto **"O app MentAll Pro valoriza a abordagem psicológica que você atua! Configure agora o seu perfil profissional:"**, estilo **normal e centralizado** (antes havia texto justificado + título em negrito).
+- **Labels sempre visíveis:** `floatingLabelBehavior: FloatingLabelBehavior.always` nos 5 campos do cabeçalho (Nome profissional, Registro profissional - CRP, Abordagem clínica principal, Como se referir, Tratamento).
+- **"Escolher" dentro das 3 caixas suspensas** (Abordagem, Como se referir, Tratamento) — via `hintText`. Para Como se referir e Tratamento exibirem "Escolher", os `StateProvider` `_termoProvider`/`_tratamentoProvider` passaram a começar **vazios** (antes `'paciente'`/`'masculino'`); o `initialValue` vira `null` para não descasar dos itens, e o `TermoPessoaAtendida.fromString('')`/`perfil_profissional_service` mantêm fallback seguro (`paciente`/`masculino`). No perfil já existente (edição), `initState` continua preenchendo com o valor salvo.
+- **Registro profissional:** `hintText` → **"Ex.: 00/000000"** (antes `00/00000`); dentro da caixa fica só o exemplo, com a label sempre visível acima.
+- **Tipografia dos dropdowns:** `style` padronizado (`fontSize: Tipografia.base`, `corTextoBody`) — itens e valor selecionado uniformes.
+- **Escopo:** só os 5 campos do cabeçalho + 3 dropdowns + textos do cabeçalho. **NÃO** mexeu nos campos de Endereço nem em outras telas.
+- **Arquivo:** `lib/screens/perfil_profissional_form_page.dart`.
+- **Testes:** `perfil_form_page_test.dart` (texto novo + "Escolher" ×3 + "Ex.: 00/000000") e `app_start_page_test.dart` (2 asserts do texto antigo → novo). Suíte Flutter **171/171**; `flutter analyze` limpo (1 warning pré-existente em `tools/`).
+- **APK:** bump `1.0.32+33` → **`1.0.33+34`** (`MentAllPRO-v1.0.33.apk`, ~75.7 MB).
+
 ## BACKUP DA CONFIGURAÇÃO ATUAL (25/08/2026) — PALETA ROXA ANTES DA MIGRAÇÃO PARA CINZA
 
 > **Objetivo:** registrar o estado visual atual (paleta roxa) antes de qualquer mudança para tons de cinza, para permitir reversão sem perder o que foi construído. Atualizar este bloco conforme as mudanças forem aplicadas.

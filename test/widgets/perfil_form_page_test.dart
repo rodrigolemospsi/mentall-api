@@ -24,7 +24,11 @@ void main() {
 
     await tester.pump();
 
-    expect(find.text('Bem-vindo ao MentAll PRO'), findsOneWidget);
+    expect(
+      find.text(
+          'O app MentAll Pro valoriza a abordagem psicológica que você atua! Configure agora o seu perfil profissional:'),
+      findsOneWidget,
+    );
     expect(find.text('Salvar e começar'), findsOneWidget);
     expect(find.byType(FilledButton), findsOneWidget);
     expect(find.byType(TextField), findsNWidgets(2));
@@ -74,9 +78,12 @@ void main() {
 
     await tester.pump();
 
-    // Placeholder de abordagem (sem valor selecionado)
-    expect(find.text('Definir sua abordagem clínica'), findsOneWidget);
-    // Labels renomeados
+    // Placeholder de abordagem (sem valor selecionado) — agora "Escolher"
+    // nos 3 dropdowns (Abordagem, Como se referir, Tratamento).
+    expect(find.text('Escolher'), findsNWidgets(3));
+    // Exemplo dentro da caixa de Registro profissional.
+    expect(find.text('Ex.: 00/000000'), findsOneWidget);
+    // Labels renomeados (sempre visíveis)
     expect(find.text('Registro profissional - CRP'), findsOneWidget);
     expect(find.text('Como se referir'), findsOneWidget);
   });
