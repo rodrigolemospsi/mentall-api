@@ -49,6 +49,11 @@
 - **Testes:** `perfil_form_page_test.dart` (texto novo + "Escolher" ×3 + "Ex.: 00/000000") e `app_start_page_test.dart` (2 asserts do texto antigo → novo). Suíte Flutter **171/171**; `flutter analyze` limpo (1 warning pré-existente em `tools/`).
 - **APK:** bump `1.0.32+33` → **`1.0.33+34`** (`MentAllPRO-v1.0.33.apk`, ~75.7 MB).
 
+### Ajustes complementares (dono, mesma sessão)
+- **Tratamento:** dropdown reordenado para **Feminino → Masculino**.
+- **Tipografia uniforme:** todos os textos **dentro das caixas do cabeçalho** agora usam **`Tipografia.base` (14px)** — os 2 `TextField` (Nome, Registro) ganharam `style` + `hintStyle` 14px (mesma fonte/cor dos dropdowns, que já eram 14px). Antes os TextFields usavam o padrão do tema (~16px via `bodyLarge`).
+- **APK:** bump `1.0.33+34` → **`1.0.34+35`** (`MentAllPRO-v1.0.34.apk`, ~75.7 MB). Suíte Flutter **171/171**; `analyze` limpo.
+
 ## BACKUP DA CONFIGURAÇÃO ATUAL (25/08/2026) — PALETA ROXA ANTES DA MIGRAÇÃO PARA CINZA
 
 > **Objetivo:** registrar o estado visual atual (paleta roxa) antes de qualquer mudança para tons de cinza, para permitir reversão sem perder o que foi construído. Atualizar este bloco conforme as mudanças forem aplicadas.

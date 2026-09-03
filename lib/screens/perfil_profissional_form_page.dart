@@ -450,9 +450,12 @@ class _PerfilProfissionalFormPageState
             TextField(
               controller: _nomeController,
               textCapitalization: TextCapitalization.words,
+              style: TextStyle(
+                  fontSize: Tipografia.base, color: context.corTextoBody),
               decoration: const InputDecoration(
                 labelText: 'Nome profissional',
                 hintText: 'Ex.: Rodrigo Silva',
+                hintStyle: TextStyle(fontSize: Tipografia.base),
                 floatingLabelBehavior: FloatingLabelBehavior.always,
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.person_outline),
@@ -462,9 +465,12 @@ class _PerfilProfissionalFormPageState
             TextField(
               controller: _registroController,
               textCapitalization: TextCapitalization.characters,
+              style: TextStyle(
+                  fontSize: Tipografia.base, color: context.corTextoBody),
               decoration: const InputDecoration(
                 labelText: 'Registro profissional - CRP',
                 hintText: 'Ex.: 00/000000',
+                hintStyle: TextStyle(fontSize: Tipografia.base),
                 floatingLabelBehavior: FloatingLabelBehavior.always,
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.badge_outlined),
@@ -538,9 +544,9 @@ class _PerfilProfissionalFormPageState
                   color: context.corTextoBody),
               items: const [
                 DropdownMenuItem(
-                    value: 'masculino', child: Text('Masculino')),
-                DropdownMenuItem(
                     value: 'feminino', child: Text('Feminino')),
+                DropdownMenuItem(
+                    value: 'masculino', child: Text('Masculino')),
               ],
               onChanged: salvando
                   ? null
