@@ -1,3 +1,4 @@
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:prontuario_tcc/hive_registrar.g.dart';
@@ -57,4 +58,134 @@ void main() {
     Hive.box<String>('encryption_meta').put('chave_duravel', 'true');
     expect(encryption.protecaoDuravel, isTrue);
   });
+
+  test('carregarChave usa a chave do gate e faz backfill no cofre duravel', () async {
+    final pin = _MemStorage();
+    final duravel = _MemStorage();
+    pin.data['aes_master_key'] = chaveBase64;
+    final enc = EncryptionService(pin: pin, duravel: duravel);
+    await enc.inicializar();
+
+    expect(await enc.carregarChaveDoSecureStorage(), isTrue);
+    expect(enc.configurado, isTrue);
+    // Backfill: a chave deve ser copiada para o cofre durável.
+    expect(duravel.data['aes_master_key_duravel'], chaveBase64);
+    expect(enc.protecaoDuravel, isTrue);
+  });
+
+  test('carregarChave usa cofre duravel quando o gate esta vazio', () async {
+    final pin = _MemStorage();
+    final duravel = _MemStorage();
+    duravel.data['aes_master_key_duravel'] = chaveBase64;
+    final enc = EncryptionService(pin: pin, duravel: duravel);
+    await enc.inicializar();
+
+    expect(await enc.carregarChaveDoSecureStorage(), isTrue);
+    expect(enc.configurado, isTrue);
+  });
+
+  test('carregarChave cai no duravel quando o gate lanca erro', () async {
+    final pin = _MemStorage()..throwOnRead = true;
+    final duravel = _MemStorage();
+    duravel.data['aes_master_key_duravel'] = chaveBase64;
+    final enc = EncryptionService(pin: pin, duravel: duravel);
+    await enc.inicializar();
+
+    expect(await enc.carregarChaveDoSecureStorage(), isTrue);
+  });
+
+  test('carregarChave retorna false sem lancar quando ambos os cofres estao vazios',
+      () async {
+    final enc = EncryptionService(
+      pin: _MemStorage(),
+      duravel: _MemStorage(),
+    );
+    await enc.inicializar();
+
+    expect(await enc.carregarChaveDoSecureStorage(), isFalse);
+  });
+
+  test('marcarProtecaoDuravel popula o cofre duravel a partir da chave do gate',
+      () async {
+    // Instalação "legada" (upgrade de APK): chave existe apenas no gate de
+    // biometria/credencial, e o cofre durável ainda está vazio. A migração
+    // deve copiar a chave para o cofre durável para o desbloqueio não
+    // depender do gate (bug: antes só gravava o marcador chave_duravel).
+    final pin = _MemStorage();
+    final duravel = _MemStorage();
+    pin.data['aes_master_key'] = chaveBase64;
+    final enc = EncryptionService(pin: pin, duravel: duravel);
+    await enc.inicializar();
+
+    await enc.marcarProtecaoDuravel();
+
+    expect(duravel.data['aes_master_key_duravel'], chaveBase64);
+    expect(enc.protecaoDuravel, isTrue);
+  });
+
+  test('marcarProtecaoDuravel nao falha quando o gate nao tem chave', () async {
+    final enc = EncryptionService(
+      pin: _MemStorage(),
+      duravel: _MemStorage(),
+    );
+    await enc.inicializar();
+
+    await enc.marcarProtecaoDuravel();
+
+    expect(enc.protecaoDuravel, isTrue);
+  });
+}
+
+const chaveBase64 = 'MTIzNDU2Nzg5MDEyMzQ1Njc4OTA=';
+
+/// Implementação em memória do secure storage, para testar a lógica sem o
+/// platform channel do dispositivo.
+class _MemStorage extends FlutterSecureStorage {
+  final Map<String, String> data = {};
+  bool throwOnRead = false;
+
+  @override
+  Future<String?> read({
+    required String key,
+    AppleOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    AppleOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    if (throwOnRead) throw Exception('autenticacao falhou');
+    return data[key];
+  }
+
+  @override
+  Future<void> write({
+    required String key,
+    required String? value,
+    AppleOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    AppleOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    if (value == null) {
+      data.remove(key);
+    } else {
+      data[key] = value;
+    }
+  }
+
+  @override
+  Future<void> delete({
+    required String key,
+    AppleOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    AppleOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    data.remove(key);
+  }
 }

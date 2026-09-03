@@ -40,38 +40,34 @@ class EncryptionService {
   static const int _maxPinAttempts = 5;
   static const List<int> _backoffSeconds = [1, 2, 4, 8, 16, 32, 60];
 
-  static const _secureStorageBiometria = FlutterSecureStorage(
-    aOptions: AndroidOptions.biometric(
-      enforceBiometrics: true,
-      biometricType: AndroidBiometricType.strongBiometricOnly,
-      biometricPromptTitle: 'Acesso com biometria',
-      biometricPromptSubtitle: 'Toque no leitor de impressão digital',
-      biometricPromptNegativeButton: 'Usar PIN',
-    ),
-  );
-
-  static const _secureStoragePin = FlutterSecureStorage(
-    aOptions: AndroidOptions.biometric(
-      enforceBiometrics: true,
-      biometricType: AndroidBiometricType.biometricOrDeviceCredential,
-      biometricPromptTitle: 'Acesso com PIN',
-      biometricPromptSubtitle: 'Digite o PIN do dispositivo',
-    ),
-  );
-
   static const _secureKeyName = 'aes_master_key';
   static const _secureKeyDuravel = 'aes_master_key_duravel';
   static const _chaveDuravelKey = 'chave_duravel';
 
   /// Cofre durável (Android Keystore RSA OAEP + AES-GCM / iOS Keychain) que
-  /// NÃO exige biometria/tela bloqueada. É a persistência obrigatória da chave
+  /// NÃO exige biometria/tela bloqueada. É a persistência OBRIGATÓRIA da chave
   /// mestra: garante que os dados clínicos sejam sempre cifrados, mesmo em um
   /// dispositivo sem bloqueio configurado (correção da falha fail-open da
-  /// vuln-0013). A biometria/credencial continua sendo um GATE de acesso
-  /// opcional (ver [carregarChaveDoSecureStorage]), não um pré-requisito.
-  static const _secureStorageDuravel = FlutterSecureStorage(
-    aOptions: AndroidOptions(),
-  );
+  /// vuln-0013). A biometria/credencial permanece como um GATE de acesso
+  /// opcional (ver [carregarChaveDoSecureStorage]), não como pré-requisito.
+  final FlutterSecureStorage _pin;
+  final FlutterSecureStorage _duravel;
+
+  /// Permite injetar as implementações de storage em testes. Por padrão usa os
+  /// cofres reais do sistema (Android Keystore / iOS Keychain).
+  EncryptionService({
+    FlutterSecureStorage? pin,
+    FlutterSecureStorage? duravel,
+  })  : _pin = pin ??
+            const FlutterSecureStorage(
+              aOptions: AndroidOptions.biometric(
+                enforceBiometrics: true,
+                biometricType: AndroidBiometricType.biometricOrDeviceCredential,
+                biometricPromptTitle: 'Acesso com PIN',
+                biometricPromptSubtitle: 'Digite o PIN do dispositivo',
+              ),
+            ),
+        _duravel = duravel ?? const FlutterSecureStorage(aOptions: AndroidOptions());
 
   late final Box<String> _box = Hive.box<String>(_boxName);
   encrypt.Key? _key;
@@ -94,8 +90,6 @@ class EncryptionService {
   encrypt.Encrypter get _cbc => _encrypterCbc ??= encrypt.Encrypter(encrypt.AES(_key!));
 
   bool _inicializado = false;
-
-  EncryptionService();
 
   static EncryptionService? _instance;
 
@@ -222,11 +216,25 @@ class EncryptionService {
   /// Propaga o marcador de persistência durável para instalações antigas que
   /// já possuem uma chave (ex.: cofre protegido por biometria/tela bloqueada).
   /// Evita falso fail-closed em upgrades de versões anteriores à vuln-0013.
+  ///
+  /// Além do marcador, faz a MIGRAÇÃO BEM-SUCEDIDA da chave para o cofre
+  /// durável. Bug corrigido: antes só gravava o marcador `chave_duravel`,
+  /// deixando o cofre durável vazio — o desbloqueio ficava dependente do gate
+  /// de biometria/credencial, que ao falhar (biometria indisponível ou
+  /// invalidada) produzia "Não foi possível autenticar" ao voltar ao app.
   Future<void> marcarProtecaoDuravel() async {
     try {
       await _box.put(_chaveDuravelKey, 'true');
     } catch (_) {
       // Melhor esforço.
+    }
+    if (_key == null) {
+      try {
+        await carregarChaveDoSecureStorage();
+      } catch (_) {
+        // Melhor esforço; a chave pode estar inacessível agora (ex.: sem
+        // biometria/credencial configurada) e ser recuperada depois.
+      }
     }
   }
 
@@ -246,7 +254,7 @@ class EncryptionService {
     //    Só grava texto puro se nem isso for possível (fail-closed no boot).
     var duravel = false;
     try {
-      await _secureStorageDuravel.write(
+      await _duravel.write(
         key: _secureKeyDuravel,
         value: newKey.base64,
       );
@@ -259,7 +267,7 @@ class EncryptionService {
     //    Se existir, a chave também fica nesse cofre (que exige o prompt);
     //    se não, o desbloqueio usa a cópia durável. Nunca é pré-requisito.
     try {
-      await _secureStoragePin.write(key: _secureKeyName, value: newKey.base64);
+      await _pin.write(key: _secureKeyName, value: newKey.base64);
     } catch (_) {
       // Sem biometria/tela bloqueada -> seguimos com a cópia durável.
     }
@@ -279,43 +287,49 @@ class EncryptionService {
   Future<bool> carregarChaveDoSecureStorage() async {
     await inicializar();
 
-    // 1º passo: tenta a biometria ("Acesso com biometria").
-    // Se o usuário tocar "Usar PIN", o prompt é cancelado e caímos no 2º passo.
+    // 1º passo: cofre durável (fonte primária, sem exigir biometria/tela).
+    // GARANTE o desbloqueio mesmo quando o gate de biometria/credencial está
+    // indisponível ou foi invalidado (causa do "Não foi possível autenticar").
+    String? chave;
     try {
-      final keyBase64 =
-          await _secureStorageBiometria.read(key: _secureKeyName);
+      final keyBase64 = await _duravel.read(key: _secureKeyDuravel);
       if (keyBase64 != null && keyBase64.isNotEmpty) {
-        _setKey(encrypt.Key.fromBase64(keyBase64));
-        return true;
+        chave = keyBase64;
       }
     } catch (_) {
-      // cancelado ou biometria indisponível -> tenta credencial do dispositivo.
+      // Keystore indisponível -> tentamos o gate.
     }
 
-    // 2º passo: credencial do dispositivo ("Acesso com PIN").
-    try {
-      final keyBase64 = await _secureStoragePin.read(key: _secureKeyName);
-      if (keyBase64 == null || keyBase64.isEmpty) return false;
-      _setKey(encrypt.Key.fromBase64(keyBase64));
-      _resetarTentativas();
-      return true;
-    } catch (_) {
-      // Sem biometria/credencial -> tenta o cofre durável.
-    }
-
-    // 3º passo: cofre durável (sem exigir biometria). Cobre dispositivos sem
-    // tela bloqueada/biometria, onde os passos acima falham ou não existem.
-    try {
-      final keyBase64 = await _secureStorageDuravel.read(key: _secureKeyDuravel);
-      if (keyBase64 != null && keyBase64.isNotEmpty) {
-        _setKey(encrypt.Key.fromBase64(keyBase64));
-        _resetarTentativas();
-        return true;
+    // 2º passo: gate de credencial/biometria do dispositivo (instalações
+    // antigas cuja chave só existe no cofre protegido).
+    if (chave == null) {
+      try {
+        final keyBase64 = await _pin.read(key: _secureKeyName);
+        if (keyBase64 != null && keyBase64.isNotEmpty) {
+          chave = keyBase64;
+        }
+      } catch (_) {
+        // Sem biometria/credencial -> só resta o cofre durável.
       }
-    } catch (_) {
-      // Keystore indisponível -> falha (desbloqueio sem chave persistida).
     }
-    return false;
+
+    if (chave == null) {
+      return false;
+    }
+
+    _setKey(encrypt.Key.fromBase64(chave));
+    _resetarTentativas();
+
+    // Backfill: garante que o cofre durável sempre tenha a chave (migração de
+    // instalações antigas), evitando futuro travamento por biometria/keystore.
+    try {
+      await _duravel.write(key: _secureKeyDuravel, value: chave);
+      await _box.put(_chaveDuravelKey, 'true');
+    } catch (_) {
+      // Melhor esforço; a chave já foi carregada em memória.
+    }
+
+    return true;
   }
 
   Future<bool> migrarChaveDoPinLegado(String pin) async {
@@ -355,9 +369,9 @@ class EncryptionService {
 
       _setKey(encrypt.Key(Uint8List.fromList(keyBytes)));
       _iv = iv;
-      await _secureStoragePin.write(key: _secureKeyName, value: _key!.base64);
+      await _pin.write(key: _secureKeyName, value: _key!.base64);
       try {
-        await _secureStorageDuravel.write(
+        await _duravel.write(
           key: _secureKeyDuravel,
           value: _key!.base64,
         );
@@ -614,8 +628,8 @@ class EncryptionService {
     _key = null;
     _iv = null;
     _limparCacheCripto();
-    await _secureStoragePin.delete(key: _secureKeyName);
-    await _secureStorageDuravel.delete(key: _secureKeyDuravel);
+    await _pin.delete(key: _secureKeyName);
+    await _duravel.delete(key: _secureKeyDuravel);
     await _box.clear();
   }
 

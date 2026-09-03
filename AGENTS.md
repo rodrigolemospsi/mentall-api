@@ -18,6 +18,24 @@
 - **Testes:** novo `backend/tests/test_confirmar_email.py` (5) com `_FakeDb` em memória que executa fielmente as queries (é o SQL que decide se o hash sai da lookup). RED reproduziu o re-clique com None; GREEN após o fix. Backend **137/137**.
 - **Sem mudança Dart** (app já trata 403/sucesso corretamente).
 
+## Correções e Funcionalidades (03/09/2026) — DESBLOQUEIO POR BIOMETRIA "NÃO FOI POSSÍVEL AUTENTICAR"
+
+### Bug reportado (dono): após acessar com e-mail/senha, ao sair do app e voltar, não autentica
+- **Sintoma:** o dono loga na conta (e-mail/senha), usa o app, sai e retorna → tela "Acesso protegido" com **"Não foi possível autenticar. Tente novamente."**
+- **Localização:** logs do Fly mostram **backend 100% saudável** (nenhum 401; `POST /auth/login` 200 nas 21:40/21:47/22:00 de 03/09). O problema é **apenas o desbloqueio local da chave**, não a sessão do servidor.
+- **Causa raiz:** o fluxo `didChangeAppLifecycleState(paused)` → `AuthService.bloquear()` zera o token e apaga o JWT; ao voltar, o `LoginPage` desbloqueia via `carregarChaveDoSecureStorage()`. Para **instalações atualizadas (APK por cima)**, o boot (`main.dart:121`) **não roda `gerarChave()`** (já existe `possuiChaveProtegida`); a migração antiga `marcarProtecaoDuravel()` só gravava o **marcador** `chave_duravel` e **NÃO copiava a chave para o cofre durável `_duravel`**. Com `_duravel` vazio, o desbloqueio dependia 100% do **gate de biometria/credencial** (`_pin`); quando esse gate falha (biometria indisponível/invalidada) → `carregarChaveDoSecureStorage()` retorna `false` → "Não foi possível autenticar".
+- **Decisão:** manter a autenticação ao voltar (não reverter a vuln-0013), mas garantir que o desbloqueio funcione pelo cofre durável **sem depender do gate**.
+
+### Fix (TDD — teste RED antes)
+- **`lib/services/encryption_service.dart`:**
+  1. `marcarProtecaoDuravel()` agora faz a **migração de verdade**: além de gravar o marcador, se `_key == null` chama `carregarChaveDoSecureStorage()` (que faz backfill da chave no cofre durável), garantindo que `_duravel` sempre fique preenchido em instalações legadas.
+  2. `carregarChaveDoSecureStorage()` passou a **ler o cofre durável PRIMEIRO** (fonte primária, sem exigir biometria) e só depois o **gate** `_pin` — o desbloqueio nunca mais depende da biometria para uma chave já durável.
+- **Testes:** `+2` em `test/services/encryption_service_test.dart` (migração legada popula o cofre durável; e não lança sem chave), ambos com `_MemStorage`. RED reproduziu (`_duravel` vazio) → GREEN. Suíte Flutter **171/171**; `flutter analyze` limpo (1 warning pré-existente em `tools/`).
+- **APK:** bump `1.0.31+32` → **`1.0.32+33`** (`MentAllPRO-v1.0.32.apk`, ~75.7 MB).
+
+### Pendência relacionada (não incluída neste fix — combinar depois)
+- O login de conta (`ApiClient.entrarComEmailSenha`) grava credenciais no `app_config` mas **não chama `AuthService.salvarCredenciaisServidor()`** (SecureStorage), que é o que `tentarAutoLoginServidor()` lê. Não é o sintoma reportado e o fluxo real de reautenticação funciona via `ensureAuthenticated` (evidência: 3× re-login 200). Incluir exigiria refactor de fronteira (injetar storage/http) sem teste.
+
 ## BACKUP DA CONFIGURAÇÃO ATUAL (25/08/2026) — PALETA ROXA ANTES DA MIGRAÇÃO PARA CINZA
 
 > **Objetivo:** registrar o estado visual atual (paleta roxa) antes de qualquer mudança para tons de cinza, para permitir reversão sem perder o que foi construído. Atualizar este bloco conforme as mudanças forem aplicadas.
