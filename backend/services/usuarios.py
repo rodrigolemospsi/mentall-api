@@ -91,12 +91,15 @@ def confirmar_email(token: str) -> dict | None:
                 return None
         except Exception:
             return None
-    executar(
-        "UPDATE usuarios SET status = 'ativo', email_verificacao_token_hash = NULL, "
-        "email_verificacao_expiracao = NULL WHERE id = ?",
-        (usuario["id"],),
-    ).commit()
-    log.info("Email confirmado: id=%s", usuario["id"][:8])
+    # Idempotente: nao zera o token ao confirmar (ele fica valido ate a
+    # expiracao). Assim, re-clique / scanner de email / duplo toque nao
+    # exibem "Link invalido ou expirado" apos a conta ja estar ativa.
+    if usuario["status"] != "ativo":
+        executar(
+            "UPDATE usuarios SET status = 'ativo' WHERE id = ?",
+            (usuario["id"],),
+        ).commit()
+    log.info("Email confirmado (ou ja ativo): id=%s", usuario["id"][:8])
     return obter_por_id(usuario["id"])
 
 

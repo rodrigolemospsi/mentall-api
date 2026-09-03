@@ -4,6 +4,20 @@
 
 > **Regra de trabalho (obrigatória):** ao receber **qualquer solicitação**, invocar obrigatoriamente a skill `using-agent-skills` **antes de qualquer leitura de código ou planejamento**. Ela apontará as demais skills aplicáveis (ex.: `planning-and-task-breakdown`, `test-driven-development`, `frontend-ui-engineering`, `debugging-and-error-recovery`), que devem ser invocadas em sequência antes de planejar e executar. Não iniciar análise, plano ou código sem ter passado por esse passo.
 
+## Correções e Funcionalidades (03/09/2026) — LINK DE CONFIRMAÇÃO DE E-MAIL IDEMPOTENTE
+
+### Bug reportado (dono): "Link invalido ou expirado" mesmo com link válido/fresco, e acesso ao app funcionando
+- **Sintoma:** o link de confirmação chega no e-mail, mas ao clicar aparece "Link invalido ou expirado". Mesmo assim o dono conseguiu dar continuidade e acessar o app.
+- **Diagnóstico (passo 0, logs do Fly `mentall-api` em 03/09 21:37–21:39 UTC):** evidência inequívoca de **múltiplos `GET /auth/confirmar-email`** para o mesmo cadastro. O **1º hit ativou a conta (`200`, log `Email confirmado: id=...`)**; os hits seguintes retornaram **`400`** porque o token já tinha sido consumido. Como a ativação **já tinha ocorrido**, o login passava — daí a aparente contradição.
+- **Causa raiz:** `confirmar_email` (`backend/services/usuarios.py`) usava **token de uso único consumido num GET não-idempotente**. O 1º hit zerava `email_verificacao_token_hash`; o 2º/3º clique (duplo toque no celular, scanner de segurança do e-mail, reabrir o link) não encontrava mais o hash → página "Link invalido ou expirado". **Não** era problema de codificação de URL (token usa só `[A-Za-z0-9_-]`, sem `=`) nem furo no login (a rota `/auth/login` bloqueia conta `pendente` com 403).
+- **Decisão do dono (pergunta feita):** manter o **link mágico** (padrão one-tap de signup) em vez de trocar por código de confirmação. A fragilidade do link é **operacional** (token na query string + sem idempotência), não criptográfica (token é `token_urlsafe(32)` ≈ 256 bits).
+
+### Fix (TDD — teste RED antes)
+- **`backend/services/usuarios.py::confirmar_email`** — agora **idempotente**: NÃO zera mais o token ao confirmar (fica válido até `email_verificacao_expiracao`); se a conta já estiver `ativo`, apenas retorna sucesso (em vez de `None`/inválido). Token expirado/desconhecido continua inválido.
+- **`backend/main.py`** — página de confirmação: "Sua conta está ativa. Volte ao app e toque em 'Ja confirmei' para entrar." (vale tanto para ativação quanto para re-clique).
+- **Testes:** novo `backend/tests/test_confirmar_email.py` (5) com `_FakeDb` em memória que executa fielmente as queries (é o SQL que decide se o hash sai da lookup). RED reproduziu o re-clique com None; GREEN após o fix. Backend **137/137**.
+- **Sem mudança Dart** (app já trata 403/sucesso corretamente).
+
 ## BACKUP DA CONFIGURAÇÃO ATUAL (25/08/2026) — PALETA ROXA ANTES DA MIGRAÇÃO PARA CINZA
 
 > **Objetivo:** registrar o estado visual atual (paleta roxa) antes de qualquer mudança para tons de cinza, para permitir reversão sem perder o que foi construído. Atualizar este bloco conforme as mudanças forem aplicadas.
@@ -345,6 +359,56 @@ TDD (testes RED antes de cada fix). Re-verificados no HEAD e corrigidos:
 - Testes novos em `test/services/encryption_service_test.dart` (3: `protecaoDuravel` inicial false; `gerarChave` retorna false sem persistência durável = sinal de fail-closed; `protecaoDuravel` reflete marcador).
 - `flutter analyze`: limpo (1 warning pré-existente em `tools/gerar_prompts_ia_pdf.dart`).
 - Suíte Flutter: **159/159** (era 156; +3 da criptografia). `sessao_form_page_test`: flake conhecido do tap (warn), não é falha.
+
+## Decisões e plano (02/09/2026) — TELECONSULTA (ainda NÃO implementada)
+
+Pesquisa de mercado + viabilidade técnica + custos para a feature de teleconsulta (vídeo). **Escopo decidido pelo dono: sem gravação/transcrição — a chamada fica separada do fluxo de IA (a mídia NÃO vai para a IA).**
+
+### Contexto de mercado (Brasil)
+- Concorrentes diretos (prontuário/gestão p/ psicólogos): **Corpora** (Grátis + R$89), **Copilloto** (R$99/139), **PsiLuz** (preço dinâmico), **PsicoPront** (R$79; Carnê Leão/Receita Saúde), **ProntusCare** (R$39,90/79,90/119,90). Todos têm teleconsulta, portal do paciente, IA, assinatura digital; **todos web/cloud**.
+- Diferencial do MentAll: **offline-first + dados no aparelho + LGPD**; gap principal: **sem teleconsulta, sem portal do paciente, sem assinatura com validade jurídica, sem Receita Saúde/Carnê Leão, sem web/iOS**.
+
+### Decisão técnica — LiveKit (SDK `livekit_client` 2.x, ativo; Android+iOS+Web)
+- `jitsi_meet` 4.0 está **descontinuado** (→ `jitsi_meet_wrapper`); `daily_flutter` é pago/terceirizado e dados fora do BR. **Escolhido LiveKit.**
+- **Hospedagem configurável por env:** `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`. Recomendação: iniciar em **VPS BR pequena (~R$ 60–120/mês)**; LiveKit Cloud como alternativa. ⚠️ **Fly.io NÃO serve bem p/ WebRTC** (limitações de UDP) — a mídia vai para infra separada.
+- **Arquitetura:** `Compromisso` ganha `@HiveField(17) bool? teleconsulta` + `@HiveField(18) String? salaId` (room uuid). Backend espelha o padrão de `/contratos/{token}`: `POST /consultas` (JWT → cria sala + token curto LiveKit) e `GET /consulta/{room_id}` (página HTML do paciente com cliente Web LiveKit). App: `TeleconsultaPage` com `livekit_client` + permissões Android `CAMERA`/`MODIFY_AUDIO_SETTINGS`/`BLUETOOTH_CONNECT`. Compartilhar link via `WhatsAppService.escolher` (já existe).
+- **Segurança/LGPD:** sala uuid não adivinhável; token curto (~30 min) por sala+identidade; HTTPS; **não logar URL com token**; gravação OFF.
+
+### Custos mapeados (100 profissionais, 20 pacientes × 4 sessões/mês = 80 sessões/prof, ~800.000 min WebRTC/mês, pico ~35–60 chamadas)
+- **LiveKit Cloud:** Ship ~**R$ 1.875/mês** | Scale ~**R$ 2.500/mês** (+HIPAA, region pinning, relatórios). Dados fora do Brasil (EUA/EU).
+- **Self-hosted DigitalOcean São Paulo:** 1 servidor ~**R$ 550–875/mês** | HA (cluster) ~**R$ 1.250–2.500/mês**. Dados no Brasil (LGPD).
+- **Conclusão:** em 100 profissionais, **self-host (1 servidor) é mais barato + LGPD-friendly**; para confiabilidade o HA empata com o Cloud. Documento detalhado (com tabelas e premissas) em **`docs/custos_teleconsulta.md`**.
+
+### Pendência em aberto (decisão do sócio)
+1. Posicionamento: "dados no Brasil" como argumento central de venda?
+2. Custo-alvo mensal para 100 profissionais (até R$ 875 / R$ 1.875 / R$ 2.500)?
+3. Atender clínicas/corporativo (→ HIPAA/Scale)?
+4. Horizonte do crescimento para 100 profissionais (define HA agora ou depois).
+
+## Correções e Funcionalidades (02/09/2026) — FIX DE DESBLOQUEIO POR BIOMETRIA + BACKUP CONFIGURÁVEL
+
+**Bug crítico (dono):** após atualizar para `1.0.29`, o app não autenticava ("Não foi possível autenticar"), mesmo com digital cadastrada e sem o usuário ter alterado biometria/senha.
+
+### Causa raiz (desbloqueio)
+- `carregarChaveDoSecureStorage()` tinha um **`return false` prematuro** na etapa do cofre `enforceBiometrics: true`, que **impedia o fallback do cofre durável**. Em instalação antiga, a chave só existia no cofre biométrico/credencial; o cofre **durável** (adicionado em 02/09 para a vuln-0013) ficava **vazio** (pois `gerarChave` não roda de novo quando `possuiChaveProtegida` já é true). Resultado: ao falhar o gate, nada o resgatava → lockout.
+- A camada `_secureStorageBiometria` (strong-only) era **morta** (nunca recebia a chave) e causava o prompt duplo que confundia.
+
+### Fix (A — socorro)
+- `carregarChaveDoSecureStorage()` reescrito: tenta o gate (`_pin`, `biometricOrDeviceCredential`) → **se falhar/vazio, cai no cofre durável** (sem `return false` prematuro). Ao carregar, faz **backfill** da chave para o cofre durável + marca `chave_duravel` (migração de instalações antigas — nunca mais trava por biometria).
+- Removida a camada forte morta; cofres (`_pin`, `_duravel`) agora **injetáveis** (construtor com `pin`/`duravel`) para testes.
+- **Testes:** `test/services/encryption_service_test.dart` +4 (`_MemStorage` fake: chave do gate + backfill; fallback com gate vazio; gate lança erro → durável; ambos vazios → false sem lançar).
+- **APK:** `1.0.29+30` → `1.0.30+31` (`MentAllPRO-v1.0.30.apk`) — build de socorro.
+
+### Fix (B — backup configurável — solicitado pelo dono)
+- **Local:** `ConfiguracoesService.backupLocal` (pasta escolhida via `file_picker.getDirectoryPath`; vazio = documentos do app).
+- **Tempo:** `ConfiguracoesService.backupFrequencia` (`off`/`diario`/`semanal`/`mensal`) + `ultimoBackupEm` (ISO). Regra pura `BackupAgendamentoService.deveExecutarAgora` (null+ativa=dispara; diário≥1d, semanal≥7d, mensal≥30d).
+- **Execução:** `BackupAgendamentoService.executar` escreve JSON (via `BackupService.exportarParaJson`, cifrado com envelope AES-GCM+HMAC quando a criptografia está ativa) no local configurado + atualiza `ultimoBackupEm`. `verificarEExecutar` roda a cada abertura da Home (post-frame); default `off` = sem efeito.
+- **Armazenamento condicional:** `lib/services/backup_storage.dart` (io/web), para não quebrar o build web. UI em **Configurações → Backup e dados** (frequência, local, último backup + aviso de atraso, "Fazer agora").
+- **Testes:** novos `test/services/backup_agendamento_service_test.dart` (6). Suíte **169/169**; `flutter analyze` limpo (1 warning pré-existente em `tools/`).
+- **APK:** `1.0.30+31` → `1.0.31+32` (`MentAllPRO-v1.0.31.apk`) — inclui A + B.
+
+### ⚠️ Nota ao dono (lockout já ocorrido)
+- Se o keystore da biometria tiver sido invalidado e você **não tinha backup**, os dados criptografados antigos podem ser irrecuperáveis. **Instale o `1.0.31` agora**: se a digital autenticar uma vez, a chave é copiada para o cofre durável e o acesso fica garantido. Ative o **backup automático** para evitar perda futura.
 
 ## Checklist de publicação nas lojas de app (Google Play / App Store)
 - **Pendências de segurança pendentes ANTES de publicar** (ver `tasks/lojas_app.md`): ~~fail-closed de criptografia (vuln-0013) + indicador de proteção~~ ✅ **implementado em 02/09/2026**; CSP `unsafe-inline` no backend; `TRUSTED_PROXIES` no Fly; normalizar `render.yaml`/`start_backend.sh` para `--proxy-headers`; definir `TRUSTED_PROXIES` no `.env`.

@@ -759,7 +759,7 @@ def confirmar_email(token: str, _req: Request):
 <div style="width:64px;height:64px;border-radius:50%;background:#E8F5E9;color:#2E7D32;
 font-size:32px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">&#10003;</div>
 <h2 style="color:#1E293B;">Conta confirmada!</h2>
-<p style="color:#64748B;">Sua conta foi ativada. Volte ao app e toque em "Ja confirmei" para entrar.</p>
+<p style="color:#64748B;">Sua conta está ativa. Volte ao app e toque em "Ja confirmei" para entrar.</p>
 </body></html>""",
     )
 
