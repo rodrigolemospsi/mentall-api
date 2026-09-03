@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../providers/service_providers.dart';
 import '../services/api_client.dart';
+import '../services/backup_storage.dart';
 import '../services/configuracoes_service.dart';
 import '../utils/mentall_colors.dart';
 import '../utils/raio.dart';
@@ -43,6 +44,46 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
     final labelHora = horas == 1 ? '1 hora' : '$horas horas';
     if (resto == 0) return labelHora;
     return '${horas}h${resto}min';
+  }
+
+  String _labelFrequenciaBackup(String f) {
+    switch (f) {
+      case 'diario':
+        return 'Diário, automaticamente (a cada 24h)';
+      case 'semanal':
+        return 'Semanal (a cada 7 dias)';
+      case 'mensal':
+        return 'Mensal (a cada 30 dias)';
+      case 'off':
+      default:
+        return 'Desativado';
+    }
+  }
+
+  String _abreviaPasta(String caminho) {
+    if (caminho.length <= 34) return caminho;
+    return '…${caminho.substring(caminho.length - 33)}';
+  }
+
+  String _formatarDataHora(DateTime d) {
+    final dia = d.day.toString().padLeft(2, '0');
+    final mes = d.month.toString().padLeft(2, '0');
+    final hora = d.hour.toString().padLeft(2, '0');
+    final min = d.minute.toString().padLeft(2, '0');
+    return '$dia/$mes/${d.year} às $hora:$min';
+  }
+
+  bool _backupAtrasado(ConfiguracoesService config) {
+    final f = config.backupFrequencia;
+    if (f == 'off') return false;
+    final ultimo = config.ultimoBackupEm;
+    if (ultimo == null) return true;
+    final dias = switch (f) {
+      'diario' => 1,
+      'semanal' => 7,
+      _ => 30,
+    };
+    return DateTime.now().difference(ultimo).inDays >= dias;
   }
 
   @override
@@ -136,6 +177,81 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
                     );
                   }
                 },
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _secao(
+          context,
+            titulo: 'Backup e dados',
+            children: [
+              ListTile(
+                leading: Icon(Icons.schedule_outlined, color: context.corPrimaria),
+                title: const Text('Backup automático'),
+                subtitle: Text(_labelFrequenciaBackup(config.backupFrequencia)),
+                trailing: DropdownButton<String>(
+                  value: config.backupFrequencia,
+                  underline: const SizedBox.shrink(),
+                  items: const [
+                    DropdownMenuItem(value: 'off', child: Text('Desativado')),
+                    DropdownMenuItem(value: 'diario', child: Text('Diário')),
+                    DropdownMenuItem(value: 'semanal', child: Text('Semanal')),
+                    DropdownMenuItem(value: 'mensal', child: Text('Mensal')),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) config.setBackupFrequencia(v);
+                  },
+                ),
+              ),
+              const Divider(indent: 16),
+              ListTile(
+                leading: Icon(Icons.folder_outlined, color: context.corPrimaria),
+                title: const Text('Local do backup'),
+                subtitle: Text(
+                  config.backupLocal.isEmpty
+                      ? 'Pasta padrão do app'
+                      : _abreviaPasta(config.backupLocal),
+                ),
+                trailing: TextButton(
+                  onPressed: () async {
+                    final pasta = await escolherPastaBackup();
+                    if (pasta != null) {
+                      await config.setBackupLocal(pasta);
+                    }
+                  },
+                  child: const Text('Escolher'),
+                ),
+              ),
+              const Divider(indent: 16),
+              ListTile(
+                leading: Icon(
+                  _backupAtrasado(config) ? Icons.warning_amber : Icons.verified_user_outlined,
+                  color: _backupAtrasado(config) ? context.corWarning : context.corSuccess,
+                ),
+                title: const Text('Último backup'),
+                subtitle: Text(
+                  config.ultimoBackupEm == null
+                      ? 'Nenhum backup feito ainda'
+                      : _formatarDataHora(config.ultimoBackupEm!),
+                ),
+                trailing: TextButton(
+                  onPressed: () async {
+                    final caminho = await ref
+                        .read(backupAgendamentoServiceProvider)
+                        .executar();
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          caminho != null
+                              ? 'Backup salvo em: ${_abreviaPasta(caminho)}'
+                              : 'Não foi possível salvar o backup. Tente novamente.',
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text('Fazer agora'),
+                ),
               ),
             ],
           ),

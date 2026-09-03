@@ -23,6 +23,9 @@ class ConfiguracoesService with EncryptedServiceMixin {
   static const String _kDemoCriado = 'demo_criado';
   static const String _kBiometriaAtivada = 'biometria_ativada';
   static const String _kOnboardingConcluido = 'onboarding_concluido';
+  static const String _kBackupFrequencia = 'backup_frequencia';
+  static const String _kBackupLocal = 'backup_local';
+  static const String _kUltimoBackupEm = 'backup_ultimo_em';
 
   static const String contratoPadrao = '''Este \u00e9 um espa\u00e7o de cuidado, escuta e respeito.
 
@@ -139,6 +142,34 @@ Ao preencher e aceitar este formul\u00e1rio, declaro estar ciente e de acordo co
 
   Future<void> setOnboardingConcluido(bool v) async =>
       _box.put(_kOnboardingConcluido, '$v');
+
+  /// Frequência do backup automático: 'off' (desativado), 'diario', 'semanal'
+  /// ou 'mensal'. Onde a última chave 'off' = nunca automático.
+  String get backupFrequencia =>
+      _box.get(_kBackupFrequencia, defaultValue: 'off') ?? 'off';
+
+  Future<void> setBackupFrequencia(String v) async {
+    await _box.put(_kBackupFrequencia, v);
+  }
+
+  /// Diretório escolhido pelo usuário para salvar o backup; vazio = padrão do
+  /// app (documentos internos).
+  String get backupLocal => _box.get(_kBackupLocal, defaultValue: '') ?? '';
+
+  Future<void> setBackupLocal(String v) async {
+    await _box.put(_kBackupLocal, v);
+  }
+
+  /// Data/hora do último backup bem-sucedido (ISO 8601), ou null se nunca.
+  DateTime? get ultimoBackupEm {
+    final valor = _box.get(_kUltimoBackupEm);
+    if (valor == null || valor.isEmpty) return null;
+    return DateTime.tryParse(valor);
+  }
+
+  Future<void> setUltimoBackupEm(DateTime v) async {
+    await _box.put(_kUltimoBackupEm, v.toIso8601String());
+  }
 
   Stream<BoxEvent> observar() {
     return _box.watch();

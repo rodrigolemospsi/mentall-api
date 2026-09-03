@@ -14,6 +14,7 @@ import '../services/anamnese_enviada_service.dart';
 import '../services/audio_relato_service.dart';
 import '../services/auth_service.dart';
 import '../services/avaliacao_inicial_service.dart';
+import '../services/backup_agendamento_service.dart';
 import '../services/backup_service.dart';
 import '../services/compromisso_service.dart';
 import '../services/configuracoes_service.dart';
@@ -122,6 +123,17 @@ final iaClinicaServiceProvider = Provider<IaClinicaService>((ref) {
 final backupServiceProvider = Provider<BackupService>((ref) {
   final encryption = ref.watch(encryptionServiceProvider);
   return BackupService(encryption: encryption);
+});
+
+final backupAgendamentoServiceProvider = Provider<BackupAgendamentoService>((ref) {
+  final encryption = ref.watch(encryptionServiceProvider);
+  final configuracoes = ref.watch(configuracoesServiceProvider);
+  final backup = ref.watch(backupServiceProvider);
+  return BackupAgendamentoService(
+    configuracoes: configuracoes,
+    backupService: backup,
+    encryption: encryption,
+  );
 });
 
 final auditoriaServiceProvider = Provider<AuditoriaService>((ref) {

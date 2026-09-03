@@ -107,7 +107,17 @@ class _HomePageState extends ConsumerState<HomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _sincronizarPendenciasGlobais();
+      // Backup automático: roda se a frequência configurada estiver vencida.
+      unawaited(_verificarBackupAutomatico());
     });
+  }
+
+  Future<void> _verificarBackupAutomatico() async {
+    try {
+      await ref.read(backupAgendamentoServiceProvider).verificarEExecutar();
+    } catch (_) {
+      // Melhor esforço; silencioso para não interromper o uso.
+    }
   }
 
   Future<void> _sincronizarPendenciasGlobais() async {
