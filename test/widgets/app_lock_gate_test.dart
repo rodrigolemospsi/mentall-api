@@ -41,8 +41,9 @@ void main() {
     expect(navState.canPop(), isTrue);
 
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
-    await tester.pump(const Duration(milliseconds: 600));
 
     expect(bloqueou, isTrue);
     // O overlay aparece, mas as rotas continuam empilhadas (nada e destruido):
@@ -75,6 +76,8 @@ void main() {
     );
 
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
     expect(find.text('BLOQUEADO'), findsOneWidget);
 
