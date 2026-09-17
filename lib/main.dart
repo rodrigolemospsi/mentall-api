@@ -97,11 +97,10 @@ void _configurarSentry(SentryFlutterOptions options) {
 }
 
 SentryEvent? _removerDadosSensiveis(SentryEvent event, Hint hint) {
-  return event.copyWith(
-    user: null,
-    request: null,
-    breadcrumbs: const [],
-  );
+  event.user = null;
+  event.request = null;
+  event.breadcrumbs = [];
+  return event;
 }
 
 Future<void> _iniciarApp() async {
