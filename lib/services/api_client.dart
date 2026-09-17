@@ -49,9 +49,21 @@ class ApiClient {
     final box = Hive.box<String>('app_config');
     final stored = box.get(_passwordKey);
     if (stored != null && stored.isNotEmpty) {
-      return EncryptionService.tryDecrypt(stored);
+      final decrypted = EncryptionService.tryDecrypt(stored);
+      // Sem a chave carregada (app ainda bloqueado), tryDecrypt devolve o
+      // ciphertext como esta. Enviar o ciphertext como senha gera um 401
+      // confuso; melhor tratar como credencial indisponivel.
+      if (decrypted == stored && _pareceCifrado(stored)) {
+        return '';
+      }
+      return decrypted;
     }
     return '';
+  }
+
+  /// Indica se o valor tem o marcador de cifra do app (`3:` GCM / `2:` CBC).
+  static bool _pareceCifrado(String valor) {
+    return valor.startsWith('3:') || valor.startsWith('2:');
   }
 
   static Future<void> setCredentials(String username, String password) async {

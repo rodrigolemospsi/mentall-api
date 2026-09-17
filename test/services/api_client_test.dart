@@ -52,4 +52,25 @@ void main() {
     // Mantem em memoria para o fluxo atual funcionar
     expect(ApiClient.password, 'senha-em-claro');
   });
+
+  test('password nao devolve ciphertext quando a chave nao esta carregada',
+      () async {
+    // 1) Execucao com chave: senha persistida de forma cifrada.
+    final comChave = EncryptionService();
+    EncryptionService.setInstance(comChave);
+    await comChave.inicializar();
+    await comChave.gerarChave();
+    await ApiClient.setCredentials('admin', 'minha-senha');
+    final cifrado = Hive.box<String>('app_config').get('auth_password');
+    expect(cifrado, startsWith('3:'));
+
+    // 2) Nova execucao: chave ainda NAO carregada (app bloqueado).
+    final semChave = EncryptionService();
+    EncryptionService.setInstance(semChave);
+    await semChave.inicializar();
+    expect(semChave.configurado, isFalse);
+
+    // Nao deve enviar o ciphertext como se fosse a senha (evita 401 confuso).
+    expect(ApiClient.password, '');
+  });
 }
