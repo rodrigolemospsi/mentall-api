@@ -312,7 +312,6 @@ class MentAllApp extends ConsumerWidget {
       navigatorKey: _navigatorKey,
       builder: (context, child) {
         return AppLockGate(
-          navigatorKey: _navigatorKey,
           child: MediaQuery(
             // Não limita a ampliação de texto do sistema (acessibilidade). O
             // textScaler vem do dispositivo e os layouts devem se adaptar por
