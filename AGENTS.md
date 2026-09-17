@@ -4,6 +4,38 @@
 
 > **Regra de trabalho (obrigatória):** ao receber **qualquer solicitação**, invocar obrigatoriamente a skill `using-agent-skills` **antes de qualquer leitura de código ou planejamento**. Ela apontará as demais skills aplicáveis (ex.: `planning-and-task-breakdown`, `test-driven-development`, `frontend-ui-engineering`, `debugging-and-error-recovery`), que devem ser invocadas em sequência antes de planejar e executar. Não iniciar análise, plano ou código sem ter passado por esse passo.
 
+## CHECKLIST DE FUMAÇA — obrigatório antes de gerar APK/deploy
+
+> **Por que existe:** em 06–14/09/2026 uma auditoria de segurança (7 lotes + 2 hotfixes, 66 arquivos) foi aplicada de uma vez, sem commits intermediários e sem teste no aparelho. Os 221 testes passavam, mas usam **dublês** (`_FakeGate`, `_MemStorage`) e **não exercitam o platform channel**. Resultado: `MainActivity` continuou sendo `FlutterActivity` (o `local_auth` exige `FlutterFragmentActivity`) e a biometria parou de funcionar sem nenhum teste falhar. **Teste verde NÃO significa app funcionando.**
+
+### Regras de processo (evitam a "avalanche")
+- **Uma correção = um commit.** Nunca acumular lotes grandes sem commit; sem commits não há rollback nem `git bisect`.
+- **Toda mudança em boot/cripto/biometria/áudio/IA/persistência exige verificação NO APARELHO**, além de `flutter analyze` + `flutter test`.
+- Mudanças de segurança (fail-closed) precisam validar o **caminho feliz** ponta a ponta, não só o caso de bloqueio.
+
+### Antes de gerar o APK
+- [ ] `flutter analyze` sem erros novos (1 warning pré-existente em `tools/`)
+- [ ] `flutter test` 100% (contagem atual: **221**)
+- [ ] `flutter build apk --release` compila
+- [ ] Árvore de trabalho sem mudanças soltas (tudo commitado)
+
+### No aparelho (fluxos críticos)
+1. **Boot/desbloqueio:** "Desbloquear com digital/face" ON + biometria cadastrada → reabrir **exige o prompt do sistema**; cancelar mostra erro e permite retentar; acertar abre a Home.
+2. **Gravar → transcrever:** gravar áudio → finalizar (aparece "Gravação finalizada") → Transcrever → o texto aparece no campo.
+3. **Síntese → salvar (tela apaga):** tocar Gerar síntese → **apagar a tela no meio** (a síntese leva até 150s) → voltar: a operação conclui e a **mesma tela de sessão continua aberta**. Salvar → sessão aparece na lista.
+4. **Prontuário/PDF:** exportar "Prontuário completo" → gera sem travar.
+5. **Bloqueio:** com o app aberto, mandar para segundo plano → ao voltar, o **overlay** de bloqueio aparece por cima da **mesma tela** (não volta para a Home e não perde a sessão).
+
+### Sinais de alarme (parar e investigar)
+- App abre sem pedir biometria (com a opção ligada) ou diz que o aparelho não tem biometria.
+- "Não foi possível salvar a sessão" / "Serviço de IA temporariamente indisponível".
+- Sessão/transcrição perdida após a tela apagar.
+- PDF que não gera ou tela que congela.
+
+### Observabilidade
+- **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
+- **Nota de ambiente (macOS):** se `flutter test` falhar com "You have not agreed to the Xcode license agreements", rodar `sudo xcodebuild -license accept` (ou usar `DEVELOPER_DIR=/Library/Developer/CommandLineTools`, que exige um `xcrun` no PATH apontando para o CLT).
+
 ## Correções e Funcionalidades (04/09/2026) — DESBLOQUEIO ABRIA SEM PEDIR BIOMETRIA/SENHA (GATE RESTAURADO)
 
 ### Bug reportado (dono): "O app está abrindo sem solicitar senha ou biometria, mesmo estando marcado desbloquear com digital/face"
