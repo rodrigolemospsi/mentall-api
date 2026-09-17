@@ -5,13 +5,26 @@ mixin EncryptedServiceMixin {
 
   String encrypt(String value) {
     final enc = encryption;
-    if (enc == null || !enc.configurado || value.isEmpty) return value;
+    if (value.isEmpty) return value;
+    if (enc == null || !enc.configurado) {
+      // Fail-closed: nunca gravar dado clínico em texto puro quando a proteção
+      // não está disponível. O chamador deve tratar a exceção (ou o fluxo de
+      // boot deve ter bloqueado o uso) antes deste ponto.
+      throw StateError('Proteção de dados indisponível para persistir o campo.');
+    }
     return enc.criptografar(value);
   }
 
   String decrypt(String value) {
     final enc = encryption;
-    if (enc == null || !enc.configurado || value.isEmpty) return value;
+    if (value.isEmpty) return value;
+    if (enc == null || !enc.configurado) {
+      // Sem chave (ex.: no boot, antes do desbloqueio), devolve o valor como
+      // está. Lançar aqui quebraria o boot ao ler dados cifrados antes de a
+      // chave ser carregada — o app pede o desbloqueio e relê depois. O
+      // fail-closed vale para a ESCRITA (nunca gravar em texto puro).
+      return value;
+    }
     return enc.descriptografar(value);
   }
 

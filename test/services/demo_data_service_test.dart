@@ -44,12 +44,12 @@ void main() {
     await Hive.box<String>('encryption_meta').clear();
 
     encryption = EncryptionService();
-    await encryption.inicializar();
+    await encryption.gerarChave();
 
     pacienteService = PacienteService(encryption: encryption);
     sessaoService = SessaoService(encryption: encryption);
     avaliacaoService = AvaliacaoInicialService(encryption: encryption);
-    config = ConfiguracoesService();
+    config = ConfiguracoesService(encryption: encryption);
 
     demo = DemoDataService(
       encryption: encryption,

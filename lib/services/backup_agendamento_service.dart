@@ -1,7 +1,6 @@
 import 'backup_service.dart';
 import 'backup_storage.dart';
 import 'configuracoes_service.dart';
-import 'encryption_service.dart';
 
 /// Agendamento de backup automático: decide se está na hora e executa a
 /// gravação no local configurado (ou no diretório padrão do app), guardando a
@@ -9,12 +8,10 @@ import 'encryption_service.dart';
 class BackupAgendamentoService {
   final ConfiguracoesService configuracoes;
   final BackupService backupService;
-  final EncryptionService? encryption;
 
   BackupAgendamentoService({
     required this.configuracoes,
     required this.backupService,
-    this.encryption,
   });
 
   /// Regra pura de "está na hora de rodar?". Testável isoladamente.
@@ -45,11 +42,7 @@ class BackupAgendamentoService {
   /// `null` em falha. Atualiza [ConfiguracoesService.ultimoBackupEm] em sucesso.
   Future<String?> executar({String? diretorio, DateTime? agora}) async {
     try {
-      var conteudo = backupService.exportarParaJson();
-      if (encryption != null && encryption!.configurado) {
-        final cifrado = encryption!.criptografarEnvelope(conteudo);
-        if (cifrado != null) conteudo = cifrado;
-      }
+      final conteudo = backupService.exportarParaJson();
 
       final agoraEfetivo = agora ?? DateTime.now();
       final nomeArquivo = 'mentall-backup-${_carimbo(agoraEfetivo)}.json';

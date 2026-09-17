@@ -34,16 +34,23 @@ def _gerar_token() -> str:
     return secrets.token_urlsafe(32)
 
 
-def criar_usuario_pendente(email: str, senha: str, nome: str = "", plano: str = "gratis") -> str:
+def criar_usuario_pendente(email: str, senha: str, nome: str = "", plano: str = "gratis") -> str | None:
     email = email.strip().lower()
     usuario_id = str(uuid.uuid4())
     agora = datetime.now(timezone.utc)
     token = _gerar_token()
     expiracao = (agora + timedelta(minutes=CODIGO_EXPIRACAO_MINUTOS)).isoformat()
-    executar(
+    # One statement binds each confirmation token to exactly one set of credentials.
+    # A concurrent confirmation wins over this write once the account is active.
+    cur = executar(
         "INSERT INTO usuarios (id, email, password_hash, nome, plano, status, criado_em, "
         "email_verificacao_token_hash, email_verificacao_expiracao) "
-        "VALUES (?, ?, ?, ?, ?, 'pendente', ?, ?, ?)",
+        "VALUES (?, ?, ?, ?, ?, 'pendente', ?, ?, ?) "
+        "ON CONFLICT(email) DO UPDATE SET "
+        "password_hash = excluded.password_hash, nome = excluded.nome, "
+        "email_verificacao_token_hash = excluded.email_verificacao_token_hash, "
+        "email_verificacao_expiracao = excluded.email_verificacao_expiracao "
+        "WHERE usuarios.status = 'pendente'",
         (
             usuario_id,
             email,
@@ -54,24 +61,11 @@ def criar_usuario_pendente(email: str, senha: str, nome: str = "", plano: str = 
             _hash_token(token),
             expiracao,
         ),
-    ).commit()
-    log.info("Usuario pendente criado: id=%s", usuario_id[:8])
-    return token
-
-
-def regenerar_token(email: str) -> str | None:
-    email = email.strip().lower()
-    usuario = obter_por_email(email)
-    if usuario is None:
+    )
+    cur.commit()
+    if cur.rowcount != 1:
         return None
-    agora = datetime.now(timezone.utc)
-    token = _gerar_token()
-    expiracao = (agora + timedelta(minutes=CODIGO_EXPIRACAO_MINUTOS)).isoformat()
-    executar(
-        "UPDATE usuarios SET email_verificacao_token_hash = ?, "
-        "email_verificacao_expiracao = ? WHERE id = ?",
-        (_hash_token(token), expiracao, usuario["id"]),
-    ).commit()
+    log.info("Tentativa de cadastro pendente registrada.")
     return token
 
 
@@ -82,25 +76,34 @@ def confirmar_email(token: str) -> dict | None:
         (token_hash,),
     )
     usuario = cur.fetchone()
-    if usuario is None:
+    if usuario is None or usuario["status"] not in ("pendente", "ativo"):
         return None
-    if usuario["email_verificacao_expiracao"]:
-        try:
-            expiracao = datetime.fromisoformat(usuario["email_verificacao_expiracao"])
-            if datetime.now(timezone.utc) > expiracao:
-                return None
-        except Exception:
+    try:
+        expiracao = datetime.fromisoformat(usuario["email_verificacao_expiracao"])
+        if datetime.now(timezone.utc) >= expiracao:
             return None
+    except (TypeError, ValueError):
+        return None
     # Idempotente: nao zera o token ao confirmar (ele fica valido ate a
     # expiracao). Assim, re-clique / scanner de email / duplo toque nao
     # exibem "Link invalido ou expirado" apos a conta ja estar ativa.
-    if usuario["status"] != "ativo":
+    if usuario["status"] == "pendente":
         executar(
-            "UPDATE usuarios SET status = 'ativo' WHERE id = ?",
-            (usuario["id"],),
+            "UPDATE usuarios SET status = 'ativo' WHERE id = ? "
+            "AND status = 'pendente' AND email_verificacao_token_hash = ? "
+            "AND email_verificacao_expiracao = ? "
+            "AND julianday(email_verificacao_expiracao) > julianday('now')",
+            (usuario["id"], token_hash, usuario["email_verificacao_expiracao"]),
         ).commit()
+    # Do not report success from a stale SELECT after a token rotation/suspension.
+    atual = obter_por_id(usuario["id"])
+    if (atual is None or atual["status"] != "ativo"
+            or atual["email_verificacao_token_hash"] != token_hash
+            or atual["email_verificacao_expiracao"] != usuario["email_verificacao_expiracao"]
+            or datetime.now(timezone.utc) >= expiracao):
+        return None
     log.info("Email confirmado (ou ja ativo): id=%s", usuario["id"][:8])
-    return obter_por_id(usuario["id"])
+    return atual
 
 
 def obter_por_email(email: str) -> dict | None:

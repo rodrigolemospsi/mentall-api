@@ -110,7 +110,6 @@ void main() {
     final svc = BackupAgendamentoService(
       configuracoes: config,
       backupService: _FakeBackup(),
-      encryption: null,
     );
 
     final dir = Directory.systemTemp.createTempSync('mentall_backup_test');
@@ -128,7 +127,6 @@ void main() {
     final svc = BackupAgendamentoService(
       configuracoes: config,
       backupService: _FakeBackup(),
-      encryption: null,
     );
     expect(await svc.verificarEExecutar(agora: DateTime(2026, 9, 2)), isNull);
   });

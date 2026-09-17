@@ -43,6 +43,10 @@ final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService(encryption);
 });
 
+/// Sinal para o [AppLockGate] re-armar o timer de inatividade (incrementado
+/// quando o usuário desbloqueia o app ou voltas a interagir).
+final lockRefreshProvider = StateProvider<int>((ref) => 0);
+
 /// Indica se a proteção dos dados em repouso está ativa (chave criptográfica
 /// persistida de forma durável). Reativo via `encryption_meta` — alimenta o
 /// indicador de "Proteção de dados: Ativa/Inativa" na Home e em Configurações.
@@ -106,10 +110,11 @@ final audioRelatoServiceProvider = Provider<AudioRelatoService>((ref) {
   return AudioRelatoService();
 });
 
-/// Player de áudio compartilhado. Provider permite sobrescrever em testes com
-/// um fake (o `AudioPlayer` real pendura o teardown em `testWidgets`).
-final audioPlayerProvider = Provider<AudioPlayer>((ref) {
-  return AudioPlayer();
+/// O provider possui o player e o descarta quando não há mais telas ouvindo.
+final audioPlayerProvider = Provider.autoDispose<AudioPlayer>((ref) {
+  final player = AudioPlayer();
+  ref.onDispose(player.dispose);
+  return player;
 });
 
 final transcricaoRelatoServiceProvider = Provider<TranscricaoRelatoService>((ref) {
@@ -126,13 +131,11 @@ final backupServiceProvider = Provider<BackupService>((ref) {
 });
 
 final backupAgendamentoServiceProvider = Provider<BackupAgendamentoService>((ref) {
-  final encryption = ref.watch(encryptionServiceProvider);
   final configuracoes = ref.watch(configuracoesServiceProvider);
   final backup = ref.watch(backupServiceProvider);
   return BackupAgendamentoService(
     configuracoes: configuracoes,
     backupService: backup,
-    encryption: encryption,
   );
 });
 

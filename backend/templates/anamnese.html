@@ -100,7 +100,7 @@ body {
   border-top: 1px solid #FFB74D;
 }
 .secao.secao-destaque .secao-titulo {
-  color: #E65100;
+  color: #9A3412;
 }
 
 .pergunta {
@@ -179,6 +179,7 @@ body {
 .scale-container { display: flex; align-items: center; gap: 12px; }
 .scale-container input[type="range"] {
   flex: 1;
+  min-width: 0;
   -webkit-appearance: none;
   height: 6px;
   border-radius: 3px;
@@ -193,7 +194,7 @@ body {
   cursor: pointer;
   box-shadow: 0 1px 4px rgba(0,0,0,0.15);
 }
-.scale-labels { display: flex; justify-content: space-between; font-size: 11px; color: #94A3B8; margin-top: 4px; }
+.scale-labels { display: flex; justify-content: space-between; font-size: 11px; color: #475569; margin-top: 4px; }
 .scale-valor {
   font-size: 18px;
   font-weight: 700;
@@ -269,7 +270,7 @@ body {
   text-align: center;
   margin-top: 32px;
   font-size: 12px;
-  color: #94A3B8;
+  color: #475569;
 }
 </style>
 </head>
@@ -319,9 +320,10 @@ document.getElementById('crp-profissional').innerHTML =
 document.getElementById('nome-paciente').textContent =
   (DADOS_PROFISSIONAL.nome_paciente || '').replace(/</g, '&lt;');
 
-var respostasYn = {};
+var respostasYn = Object.create(null);
 
 function renderForm(template) {
+  respostasYn = Object.create(null);
   var form = document.getElementById('form-anamnese');
   var secoes = template.secoes || [];
   var html = '';
@@ -344,6 +346,7 @@ function renderForm(template) {
   for (var i = 0; i < ranges.length; i++) {
     (function(r) {
       r.addEventListener('input', function() {
+        r.setAttribute('data-respondido', '1');
         var span = r.parentElement.querySelector('.scale-valor');
         if (span) span.textContent = r.value;
       });
@@ -398,10 +401,10 @@ function renderPergunta(q) {
       if (isNaN(max)) max = 10;
       if (min > max) { var tmp = min; min = max; max = tmp; }
       html += '<div class="scale-container">';
-      html += '<span style="font-size:12px;color:#94A3B8">' + min + '</span>';
-      html += '<input type="range" name="' + id + '" min="' + min + '" max="' + max + '" value="' + Math.floor((max - min) / 2) + '">';
-      html += '<span style="font-size:12px;color:#94A3B8">' + max + '</span>';
-      html += '<span class="scale-valor">' + Math.floor((max - min) / 2) + '</span>';
+      html += '<span style="font-size:12px;color:#475569">' + min + '</span>';
+      html += '<input type="range" name="' + id + '" aria-label="' + esc(q.label || '') + '" min="' + min + '" max="' + max + '" value="' + Math.floor((max + min) / 2) + '" data-respondido="0">';
+      html += '<span style="font-size:12px;color:#475569">' + max + '</span>';
+      html += '<span class="scale-valor">Não respondido</span>';
       html += '</div>';
       if (q.minLabel || q.maxLabel) {
         html += '<div class="scale-labels"><span>' + esc(q.minLabel || '') + '</span><span>' + esc(q.maxLabel || '') + '</span></div>';
@@ -409,10 +412,9 @@ function renderPergunta(q) {
       break;
     case 'yesno':
       html += '<div class="btn-sim-nao">';
-      html += '<button type="button" class="btn-sim" onclick="toggleYn(this, true)">Sim</button>';
-      html += '<button type="button" class="btn-nao selecionado" onclick="toggleYn(this, false)">Não</button>';
+      html += '<button type="button" class="btn-sim" aria-pressed="false" onclick="toggleYn(this, true)">Sim</button>';
+      html += '<button type="button" class="btn-nao" aria-pressed="false" onclick="toggleYn(this, false)">Não</button>';
       html += '</div>';
-      respostasYn[id] = false;
       if (q.condicional_sim) {
         html += '<div class="condicional-sim" id="cond-' + id + '" style="display:none; margin-top:10px;">';
         html += renderCondicional(q.condicional_sim);
@@ -420,7 +422,7 @@ function renderPergunta(q) {
       }
       break;
     default:
-      html += '<input type="text" class="campo-texto" name="' + id + '">';
+      html += '<input type="text" class="campo-texto" name="' + id + '" aria-label="' + esc(q.label || '') + '">';
   }
 
   html += '</div>';
@@ -430,12 +432,13 @@ function renderPergunta(q) {
 function renderCondicional(c) {
   var id = esc(c.id);
   var label = esc(c.label);
-  var html = '<div class="pergunta" data-id="' + id + '" data-tipo="' + esc(c.tipo) + '" data-condicional="1">';
-  html += '<span class="pergunta-label">' + label + '</span>';
+  var html = '<div class="pergunta" data-id="' + id + '" data-tipo="' + esc(c.tipo) + '" data-condicional="1"';
+  if (c.required) html += ' data-required="1"';
+  html += '><span class="pergunta-label">' + label + (c.required ? ' <span class="required">*</span>' : '') + '</span>';
   if (c.tipo === 'text') {
-    html += '<input type="text" class="campo-texto" name="' + id + '">';
+    html += '<input type="text" class="campo-texto" name="' + id + '" aria-label="' + label + '">';
   } else if (c.tipo === 'textarea') {
-    html += '<textarea class="campo-textarea" name="' + id + '" rows="2"></textarea>';
+    html += '<textarea class="campo-textarea" name="' + id + '" rows="2" aria-label="' + label + '"></textarea>';
   }
   html += '</div>';
   return html;
@@ -448,33 +451,26 @@ function toggleYn(btn, valor) {
   var container = btn.parentElement;
   container.querySelector('.btn-sim').classList.toggle('selecionado', valor === true);
   container.querySelector('.btn-nao').classList.toggle('selecionado', valor === false);
+  container.querySelector('.btn-sim').setAttribute('aria-pressed', String(valor === true));
+  container.querySelector('.btn-nao').setAttribute('aria-pressed', String(valor === false));
   var cond = document.getElementById('cond-' + id);
   if (cond) cond.style.display = valor ? 'block' : 'none';
 }
 
 function validar() {
+  var respostas = coletar();
   var perguntas = document.querySelectorAll('.pergunta');
   var erro = null;
   for (var i = 0; i < perguntas.length; i++) {
     var p = perguntas[i];
     var req = p.getAttribute('data-required') === '1';
     if (!req) continue;
-    var tipo = p.getAttribute('data-tipo');
     var id = p.getAttribute('data-id');
-    var preenchido = false;
-
-    if (tipo === 'yesno') {
-      preenchido = respostasYn.hasOwnProperty(id);
-    } else if (tipo === 'checklist') {
-      var cbs = p.querySelectorAll('input[type="checkbox"]:checked');
-      preenchido = cbs.length > 0;
-    } else if (tipo === 'radio') {
-      var rb = p.querySelector('input[type="radio"]:checked');
-      preenchido = rb !== null;
-    } else {
-      var el = p.querySelector('input, textarea');
-      preenchido = el && el.value.trim() !== '';
+    if (p.getAttribute('data-condicional') === '1') {
+      var pai = p.parentElement.closest('.pergunta');
+      if (!pai || respostasYn[pai.getAttribute('data-id')] !== true) continue;
     }
+    var preenchido = Object.prototype.hasOwnProperty.call(respostas, id);
 
     if (!preenchido) {
       erro = 'Por favor, preencha todos os campos obrigatórios (marcados com *).';
@@ -486,34 +482,33 @@ function validar() {
 }
 
 function coletar() {
-  var respostas = {};
-  var perguntas = document.querySelectorAll('.pergunta[data-condicional="1"]');
-  for (var i = 0; i < perguntas.length; i++) {
-    var el = perguntas[i].querySelector('input, textarea');
-    if (el) respostas[perguntas[i].getAttribute('data-id')] = el.value.trim();
-  }
-  perguntas = document.querySelectorAll('.pergunta:not([data-condicional="1"])');
+  var respostas = Object.create(null);
+  var perguntas = document.querySelectorAll('.pergunta');
   for (var i = 0; i < perguntas.length; i++) {
     var p = perguntas[i];
     var id = p.getAttribute('data-id');
     var tipo = p.getAttribute('data-tipo');
+    if (p.getAttribute('data-condicional') === '1') {
+      var pai = p.parentElement.closest('.pergunta');
+      if (!pai || respostasYn[pai.getAttribute('data-id')] !== true) continue;
+    }
 
     if (tipo === 'yesno') {
-      respostas[id] = respostasYn[id] || false;
+      if (Object.prototype.hasOwnProperty.call(respostasYn, id)) respostas[id] = respostasYn[id];
     } else if (tipo === 'checklist') {
       var cbs = p.querySelectorAll('input[type="checkbox"]:checked');
       var vals = [];
       for (var j = 0; j < cbs.length; j++) vals.push(cbs[j].value);
-      respostas[id] = vals;
+      if (vals.length) respostas[id] = vals;
     } else if (tipo === 'radio') {
       var rb = p.querySelector('input[type="radio"]:checked');
-      respostas[id] = rb ? rb.value : '';
+      if (rb) respostas[id] = rb.value;
     } else if (tipo === 'scale') {
       var rng = p.querySelector('input[type="range"]');
-      respostas[id] = rng ? parseInt(rng.value) : 0;
+      if (rng && rng.getAttribute('data-respondido') === '1') respostas[id] = parseInt(rng.value, 10);
     } else {
       var el = p.querySelector('input, textarea');
-      respostas[id] = el ? el.value.trim() : '';
+      if (el && el.value.trim() !== '') respostas[id] = el.value.trim();
     }
   }
   return respostas;

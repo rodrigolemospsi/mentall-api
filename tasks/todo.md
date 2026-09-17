@@ -1,5 +1,8 @@
 # Tarefas — Venda recorrente + Painel de Controle
 
+> Correcoes prioritarias autorizadas em 06/09/2026:
+> [Checklist da auditoria](todo_auditoria_2026-09-06.md).
+
 ## Fase 1 — Contas de psicólogos
 
 - [x] 1.1 Backend: tabela `usuarios` em `db.py` (id, email único, password_hash, nome, plano, status, criado_em, ultimo_acesso_em)

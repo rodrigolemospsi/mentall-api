@@ -7,12 +7,15 @@ import 'package:prontuario_tcc/models/contrato_terapeutico.dart';
 import 'package:prontuario_tcc/models/paciente.dart';
 import 'package:prontuario_tcc/models/perfil_profissional.dart';
 import 'package:prontuario_tcc/models/sessao.dart';
+import 'package:prontuario_tcc/services/encryption_service.dart';
 import 'package:prontuario_tcc/services/paciente_service.dart';
 import 'package:prontuario_tcc/services/perfil_profissional_service.dart';
 import 'package:prontuario_tcc/services/sessao_service.dart';
 import 'package:prontuario_tcc/services/status_clinico_sessao_service.dart';
 
 void main() {
+  late EncryptionService encryption;
+
   setUpAll(() async {
     Hive.init('test/temp_hive/models_services');
     Hive.registerAdapters();
@@ -24,6 +27,8 @@ void main() {
     await Hive.openBox('avaliacoes_iniciais');
     await Hive.openBox('respostas_escalas');
     await Hive.openBox('anamneses_enviadas');
+    encryption = EncryptionService();
+    await encryption.gerarChave();
   });
 
   tearDownAll(() async {
@@ -422,7 +427,7 @@ void main() {
     late PacienteService service;
 
     setUp(() {
-      service = PacienteService();
+      service = PacienteService(encryption: encryption);
     });
 
     test('deve adicionar e listar pacientes', () async {
@@ -509,7 +514,7 @@ void main() {
     late SessaoService service;
 
     setUp(() {
-      service = SessaoService();
+      service = SessaoService(encryption: encryption);
     });
 
     Sessao criarSessao(String id, String pacienteId, int numero) {
@@ -599,7 +604,7 @@ void main() {
     late PerfilProfissionalService service;
 
     setUp(() {
-      service = PerfilProfissionalService();
+      service = PerfilProfissionalService(encryption: encryption);
     });
 
     test('deve iniciar sem perfil', () {

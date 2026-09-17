@@ -1,25 +1,58 @@
 import 'dart:convert';
 
-import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:local_auth/local_auth.dart';
 
 import 'logger.dart';
 import 'api_client.dart';
+import 'audio_relato_service.dart';
 import 'encryption_service.dart';
 import 'package:http/http.dart' as http;
+
+/// Abstração mínima do gate de autenticação local do aparelho (biometria ou
+/// credencial do dispositivo). Permite testar o fluxo de desbloqueio sem o
+/// platform channel do plugin [LocalAuthentication].
+abstract class GateDeAutenticacao {
+  Future<bool> suportaGate();
+  Future<bool> autenticar();
+}
+
+/// Implementação real: delega ao pacote `local_auth`.
+class _LocalAuthGate implements GateDeAutenticacao {
+  final LocalAuthentication _localAuth;
+  _LocalAuthGate(this._localAuth);
+
+  @override
+  Future<bool> suportaGate() async {
+    try {
+      return await _localAuth.isDeviceSupported();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> autenticar() async {
+    return _localAuth.authenticate(
+      localizedReason: 'Autentique-se para acessar o prontuário.',
+      persistAcrossBackgrounding: true,
+    );
+  }
+}
 
 class AuthService {
   static const String _authBoxName = 'auth_meta';
   static const String _tokenKey = 'jwt_token';
+  static const String _biometriaAtivadaKey = 'biometria_ativada';
 
   // SecureStorage keys for server credentials (protected by device PIN/biometrics)
   static const String _serverUserKey = 'server_username';
   static const String _serverPassKey = 'server_password';
 
   late final Box<String> _box = Hive.box<String>(_authBoxName);
-  final LocalAuthentication _localAuth = LocalAuthentication();
+  final LocalAuthentication _localAuth;
+  late final GateDeAutenticacao _gate;
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
     iOptions: IOSOptions(
       accessibility: KeychainAccessibility.first_unlock_this_device,
@@ -29,7 +62,16 @@ class AuthService {
   final EncryptionService _encryptionService;
   bool _desbloqueado = false;
 
-  AuthService(this._encryptionService);
+  /// Indica que o último desbloqueio caiu no fail-safe (aparelho sem
+  /// biometria/credencial ou gate indisponível), ou seja, o acesso NÃO foi
+  /// protegido por prompt. A UI deve avisar o usuário ("avise e permita").
+  bool _ultimoAcessoFailSafe = false;
+  bool get ultimoAcessoFailSafe => _ultimoAcessoFailSafe;
+
+  AuthService(this._encryptionService, {GateDeAutenticacao? gate})
+      : _localAuth = LocalAuthentication() {
+    _gate = gate ?? _LocalAuthGate(_localAuth);
+  }
 
   bool get desbloqueado => _desbloqueado;
 
@@ -113,15 +155,51 @@ class AuthService {
     return {'Authorization': 'Bearer $token'};
   }
 
+  /// Indica se o usuário ativou "Desbloquear com digital / face" em
+  /// Configurações (chave `biometria_ativada`, padrão `true`).
+  bool get biometriaAtivada {
+    try {
+      return Hive.box<String>('app_config')
+              .get(_biometriaAtivadaKey, defaultValue: 'true') ==
+          'true';
+    } catch (_) {
+      return true; // Padrão seguro: exige gate quando o aparelho suportar.
+    }
+  }
+
+  /// Desbloqueia o app.
+  ///
+  /// - Se o usuário ativou o desbloqueio por biometria/face E o aparelho
+  ///   oferece o gate (biometria ou credencial do dispositivo), EXIGE o prompt
+  ///   do sistema antes de carregar a chave — nunca burla um cancelamento do
+  ///   usuário (retorna `false` para exibir erro e permitir retentar).
+  /// - Se o gate não está disponível (aparelho sem biometria/tela bloqueada,
+  ///   biometria invalidada/hardware fora, ou a opção desligada), cai no cofre
+  ///   durável como fail-safe — preserva o fix de lockout do 03/09 (nunca trava).
   Future<bool> desbloquearComBiometria() async {
     try {
-      final sucesso = await _encryptionService.carregarChaveDoSecureStorage();
-      if (sucesso) {
-        _desbloqueado = true;
+      if (biometriaAtivada) {
+        final temGate = await _gate.suportaGate();
+        if (temGate) {
+          final autenticou = await _gate.autenticar();
+          if (!autenticou) {
+            // Usuário cancelou ou falhou o prompt: honra o gate (não burla).
+            return false;
+          }
+          _ultimoAcessoFailSafe = false;
+        } else {
+          // Aparelho sem biometria/credencial: avisa e permite.
+          _ultimoAcessoFailSafe = true;
+        }
       }
-      return sucesso;
-    } on PlatformException catch (e) {
-      if (e.code == 'NotAvailable') return false;
+      return await _carregarChave();
+    } on LocalAuthException catch (e) {
+      if (_ehIndisponibilidade(e.code)) {
+        // Gate indisponível (sem credencial, hardware fora, biocripto
+        // bloqueado): avisa e permite (fail-safe).
+        _ultimoAcessoFailSafe = true;
+        return await _carregarChave();
+      }
       Log.erro(e, contexto: 'AuthService.desbloquearComBiometria');
       return false;
     } catch (e) {
@@ -130,11 +208,38 @@ class AuthService {
     }
   }
 
+  Future<bool> _carregarChave() async {
+    try {
+      final sucesso = await _encryptionService.carregarChaveDoSecureStorage();
+      if (sucesso) {
+        _desbloqueado = true;
+      }
+      return sucesso;
+    } catch (e) {
+      Log.erro(e, contexto: 'AuthService.desbloquearComBiometria');
+      return false;
+    }
+  }
+
+  bool _ehIndisponibilidade(LocalAuthExceptionCode code) {
+    const indisponiveis = {
+      LocalAuthExceptionCode.noCredentialsSet,
+      LocalAuthExceptionCode.noBiometricsEnrolled,
+      LocalAuthExceptionCode.noBiometricHardware,
+      LocalAuthExceptionCode.biometricHardwareTemporarilyUnavailable,
+      LocalAuthExceptionCode.biometricLockout,
+      LocalAuthExceptionCode.temporaryLockout,
+      LocalAuthExceptionCode.deviceError,
+      LocalAuthExceptionCode.uiUnavailable,
+      LocalAuthExceptionCode.unknownError,
+    };
+    return indisponiveis.contains(code);
+  }
+
   Future<bool> gerarChave() async {
     final sucesso = await _encryptionService.gerarChave();
-    if (sucesso) {
-      _desbloqueado = true;
-    }
+    // NÃO marca como desbloqueado: o gate de segurança deve ser exigido na
+    // primeira abertura (antes, o boot pulava o login por completo).
     return sucesso;
   }
 
@@ -171,6 +276,11 @@ class AuthService {
   Future<void> bloquear() async {
     _desbloqueado = false;
     ApiClient.authToken = null;
+    // Remove áudios clínicos descriptografados do cache em memória. Os
+    // temporários de playback ficam no diretório temporário do sistema (o S.O.
+    // os limpa) e NÃO são apagados aqui para não romper um player que ainda
+    // possa estar lendo um arquivo ativo.
+    AudioRelatoService.limparCacheAudio();
     try {
       await Hive.box<String>('auth_meta').delete('jwt_token');
     } catch (_) {}

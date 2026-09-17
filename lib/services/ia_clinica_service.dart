@@ -76,6 +76,10 @@ class ResultadoIaClinica {
 }
 
 class IaClinicaService {
+  final http.Client? _client;
+
+  IaClinicaService({this._client});
+
   Future<ResultadoIaClinica> gerarSinteseClinica({
     required String sessaoId,
     required int numeroSessao,
@@ -208,13 +212,11 @@ class IaClinicaService {
     }
 
     try {
-      final response = await http
-          .post(
-            Uri.parse('${ApiClient.baseUrl}$endpoint'),
-            headers: ApiClient.defaultHeaders(),
-            body: jsonEncode(body),
-          )
-          .timeout(const Duration(seconds: 150));
+      final response = await (_client?.post ?? http.post)(
+        Uri.parse('${ApiClient.baseUrl}$endpoint'),
+        headers: ApiClient.defaultHeaders(),
+        body: jsonEncode(body),
+      ).timeout(const Duration(seconds: 150));
 
       if (response.statusCode == 401 && tentativa < 2) {
         return await _fazerRequisicaoComRetry(
@@ -310,7 +312,7 @@ extension IaClinicaProgressoService on IaClinicaService {
     String queixaPrincipal = '',
     List<Map<String, dynamic>> escalas = const [],
   }) async {
-    final endpoint = '${ApiClient.baseUrl}/gerar-progresso';
+    const endpoint = '/gerar-progresso';
 
     final body = {
       'paciente_id': pacienteId,

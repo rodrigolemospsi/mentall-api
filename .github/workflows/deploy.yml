@@ -1,14 +1,65 @@
 name: Deploy to Fly.io
+
 on:
   push:
     branches:
       - master
+  pull_request:
+    branches:
+      - master
+
+concurrency:
+  group: deploy-group
+  cancel-in-progress: true
 
 jobs:
+  flutter-checks:
+    name: Flutter (analyze + test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Pub get
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+  backend-checks:
+    name: Backend (isolated tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Run isolated test suite
+        working-directory: backend
+        run: python -B tests/run_isolated.py
+
   deploy:
     name: Deploy app
     runs-on: ubuntu-latest
-    concurrency: deploy-group
+    timeout-minutes: 15
+    needs: [flutter-checks, backend-checks]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master

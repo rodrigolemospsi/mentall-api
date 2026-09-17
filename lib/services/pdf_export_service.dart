@@ -482,6 +482,115 @@ class PdfExportService {
     );
   }
 
+  /// Renderiza a seção clínica como blocos pagináveis (um por pedaço de texto).
+  ///
+  /// O `pw.MultiPage` não quebra um campo clínico gigante; um `Column` com um
+  /// único `Text` muito alto lança `PdfTooBigPageException` (mais de 20 páginas
+  /// em um único widget). Dividir em blocos permite que o MultiPage pague entre
+  /// eles — usado no Prontuário Completo, que acha os blocos direto na lista do
+  /// `build` via `expand` (fix do item 26). Os exportadores em `Column` mantêm o
+  /// render simples acima, sem alteração visual.
+  List<pw.Widget> _secaoClinicaBlocos(
+    Sessao sessao,
+    ConfiguracaoAbordagemClinica config,
+  ) {
+    final blocos = <pw.Widget>[];
+
+    void addCampo(String label, String texto) {
+      if (texto.trim().isEmpty) return;
+      final pedacos = PdfExportService._dividirEmBlocos(texto);
+      for (var i = 0; i < pedacos.length; i++) {
+        blocos.add(pw.Padding(
+          padding: const pw.EdgeInsets.only(bottom: 12),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              if (i == 0) ...[
+                pw.Text(
+                  label.toUpperCase(),
+                  style: pw.TextStyle(
+                    fontSize: 8,
+                    fontWeight: pw.FontWeight.bold,
+                    color: _secundaria,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+              ],
+              pw.Container(
+                padding: const pw.EdgeInsets.only(left: 10),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border(
+                    left: pw.BorderSide(color: _primariaClara, width: 2),
+                  ),
+                ),
+                child: pw.Text(
+                  _quebrarTextosLongos(pedacos[i]),
+                  textAlign: pw.TextAlign.left,
+                  style: const pw.TextStyle(
+                    fontSize: Tipografia.xxs,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ));
+      }
+    }
+
+    final sintese = _concatenarSintese(sessao);
+    final formulacao = _concatenarFormulacao(sessao);
+    final intervencoes = _concatenarIntervencoes(sessao);
+
+    addCampo('Relato pós-sessão', sessao.relatoPosSessao);
+    addCampo('Síntese clínica', sintese);
+    addCampo(config.tituloFormulaClinica, formulacao);
+    addCampo(config.tituloIntervencoes, intervencoes);
+    addCampo('Apontamentos', sessao.apontamentosCopiloto);
+    addCampo('Artigos sugeridos', sessao.artigosSugeridos);
+
+    if (blocos.isEmpty) {
+      return [
+        pw.Text(
+          'Nenhum conteúdo clínico registrado nesta sessão.',
+          style: pw.TextStyle(
+            color: _secundaria,
+            fontSize: Tipografia.xxs,
+            fontStyle: pw.FontStyle.italic,
+          ),
+        ),
+      ];
+    }
+    return blocos;
+  }
+
+  /// Divide um texto em blocos de até [maxChars] caracteres, quebrando no
+  /// último espaço/linha, para que o MultiPage consiga paginá-los.
+  static List<String> _dividirEmBlocos(String texto, {int maxChars = 3000}) {
+    final blocos = <String>[];
+    var atual = '';
+    for (final linha in texto.split('\n')) {
+      final candidato = atual.isEmpty ? linha : '$atual\n$linha';
+      if (candidato.length > maxChars) {
+        if (atual.isNotEmpty) blocos.add(atual);
+        var resto = linha;
+        while (resto.length > maxChars) {
+          var corte = resto.substring(0, maxChars);
+          final espaco = corte.lastIndexOf(' ');
+          if (espaco > 0) corte = corte.substring(0, espaco);
+          blocos.add(corte);
+          resto = resto.substring(corte.length);
+        }
+        atual = resto;
+      } else {
+        atual = candidato;
+      }
+    }
+    if (atual.isNotEmpty) blocos.add(atual);
+    return blocos;
+  }
+
   String _concatenarSintese(Sessao s) {
     final partes = <String>[];
     if (s.eventosImportantes.trim().isNotEmpty) partes.add(s.eventosImportantes.trim());
@@ -885,7 +994,7 @@ class PdfExportService {
               ),
             )
           else
-            ...sessoesAtivas.map((s) => _secaoSessaoCompleta(
+            ...sessoesAtivas.expand((s) => _secaoSessaoCompleta(
                   sessao: s,
                   config: config,
                   paciente: paciente,
@@ -1194,39 +1303,38 @@ class PdfExportService {
     return widgets;
   }
 
-  pw.Widget _secaoSessaoCompleta({
+  List<pw.Widget> _secaoSessaoCompleta({
     required Sessao sessao,
     required ConfiguracaoAbordagemClinica config,
     required Paciente paciente,
   }) {
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        _linhaSeparadora(),
-        pw.SizedBox(height: 12),
-        pw.Row(
-          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-          children: [
-            pw.Expanded(
-              child: pw.Text(
-                'Sessão ${sessao.numeroSessao} - ${_formatarData(sessao.data)} às ${_formatarHorario(sessao.data)}',
-                style: pw.TextStyle(
-                  fontSize: Tipografia.sm,
-                  fontWeight: pw.FontWeight.bold,
-                  color: _primaria,
-                ),
+    // Retorna blocos pagináveis (a coluna clínica é achatada em itens da lista
+    // do MultiPage) para não lançar PdfTooBigPageException em sessões longas.
+    return [
+      _linhaSeparadora(),
+      pw.SizedBox(height: 12),
+      pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Expanded(
+            child: pw.Text(
+              'Sessão ${sessao.numeroSessao} - ${_formatarData(sessao.data)} às ${_formatarHorario(sessao.data)}',
+              style: pw.TextStyle(
+                fontSize: Tipografia.sm,
+                fontWeight: pw.FontWeight.bold,
+                color: _primaria,
               ),
             ),
-            _badgeRevisao(sessao.revisadoPeloProfissional),
-          ],
-        ),
-        pw.SizedBox(height: 8),
-        _secaoClinica(sessao, config),
-        pw.SizedBox(height: 8),
-        _secaoRevisao(sessao),
-        pw.SizedBox(height: 16),
-      ],
-    );
+          ),
+          _badgeRevisao(sessao.revisadoPeloProfissional),
+        ],
+      ),
+      pw.SizedBox(height: 8),
+      ..._secaoClinicaBlocos(sessao, config),
+      pw.SizedBox(height: 8),
+      _secaoRevisao(sessao),
+      pw.SizedBox(height: 16),
+    ];
   }
 
   Future<void> exportarRelatorioFinanceiro({

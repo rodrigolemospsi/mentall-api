@@ -153,8 +153,8 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
                   title: const Text('Desbloquear com digital / face'),
                   subtitle: Text(
                     config.biometriaAtivada
-                        ? 'Biometria ativada para desbloqueio rápido.'
-                        : 'Toque para ativar o desbloqueio por biometria.',
+                        ? 'Ao desbloquear, o app pede sua digital/face antes de abrir.'
+                        : 'Sem prompt de digital/face; os dados seguem cifrados no cofre do aparelho.',
                   ),
                   value: config.biometriaAtivada,
                   activeThumbColor: context.corPrimaria,

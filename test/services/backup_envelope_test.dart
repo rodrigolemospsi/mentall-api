@@ -145,13 +145,9 @@ void main() {
     expect(pacienteService.buscarPacientePorId('p1')!.nome, 'Legado');
   });
 
-  test('sem PIN (sem chave) export continua em claro (legado)', () async {
+  test('sem chave exportacao nao produz JSON claro', () async {
     final backupSemPin = BackupService();
-    final pacSemPin = PacienteService();
-    await pacSemPin.adicionarPaciente(novoPaciente());
 
-    final saida = backupSemPin.exportarParaJson();
-    final dados = jsonDecode(saida) as Map<String, dynamic>;
-    expect(dados['pacientes'], isNotNull);
+    expect(backupSemPin.exportarParaJson, throwsStateError);
   });
 }

@@ -295,6 +295,7 @@ class AudioRelatoService {
 
     await _webAudioStreamSubscription?.cancel();
     await _recorder.dispose();
+    await limparRecursosReproducao();
 
     _webAudioStreamSubscription = null;
     _webAudioBytes.clear();
@@ -408,6 +409,14 @@ class AudioRelatoService {
 
   static final Map<String, Uint8List> _cacheAudioDescriptografado = {};
 
+  /// Nº de áudios mantidos no cache (acessível para teste).
+  static int get tamanhoCacheAudio => _cacheAudioDescriptografado.length;
+
+  /// Purgar o cache de áudio descriptografado. Chamado ao bloquear o app para
+  /// não deixar conteúdo clínico em claro em memória após a sessão local
+  /// terminar.
+  static void limparCacheAudio() => _cacheAudioDescriptografado.clear();
+
   static bool _ehFormatoBinario(Uint8List bytes) {
     return bytes.length >= 4 &&
         bytes[0] == 0x4D &&
@@ -481,7 +490,34 @@ class AudioRelatoService {
       '${tempDir.path}/mentall_playback_${DateTime.now().millisecondsSinceEpoch}.m4a',
     );
     await tempFile.writeAsBytes(bytes);
+    registrarPlaybackTemporario(tempFile.path);
     return tempFile.path;
+  }
+
+  /// Arquivos temporários de playback gerados (em claro) para rastreamento e
+  /// limpeza. Um playback não deve deixar cópia clara no armazenamento.
+  static final Set<String> _playbackTemporarios = {};
+
+  static int get tamanhoTemporariosPlayback => _playbackTemporarios.length;
+
+  /// Registra um arquivo temporário de playback (chamado por
+  /// [prepararAudioParaPlayback]).
+  static void registrarPlaybackTemporario(String path) {
+    _playbackTemporarios.add(path);
+  }
+
+  /// Apaga os temporários de playback e limpa o rastreamento. Chamado ao
+  /// liberar o serviço e ao bloquear o app.
+  static Future<void> limparRecursosReproducao() async {
+    for (final p in List.of(_playbackTemporarios)) {
+      try {
+        final f = File(p);
+        if (await f.exists()) await f.delete();
+      } catch (_) {
+        // Melhor esforço; arquivo pode ser removido pelo sistema depois.
+      }
+    }
+    _playbackTemporarios.clear();
   }
 
   List<int> _asciiBytes(String value) {

@@ -193,23 +193,20 @@ class _WhatsAppLogoButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
+    return IconButton(
+      tooltip: 'Enviar mensagem no WhatsApp',
+      onPressed: () {
         final numero = _numeroLimpo;
         if (numero.isEmpty) return;
         WhatsAppService.escolher(context: context, numero: numero);
       },
-      child: const SizedBox(
-        width: 52,
-        height: 52,
-        child: Center(
-          child: Image(
-            image: AssetImage('assets/images/logo_whats.png'),
-            width: 44,
-            height: 44,
-          ),
-        ),
+      icon: Image(
+        image: const AssetImage('assets/images/logo_whats.png'),
+        width: 44,
+        height: 44,
       ),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 52, minHeight: 52),
     );
   }
 }

@@ -33,6 +33,7 @@ logging.basicConfig(
 log = logging.getLogger("mentall")
 
 from models.schemas import (
+    AnamneseConfirmacaoResponse,
     AnamneseRequest,
     AnamneseResponse,
     AnamneseStatusResponse,
@@ -618,6 +619,8 @@ app.add_middleware(
 @app.middleware("http")
 async def _security_headers(request: Request, call_next):
     response = await call_next(request)
+    if request.url.path.startswith("/anamneses/"):
+        response.headers["Cache-Control"] = "no-store"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
@@ -699,17 +702,15 @@ async def registrar(request: RegistrarRequest, _req: Request):
     _validar_registro_ou_raise(request)
     email = request.email.strip().lower()
 
-    from services.usuarios import criar_usuario_pendente, obter_por_email, regenerar_token
+    from services.usuarios import criar_usuario_pendente, obter_por_email
 
     existente = obter_por_email(email)
-    if existente is not None and existente["status"] == "ativo":
+    if existente is not None and existente["status"] != "pendente":
         raise HTTPException(status_code=409, detail="E-mail já cadastrado.")
 
-    token = (
-        regenerar_token(email)
-        if existente is not None
-        else criar_usuario_pendente(email, request.senha, request.nome)
-    )
+    token = criar_usuario_pendente(email, request.senha, request.nome)
+    if token is None:
+        raise HTTPException(status_code=409, detail="E-mail já cadastrado.")
 
     base_url = os.getenv("API_BASE_URL", "https://mentall-api.fly.dev")
     link = f"{base_url}/auth/confirmar-email?token={token}"
@@ -1309,7 +1310,7 @@ def criar_anamnese_endpoint(request: AnamneseRequest, _req: Request, auth: tuple
 def pagina_anamnese(token: str, _req: Request):
     _rate_limit_check(_req, max_requests=30)
     anamnese = obter_anamnese(token)
-    if anamnese is None:
+    if anamnese is None or anamnese["status"] not in ("pendente", "respondido"):
         return HTMLResponse(
             content="<html><body style='font-family:sans-serif;text-align:center;padding:40px;'>"
             "<h2 style='color:#D32F2F;'>Questionário não encontrado</h2>"
@@ -1374,7 +1375,7 @@ p {{ color:#64748B; font-size:15px; }}
 
 @app.post(
     "/anamneses/{token}/responder",
-    response_model=AnamneseStatusResponse,
+    response_model=AnamneseConfirmacaoResponse,
     tags=["Anamnese"],
 )
 def responder_anamnese(token: str, request: ResponderAnamneseRequest, _req: Request):
@@ -1383,15 +1384,16 @@ def responder_anamnese(token: str, request: ResponderAnamneseRequest, _req: Requ
     if not request.respostas.strip():
         raise HTTPException(status_code=400, detail="Respostas não informadas.")
 
-    anamnese = registrar_resposta(token, request.respostas)
+    try:
+        anamnese = registrar_resposta(token, request.respostas)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Respostas inválidas. Confira os campos obrigatórios.") from None
     if anamnese is None:
         raise HTTPException(status_code=404, detail="Anamnese não encontrada.")
 
-    return AnamneseStatusResponse(
+    return AnamneseConfirmacaoResponse(
         sucesso=True,
         status=anamnese["status"],
-        data_resposta=anamnese.get("respondido_em"),
-        respostas_json=anamnese.get("respostas", ""),
     )
 
 

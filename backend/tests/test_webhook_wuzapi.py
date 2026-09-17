@@ -24,10 +24,14 @@ class TestCapturaIdMensagem(unittest.TestCase):
     def setUp(self):
         os.environ["WUZAPI_BASE_URL"] = "http://localhost:8080"
         os.environ["WUZAPI_TOKEN"] = "token-teste"
+        # O envio usa a instancia do owner (o dono). Mantemos a env apenas para
+        # compat dos testes de dev; o caminho real prioriza a instancia.
+        mod.salvar_instancia_wuzapi("owner1", "token-teste", conectado=True)
 
     def tearDown(self):
         for k in ("WUZAPI_BASE_URL", "WUZAPI_TOKEN"):
             os.environ.pop(k, None)
+        mod.executar("DELETE FROM wuzapi_instancias WHERE owner_id = ?", ("owner1",)).commit()
 
     def test_envio_retorna_id_da_mensagem(self):
         with mock.patch("services.lembrete_service.requests.post") as post:
@@ -61,7 +65,8 @@ class TestCapturaIdMensagem(unittest.TestCase):
 
     def test_envio_sem_token_retorna_none(self):
         os.environ.pop("WUZAPI_TOKEN", None)
-        sucesso, msgid = mod._enviar_whatsapp_via_wuzapi("owner1", "(75) 9229-8347", "oi")
+        # Owner sem instancia propria nao usa token de outro profissional.
+        sucesso, msgid = mod._enviar_whatsapp_via_wuzapi("owner-sem-instancia", "(75) 9229-8347", "oi")
         self.assertFalse(sucesso)
         self.assertIsNone(msgid)
 
@@ -212,6 +217,11 @@ class FakeFetchAllCursor:
     def fetchall(self):
         return self._rows
 
+    def fetchone(self):
+        # Chamado por `_ainda_pendente` para confirmar que o lembrete segue
+        # pendente antes do envio.
+        return {"status": "pendente"}
+
     def commit(self):
         self._commits += 1
 
@@ -244,8 +254,8 @@ class TestProcessarPendentes(unittest.TestCase):
                 )
         self.assertTrue(alterados)
         self.assertEqual(cursor.commits, 1)
-        # 1a chamada: SELECT; 2a: UPDATE com mensagem_id
-        update_args = executar.call_args_list[1][0]
+        # 0: SELECT; 1: SELECT status (_ainda_pendente); 2: UPDATE com mensagem_id
+        update_args = executar.call_args_list[2][0]
         self.assertIn("status = 'enviado'", update_args[0])
         self.assertIn("mensagem_id = ?", update_args[0])
         self.assertEqual(update_args[1][1], "MSG123")
@@ -256,7 +266,7 @@ class TestProcessarPendentes(unittest.TestCase):
             with mock.patch("services.lembrete_service._enviar_whatsapp_via_wuzapi", return_value=(False, None)):
                 mod._processar_pendentes(datetime(2026, 8, 25, 18, 30, tzinfo=timezone.utc))
         # UPDATE de tentativas (não marca falha)
-        update_args = executar.call_args_list[1][0]
+        update_args = executar.call_args_list[2][0]
         self.assertIn("tentativas = ?", update_args[0])
         self.assertNotIn("status = 'falha'", update_args[0])
 

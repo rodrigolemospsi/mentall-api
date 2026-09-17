@@ -9,6 +9,13 @@ log = logging.getLogger("mentall.db")
 TURSO_URL = os.getenv("TURSO_DATABASE_URL", "").strip()
 TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN", "").strip()
 
+# Em producao (Fly) o disco e efemero: aceitar escrita local durante uma queda
+# do Turso confirmaria operacoes que serao perdidas. `ALLOW_SQLITE_FALLBACK`
+# deve ser "false" nos secrets do deploy; em dev e testes manter "true".
+ALLOW_SQLITE_FALLBACK = os.getenv("ALLOW_SQLITE_FALLBACK", "true").strip().lower() in (
+    "1", "true", "yes", "on",
+)
+
 _conexao = None
 _conexao_lock = threading.Lock()
 _usa_turso = False
@@ -104,9 +111,17 @@ def _obter_conexao():
                 return _conexao
 
         log.critical(
-            "ATENCAO: Turso indisponivel. Usando SQLite local (efemero). "
-            "Os dados NAO persistirao entre reinicios. Verifique a conexao com o Turso."
+            "ATENCAO: Turso indisponivel. "
+            + ("Usando SQLite local (efemero). Os dados NAO persistirao entre "
+               "reinicios. Verifique a conexao com o Turso." if ALLOW_SQLITE_FALLBACK
+               else "Falha de persistencia. Bloqueando escrita (fail-closed). "
+               "Verifique a conexao com o Turso e os secrets do deploy.")
         )
+        if not ALLOW_SQLITE_FALLBACK:
+            # Em producao o disco e efemero (Fly). Aceitar escrita local neste
+            # modo significaria confirmar operacoes que serao perdidas. Fail-closed:
+            # melhor falhar explicitamente do que perder dados silenciosamente.
+            raise RuntimeError("Turso indisponivel e fallback SQLite desabilitado.")
         _conexao = _conectar_local()
         _usa_turso = False
         _criar_tabelas(_conexao)
@@ -222,6 +237,7 @@ _indices = [
     "CREATE INDEX IF NOT EXISTS idx_contratos_owner ON contratos(owner_id)",
     "CREATE INDEX IF NOT EXISTS idx_anamneses_owner ON anamneses(owner_id)",
     "CREATE INDEX IF NOT EXISTS idx_lembretes_owner ON lembretes(owner_id)",
+    "CREATE INDEX IF NOT EXISTS idx_lembretes_pendentes ON lembretes(status, horario_envio)",
     "CREATE INDEX IF NOT EXISTS idx_wuzapi_instancias_owner ON wuzapi_instancias(owner_id)",
 ]
 

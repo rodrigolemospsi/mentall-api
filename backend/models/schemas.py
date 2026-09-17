@@ -202,6 +202,11 @@ class ResponderAnamneseRequest(BaseModel):
     respostas: str = Field(min_length=2, max_length=100_000)
 
 
+class AnamneseConfirmacaoResponse(BaseModel):
+    sucesso: bool
+    status: str
+
+
 class AnamneseStatusResponse(BaseModel):
     sucesso: bool
     status: str = "pendente"

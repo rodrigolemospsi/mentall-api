@@ -55,21 +55,26 @@ def _normalizar_numero_whatsapp(telefone: str) -> str:
 
 
 def _resolver_token_wuzapi(owner_id: str) -> str:
-    """Retorna o token da instancia wuzapi do profissional. No primeiro momento,
-    usa a env WUZAPI_TOKEN (instancia unica). Com varios profissionais, a tabela
-    wuzapi_instancias (owner_id -> token) passa a ter precedencia."""
-    token_env = os.getenv("WUZAPI_TOKEN", "").strip()
-    if token_env:
-        return token_env
-    try:
-        cur = executar(
-            "SELECT wuzapi_token FROM wuzapi_instancias WHERE owner_id = ?",
-            (owner_id,),
-        )
-        row = cur.fetchone()
-        return (row["wuzapi_token"] or "") if row else ""
-    except Exception:
-        return ""
+    """Retorna o token da instancia wuzapi do profissional.
+
+    Precedencia: apenas a instancia cadastrada para o owner tem precedencia.
+    A env WUZAPI_TOKEN e usada somente em caminhos de desenvolvimento sem owner
+    (ex.: watchdog de reconexao da instancia unica). Um owner real sem instancia
+    propria NUNCA deve usar a identidade de outro profissional (fail-closed).
+    """
+    if owner_id:
+        try:
+            cur = executar(
+                "SELECT wuzapi_token FROM wuzapi_instancias WHERE owner_id = ?",
+                (owner_id,),
+            )
+            row = cur.fetchone()
+            if row and row["wuzapi_token"]:
+                return row["wuzapi_token"]
+            return ""
+        except Exception:
+            return ""
+    return os.getenv("WUZAPI_TOKEN", "").strip()
 
 
 def salvar_instancia_wuzapi(owner_id: str, token: str, user_id: int = 0,
@@ -188,34 +193,57 @@ def _checar_e_reconectar_wuzapi() -> bool:
     return _reconectar_wuzapi(base_url, token)
 
 
+# Limite de lembretes processados por ciclo: evita que uma fila grande segure
+# o lock de agendar/cancelar por muito tempo durante a janela de envio.
+LOTE_MAXIMO_POR_CICLO = int(os.getenv("LOTE_LEMBRETES_POR_CICLO", "20"))
+
+
+def _ainda_pendente(rid: str) -> bool:
+    """True se o lembrete ainda esta pendente (nao cancelado/ja enviado)."""
+    try:
+        cur = executar("SELECT status FROM lembretes WHERE id = ?", (rid,))
+        row = cur.fetchone()
+        return bool(row and row["status"] == "pendente")
+    except Exception as e:
+        log.error("Nao foi possivel verificar estado do lembrete %s: %s", rid[:8], e)
+        return False
+
+
 def _processar_pendentes(agora: datetime) -> bool:
     """Processa lembretes pendentes (síncrono, roda em thread pool).
 
-    Faz SELECT + envio WhatsApp + UPDATEs. É chamado via asyncio.to_thread
-    para não bloquear o event loop com o requests.post (timeout 20s) do wuzapi.
-    Retorna True se algum registro foi alterado (exige commit)."""
+    Limita o lote por ciclo, re-verifica se ainda esta pendente antes de enviar
+    (para nao disparar um lembrete cancelado) e grava com UPDATE condicionado ao
+    estado anterior. Retorna True se algum registro foi alterado (exige commit)."""
     cur = executar(
-        "SELECT * FROM lembretes WHERE status = 'pendente' AND horario_envio <= ?",
-        (agora.isoformat(),),
+        "SELECT * FROM lembretes WHERE status = 'pendente' AND horario_envio <= ? "
+        "LIMIT ?",
+        (agora.isoformat(), LOTE_MAXIMO_POR_CICLO),
     )
     pendentes = cur.fetchall()
     alterados = False
 
     for r in pendentes:
         try:
+            # Cancelamento/reagendamento pode ter ocorrido desde a seleção.
+            if not _ainda_pendente(r["id"]):
+                continue
+
             sucesso, msgid = _enviar_whatsapp_via_wuzapi(
                 r["owner_id"], r["telefone"], r["mensagem"],
             )
             if sucesso:
                 executar(
-                    "UPDATE lembretes SET status = 'enviado', enviado_em = ?, mensagem_id = ? WHERE id = ?",
+                    "UPDATE lembretes SET status = 'enviado', enviado_em = ?, mensagem_id = ? "
+                    "WHERE id = ? AND status = 'pendente'",
                     (agora.isoformat(), msgid, r["id"]),
                 )
             else:
                 tentativas = (r.get("tentativas") or 0) + 1
                 if _deve_continuar_tentando(r["horario_envio"], agora):
                     executar(
-                        "UPDATE lembretes SET tentativas = ?, ultima_tentativa_em = ? WHERE id = ?",
+                        "UPDATE lembretes SET tentativas = ?, ultima_tentativa_em = ? "
+                        "WHERE id = ? AND status = 'pendente'",
                         (tentativas, agora.isoformat(), r["id"]),
                     )
                     log.info(
@@ -224,7 +252,8 @@ def _processar_pendentes(agora: datetime) -> bool:
                     )
                 else:
                     executar(
-                        "UPDATE lembretes SET status = 'falha', tentativas = ?, ultima_tentativa_em = ? WHERE id = ?",
+                        "UPDATE lembretes SET status = 'falha', tentativas = ?, ultima_tentativa_em = ? "
+                        "WHERE id = ? AND status = 'pendente'",
                         (tentativas, agora.isoformat(), r["id"]),
                     )
                     log.info(

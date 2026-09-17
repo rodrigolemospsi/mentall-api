@@ -23,6 +23,9 @@ class BackupService with EncryptedServiceMixin {
   bool get _podeCifrar => encryption != null && encryption!.configurado;
 
   String exportarParaJson() {
+    if (!_podeCifrar) {
+      throw StateError('Desbloqueie o app antes de exportar o backup.');
+    }
     final pacientes = Hive.box<Paciente>('pacientes');
     final sessoes = Hive.box<Sessao>('sessoes');
     final perfil = Hive.box<PerfilProfissional>('perfil_profissional');
@@ -153,15 +156,11 @@ class BackupService with EncryptedServiceMixin {
     const encoder = JsonEncoder.withIndent('  ');
     final jsonClaro = encoder.convert(dados);
 
-    if (_podeCifrar) {
-      final envelope = encryption!.criptografarEnvelope(jsonClaro);
-      if (envelope != null) {
-        // Formata com indentação para leitura humana, mantendo o envelope.
-        final envJson = jsonDecode(envelope) as Map<String, dynamic>;
-        return const JsonEncoder.withIndent('  ').convert(envJson);
-      }
+    final envelope = encryption!.criptografarEnvelope(jsonClaro);
+    if (envelope == null) {
+      throw StateError('Nao foi possivel proteger o backup.');
     }
-    return jsonClaro;
+    return encoder.convert(jsonDecode(envelope));
   }
 
   Future<void> _salvarSobrescrevendo<T>(
@@ -182,17 +181,18 @@ class BackupService with EncryptedServiceMixin {
 
   Future<String> importarDeJson(String jsonString) async {
     try {
-      // Detecta e abre envelope criptografado (AES-GCM + HMAC) quando houver.
-      final brutoDecodificado = jsonDecode(jsonString) as Map<String, dynamic>?;
-      if (brutoDecodificado != null && brutoDecodificado['tipo'] == 'mentall_backup_v1') {
-        if (!_podeCifrar) {
-          return 'Backup criptografado: configure o PIN ou desbloqueie o app para restaurar.';
-        }
+      if (!_podeCifrar) {
+        return 'Backup criptografado: configure o PIN ou desbloqueie o app para restaurar.';
+      }
+      // O agendamento antigo emitiu duas camadas. Nao aceitar aninhamento ilimitado.
+      for (var camada = 0; camada < 2; camada++) {
+        final dados = jsonDecode(jsonString) as Map<String, dynamic>;
+        if (dados['tipo'] != 'mentall_backup_v1') break;
         final jsonClaro = encryption!.descriptografarEnvelope(jsonString);
         if (jsonClaro == null) {
-          return 'Arquivo de backup inválido: integridade comprometida.';
+          return 'Nao foi possivel abrir o backup: chave diferente ou integridade comprometida. Preserve o arquivo e o aparelho original.';
         }
-        return await _importarJsonClaro(jsonClaro);
+        jsonString = jsonClaro;
       }
 
       return await _importarJsonClaro(jsonString);
@@ -208,6 +208,24 @@ class BackupService with EncryptedServiceMixin {
       if (dados.containsKey('versao') == false) {
         return 'Arquivo de backup inv\u00e1lido: vers\u00e3o n\u00e3o encontrada.';
       }
+      if (dados['versao'] != '1.0' && dados['versao'] != '2.0') {
+        return 'Arquivo de backup invalido: versao nao suportada.';
+      }
+      for (final secao in [
+        'pacientes', 'sessoes', 'perfil_profissional', 'contratos',
+        'pacotes', 'progresso_sessoes',
+      ]) {
+        final ids = <String>{};
+        for (final item in dados[secao] as List<dynamic>? ?? []) {
+          final id = (item as Map<String, dynamic>)['id'] as String;
+          if (id.trim().isEmpty || !ids.add(id)) {
+            throw const FormatException('ID vazio ou duplicado no backup.');
+          }
+        }
+      }
+
+      // Construa/valide todos os modelos antes de iniciar qualquer escrita Hive.
+      final gravacoes = <Future<void> Function()>[];
 
       final pacientesBox = Hive.box<Paciente>('pacientes');
       final sessoesBox = Hive.box<Sessao>('sessoes');
@@ -274,12 +292,12 @@ class BackupService with EncryptedServiceMixin {
           valorSessao: (map['valor_sessao'] as num?)?.toDouble() ?? 0.0,
         );
 
-        await _salvarSobrescrevendo<Paciente>(
+        gravacoes.add(() => _salvarSobrescrevendo<Paciente>(
           pacientesBox,
           paciente,
           (existente) => existente.id == paciente.id,
           pacienteIdToKey,
-        );
+        ));
         pacientesImportados++;
       }
 
@@ -340,12 +358,12 @@ class BackupService with EncryptedServiceMixin {
           metodoPagamento: map['metodo_pagamento'] as String? ?? '',
         );
 
-        await _salvarSobrescrevendo<Sessao>(
+        gravacoes.add(() => _salvarSobrescrevendo<Sessao>(
           sessoesBox,
           sessao,
           (existente) => existente.id == sessao.id,
           sessaoIdToKey,
-        );
+        ));
         sessoesImportadas++;
       }
 
@@ -373,12 +391,12 @@ class BackupService with EncryptedServiceMixin {
           fotoBase64: map['foto_base64'] as String? ?? '',
         );
 
-        await _salvarSobrescrevendo<PerfilProfissional>(
+        gravacoes.add(() => _salvarSobrescrevendo<PerfilProfissional>(
           perfilBox,
           perfil,
           (existente) => existente.id == perfil.id,
           perfilIdToKey,
-        );
+        ));
         perfisImportados++;
       }
 
@@ -403,12 +421,12 @@ class BackupService with EncryptedServiceMixin {
           arquivado: map['arquivado'] as bool? ?? false,
         );
 
-        await _salvarSobrescrevendo<ContratoTerapeutico>(
+        gravacoes.add(() => _salvarSobrescrevendo<ContratoTerapeutico>(
           contratosBox,
           contrato,
           (existente) => existente.id == contrato.id,
           contratoIdToKey,
-        );
+        ));
         contratosImportados++;
       }
 
@@ -427,12 +445,12 @@ class BackupService with EncryptedServiceMixin {
           observacoes: map['observacoes'] as String? ?? '',
         );
 
-        await _salvarSobrescrevendo<Pacote>(
+        gravacoes.add(() => _salvarSobrescrevendo<Pacote>(
           pacotesBox,
           pacote,
           (existente) => existente.id == pacote.id,
           pacoteIdToKey,
-        );
+        ));
         pacotesImportados++;
       }
 
@@ -452,13 +470,45 @@ class BackupService with EncryptedServiceMixin {
               : DateTime.now(),
         );
 
-        await _salvarSobrescrevendo<ProgressoSessao>(
+        gravacoes.add(() => _salvarSobrescrevendo<ProgressoSessao>(
           progressosBox,
           progresso,
           (existente) => existente.id == progresso.id,
           progressoIdToKey,
-        );
+        ));
         progressosImportados++;
+      }
+
+      final pacientesDisponiveis = {
+        ...pacienteIdToKey.keys,
+        for (final item in dados['pacientes'] as List<dynamic>? ?? [])
+          item['id'] as String,
+      };
+      for (final secao in ['sessoes', 'contratos', 'pacotes', 'progresso_sessoes']) {
+        for (final item in dados[secao] as List<dynamic>? ?? []) {
+          if (!pacientesDisponiveis.contains(item['paciente_id'])) {
+            throw const FormatException('Referencia a paciente ausente no backup.');
+          }
+        }
+      }
+      final pacientePorSessao = {
+        for (final sessao in sessoesBox.values) sessao.id: sessao.pacienteId,
+        for (final item in dados['sessoes'] as List<dynamic>? ?? [])
+          item['id'] as String: item['paciente_id'] as String,
+      };
+      for (final item in dados['progresso_sessoes'] as List<dynamic>? ?? []) {
+        final sessaoId = item['sessao_id'] as String;
+        // O app ja persiste progresso antes de salvar a sessao. Preserve esse
+        // estado legado, mas nunca vincule a uma sessao conhecida de outro paciente.
+        if (sessaoId.trim().isEmpty ||
+            (pacientePorSessao.containsKey(sessaoId) &&
+                pacientePorSessao[sessaoId] != item['paciente_id'])) {
+          throw const FormatException('Referencia de sessao invalida no progresso.');
+        }
+      }
+
+      for (final gravar in gravacoes) {
+        await gravar();
       }
 
       return 'Importa\u00e7\u00e3o conclu\u00edda: $perfisImportados perfil(is), '

@@ -90,6 +90,57 @@ class _PerfilProfissionalFormPageState
   final List<_EnderecoFormData> _enderecoControllers = [];
   bool _carregandoCep = false;
   bool _perfilExistente = false;
+  String? _snapshotInicial;
+
+  Map<String, dynamic> _estadoAtual() => {
+        'nome': _nomeController.text,
+        'registro': _registroController.text,
+        'abordagem': ref.read(_abordagemProvider),
+        'termo': ref.read(_termoProvider),
+        'tratamento': ref.read(_tratamentoProvider),
+        'foto': ref.read(_fotoProvider),
+        'atendeOnline': ref.read(_atendeOnlineProvider),
+        'enderecos': _enderecoControllers
+            .map((e) => [
+                  e.apelido.text,
+                  e.cep.text,
+                  e.logradouro.text,
+                  e.numero.text,
+                  e.complemento.text,
+                  e.bairro.text,
+                  e.cidade.text,
+                  e.estado.text,
+                  e.pais.text,
+                ])
+            .toList(),
+      };
+
+  bool get _temAlteracoes =>
+      _snapshotInicial != null &&
+      jsonEncode(_estadoAtual()) != _snapshotInicial;
+
+  Future<void> _confirmarDescarte() async {
+    final descartar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Descartar alterações?'),
+        content: const Text('Há alterações não salvas. Seus dados serão perdidos.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Continuar editando'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Descartar'),
+          ),
+        ],
+      ),
+    );
+    if (descartar == true && mounted) {
+      Navigator.of(context).pop();
+    }
+  }
 
   @override
   void initState() {
@@ -112,6 +163,7 @@ class _PerfilProfissionalFormPageState
     } catch (erro) {
       Log.erro(erro, contexto: 'perfil_profissional_form_page:initState');
     }
+    _snapshotInicial = jsonEncode(_estadoAtual());
   }
 
   @override
@@ -311,7 +363,17 @@ class _PerfilProfissionalFormPageState
         .toList()
       ..sort((a, b) => a.value.compareTo(b.value));
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (_temAlteracoes) {
+          _confirmarDescarte();
+        } else {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
       backgroundColor: context.corFundo,
       appBar: _perfilExistente
           ? AppBar(
@@ -358,6 +420,7 @@ class _PerfilProfissionalFormPageState
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -408,7 +471,10 @@ class _PerfilProfissionalFormPageState
               const SizedBox(height: 22),
             ],
             Center(
-              child: GestureDetector(
+              child: Semantics(
+                button: true,
+                label: 'Selecionar foto do perfil',
+                child: GestureDetector(
                 onTap: salvando ? null : _selecionarFoto,
                 child: Stack(
                   clipBehavior: Clip.hardEdge,
@@ -444,6 +510,7 @@ class _PerfilProfissionalFormPageState
                     ),
                   ],
                 ),
+              ),
               ),
             ),
             const SizedBox(height: 14),

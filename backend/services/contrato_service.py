@@ -43,7 +43,7 @@ def obter_contrato(token: str) -> dict | None:
 def registrar_aceite(token: str, nome: str) -> dict | None:
     cur = executar("SELECT * FROM contratos WHERE token = ?", (token,))
     row = cur.fetchone()
-    if row is None:
+    if row is None or row["status"] not in ("pendente", "aceito"):
         return None
     if row["status"] == "aceito":
         return {
@@ -56,9 +56,15 @@ def registrar_aceite(token: str, nome: str) -> dict | None:
             "nome_aceite": row["nome_aceite"],
         }
     agora = datetime.now(timezone.utc).isoformat()
+    # Transicao condicionada ao estado anterior: em uma corrida, apenas a
+    # primeira submissao vence; a segunda nao sobrescreve nome/aceito_em.
     executar(
-        "UPDATE contratos SET status = 'aceito', aceito_em = ?, nome_aceite = ? WHERE token = ?",
+        "UPDATE contratos SET status = 'aceito', aceito_em = ?, nome_aceite = ? "
+        "WHERE token = ? AND status = 'pendente'",
         (agora, nome.strip(), token),
     ).commit()
     log.info("Contrato aceito: token=%s nome=%s", token[:8], nome[:20])
-    return obter_contrato(token)
+    atual = obter_contrato(token)
+    if atual is None or atual["status"] != "aceito":
+        return None
+    return atual

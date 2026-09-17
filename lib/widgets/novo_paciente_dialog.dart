@@ -32,6 +32,7 @@ Future<void> mostrarDialogNovoPaciente({
   String? modoAtendimento;
   String tratamento = 'masculino';
   bool salvando = false;
+  String? erroDataNascimento;
 
   try {
     await showDialog<void>(
@@ -112,10 +113,11 @@ Future<void> mostrarDialogNovoPaciente({
                     TextField(
                       controller: dataNascimentoController,
                       keyboardType: TextInputType.datetime,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Data de nascimento',
                         hintText: 'dd/mm/aaaa',
-                        border: OutlineInputBorder(),
+                        errorText: erroDataNascimento,
+                        border: const OutlineInputBorder(),
                       ),
                       onChanged: (value) {
                         final digits = value.replaceAll(RegExp(r'[^\d]'), '');
@@ -128,7 +130,7 @@ Future<void> mostrarDialogNovoPaciente({
                             );
                           }
                         } else if (digits.length > 4) {
-                          final txt = '${digits.substring(0, 2)}/${digits.substring(2, 4)}/${digits.substring(4, 8)}';
+                          final txt = '${digits.substring(0, 2)}/${digits.substring(2, 4)}/${digits.substring(4, digits.length.clamp(4, 8))}';
                           if (txt != value) {
                             dataNascimentoController.value = TextEditingValue(
                               text: txt,
@@ -269,29 +271,34 @@ Future<void> mostrarDialogNovoPaciente({
                             );
                             return;
                           }
+                          DateTime? dataNascimento;
+                          final dataTexto = dataNascimentoController.text.trim();
+                          String? erroData;
+                          if (dataTexto.isNotEmpty) {
+                            final match = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$').firstMatch(dataTexto);
+                            if (match == null) {
+                              erroData = 'Use o formato dd/mm/aaaa.';
+                            } else {
+                              final dia = int.parse(match.group(1)!);
+                              final mes = int.parse(match.group(2)!);
+                              final ano = int.parse(match.group(3)!);
+                              dataNascimento = DateTime(ano, mes, dia);
+                              if (ano < 1 || dataNascimento.year != ano ||
+                                  dataNascimento.month != mes || dataNascimento.day != dia) {
+                                erroData = 'Informe uma data de nascimento válida.';
+                              } else if (dataNascimento.isAfter(DateTime.now())) {
+                                erroData = 'A data de nascimento não pode ser futura.';
+                              }
+                            }
+                          }
+                          setDialogState(() {
+                            erroDataNascimento = erroData;
+                          });
+                          if (erroData != null) return;
                           setDialogState(() {
                             salvando = true;
                           });
                           try {
-                            DateTime? dataNascimento;
-                            final dataTexto = dataNascimentoController.text.trim();
-                            if (dataTexto.isNotEmpty) {
-                              final match = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$').firstMatch(dataTexto);
-                              if (match == null) {
-                                if (!context.mounted) return;
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Data de nascimento deve estar no formato dd/mm/aaaa.'),
-                                  ),
-                                );
-                                return;
-                              }
-                              dataNascimento = DateTime(
-                                int.parse(match.group(3)!),
-                                int.parse(match.group(2)!),
-                                int.parse(match.group(1)!),
-                              );
-                            }
                             final paciente = Paciente(
                               id: DateTime.now()
                                   .millisecondsSinceEpoch
@@ -334,6 +341,7 @@ Future<void> mostrarDialogNovoPaciente({
                                 ),
                               ),
                             );
+                          } finally {
                             if (dialogContext.mounted) {
                               setDialogState(() {
                                 salvando = false;

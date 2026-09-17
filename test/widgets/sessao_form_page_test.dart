@@ -1,4 +1,6 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
@@ -11,6 +13,8 @@ import 'package:prontuario_tcc/models/progresso_sessao.dart';
 import 'package:prontuario_tcc/models/sessao.dart';
 import 'package:prontuario_tcc/screens/sessao_form_page.dart';
 import 'package:prontuario_tcc/services/audio_relato_service.dart';
+import 'package:prontuario_tcc/services/encryption_service.dart';
+import 'package:prontuario_tcc/services/sessao_service.dart';
 import 'package:prontuario_tcc/providers/service_providers.dart';
 
 class _FakeAudioRelatoService implements AudioRelatoService {
@@ -27,27 +31,51 @@ class _FakeAudioRelatoService implements AudioRelatoService {
   @override Future<void> dispose() async {}
 }
 
-/// O `AudioPlayer` real do audioplayers pendura o teardown em `testWidgets`
-/// (chamadas nativas sem handler no ambiente de teste). Este fake sobrescreve
-/// todos os métodos usados pela página para que o dispose não trave.
-class _FakeAudioPlayer extends AudioPlayer {
+class _FakeAudioPlayer implements AudioPlayer {
+  final complete = StreamController<void>.broadcast();
+  bool disposed = false;
+  int plays = 0;
+  int stops = 0;
+
+  void checkAlive() {
+    if (disposed) throw StateError('AudioPlayer usado apos dispose');
+  }
+
   @override
-  Stream<void> get onPlayerComplete => const Stream<void>.empty();
+  Stream<void> get onPlayerComplete {
+    checkAlive();
+    return complete.stream;
+  }
   @override
-  Future<void> release() async {}
+  Future<void> stop() async {
+    checkAlive();
+    stops++;
+  }
   @override
-  Future<void> stop() async {}
+  Future<void> play(Source source, {double? volume, double? balance, AudioContext? ctx, Duration? position, PlayerMode? mode}) async {
+    checkAlive();
+    plays++;
+  }
   @override
-  Future<void> play(Source source, {double? volume, double? balance, AudioContext? ctx, Duration? position, PlayerMode? mode}) async {}
+  Future<void> dispose() async {
+    checkAlive();
+    disposed = true;
+    await complete.close();
+  }
   @override
-  Future<void> setSource(Source source) async {}
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _SessaoServiceComErro extends SessaoService {
   @override
-  Future<void> dispose() async {}
+  int proximoNumeroSessao(String pacienteId) => throw StateError('Falha sintetica');
 }
 
 void main() {
   late _FakeAudioRelatoService fakeAudio;
   late Paciente paciente;
+  late EncryptionService encryption;
+  late SessaoService sessaoService;
 
   setUpAll(() async {
     Hive.init('test/temp_hive/sf_final');
@@ -58,6 +86,9 @@ void main() {
     await Hive.openBox<String>('app_config');
     await Hive.openBox<Pacote>('pacotes');
     await Hive.openBox<ProgressoSessao>('progresso_sessoes');
+    encryption = EncryptionService();
+    await encryption.gerarChave();
+    sessaoService = SessaoService(encryption: encryption);
   });
 
   tearDownAll(() async {
@@ -76,6 +107,7 @@ void main() {
   });
 
   setUp(() async {
+    WidgetController.hitTestWarningShouldBeFatal = true;
     await Hive.box<Paciente>('pacientes').clear();
     await Hive.box<Sessao>('sessoes').clear();
     await Hive.box<PerfilProfissional>('perfil_profissional').clear();
@@ -85,10 +117,19 @@ void main() {
     fakeAudio = _FakeAudioRelatoService();
   });
 
+  tearDown(() {
+    WidgetController.hitTestWarningShouldBeFatal = false;
+  });
+
   Widget app({Sessao? sessao}) => ProviderScope(
     overrides: [
       audioRelatoServiceProvider.overrideWithValue(fakeAudio),
-      audioPlayerProvider.overrideWithValue(_FakeAudioPlayer()),
+      sessaoServiceProvider.overrideWithValue(sessaoService),
+      audioPlayerProvider.overrideWith((ref) {
+        final player = _FakeAudioPlayer();
+        ref.onDispose(player.dispose);
+        return player;
+      }),
     ],
     child: MaterialApp(home: SessaoFormPage(paciente: paciente, sessaoExistente: sessao)),
   );
@@ -122,6 +163,82 @@ void main() {
       await pump(tester);
       expect(find.text('Apontamentos'), findsNothing);
     });
+  });
+
+  testWidgets('erro de abertura orienta suporte e permite voltar sem apagar dados', (tester) async {
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        audioRelatoServiceProvider.overrideWithValue(fakeAudio),
+        audioPlayerProvider.overrideWith((ref) {
+          final player = _FakeAudioPlayer();
+          ref.onDispose(player.dispose);
+          return player;
+        }),
+        sessaoServiceProvider.overrideWithValue(_SessaoServiceComErro()),
+      ],
+      child: MaterialApp(home: Scaffold(body: Builder(builder: (context) => TextButton(
+        onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => SessaoFormPage(paciente: paciente),
+        )),
+        child: const Text('Abrir'),
+      )))),
+    ));
+    await tester.tap(find.text('Abrir'));
+    await tester.pumpAndSettle();
+    expect(find.text('Não foi possível abrir o prontuário'), findsOneWidget);
+    expect(find.textContaining('Tente limpar os dados'), findsNothing);
+    expect(find.textContaining('suporte'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Voltar'), 400);
+    final voltar = find.widgetWithText(FilledButton, 'Voltar');
+    await tester.ensureVisible(voltar);
+    await tester.tap(voltar);
+    await tester.pumpAndSettle();
+    expect(find.text('Abrir'), findsOneWidget);
+    expect(Hive.box<Paciente>('pacientes').get('p1')!.nome, 'Maria Silva');
+  });
+
+  testWidgets('abre ouve sai e ouve outra sessao no mesmo scope sem player descartado', (tester) async {
+    final players = <_FakeAudioPlayer>[];
+    final navigator = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        audioRelatoServiceProvider.overrideWithValue(fakeAudio),
+        audioPlayerProvider.overrideWith((ref) {
+          final player = _FakeAudioPlayer();
+          players.add(player);
+          ref.onDispose(player.dispose);
+          return player;
+        }),
+      ],
+      child: MaterialApp(navigatorKey: navigator, home: const Scaffold()),
+    ));
+    for (var i = 0; i < 2; i++) {
+      navigator.currentState!.push(MaterialPageRoute<void>(builder: (_) => SessaoFormPage(
+        paciente: paciente,
+        sessaoExistente: Sessao(
+          id: 'audio$i', pacienteId: paciente.id, numeroSessao: i + 1,
+          data: DateTime(2026, 9, 6), audioRelatoBase64: 'AQIDBA==',
+        ),
+      )));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Editar'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byTooltip('Ouvir áudio'));
+      await tester.tap(find.byTooltip('Ouvir áudio'));
+      await tester.pumpAndSettle();
+      expect(players.last.plays, 1);
+      expect(players.last.disposed, isFalse);
+      expect(players.last.complete.hasListener, isTrue);
+      // Parar pelo controle evita misturar a regressao com estado global do editor.
+      await tester.tap(find.byTooltip('Parar áudio'));
+      await tester.pumpAndSettle();
+      navigator.currentState!.pop();
+      await tester.pumpAndSettle();
+      expect(players.last.complete.hasListener, isFalse);
+      expect(players.last.disposed, isTrue);
+    }
+    expect(players, hasLength(2));
+    expect(players.every((player) => player.stops >= 3), isTrue);
   });
 
   group('Editar sessao existente', () {
@@ -187,19 +304,36 @@ void main() {
       await tester.pump();
       await tester.pump();
 
+      final relato = find.byWidgetPredicate((widget) =>
+        widget is TextField && widget.controller?.text == 'Relato teste');
+      await tester.ensureVisible(relato);
+      await tester.enterText(relato, 'Relato alterado e persistido');
       await tester.scrollUntilVisible(
         find.text('Salvar sessão'),
         300,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(find.text('Salvar sessão'));
+      final salvar = find.widgetWithText(FilledButton, 'Salvar sessão');
+      await tester.ensureVisible(salvar);
+      await tester.pump();
+      await tester.runAsync(() async {
+        await tester.tap(salvar);
+        await Hive.box<Sessao>('sessoes').flush();
+      });
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pump(const Duration(milliseconds: 500));
 
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await tester.runAsync(() async {
+        await Hive.box<Sessao>('sessoes').close();
+        await Hive.openBox<Sessao>('sessoes');
+      });
       final salva = Hive.box<Sessao>('sessoes').get('s2')!;
-      expect(salva.artigosSugeridos, contains('Artigo Teste'));
+      expect(encryption.descriptografar(salva.relatoPosSessao), 'Relato alterado e persistido');
+      expect(encryption.descriptografar(salva.artigosSugeridos), contains('Artigo Teste'));
 
-      await pump(tester, sessao: salva);
+      await pump(tester, sessao: SessaoService(encryption: encryption).buscarSessaoPorId('s2'));
       expect(find.textContaining('Artigo Teste'), findsOneWidget);
     });
   });

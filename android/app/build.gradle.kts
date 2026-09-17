@@ -4,6 +4,22 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Assinatura de produção configurável via propriedades do Gradle (e.g.
+// ~/.gradle/gradle.properties) ou variáveis de ambiente. Sem keystore de
+// produção o build de release usa a assinatura de debug (desenvolvimento).
+val keystoreFile = providers.gradleProperty("MENTALL_KEYSTORE_FILE").orNull
+    ?: System.getenv("MENTALL_KEYSTORE_FILE")
+val keystorePassword = providers.gradleProperty("MENTALL_KEYSTORE_PASSWORD").orNull
+    ?: System.getenv("MENTALL_KEYSTORE_PASSWORD")
+val keyAlias = providers.gradleProperty("MENTALL_KEY_ALIAS").orNull
+    ?: System.getenv("MENTALL_KEY_ALIAS")
+val keyPassword = providers.gradleProperty("MENTALL_KEY_PASSWORD").orNull
+    ?: System.getenv("MENTALL_KEY_PASSWORD")
+val hasReleaseSigning = !keystoreFile.isNullOrBlank()
+    && !keystorePassword.isNullOrBlank()
+    && !keyAlias.isNullOrBlank()
+    && !keyPassword.isNullOrBlank()
+
 android {
     namespace = "com.mentall.app"
     compileSdk = flutter.compileSdkVersion
@@ -26,9 +42,25 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(keystoreFile!!)
+                storePassword = keystorePassword
+                keyAlias = keyAlias
+                keyPassword = keyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                // Sem keystore de produção: assinatura de debug para dev.
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }

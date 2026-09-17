@@ -26,6 +26,7 @@ import 'services/logger.dart';
 import 'utils/mentall_colors.dart';
 import 'utils/raio.dart';
 import 'utils/tipografia.dart';
+import 'widgets/app_lock_gate.dart';
 
 class _SecureHttpOverrides extends HttpOverrides {
   // SHA-256 fingerprints of allowed certificates (PEM format).
@@ -193,15 +194,17 @@ void main() async {
         encryptionServiceProvider.overrideWithValue(encryption),
         authServiceProvider.overrideWithValue(auth),
       ],
-      child: const MentAllApp(),
+      child: MentAllApp(),
     ),
   );
 }
 
 class MentAllApp extends ConsumerWidget {
-  const MentAllApp({super.key});
+  MentAllApp({super.key});
 
   static const Color _corPrimaria = Color(0xFF8806CE);
+
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
   ThemeData _criarTema(Brightness brightness) {
     final colorScheme = ColorScheme.fromSeed(
@@ -306,18 +309,25 @@ class MentAllApp extends ConsumerWidget {
     return MaterialApp(
       title: 'MentAll PRO',
       debugShowCheckedModeBanner: false,
+      navigatorKey: _navigatorKey,
       builder: (context, child) {
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            textScaler: MediaQuery.of(context).textScaler.clamp(
-              minScaleFactor: 0.8,
-              maxScaleFactor: 1.5,
+        return AppLockGate(
+          navigatorKey: _navigatorKey,
+          child: MediaQuery(
+            // Não limita a ampliação de texto do sistema (acessibilidade). O
+            // textScaler vem do dispositivo e os layouts devem se adaptar por
+            // rolagem; a validação em 200% faz parte da matriz visual.
+            data: MediaQuery.of(context).copyWith(
+              textScaler: MediaQuery.of(context).textScaler.clamp(
+                minScaleFactor: 0.8,
+                maxScaleFactor: 2.0,
+              ),
             ),
-          ),
-          child: Listener(
-            behavior: HitTestBehavior.translucent,
-            onPointerDown: (_) => AppStartPage.onUserActivity?.call(),
-            child: child!,
+            child: Listener(
+              behavior: HitTestBehavior.translucent,
+              onPointerDown: (_) => AppLockGate.onUserActivity?.call(),
+              child: child!,
+            ),
           ),
         );
       },

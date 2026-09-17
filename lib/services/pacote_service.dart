@@ -12,6 +12,15 @@ class PacoteService with EncryptedServiceMixin {
 
   final Box<Pacote> _box = Hive.box<Pacote>('pacotes');
 
+  /// Regra pura: um crédito de pacote só é consumido quando uma sessão NOVA é
+  /// salva com cobrança por pacote. Reabrir/editar uma sessão já salva NÃO
+  /// debita novamente (bug: antes consumia a cada salvamento).
+  static bool deveConsumirAoSalvar({
+    required bool editando,
+    required bool statusPacote,
+  }) =>
+      !editando && statusPacote;
+
   String _encrypt(String value) => encrypt(value);
   String _decrypt(String value) => decrypt(value);
 

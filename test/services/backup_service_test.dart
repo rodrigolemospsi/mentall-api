@@ -150,16 +150,14 @@ void main() {
     expect(sessaoService.buscarSessaoPorId('s1'), isNotNull);
   });
 
-  test('roundtrip sem criptografia (sem PIN)', () async {
+  test('import legado sem chave e rejeitado sem sobrescrever dados', () async {
     final backupSemPin = BackupService();
-    final pacienteServiceSemPin = PacienteService();
-
-    await pacienteServiceSemPin.adicionarPaciente(novoPaciente());
-    final snapshot = backupSemPin.exportarParaJson();
-
-    await Hive.box<Paciente>('pacientes').clear();
-    await backupSemPin.importarDeJson(snapshot);
-
-    expect(pacienteServiceSemPin.buscarPacientePorId('p1')!.nome, 'Original');
+    await pacienteService.adicionarPaciente(novoPaciente());
+    final resultado = await backupSemPin.importarDeJson(jsonEncode({
+      'versao': '2.0',
+      'pacientes': [{'id': 'p1', 'nome': 'Alterado'}],
+    }));
+    expect(resultado, contains('desbloqueie'));
+    expect(pacienteService.buscarPacientePorId('p1')!.nome, 'Original');
   });
 }

@@ -18,6 +18,19 @@ final _mesFinanceiroProvider = StateProvider<DateTime>((ref) {
   return DateTime(now.year, now.month, 1);
 });
 
+/// Lista de sessões do mês observando a box (reativo). Sempre que uma sessão
+/// muda (edição de valor/status, inclusão, arquivamento), a tela recomputa.
+final sessoesFinanceiroPorMesProvider =
+    StreamProvider.family<List<Sessao>, DateTime>((ref, mes) async* {
+  final service = ref.watch(sessaoServiceProvider);
+  final inicio = DateTime(mes.year, mes.month, 1);
+  final fim = DateTime(mes.year, mes.month + 1, 0, 23, 59, 59);
+  yield service.listarSessoesPorPeriodo(inicio, fim);
+  await for (final _ in service.observarSessoes()) {
+    yield service.listarSessoesPorPeriodo(inicio, fim);
+  }
+});
+
 class FinanceiroPage extends ConsumerStatefulWidget {
   const FinanceiroPage({super.key});
 
@@ -29,7 +42,7 @@ class _FinanceiroPageState extends ConsumerState<FinanceiroPage> {
   @override
   Widget build(BuildContext context) {
     final mesAtual = ref.watch(_mesFinanceiroProvider);
-    final sessoes = _sessoesDoMes(ref, mesAtual);
+    final sessoes = ref.watch(sessoesFinanceiroPorMesProvider(mesAtual)).valueOrNull ?? [];
     final resumo = _calcularResumo(sessoes);
     final pacienteService = ref.watch(pacienteServiceProvider);
     final pacientesPorId = {
@@ -335,13 +348,6 @@ class _FinanceiroPageState extends ConsumerState<FinanceiroPage> {
       default:
         return 'Pendente';
     }
-  }
-
-  List<Sessao> _sessoesDoMes(WidgetRef ref, DateTime mes) {
-    final service = ref.read(sessaoServiceProvider);
-    final inicio = DateTime(mes.year, mes.month, 1);
-    final fim = DateTime(mes.year, mes.month + 1, 0, 23, 59, 59);
-    return service.listarSessoesPorPeriodo(inicio, fim);
   }
 
   _ResumoFinanceiro _calcularResumo(List<Sessao> sessoes) {

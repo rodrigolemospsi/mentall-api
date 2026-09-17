@@ -8,7 +8,6 @@ import '../utils/raio.dart';
 import 'main_shell.dart';
 import 'perfil_profissional_form_page.dart';
 import '../utils/tipografia.dart';
-
 final _erroProvider = StateProvider<String>((ref) => '');
 final _processandoProvider = StateProvider<bool>((ref) => false);
 
@@ -52,6 +51,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       final sucesso = await authService.desbloquearComBiometria();
       if (!mounted) return;
       if (sucesso) {
+        if (authService.ultimoAcessoFailSafe) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Este aparelho não tem biometria/tela bloqueada. '
+                'O acesso não pôde ser protegido por senha ou digital.',
+              ),
+              duration: Duration(seconds: 6),
+            ),
+          );
+        }
+        ref.read(lockRefreshProvider.notifier).state++;
         _navegarParaHome();
       } else {
         ref.read(_erroProvider.notifier).state =

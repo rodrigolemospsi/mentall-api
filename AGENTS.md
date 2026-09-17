@@ -4,7 +4,32 @@
 
 > **Regra de trabalho (obrigatória):** ao receber **qualquer solicitação**, invocar obrigatoriamente a skill `using-agent-skills` **antes de qualquer leitura de código ou planejamento**. Ela apontará as demais skills aplicáveis (ex.: `planning-and-task-breakdown`, `test-driven-development`, `frontend-ui-engineering`, `debugging-and-error-recovery`), que devem ser invocadas em sequência antes de planejar e executar. Não iniciar análise, plano ou código sem ter passado por esse passo.
 
-## Correções e Funcionalidades (03/09/2026) — LINK DE CONFIRMAÇÃO DE E-MAIL IDEMPOTENTE
+## Correções e Funcionalidades (04/09/2026) — DESBLOQUEIO ABRIA SEM PEDIR BIOMETRIA/SENHA (GATE RESTAURADO)
+
+### Bug reportado (dono): "O app está abrindo sem solicitar senha ou biometria, mesmo estando marcado desbloquear com digital/face"
+- **Sintoma:** com a opção "Desbloquear com digital / face" ativa, o app abria direto na Home, sem passar pelo prompt de biometria/credencial do sistema.
+- **Causa raiz (regressão do fix de 03/09 — `43fc065`):** o desbloqueio real ia por `EncryptionService.carregarChaveDoSecureStorage()`, que lê **primeiro o cofre durável** (`FlutterSecureStorage(aOptions: AndroidOptions())`, **sem `enforceBiometrics`**) — ou seja, reler a chave ali **não dispara prompt nenhum**. O gate de biometria de verdade (cofre `_pin`, `AndroidOptions.biometric(enforceBiometrics: true)`) só era lido como **fallback** quando o cofre durável estava vazio. Além disso, `LocalAuthentication.authenticate()` **nunca era chamado** em lugar algum do app (o `_localAuth` só era usado para consultar suporte, não para autenticar) — conferido por grep. Resultado: em qualquer aparelho com a chave no cofre durável, `desbloquearComBiometria()` retornava `true` imediatamente; o `LoginPage` auto-disparava isso no `initState` e o app "abria" sozinho. Em instalação sem chave reconhecida, o boot (`main.dart`) chamava `gerarChave()` e setava `_desbloqueado = true`, pulando o login por completo.
+- **Decisões do dono (perguntas):** (1) com "Desbloquear com digital/face" ativo + aparelho com biometria/credencial → **exigir prompt de verdade**; (2) manter **fail-safe** (nunca travar) quando o aparelho não tiver biometria/tela bloqueada ou a biometria for invalidada.
+- **Segundo achado:** `ConfiguracoesService.biometriaAtivada` (chave `biometria_ativada`, padrão `'true'`) era lido **só** na service e na UI — **nenhuma parte do fluxo de autenticação o lia** (grep). O switch era puramente cosmético.
+
+### Fix (TDD — testes RED antes)
+- **`lib/services/auth_service.dart`:**
+  1. Nova abstração injetável `GateDeAutenticacao` (`suportaGate()` / `autenticar()`) + implementação real `_LocalAuthGate` que chama `isDeviceSupported()` e `authenticate()` do `local_auth` (com `persistAcrossBackgrounding: true`) — soluciona a dependência do platform channel p/ testes sem subclasse de `LocalAuthentication`.
+  2. `desbloquearComBiometria()` reescrito: com `biometriaAtivada` **on** + aparelho com gate → **exige o prompt do sistema**; retorna `false` se o usuário cancelar/falhar (não burla). Gate indisponível (sem credencial/biometria/hardware fora/bio bloqueado) ou opção **off** → cai no cofre durável **fail-safe** (preserva o fix de lockout do 03/09).
+  3. Erros `LocalAuthException` classificados por `LocalAuthExceptionCode`: `noCredentialsSet`, `noBiometricsEnrolled`, `noBiometricHardware`, `biometricHardwareTemporarilyUnavailable`, `biometricLockout`, `temporaryLockout`, `deviceError`, `uiUnavailable`, `unknownError` → indisponibilidade (fail-safe); `userCanceled`/`userRequestedFallback`/`authInProgress`/`timeout`/`systemCanceled` → honram o gate (retornam `false`).
+  4. Getter `biometriaAtivada` lê o box `app_config` (default `true`) — agora o toggle **realmente controla** se o gate aparece.
+  5. `_carregarChave()` extraído (carrega a chave do secure storage, seta `_desbloqueado`).
+- **`lib/screens/configuracoes_page.dart`** — subtítulos do switch "Desbloquear com digital / face" agora refletem o comportamento real (on = pede a digital/face ao desbloquear; off = sem prompt, dados seguem cifrados no cofre do aparelho).
+- **Testes:** **+6** em `test/services/auth_service_test.dart` (novo group "desbloquearComBiometria — gate de biometria/credencial"), com `_FakeGate` (subclasse de `GateDeAutenticacao`) e `_MemStorage` (chave no cofre durável): exige o gate e autenticou; não desbloqueia em cancelamento; não desbloqueia em erro não-indisponível; erro de indisponibilidade → fail-safe (desbloqueia); opção off → não chama o gate; aparelho sem suporte → fail-safe silencioso. RED reproduziu o comportamento antigo (retornava true sem chamar `authenticate`); GREEN após o fix.
+- **Verificação:** `flutter analyze` limpo (só warning pré-existente em `tools/gerar_prompts_ia_pdf.dart`); suíte Flutter **177/177** (era 171; +6 do novo grupo).
+- **APK:** bump `1.0.34+35` → **`1.0.35+36`** (`MentAllPRO-v1.0.35.apk`, ~72 MB).
+
+### Comportamento agora (para validar no aparelho)
+- Opção ON + aparelho com biometria/credencial → reabrir exibe o prompt do sistema; cancelar/errar mostra "Não foi possível autenticar. Tente novamente." (permite retentar); acerto → Home.
+- Opção ON + aparelho SEM biometria/tela bloqueada (ou biometria invalidada) → abre direto (fail-safe, sem travar).
+- Opção OFF → abre sem prompt (escolha explícita; dados seguem cifrados no cofre do aparelho).
+
+
 
 ### Bug reportado (dono): "Link invalido ou expirado" mesmo com link válido/fresco, e acesso ao app funcionando
 - **Sintoma:** o link de confirmação chega no e-mail, mas ao clicar aparece "Link invalido ou expirado". Mesmo assim o dono conseguiu dar continuidade e acessar o app.

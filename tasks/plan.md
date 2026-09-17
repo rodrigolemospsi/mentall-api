@@ -1,5 +1,8 @@
 # Plano — Venda recorrente do MentAll + Painel de Controle
 
+> Prioridade atual (06/09/2026): estabilizacao da auditoria antes de ampliar o uso.
+> Plano e criterios: [Execucao da auditoria](plan_auditoria_2026-09-06.md).
+
 ## Objetivo
 
 Transformar o MentAll de app individual em uma **plataforma por assinatura**: cada

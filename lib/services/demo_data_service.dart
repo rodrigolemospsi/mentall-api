@@ -29,7 +29,7 @@ class DemoDataService {
     _pacienteService = PacienteService(encryption: encryption);
     _sessaoService = SessaoService(encryption: encryption);
     _avaliacaoService = AvaliacaoInicialService(encryption: encryption);
-    _config = ConfiguracoesService();
+    _config = ConfiguracoesService(encryption: encryption);
   }
 
   Future<void> semearSeNecessario() async {

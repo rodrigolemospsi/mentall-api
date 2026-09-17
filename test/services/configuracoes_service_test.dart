@@ -1,14 +1,18 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:prontuario_tcc/services/configuracoes_service.dart';
+import 'package:prontuario_tcc/services/encryption_service.dart';
 
 void main() {
   group('ConfiguracoesService', () {
     late ConfiguracoesService config;
+    late EncryptionService encryption;
 
     setUpAll(() async {
       Hive.init('test/temp_hive/configuracoes_service');
       await Hive.openBox<String>('app_config');
+      encryption = EncryptionService();
+      await encryption.gerarChave();
     });
 
     tearDownAll(() async {
@@ -17,7 +21,7 @@ void main() {
 
     setUp(() async {
       await Hive.box<String>('app_config').clear();
-      config = ConfiguracoesService();
+      config = ConfiguracoesService(encryption: encryption);
     });
 
     test('valores padrao quando box vazia', () {

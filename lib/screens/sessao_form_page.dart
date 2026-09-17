@@ -15,6 +15,7 @@ import '../services/audio_relato_service.dart';
 import '../services/ia_clinica_service.dart';
 import '../services/logger.dart';
 import '../services/pdf_export_service.dart';
+import '../services/pacote_service.dart';
 import '../services/sessao_service.dart';
 import '../services/transcricao_relato_service.dart';
 import '../utils/artigos_validacao.dart';
@@ -151,6 +152,14 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   bool get _progressoGerando => ref.read(sessaoProgressoGerandoProvider);
   set _progressoGerando(bool v) =>
       ref.read(sessaoProgressoGerandoProvider.notifier).state = v;
+
+  /// Contadores monotônicos das operações assíncronas da tela (síntese,
+  /// artigos, progresso). Separados por tipo para que uma operação não
+  /// invalide a outra do mesmo fluxo. `_geracaoSessao` é incrementado no
+  /// reset da sessão, invalidando todas as operações em andamento.
+  int _geracaoSessao = 0;
+  int _geracaoArtigos = 0;
+  int _geracaoProgresso = 0;
 
   void _triggerRebuild() {
     if (mounted) ref.read(sessaoFormRebuildProvider.notifier).state++;
@@ -383,7 +392,9 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
     _timerGravacao?.cancel();
     _audioPlayerCompleteSubscription?.cancel();
-    _audioPlayer.dispose();
+    if (_audioPlayerCompleteSubscription != null) {
+      unawaited(_audioPlayer.stop());
+    }
 
     super.dispose();
   }
@@ -472,6 +483,11 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   }
 
   void _resetarEstadoSessao() {
+    // Invalida operações assíncronas em andamento de uma sessão anterior.
+    _geracaoSessao++;
+    ref.read(sessaoBuscandoArtigosProvider.notifier).state = false;
+    ref.read(sessaoProgressoGerandoProvider.notifier).state = false;
+
     _relatoPosSessaoController.clear();
     _transcricaoRelatoController.clear();
     _sinteseController.clear();
@@ -1374,7 +1390,10 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
         _aplicarDadosComuns(sessao);
 
         await _sessaoService.atualizarSessao(sessao);
-        if (_statusPagamento == 'pacote') {
+        if (PacoteService.deveConsumirAoSalvar(
+          editando: true,
+          statusPacote: _statusPagamento == 'pacote',
+        )) {
           ref.read(pacoteServiceProvider).consumirSessao(widget.paciente.id);
         }
         _modoEdicao = false;
@@ -1388,7 +1407,10 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
         _aplicarDadosComuns(novaSessao);
 
         await _sessaoService.adicionarSessao(novaSessao);
-        if (_statusPagamento == 'pacote') {
+        if (PacoteService.deveConsumirAoSalvar(
+          editando: false,
+          statusPacote: _statusPagamento == 'pacote',
+        )) {
           ref.read(pacoteServiceProvider).consumirSessao(widget.paciente.id);
         }
         _registrarAuditoria(
@@ -1455,6 +1477,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(audioPlayerProvider);
     if (_erroInicializacao != null) {
       return Scaffold(
         backgroundColor: context.corFundo,
@@ -1478,7 +1501,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Isso pode ser causado por dados incompatíveis de uma versão anterior do app. Tente limpar os dados do aplicativo nas configurações do Android.',
+              'Volte e tente abrir o prontuário novamente. Se o erro persistir, entre em contato com o suporte. Não limpe os dados nem desinstale o aplicativo: isso pode apagar seus prontuários.',
               style: TextStyle(color: context.corTextoSecondary, height: 1.4),
             ),
             const SizedBox(height: 16),
@@ -1790,9 +1813,10 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
     String relatoClinico,
     String sinteseClinica,
   ) async {
-    // Guarda o id da sessão atual: se o usuário trocar de sessão durante a
-    // busca em background, a resposta não deve sobrescrever o card de outra.
-    final sessaoIdDaBusca = _sessaoId;
+    // Tokens de sessão + tipo: duas buscas na mesma sessão não se sobrescrevem,
+    // e uma busca não é invalidada por uma operação de outro tipo.
+    final geracaoSessao = _geracaoSessao;
+    final geracao = ++_geracaoArtigos;
     _buscandoArtigos = true;
     _triggerRebuild();
 
@@ -1801,18 +1825,28 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       sinteseClinica,
     ].where((t) => t.trim().isNotEmpty).join(' ');
 
-    final artigos = await _iaClinicaService.gerarArtigos(
-      temasPesquisa: temasPesquisa,
-      contextoClinico: contexto,
-    );
+    try {
+      final artigos = await _iaClinicaService.gerarArtigos(
+        temasPesquisa: temasPesquisa,
+        contextoClinico: contexto,
+      );
 
-    if (!mounted) return;
-    if (_sessaoId != sessaoIdDaBusca) return;
-    _buscandoArtigos = false;
-    if (artigos != null && artigos.trim().isNotEmpty) {
-      _artigosSugeridos = artigos;
+      if (!mounted ||
+          _geracaoSessao != geracaoSessao ||
+          _geracaoArtigos != geracao) {
+        return;
+      }
+      if (artigos != null && artigos.trim().isNotEmpty) {
+        _artigosSugeridos = artigos;
+      }
+    } finally {
+      if (mounted &&
+          _geracaoSessao == geracaoSessao &&
+          _geracaoArtigos == geracao) {
+        _buscandoArtigos = false;
+        _triggerRebuild();
+      }
     }
-    _triggerRebuild();
   }
 
   Widget _cardBuscandoArtigos() {
@@ -1821,6 +1855,8 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
   Future<void> _gerarProgressoAutomatico() async {
     if (_progressoGerando) return;
+    final geracaoSessao = _geracaoSessao;
+    final geracao = ++_geracaoProgresso;
     _progressoGerando = true;
     _triggerRebuild();
 
@@ -1861,7 +1897,9 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
         escalas: obterEscalasRecentes(ref, widget.paciente.id),
       );
 
-      if (!mounted) return;
+      if (!mounted || _geracaoSessao != geracaoSessao || _geracaoProgresso != geracao) {
+        return;
+      }
 
       if (resultado.sucesso) {
         _progressoSintomas = resultado.sintomas;
@@ -1885,12 +1923,13 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
           'IA gerou tracking de evolução - sessão $_numeroSessao',
         );
       }
-
-      _progressoGerando = false;
-      _triggerRebuild();
-    } catch (e) {
-      _progressoGerando = false;
-      _triggerRebuild();
+    } finally {
+      if (mounted &&
+          _geracaoSessao == geracaoSessao &&
+          _geracaoProgresso == geracao) {
+        _progressoGerando = false;
+        _triggerRebuild();
+      }
     }
   }
 
