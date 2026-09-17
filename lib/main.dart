@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'hive_registrar.g.dart';
 import 'models/compromisso.dart';
@@ -68,7 +69,42 @@ class _SecureHttpOverrides extends HttpOverrides {
   }
 }
 
-void main() async {
+/// DSN do Sentry, definido em build via `--dart-define=SENTRY_DSN=...`.
+///
+/// Vazio (padrão) = relatório de erros DESATIVADO: o app se comporta exatamente
+/// como antes e nada é enviado para fora. Só ativa quando o dono informar o DSN.
+const String _sentryDsn = String.fromEnvironment('SENTRY_DSN');
+
+Future<void> main() async {
+  if (_sentryDsn.isEmpty) {
+    await _iniciarApp();
+    return;
+  }
+  await SentryFlutter.init(_configurarSentry, appRunner: _iniciarApp);
+}
+
+/// Configura o relatório de erros priorizando a privacidade (LGPD).
+///
+/// Nunca envia PII nem conteúdo clínico: sem usuário, sem corpo de requisição
+/// e sem breadcrumbs. A mensagem + stack trace bastam para diagnosticar.
+void _configurarSentry(SentryFlutterOptions options) {
+  options
+    ..dsn = _sentryDsn
+    ..sendDefaultPii = false
+    ..maxRequestBodySize = MaxRequestBodySize.never
+    ..environment = kReleaseMode ? 'production' : 'debug'
+    ..beforeSend = _removerDadosSensiveis;
+}
+
+SentryEvent? _removerDadosSensiveis(SentryEvent event, Hint hint) {
+  return event.copyWith(
+    user: null,
+    request: null,
+    breadcrumbs: const [],
+  );
+}
+
+Future<void> _iniciarApp() async {
   WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = _SecureHttpOverrides();
 
