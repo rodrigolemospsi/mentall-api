@@ -262,25 +262,49 @@ class SessaoService with EncryptedServiceMixin {
   String _decrypt(String value) => decrypt(value);
 
   void _encryptSessao(Sessao s) {
-    s.temaPrincipal = _encrypt(s.temaPrincipal);
-    s.eventosImportantes = _encrypt(s.eventosImportantes);
-    s.pensamentosAutomaticos = _encrypt(s.pensamentosAutomaticos);
-    s.emocoes = _encrypt(s.emocoes);
-    s.comportamentos = _encrypt(s.comportamentos);
-    s.intervencoes = _encrypt(s.intervencoes);
-    s.tecnicasTcc = _encrypt(s.tecnicasTcc);
-    s.tarefaCasa = _encrypt(s.tarefaCasa);
-    s.evolucaoClinica = _encrypt(s.evolucaoClinica);
-    s.planoProximaSessao = _encrypt(s.planoProximaSessao);
-    s.observacoes = _encrypt(s.observacoes);
-    s.relatoPosSessao = _encrypt(s.relatoPosSessao);
-    s.apontamentosCopiloto = _encrypt(s.apontamentosCopiloto);
-    s.transcricaoRelato = _encrypt(s.transcricaoRelato);
-    s.transcricaoRevisada = _encrypt(s.transcricaoRevisada);
-    s.erroProcessamentoIa = _encrypt(s.erroProcessamentoIa);
-    s.audioRelatoBase64 = _encrypt(s.audioRelatoBase64);
-    s.audioRelatoPath = _encrypt(s.audioRelatoPath);
-    s.artigosSugeridos = _encrypt(s.artigosSugeridos);
+    // Cifra TUDO antes de atribuir. Se a chave estiver indisponível, o
+    // `encrypt` (fail-closed) lança sem que o objeto fique parcialmente
+    // cifrado — uma nova tentativa cifraria de novo os campos já cifrados
+    // (dupla criptografia, incidente de 16/07/2026).
+    final temaPrincipal = _encrypt(s.temaPrincipal);
+    final eventosImportantes = _encrypt(s.eventosImportantes);
+    final pensamentosAutomaticos = _encrypt(s.pensamentosAutomaticos);
+    final emocoes = _encrypt(s.emocoes);
+    final comportamentos = _encrypt(s.comportamentos);
+    final intervencoes = _encrypt(s.intervencoes);
+    final tecnicasTcc = _encrypt(s.tecnicasTcc);
+    final tarefaCasa = _encrypt(s.tarefaCasa);
+    final evolucaoClinica = _encrypt(s.evolucaoClinica);
+    final planoProximaSessao = _encrypt(s.planoProximaSessao);
+    final observacoes = _encrypt(s.observacoes);
+    final relatoPosSessao = _encrypt(s.relatoPosSessao);
+    final apontamentosCopiloto = _encrypt(s.apontamentosCopiloto);
+    final transcricaoRelato = _encrypt(s.transcricaoRelato);
+    final transcricaoRevisada = _encrypt(s.transcricaoRevisada);
+    final erroProcessamentoIa = _encrypt(s.erroProcessamentoIa);
+    final audioRelatoBase64 = _encrypt(s.audioRelatoBase64);
+    final audioRelatoPath = _encrypt(s.audioRelatoPath);
+    final artigosSugeridos = _encrypt(s.artigosSugeridos);
+
+    s.temaPrincipal = temaPrincipal;
+    s.eventosImportantes = eventosImportantes;
+    s.pensamentosAutomaticos = pensamentosAutomaticos;
+    s.emocoes = emocoes;
+    s.comportamentos = comportamentos;
+    s.intervencoes = intervencoes;
+    s.tecnicasTcc = tecnicasTcc;
+    s.tarefaCasa = tarefaCasa;
+    s.evolucaoClinica = evolucaoClinica;
+    s.planoProximaSessao = planoProximaSessao;
+    s.observacoes = observacoes;
+    s.relatoPosSessao = relatoPosSessao;
+    s.apontamentosCopiloto = apontamentosCopiloto;
+    s.transcricaoRelato = transcricaoRelato;
+    s.transcricaoRevisada = transcricaoRevisada;
+    s.erroProcessamentoIa = erroProcessamentoIa;
+    s.audioRelatoBase64 = audioRelatoBase64;
+    s.audioRelatoPath = audioRelatoPath;
+    s.artigosSugeridos = artigosSugeridos;
   }
 
   void _decryptSessao(Sessao s) {

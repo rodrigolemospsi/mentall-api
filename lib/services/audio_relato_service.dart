@@ -401,7 +401,10 @@ class AudioRelatoService {
     Log.info('Criptografia concluida em ${sw.elapsedMilliseconds}ms');
 
     if (encrypted == null) {
-      throw Exception('PIN não configurado. Configure o PIN nas Configurações > Segurança para gravar áudio.');
+      throw Exception(
+        'A proteção de dados não está ativa. Desbloqueie o aplicativo e '
+        'tente gravar novamente.',
+      );
     }
     await file.writeAsBytes(encrypted);
     Log.info('Audio criptografado com sucesso: $caminho');
