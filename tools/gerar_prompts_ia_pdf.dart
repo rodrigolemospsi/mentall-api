@@ -32,21 +32,6 @@ String _extrairFTriplo(String fonte, String marcador) {
   return corpo.substring(0, fim).trim();
 }
 
-// Busca todos os blocos """ ... """ em ordem de ocorrencia.
-List<String> _todosBlocos(String fonte) {
-  final blocos = <String>[];
-  var i = 0;
-  while (true) {
-    final a = fonte.indexOf('"""', i);
-    if (a == -1) break;
-    final b = fonte.indexOf('"""', a + 3);
-    if (b == -1) break;
-    blocos.add(fonte.substring(a + 3, b).trim());
-    i = b + 3;
-  }
-  return blocos;
-}
-
 void main() async {
   final pdf = pw.Document(
     title: 'Prompts de IA - MentAll PRO',
