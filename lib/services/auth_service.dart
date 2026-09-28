@@ -324,4 +324,16 @@ class AuthService {
     await ApiClient.setCredentials(username, password);
     return autenticarBackend();
   }
+
+  /// Restabelece a sessão do servidor após o desbloqueio local.
+  ///
+  /// Tenta o cofre do sistema (SecureStorage) e, se não houver credencial lá,
+  /// cai no [ApiClient.forceReauthenticate] (app_config/memória/cofre durável).
+  /// Assim o JWT é obtido UMA vez após o desbloqueio, em vez de depender de
+  /// reautenticação no meio de cada operação — que falhava com
+  /// "Não foi possível autenticar com o servidor".
+  Future<bool> estabelecerSessaoServidor() async {
+    if (await tentarAutoLoginServidor()) return true;
+    return ApiClient.forceReauthenticate();
+  }
 }

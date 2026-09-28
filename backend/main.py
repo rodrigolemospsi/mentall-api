@@ -52,6 +52,7 @@ from models.schemas import (
     ProgressoResponse,
     RecuperacaoRequest,
     RecuperacaoResponse,
+    RedefinirSenhaRequest,
     RegistrarRecuperacaoRequest,
     RegistrarRequest,
     RegistrarResponse,
@@ -1697,6 +1698,147 @@ def registrar_recuperacao(
 
     log.info("Recuperacao registrada para email hash %s", email_hash[:16])
     return RecuperacaoResponse(sucesso=True, mensagem="Recuperacao registrada com sucesso.")
+
+
+RESET_SENHA_EXPIRACAO_MINUTOS = 10
+
+
+@app.post(
+    "/auth/solicitar-reset-senha",
+    response_model=RecuperacaoResponse,
+    tags=["Recuperacao"],
+)
+async def solicitar_reset_senha(request: RecuperacaoRequest, _req: Request):
+    _rate_limit_check(_req, max_requests=3, chave_extra="conta:" + request.email.strip().lower())
+
+    email = request.email.strip().lower()
+    email_hash = _hash_email(email)
+
+    # Resposta genérica idêntica para e-mail cadastrado ou não (anti enumeração).
+    mensagem_generica = (
+        "Se o e-mail estiver cadastrado, você receberá o código de recuperação."
+    )
+
+    from services.usuarios import obter_por_email
+
+    if obter_por_email(email) is None:
+        return RecuperacaoResponse(sucesso=True, mensagem=mensagem_generica)
+
+    from services.db import executar
+
+    codigo = _gerar_codigo()
+    expiracao = (
+        datetime.now(timezone.utc) + timedelta(minutes=RESET_SENHA_EXPIRACAO_MINUTOS)
+    ).isoformat()
+    agora = datetime.now(timezone.utc).isoformat()
+
+    existente = executar(
+        "SELECT email_hash FROM resets_senha WHERE email_hash = ?",
+        (email_hash,),
+    ).fetchone()
+    if existente:
+        executar(
+            "UPDATE resets_senha SET codigo_hash = ?, codigo_expiracao = ?, "
+            "tentativas = 0, bloqueio_ate = NULL WHERE email_hash = ?",
+            (_hash_codigo(codigo), expiracao, email_hash),
+        ).commit()
+    else:
+        executar(
+            "INSERT INTO resets_senha (email_hash, codigo_hash, codigo_expiracao, "
+            "tentativas, criado_em) VALUES (?, ?, ?, 0, ?)",
+            (email_hash, _hash_codigo(codigo), expiracao, agora),
+        ).commit()
+
+    corpo = f"""<html><body style="font-family:sans-serif;padding:20px;">
+<h2>MentAll PRO - Redefinicao de senha</h2>
+<p>Seu codigo de verificacao: <strong style="font-size:24px;letter-spacing:4px;">{codigo}</strong></p>
+<p>Este codigo expira em {RESET_SENHA_EXPIRACAO_MINUTOS} minutos.</p>
+<p>Se você não solicitou a redefinicao, ignore este e-mail.</p>
+</body></html>"""
+
+    enviado = await _enviar_email(email, "MentAll PRO - Redefinicao de senha", corpo)
+    log.info("Codigo de reset de senha gerado para e-mail %s (enviado=%s)", email_hash[:16], enviado)
+
+    return RecuperacaoResponse(
+        sucesso=True,
+        mensagem="Codigo enviado para o email." if enviado
+        else "Código gerado. E-mail não disponível no momento.",
+    )
+
+
+@app.post(
+    "/auth/redefinir-senha",
+    response_model=RecuperacaoResponse,
+    tags=["Recuperacao"],
+)
+def redefinir_senha(request: RedefinirSenhaRequest, _req: Request):
+    _rate_limit_check(_req, max_requests=5, chave_extra="conta:" + request.email.strip().lower())
+
+    if not _senha_forte(request.nova_senha):
+        raise HTTPException(
+            status_code=422,
+            detail="A senha deve ter pelo menos 10 caracteres, com letras maiusculas, minusculas e numeros.",
+        )
+
+    email = request.email.strip().lower()
+    email_hash = _hash_email(email)
+    codigo = request.codigo.strip()
+
+    from services.db import executar
+
+    registro = executar(
+        "SELECT codigo_hash, codigo_expiracao, tentativas, bloqueio_ate "
+        "FROM resets_senha WHERE email_hash = ?",
+        (email_hash,),
+    ).fetchone()
+
+    if not registro:
+        return RecuperacaoResponse(sucesso=False, erro="Codigo invalido.")
+
+    bloqueio_ate = registro.get("bloqueio_ate") or ""
+    if bloqueio_ate:
+        try:
+            if datetime.now(timezone.utc) < datetime.fromisoformat(bloqueio_ate):
+                return RecuperacaoResponse(
+                    sucesso=False, erro="Muitas tentativas. Aguarde alguns minutos."
+                )
+        except Exception:
+            pass
+
+    codigo_hash = registro.get("codigo_hash", "") or ""
+    if not _verificar_codigo(codigo, codigo_hash):
+        tentativas = (registro.get("tentativas") or 0) + 1
+        if tentativas >= MAX_TENTATIVAS_RECUPERACAO:
+            bloqueio = (
+                datetime.now(timezone.utc) + timedelta(minutes=BLOQUEIO_RECUPERACAO_MINUTOS)
+            ).isoformat()
+            executar(
+                "UPDATE resets_senha SET tentativas = ?, bloqueio_ate = ? WHERE email_hash = ?",
+                (tentativas, bloqueio, email_hash),
+            ).commit()
+        else:
+            executar(
+                "UPDATE resets_senha SET tentativas = ? WHERE email_hash = ?",
+                (tentativas, email_hash),
+            ).commit()
+        return RecuperacaoResponse(sucesso=False, erro="Codigo invalido.")
+
+    expiracao_str = registro.get("codigo_expiracao", "") or ""
+    if expiracao_str:
+        try:
+            if datetime.now(timezone.utc) > datetime.fromisoformat(expiracao_str):
+                return RecuperacaoResponse(sucesso=False, erro="Codigo expirado. Solicite um novo.")
+        except Exception:
+            pass
+
+    from services.usuarios import redefinir_senha as _redefinir_senha
+
+    if not _redefinir_senha(email, request.nova_senha):
+        return RecuperacaoResponse(sucesso=False, erro="Nao foi possivel redefinir a senha.")
+
+    executar("DELETE FROM resets_senha WHERE email_hash = ?", (email_hash,)).commit()
+    log.info("Senha redefinida para e-mail %s", email_hash[:16])
+    return RecuperacaoResponse(sucesso=True, mensagem="Senha redefinida com sucesso.")
 
 
 if __name__ == "__main__":

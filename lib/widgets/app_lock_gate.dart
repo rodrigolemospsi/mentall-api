@@ -170,6 +170,7 @@ class _TelaBloqueioState extends ConsumerState<_TelaBloqueio> {
       final sucesso = await auth.desbloquearComBiometria();
       if (!mounted) return;
       if (sucesso) {
+        unawaited(auth.estabelecerSessaoServidor());
         widget.onDesbloqueado();
       } else {
         setState(() {

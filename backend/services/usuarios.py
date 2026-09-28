@@ -126,6 +126,17 @@ def autenticar(email: str, senha: str) -> dict | None:
     return usuario
 
 
+def redefinir_senha(email: str, nova_senha: str) -> bool:
+    """Troca o password_hash da conta. Retorna False se o e-mail nao existir."""
+    email = email.strip().lower()
+    cur = executar(
+        "UPDATE usuarios SET password_hash = ? WHERE email = ?",
+        (hash_senha(nova_senha), email),
+    )
+    cur.commit()
+    return cur.rowcount == 1
+
+
 def registrar_acesso(usuario_id: str) -> None:
     agora = datetime.now(timezone.utc).isoformat()
     executar(

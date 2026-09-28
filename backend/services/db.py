@@ -212,6 +212,14 @@ _tabelas = [
         bloqueio_ate TEXT,
         criado_em TEXT NOT NULL
     )""",
+    """CREATE TABLE IF NOT EXISTS resets_senha (
+        email_hash TEXT PRIMARY KEY,
+        codigo_hash TEXT,
+        codigo_expiracao TEXT,
+        tentativas INTEGER NOT NULL DEFAULT 0,
+        bloqueio_ate TEXT,
+        criado_em TEXT NOT NULL
+    )""",
     """CREATE TABLE IF NOT EXISTS usuarios (
         id TEXT PRIMARY KEY,
         email TEXT NOT NULL UNIQUE,

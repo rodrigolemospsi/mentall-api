@@ -67,19 +67,30 @@ class AnamneseEnviadaService with EncryptedServiceMixin {
       throw Exception('Falha na autenticação com o servidor. Verifique credenciais em Configurações > Avançado.');
     }
 
-    final response = await ApiClient.post(
+    final body = {
+      'template_json': templateJson,
+      'abordagem': abordagem,
+      'nome_paciente': nomePaciente,
+      'nome_profissional': nomeProfissional,
+      'registro': registro,
+      'tratamento': tratamento,
+      'crp_verificado': crpVerificado,
+    };
+    var response = await ApiClient.post(
       '/anamneses',
-      body: {
-        'template_json': templateJson,
-        'abordagem': abordagem,
-        'nome_paciente': nomePaciente,
-        'nome_profissional': nomeProfissional,
-        'registro': registro,
-        'tratamento': tratamento,
-        'crp_verificado': crpVerificado,
-      },
+      body: body,
       customTimeout: const Duration(seconds: 30),
     );
+    if (response.statusCode == 401) {
+      // Token expirado/inválido: reautentica uma vez e repete (paridade com
+      // transcrição/síntese, que já retentam em 401).
+      await ApiClient.forceReauthenticate();
+      response = await ApiClient.post(
+        '/anamneses',
+        body: body,
+        customTimeout: const Duration(seconds: 30),
+      );
+    }
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;

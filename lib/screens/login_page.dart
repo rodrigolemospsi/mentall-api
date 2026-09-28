@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
@@ -62,6 +64,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             ),
           );
         }
+        // Restabelece a sessão do servidor após o desbloqueio (não bloqueia a
+        // navegação; o JWT fica pronto para as próximas chamadas).
+        unawaited(authService.estabelecerSessaoServidor());
         ref.read(lockRefreshProvider.notifier).state++;
         _navegarParaHome();
       } else {

@@ -11,6 +11,7 @@ import '../services/configuracoes_service.dart';
 import '../utils/mentall_colors.dart';
 import '../utils/raio.dart';
 import 'login_page.dart';
+import 'redefinir_senha_page.dart';
 import '../utils/tipografia.dart';
 
 class ConfiguracoesPage extends ConsumerStatefulWidget {
@@ -345,6 +346,30 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => _mostrarDialogServidor(context, ref),
+              ),
+              ListTile(
+                leading: Icon(Icons.lock_reset_outlined, color: context.corPrimaria),
+                title: const Text('Redefinir senha da conta'),
+                subtitle: const Text('Receba um código por e-mail e defina uma nova senha'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () async {
+                  final ok = await Navigator.push<bool>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => RedefinirSenhaPage(
+                        emailInicial: ApiClient.accountEmail ?? '',
+                      ),
+                    ),
+                  );
+                  if (ok == true && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Senha atualizada e credenciais salvas.'),
+                        backgroundColor: Color(0xFF2E7D32),
+                      ),
+                    );
+                  }
+                },
               ),
             ],
           ),

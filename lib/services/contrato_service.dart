@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:hive_ce/hive.dart';
-import 'package:http/http.dart' as http;
 
 import '../models/contrato_terapeutico.dart';
 import '../models/paciente.dart';
@@ -83,23 +82,30 @@ class ContratoService with EncryptedServiceMixin {
       throw Exception('Falha na autenticação com o servidor. Verifique credenciais em Configurações > Avançado.');
     }
 
-    final url = '${ApiClient.baseUrl}/contratos';
-    Log.auditoria('POST $url', contexto: 'ContratoService');
-    final response = await http
-        .post(
-          Uri.parse(url),
-          headers: ApiClient.defaultHeaders(),
-          body: jsonEncode({
-            'nome_paciente': paciente.nome,
-            'nome_profissional': perfil.nome,
-            'registro_profissional': perfil.registroProfissional,
-            'termo_pessoa': perfil.termoSingular,
-            'template_contrato': templateContrato,
-            'tratamento': perfil.tratamento,
-            'crp_verificado': perfil.crpVerificado,
-          }),
-        )
-          .timeout(const Duration(seconds: 30));
+    Log.auditoria('POST /contratos', contexto: 'ContratoService');
+    final body = {
+      'nome_paciente': paciente.nome,
+      'nome_profissional': perfil.nome,
+      'registro_profissional': perfil.registroProfissional,
+      'termo_pessoa': perfil.termoSingular,
+      'template_contrato': templateContrato,
+      'tratamento': perfil.tratamento,
+      'crp_verificado': perfil.crpVerificado,
+    };
+    var response = await ApiClient.post(
+      '/contratos',
+      body: body,
+      customTimeout: const Duration(seconds: 30),
+    );
+    if (response.statusCode == 401) {
+      // Token expirado/inválido: reautentica uma vez e repete.
+      await ApiClient.forceReauthenticate();
+      response = await ApiClient.post(
+        '/contratos',
+        body: body,
+        customTimeout: const Duration(seconds: 30),
+      );
+    }
 
     Log.auditoria('POST /contratos response: ${response.statusCode}', contexto: 'ContratoService');
 
@@ -150,12 +156,12 @@ class ContratoService with EncryptedServiceMixin {
     if (!autenticado) return false;
 
     try {
-      final response = await http
-          .get(
-            Uri.parse('${ApiClient.baseUrl}/contratos/${contrato.token}/status'),
-            headers: ApiClient.defaultHeaders(),
-          )
-          .timeout(const Duration(seconds: 30));
+      final path = '/contratos/${contrato.token}/status';
+      var response = await ApiClient.get(path, customTimeout: const Duration(seconds: 30));
+      if (response.statusCode == 401) {
+        await ApiClient.forceReauthenticate();
+        response = await ApiClient.get(path, customTimeout: const Duration(seconds: 30));
+      }
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;

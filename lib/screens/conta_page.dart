@@ -5,6 +5,7 @@ import '../services/api_client.dart';
 import '../utils/mentall_colors.dart';
 import '../utils/raio.dart';
 import '../utils/tipografia.dart';
+import 'redefinir_senha_page.dart';
 
 final contaRevisaoProvider = StateProvider<int>((ref) => 0);
 
@@ -251,7 +252,22 @@ class _ContaPageState extends ConsumerState<ContaPage> {
                     style: TextStyle(color: context.corError, fontSize: Tipografia.smMd),
                   ),
                 ],
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
+                if (!_modoCadastro)
+                  TextButton(
+                    onPressed: _processando
+                        ? null
+                        : () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => RedefinirSenhaPage(
+                                  emailInicial: _emailController.text.trim(),
+                                ),
+                              ),
+                            ),
+                    child: const Text('Esqueci minha senha'),
+                  ),
+                const SizedBox(height: 4),
                 TextButton(
                   onPressed: _processando ? null : _alternarModo,
                   child: Text(

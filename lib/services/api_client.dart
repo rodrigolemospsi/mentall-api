@@ -221,6 +221,12 @@ class ApiClient {
         } catch (_) {}
         return true;
       }
+      // Diagnóstico: antes o motivo (status/corpo) era engolido, dificultando
+      // distinguir 401 (credencial errada) de 403 (conta pendente) ou 429.
+      Log.erro(
+        'forceReauthenticate: HTTP ${response.statusCode} ${response.body}',
+        contexto: 'ApiClient.forceReauthenticate',
+      );
     } catch (e) {
       Log.erro(e, contexto: 'ApiClient.forceReauthenticate');
     }
@@ -371,6 +377,51 @@ class ApiClient {
       return null;
     } catch (_) {
       return null;
+    }
+  }
+
+  /// Solicita o código de redefinição de senha da conta por e-mail.
+  static Future<bool> solicitarResetSenha(String email) async {
+    try {
+      final res = await post(
+        '/auth/solicitar-reset-senha',
+        body: {'email': email.trim()},
+      );
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Redefine a senha da conta com o código recebido por e-mail.
+  static Future<Map<String, dynamic>> redefinirSenha({
+    required String email,
+    required String codigo,
+    required String novaSenha,
+  }) async {
+    try {
+      final res = await post(
+        '/auth/redefinir-senha',
+        body: {
+          'email': email.trim(),
+          'codigo': codigo.trim(),
+          'nova_senha': novaSenha,
+        },
+      );
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      if (res.statusCode == 200) {
+        return {
+          'sucesso': data['sucesso'] == true,
+          'mensagem': data['mensagem'] ?? '',
+          'erro': data['erro'] ?? '',
+        };
+      }
+      return {
+        'sucesso': false,
+        'erro': _extrairDetalhe(data) ?? 'Não foi possível redefinir a senha.',
+      };
+    } catch (_) {
+      return {'sucesso': false, 'erro': 'Erro de conexao. Verifique a internet.'};
     }
   }
 }

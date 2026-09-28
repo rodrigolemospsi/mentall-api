@@ -337,3 +337,9 @@ class VerificarCodigoResponse(BaseModel):
     sucesso: bool
     recovery_token: str = ""
     erro: str = ""
+
+
+class RedefinirSenhaRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=200)
+    codigo: str = Field(min_length=6, max_length=12)
+    nova_senha: str = Field(min_length=10, max_length=200)
