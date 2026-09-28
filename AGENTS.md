@@ -19,7 +19,7 @@
 
 ### Antes de gerar o APK
 - [ ] `flutter analyze` sem erros novos (1 warning pré-existente em `tools/`)
-- [ ] `flutter test` 100% (contagem atual: **221**)
+- [ ] `flutter test` 100% (0 falhas; a contagem varia com o tempo — não remover testes)
 - [ ] `flutter build apk --release` compila
 - [ ] Árvore de trabalho sem mudanças soltas (tudo commitado)
 
@@ -67,6 +67,7 @@
 - `AGENTS.md`: 2256 → 677 linhas; **Regra de memória** + **Disciplina de tamanho** no topo; índice no fim.
 - `docs/AGENTS_historico.md` (novo): 34 seções datadas anteriores a 29/08/2026, movidas verbatim (mais recente primeiro).
 - Commit `01be7f8`.
+- Complemento: a contagem de testes no CHECKLIST DE FUMAÇA deixou de ser fixa (estava "221"; a suíte atual é **224**) — evita ficar desatualizada.
 
 ### Verificação
 - Multiset de linhas contra backup: **0 linhas de conteúdo perdidas**; 6 linhas novas (2 regras + índice + cabeçalho). Sem mudança de código/testes.
