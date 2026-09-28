@@ -40,6 +40,37 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Correções e Funcionalidades (28/09/2026) — RECUPERAÇÃO DE SENHA DA CONTA + SESSÃO NO DESBLOQUEIO
+
+### Contexto (bug reportado: "não funciona anamnese/acordo/transcrição/síntese")
+- O erro era **"Não foi possível autenticar com o servidor"** (transcrição/síntese) e **"Erro ao criar questionário"** (anamnese). Os **logs do Fly** mostraram `POST /auth/login → 401` para `rodrigolemosba@gmail.com` (conta **ativa** no Turso): a **senha guardada no app não batia com a conta**.
+- Agravantes: após o bloqueio (`bloquear()` apaga o JWT), o **desbloqueio por biometria não restabelecia a sessão** (dependia de reautenticar a cada chamada); `anamnese`/`contrato` **não retentavam em 401**; e **não havia recuperação de senha** (o fluxo existente é do **PIN**, não da conta).
+
+### O que mudou (arquivos)
+- **Backend:** novos `POST /auth/solicitar-reset-senha` e `POST /auth/redefinir-senha` (código por e-mail, expiração 10 min, tentativas/bloqueio, senha forte, anti-enumeração) + tabela `resets_senha` + `usuarios.redefinir_senha`. Testes em `backend/tests/test_reset_senha.py` (9).
+- **App:** tela `RedefinirSenhaPage` (acessível em **Configurações > Avançado** e no **ContaPage**); ao concluir, salva a credencial nova (cofre durável). `ApiClient.solicitarResetSenha`/`redefinirSenha`.
+- **Frente B:** restabelece a sessão no desbloqueio (`AuthService.estabelecerSessaoServidor` chamado no `LoginPage` e no overlay `_TelaBloqueio`); **retry em 401** na anamnese e no contrato (que passou a usar `ApiClient.post/get`); **log do status/body** no `forceReauthenticate`.
+
+### Verificação
+- Backend **186/186** (era 177; +9). Flutter **229/229** (era 224; +3 API +2 widget). `flutter analyze` limpo (1 warning pré-existente `_todosBlocos`).
+
+### Pendências
+- **Instalar o APK 1.0.41 no aparelho** e, em **Configurações > Avançado > Redefinir senha da conta**, gerar o código por e-mail e definir a nova senha — depois testar anamnese/acordo/transcrição/síntese.
+
+## Release (28/09/2026) — APK 1.0.41+42
+
+### Contexto
+- Empacotar a recuperação de senha da conta + as correções de sessão (`cafefd8`).
+
+### O que mudou (arquivos)
+- `pubspec.yaml`: `1.0.40+41` → `1.0.41+42`.
+- APK: `MentAllPRO-v1.0.41.apk` (~76 MB), sha256 `225ae9a5fd4970200f2e96d6fc12e9171ec80acf35d0ed0046b8ec6b5684a3ac`.
+
+### Verificação (checklist de fumaça)
+- `flutter analyze --no-pub`: limpo (1 warning pré-existente `_todosBlocos` em `tools/`).
+- `flutter test --no-pub`: **229/229**.
+- `flutter build apk --release`: OK (exit 0).
+
 ## Release (28/09/2026) — APK 1.0.40+41
 
 ### Contexto
