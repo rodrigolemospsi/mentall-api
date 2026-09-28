@@ -40,6 +40,26 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Correções e Funcionalidades (28/09/2026) — DIÁLOGO DE BIOMETRIA EM PORTUGUÊS
+
+### Contexto (bug reportado)
+- O diálogo de autenticação (biometria/credencial) mostrava **título e subtítulo em inglês**: **"Authentication required"** e **"Verify identity"**. O resto já era português (descrição e botão do sistema).
+
+### Causa
+- `AuthService._LocalAuthGate.autenticar()` chamava `local_auth.authenticate(localizedReason: ...)` **sem `authMessages`** → o plugin `local_auth_android` usava os defaults em inglês (`androidSignInTitle` / `androidSignInHint`).
+
+### O que mudou (arquivos)
+- `pubspec.yaml`: dependência direta **`local_auth_android: ^2.0.9`** (evita o lint `depend_on_referenced_packages`, fatal no CI) + versão `1.0.41+42` → `1.0.42+43`.
+- `lib/services/auth_service.dart`: novo `const mensagensBiometria = AndroidAuthMessages(signInTitle: 'Acesso com biometria', signInHint: '', cancelButton: 'Cancelar')`; o `authenticate(...)` passa `authMessages` e a descrição virou **"Autentique-se para acessar o MentAll."**.
+- `test/services/auth_service_test.dart`: teste das strings.
+
+### Verificação
+- `flutter analyze` **exit 0** (No issues found); `flutter test` **230/230** (era 229; +1); `flutter build apk --release` OK.
+- APK: `MentAllPRO-v1.0.42.apk` (~76 MB), sha256 `65ced8ac21a41725192063478feb53e7c84fd04a88b62ae473fa2ebf577b1b30`.
+
+### Pendências
+- Verificar no aparelho: o diálogo deve exibir **"Acesso com biometria"** + **"Autentique-se para acessar o MentAll."** (sem "Verify identity").
+
 ## Deploy (28/09/2026) — PUSH PARA O GITHUB + CI VERDE (corrige gate do analyze)
 
 ### Contexto

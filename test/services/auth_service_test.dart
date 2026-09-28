@@ -163,6 +163,14 @@ void main() {
           reason: 'o boot nao pode pular o gate de seguranca');
     });
   });
+
+  group('mensagens do diálogo de biometria', () {
+    test('estão em português (sem os defaults em inglês do plugin)', () {
+      expect(mensagensBiometria.signInTitle, 'Acesso com biometria');
+      expect(mensagensBiometria.signInHint, '');
+      expect(mensagensBiometria.cancelButton, 'Cancelar');
+    });
+  });
 }
 
 /// Cria um [EncryptionService] com a chave já no cofre durável, para que a

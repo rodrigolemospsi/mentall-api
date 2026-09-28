@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:local_auth_android/local_auth_android.dart';
 
 import 'logger.dart';
 import 'api_client.dart';
@@ -17,6 +18,17 @@ abstract class GateDeAutenticacao {
   Future<bool> suportaGate();
   Future<bool> autenticar();
 }
+
+/// Mensagens do diálogo nativo de autenticação (Android).
+///
+/// Sem isto, o plugin `local_auth_android` usa os defaults em inglês
+/// ("Authentication required" / "Verify identity"). O subtítulo fica vazio de
+/// propósito — a descrição (`localizedReason`) já orienta o usuário.
+const mensagensBiometria = AndroidAuthMessages(
+  signInTitle: 'Acesso com biometria',
+  signInHint: '',
+  cancelButton: 'Cancelar',
+);
 
 /// Implementação real: delega ao pacote `local_auth`.
 class _LocalAuthGate implements GateDeAutenticacao {
@@ -35,7 +47,8 @@ class _LocalAuthGate implements GateDeAutenticacao {
   @override
   Future<bool> autenticar() async {
     return _localAuth.authenticate(
-      localizedReason: 'Autentique-se para acessar o prontuário.',
+      localizedReason: 'Autentique-se para acessar o MentAll.',
+      authMessages: const [mensagensBiometria],
       persistAcrossBackgrounding: true,
     );
   }
