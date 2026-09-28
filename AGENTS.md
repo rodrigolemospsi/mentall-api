@@ -40,6 +40,24 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Release (28/09/2026) — APK 1.0.40+41
+
+### Contexto
+- Empacotar em release o fix de credenciais duráveis (`72937f4`) e a redução do `AGENTS.md` (`01be7f8`, `b215723`).
+
+### O que mudou (arquivos)
+- `pubspec.yaml`: `1.0.39+40` → `1.0.40+41`.
+- APK: `MentAllPRO-v1.0.40.apk` (~76 MB), sha256 `02df2914e49a17ca5c5654bc2c81a2d24a0746c83c97cfad984d2e6b9ef1e5d1`.
+
+### Verificação (checklist de fumaça)
+- `flutter analyze --no-pub`: limpo (1 warning pré-existente `_todosBlocos` em `tools/`).
+- `flutter test --no-pub`: **224/224**.
+- `flutter build apk --release`: OK (exit 0).
+- APK copiado para a raiz como `MentAllPRO-v1.0.40.apk` (`.apk` é gitignored).
+
+### Pendências
+- Instalar no aparelho e rodar os fluxos críticos do checklist de fumaça (boot/biometria, gravar→transcrever, síntese→salvar com a tela apagando, PDF, bloqueio).
+
 ## Documentação (28/09/2026) — REDUÇÃO DO AGENTS.md + REGRA DE MEMÓRIA AUTOMÁTICA
 
 ### Contexto
