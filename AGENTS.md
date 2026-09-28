@@ -34,7 +34,25 @@
 
 ### Observabilidade
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
-- **Nota de ambiente (macOS):** se `flutter test` falhar com "You have not agreed to the Xcode license agreements", rodar `sudo xcodebuild -license accept` (ou usar `DEVELOPER_DIR=/Library/Developer/CommandLineTools`, que exige um `xcrun` no PATH apontando para o CLT).
+- **Nota de ambiente (macOS):** se `flutter test` falhar com "You have not agreed to the Xcode license agreements", rodar `sudo xcodebuild -license accept` (ou usar `DEVELOPER_DIR=/Library/Developer/CommandLineTools`, que exige um `xcrun` no PATH apontando para o CLT). **Achado 28/09/2026:** aqui o Xcode está **sem licença/first-launch aceitos** — `xcrun` retorna **exit 69** com stdout vazio e o `git` também imprime "You have not agreed to the Xcode license agreements". `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test`: o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`. Workaround: `DEVELOPER_DIR=/Library/Developer/CommandLineTools` **+** um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Solução definitiva: `sudo xcodebuild -license accept`.
+
+## Correções e Funcionalidades (28/09/2026) — CREDENCIAIS DURÁVEIS PARA RE-AUTENTICAÇÃO (fecha o teste RED de 27/09)
+
+### Contexto (o que ficou pela metade em 27/09)
+- `test/services/api_client_test.dart` foi reescrito em 27/09 para exigir um `CredenciaisStore` durável + injeção de `httpClient`/`credenciaisStore`/`resetarCredenciaisEmMemoria` no `ApiClient`. A **implementação nunca foi feita**: o teste não compilava (11 erros) e `lib/services/credenciais_store.dart` não existia.
+- Bug real por trás: com a chave ainda **não carregada** (app bloqueado), o getter `password` devolvia `''` e o `forceReauthenticate` fazia POST com usuário/senha em branco → 401 confuso. E o login (`entrarComEmailSenha`) não persistia credenciais em cofre durável, então não havia de onde recuperá-las (era a pendência do 03/09).
+
+### Fix (TDD — teste RED → GREEN)
+- **Novo `lib/services/credenciais_store.dart`:** interface `CredenciaisStore` (`salvar`/`carregar`/`limpar`) + `SecureCredenciaisStore` (Keychain/Keystore via `flutter_secure_storage`), usando as **mesmas chaves** de `AuthService.salvarCredenciaisServidor` (fonte única).
+- **`lib/services/api_client.dart`:**
+  1. `static http.Client httpClient` injetável; `post`/`get`/`forceReauthenticate` usam-no.
+  2. `static CredenciaisStore credenciaisStore` + `resetarCredenciaisEmMemoria()`.
+  3. `setCredentials` persiste também no cofre durável (falha de cofre não interrompe o login).
+  4. `forceReauthenticate` recupera do cofre quando o `app_config` está vazio e retorna `false` **sem tocar a rede** se não houver credencial nenhuma.
+
+### Verificação
+- `test/services/api_client_test.dart` **6/6** (era 11 erros de compilação).
+- Suíte Flutter **224/224**; `flutter analyze` limpo (1 warning pré-existente `_todosBlocos` em `tools/`).
 
 ## Correções e Funcionalidades (04/09/2026) — DESBLOQUEIO ABRIA SEM PEDIR BIOMETRIA/SENHA (GATE RESTAURADO)
 

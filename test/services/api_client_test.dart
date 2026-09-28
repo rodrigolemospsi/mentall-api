@@ -1,7 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:prontuario_tcc/hive_registrar.g.dart';
 import 'package:prontuario_tcc/services/api_client.dart';
+import 'package:prontuario_tcc/services/credenciais_store.dart';
 import 'package:prontuario_tcc/services/encryption_service.dart';
 
 void main() {
@@ -21,6 +26,10 @@ void main() {
     await Hive.box<String>('app_config').clear();
     await Hive.box<String>('auth_meta').clear();
     ApiClient.authToken = null;
+    ApiClient.resetarCredenciaisEmMemoria();
+    ApiClient.credenciaisStore = _FakeCredenciaisStore();
+    ApiClient.httpClient =
+        MockClient((_) async => throw StateError('http nao mockado'));
   });
 
   test('setCredentials persiste criptografado quando ha chave', () async {
@@ -73,4 +82,80 @@ void main() {
     // Nao deve enviar o ciphertext como se fosse a senha (evita 401 confuso).
     expect(ApiClient.password, '');
   });
+
+  group('re-autenticacao e persistencia de credenciais', () {
+    test('entrarComEmailSenha persiste credenciais no store durável', () async {
+      final store = _FakeCredenciaisStore();
+      ApiClient.credenciaisStore = store;
+      ApiClient.httpClient = MockClient((req) async {
+        expect(req.url.path, '/auth/login');
+        return http.Response(jsonEncode({'access_token': 'tok-1'}), 200);
+      });
+
+      final resultado = await ApiClient.entrarComEmailSenha(
+        email: 'psi@exemplo.com',
+        senha: 'Senha123',
+      );
+
+      expect(resultado['sucesso'], isTrue);
+      expect(store.username, 'psi@exemplo.com');
+      expect(store.password, 'Senha123');
+    });
+
+    test(
+        'forceReauthenticate recupera credenciais do store quando app_config vazio',
+        () async {
+      ApiClient.credenciaisStore =
+          _FakeCredenciaisStore('psi@exemplo.com', 'Senha123');
+      Map<String, dynamic>? enviado;
+      ApiClient.httpClient = MockClient((req) async {
+        enviado = jsonDecode(req.body) as Map<String, dynamic>;
+        return http.Response(jsonEncode({'access_token': 'tok-2'}), 200);
+      });
+
+      final ok = await ApiClient.forceReauthenticate();
+
+      expect(ok, isTrue);
+      expect(enviado?['username'], 'psi@exemplo.com');
+      expect(enviado?['password'], 'Senha123');
+      expect(ApiClient.authToken, 'tok-2');
+    });
+
+    test('forceReauthenticate retorna false sem credenciais e nao chama a rede',
+        () async {
+      ApiClient.credenciaisStore = _FakeCredenciaisStore();
+      var chamouRede = false;
+      ApiClient.httpClient = MockClient((_) async {
+        chamouRede = true;
+        return http.Response('{}', 200);
+      });
+
+      final ok = await ApiClient.forceReauthenticate();
+
+      expect(ok, isFalse);
+      expect(chamouRede, isFalse);
+    });
+  });
+}
+
+class _FakeCredenciaisStore implements CredenciaisStore {
+  String? username;
+  String? password;
+
+  _FakeCredenciaisStore([this.username, this.password]);
+
+  @override
+  Future<void> salvar(String user, String pass) async {
+    username = user;
+    password = pass;
+  }
+
+  @override
+  Future<(String?, String?)> carregar() async => (username, password);
+
+  @override
+  Future<void> limpar() async {
+    username = null;
+    password = null;
+  }
 }

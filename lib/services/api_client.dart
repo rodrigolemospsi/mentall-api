@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:hive_ce/hive.dart';
 import 'package:http/http.dart' as http;
 
+import 'credenciais_store.dart';
 import 'encryption_service.dart';
 import 'logger.dart';
 
@@ -32,10 +33,24 @@ class ApiClient {
 
   static String? authToken;
 
+  /// Cliente HTTP injetável (testes substituem por um `MockClient`).
+  static http.Client httpClient = http.Client();
+
+  /// Persistência durável das credenciais do servidor, independente do box
+  /// `app_config` (que pode ser limpo). Permite renovar o JWT em segundo plano
+  /// mesmo quando o `app_config` estiver vazio.
+  static CredenciaisStore credenciaisStore = SecureCredenciaisStore();
+
   // Fallback em memória para quando a criptografia não está disponível:
   // evita persistir senha/JWT em texto puro no Hive.
   static String _usernameMemoria = '';
   static String _passwordMemoria = '';
+
+  /// Limpa o fallback em memória das credenciais (usado no boot e nos testes).
+  static void resetarCredenciaisEmMemoria() {
+    _usernameMemoria = '';
+    _passwordMemoria = '';
+  }
 
   static String get username {
     if (_usernameMemoria.isNotEmpty) return _usernameMemoria;
@@ -76,11 +91,26 @@ class ApiClient {
       _usernameMemoria = username;
       _passwordMemoria = password;
       await box.delete(_passwordKey);
-      return;
+    } else {
+      _usernameMemoria = '';
+      _passwordMemoria = '';
+      await box.put(_passwordKey, encrypted);
     }
-    _usernameMemoria = '';
-    _passwordMemoria = '';
-    await box.put(_passwordKey, encrypted);
+    await _persistirCredenciaisDuraveis(username, password);
+  }
+
+  /// Persiste as credenciais no cofre durável do aparelho (Keychain/Keystore).
+  /// Falha de cofre não interrompe o fluxo: a sessão atual segue com as
+  /// credenciais em memória/`app_config`.
+  static Future<void> _persistirCredenciaisDuraveis(
+    String username,
+    String password,
+  ) async {
+    try {
+      await credenciaisStore.salvar(username, password);
+    } catch (e) {
+      Log.erro(e, contexto: 'ApiClient.setCredentials');
+    }
   }
 
   static String get _username => username;
@@ -139,14 +169,37 @@ class ApiClient {
       await Hive.box<String>('auth_meta').delete('jwt_token');
     } catch (_) {}
 
+    var user = _username;
+    var pass = _password;
+
+    // `app_config` vazio (ex.: chave ainda não carregada no boot): recupera as
+    // credenciais do cofre durável para não reautenticar em branco.
+    if (user.isEmpty || pass.isEmpty) {
+      try {
+        final (storeUser, storePass) = await credenciaisStore.carregar();
+        if (user.isEmpty && storeUser != null && storeUser.isNotEmpty) {
+          user = storeUser;
+        }
+        if (pass.isEmpty && storePass != null && storePass.isNotEmpty) {
+          pass = storePass;
+        }
+      } catch (e) {
+        Log.erro(e, contexto: 'ApiClient.forceReauthenticate');
+      }
+    }
+
+    if (user.isEmpty || pass.isEmpty) {
+      return false;
+    }
+
     try {
-      final response = await http
+      final response = await httpClient
           .post(
             Uri.parse('$baseUrl/auth/login'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
-              'username': _username,
-              'password': _password,
+              'username': user,
+              'password': pass,
             }),
           )
           .timeout(timeout);
@@ -271,7 +324,7 @@ class ApiClient {
     Map<String, dynamic>? body,
     Duration? customTimeout,
   }) async {
-    return http
+    return httpClient
         .post(
           Uri.parse('$baseUrl$path'),
           headers: defaultHeaders(),
@@ -281,7 +334,7 @@ class ApiClient {
   }
 
   static Future<http.Response> get(String path, {Duration? customTimeout}) async {
-    return http
+    return httpClient
         .get(
           Uri.parse('$baseUrl$path'),
           headers: defaultHeaders(),

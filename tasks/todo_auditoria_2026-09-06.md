@@ -149,5 +149,13 @@ Rodrigo, acompanhamento das correcoes autorizadas em 06/09/2026.
 - **APK:** `1.0.37+38` -> **`1.0.38+39`** (`MentAllPRO-v1.0.38.apk`).
 - **Pendente (Frente C):** endpoints `GET/DELETE /lembretes` + tela "Lembretes agendados / Cancelar todos" para o dono limpar orfaos futuros pela propria conta.
 
+**FIX — credenciais duraveis para re-autenticacao (28/09/2026; fecha o teste RED de 27/09)**
+- **Contexto:** `test/services/api_client_test.dart` foi reescrito em 27/09 exigindo um `CredenciaisStore` duravel + injecao de `httpClient`/`credenciaisStore`/`resetarCredenciaisEmMemoria` no `ApiClient`; a implementacao nao foi feita (o teste nao compilava — 11 erros; `lib/services/credenciais_store.dart` inexistente).
+- **Bug real:** com a chave ainda nao carregada (app bloqueado), `ApiClient.password` devolvia `''` e `forceReauthenticate` fazia POST com usuario/senha em branco (401 confuso); `entrarComEmailSenha` nao persistia credenciais em cofre duravel (pendencia do 03/09).
+- **Fix (TDD RED->GREEN):** novo `lib/services/credenciais_store.dart` (`CredenciaisStore` + `SecureCredenciaisStore`, mesmas chaves de `AuthService.salvarCredenciaisServidor`); `ApiClient` ganhou `httpClient`/`credenciaisStore`/`resetarCredenciaisEmMemoria`; `setCredentials` persiste no cofre duravel; `forceReauthenticate` recupera do cofre quando o `app_config` esta vazio e retorna `false` sem tocar a rede sem credencial.
+- **Verificacao:** `api_client_test` 6/6; Flutter **224/224**; `flutter analyze` limpo (1 warning preexistente `_todosBlocos`).
+- **Ambiente (macOS):** Xcode sem licenca/first-launch (`xcrun` exit 69, stdout vazio; `git` idem). `DEVELOPER_DIR=CLT` resolve Flutter e git, mas o hook de native assets (`objective_c`) e semi-hermetico (so `PATH`) -> precisa tambem de um shim de `xcrun` no `PATH`. Solucao definitiva: `sudo xcodebuild -license accept`.
+- **Sem** novo APK/deploy nesta correcao (apenas codigo + testes).
+
 **Pendente**
 Todas as demais demandas do relatorio permanecem abertas. Correcao parcial nao significa encerramento do item completo. O relatorio inicial foi preservado como registro historico; este checklist descreve o codigo apos os lotes 1-7 + hotfixes.
