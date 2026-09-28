@@ -50,8 +50,8 @@
 - Verificação: `GET /health` → **200** (turso); `POST /auth/solicitar-reset-senha` → 200 genérico; com `rodrigolemosba@gmail.com` → `"Codigo enviado para o email."` (SMTP configurado no Fly: `SMTP_HOST/PORT/USER/PASS/FROM`).
 - **Sem push para o GitHub** (commits seguem locais) — deploy direto pelo `flyctl` autenticado. O workflow `.github/workflows/deploy.yml` continua sendo o caminho no push para `master`.
 
-### Pendências
-- Concluir a redefinição no aparelho e testar as 4 funções (anamnese/acordo/transcrição/síntese).
+### Verificação no aparelho
+- ✅ **Concluído (28/09/2026):** redefinição de senha feita no aparelho e as 4 funções testadas — "Tudo funcionando".
 
 ## Correções e Funcionalidades (28/09/2026) — RECUPERAÇÃO DE SENHA DA CONTA + SESSÃO NO DESBLOQUEIO
 
@@ -67,8 +67,8 @@
 ### Verificação
 - Backend **186/186** (era 177; +9). Flutter **229/229** (era 224; +3 API +2 widget). `flutter analyze` limpo (1 warning pré-existente `_todosBlocos`).
 
-### Pendências
-- **Instalar o APK 1.0.41 no aparelho** e, em **Configurações > Avançado > Redefinir senha da conta**, gerar o código por e-mail e definir a nova senha — depois testar anamnese/acordo/transcrição/síntese.
+### Verificação no aparelho (28/09/2026)
+- ✅ **Resolvido:** com o APK 1.0.41 + backend implantado, a redefinição de senha (Configurações > Avançado > Redefinir senha da conta) e as 4 funções (**anamnese, acordo, transcrição e síntese**) passaram a funcionar. Confirmado pelo dono: "Tudo funcionando".
 
 ## Release (28/09/2026) — APK 1.0.41+42
 
