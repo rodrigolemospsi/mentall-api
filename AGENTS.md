@@ -18,7 +18,7 @@
 - Mudanças de segurança (fail-closed) precisam validar o **caminho feliz** ponta a ponta, não só o caso de bloqueio.
 
 ### Antes de gerar o APK
-- [ ] `flutter analyze` sem erros novos (1 warning pré-existente em `tools/`)
+- [ ] `flutter analyze` **exit 0** (sem warnings: o CI reprova em qualquer issue, incl. `unused_element`)
 - [ ] `flutter test` 100% (0 falhas; a contagem varia com o tempo — não remover testes)
 - [ ] `flutter build apk --release` compila
 - [ ] Árvore de trabalho sem mudanças soltas (tudo commitado)
@@ -39,6 +39,20 @@
 ### Observabilidade
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
+
+## Deploy (28/09/2026) — PUSH PARA O GITHUB + CI VERDE (corrige gate do analyze)
+
+### Contexto
+- O push para `master` (repo público `mentall-api`) disparou o workflow. O job `flutter-checks` **falhou no `Analyze`** e o `deploy` foi **pulado**.
+- Causa: `tools/gerar_prompts_ia_pdf.dart` tinha a função **morta `_todosBlocos`** (`unused_element`). O `flutter analyze` trata isso como **erro (exit 1)** — mas localmente a saída era lida ignorando o **código de retorno**, então passou despercebido.
+
+### O que mudou (arquivos)
+- `tools/gerar_prompts_ia_pdf.dart`: removida a função não referenciada → `flutter analyze` **exit 0 (No issues found!)**.
+- `git push origin master` (20 commits acumulados desde 03/09 + este fix). Commit `5f7640a`.
+
+### Verificação
+- CI (`gh run watch`): **Flutter (analyze+test) ✓ · Backend ✓ · Deploy app ✓** (`flyctl deploy`).
+- Produção: `GET /health` → 200 (turso); `POST /auth/solicitar-reset-senha` → 200. Fly agora em **v31** (v30 = deploy manual; v29 = 03/09).
 
 ## Deploy (28/09/2026) — BACKEND NO FLY (recuperação de senha no ar)
 
