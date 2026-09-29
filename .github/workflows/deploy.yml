@@ -77,12 +77,15 @@ jobs:
           python -m pip install --upgrade pip pip-audit
           pip-audit -r backend/requirements.txt
 
-      - name: osv-scanner (dependências do repo)
+      - name: osv-scanner (pubspec.lock)
+        # Só o lockfile do Dart: o pip-audit já cobre o Python (e o parser de
+        # requirements.txt do osv-scanner resolve transitivas de forma imprecisa).
         uses: google/osv-scanner-action/osv-scanner-action@v2.6.0
         with:
           scan-args: |-
-            --recursive
-            ./
+            scan
+            -L
+            pubspec.lock
 
   deploy:
     name: Deploy app
