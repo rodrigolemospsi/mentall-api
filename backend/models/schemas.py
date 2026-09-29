@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from prompts.abordagens import PROMPTS_ABORDAGEM
 
@@ -343,3 +343,22 @@ class RedefinirSenhaRequest(BaseModel):
     email: str = Field(min_length=5, max_length=200)
     codigo: str = Field(min_length=6, max_length=12)
     nova_senha: str = Field(min_length=10, max_length=200)
+
+
+class HeartbeatRequest(BaseModel):
+    # `extra="forbid"`: a nuvem só recebe números — campo inesperado (PII) é
+    # rejeitado com 422 em vez de ser aceito silenciosamente.
+    model_config = ConfigDict(extra="forbid")
+    device_id: str = Field(min_length=8, max_length=64)
+    plataforma: str = Field(default="", max_length=20)
+    versao_app: str = Field(default="", max_length=30)
+
+
+class EventoRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    device_id: str = Field(min_length=8, max_length=64)
+    tipo: str = Field(min_length=1, max_length=40)
+
+
+class TelemetriaResponse(BaseModel):
+    sucesso: bool = True

@@ -220,6 +220,21 @@ _tabelas = [
         bloqueio_ate TEXT,
         criado_em TEXT NOT NULL
     )""",
+    """CREATE TABLE IF NOT EXISTS dispositivos (
+        device_id TEXT PRIMARY KEY,
+        owner_id TEXT NOT NULL DEFAULT '',
+        plataforma TEXT NOT NULL DEFAULT '',
+        versao_app TEXT NOT NULL DEFAULT '',
+        ultimo_heartbeat_em TEXT NOT NULL,
+        criado_em TEXT NOT NULL
+    )""",
+    """CREATE TABLE IF NOT EXISTS eventos (
+        id TEXT PRIMARY KEY,
+        owner_id TEXT NOT NULL DEFAULT '',
+        device_id TEXT NOT NULL DEFAULT '',
+        tipo TEXT NOT NULL,
+        criado_em TEXT NOT NULL
+    )""",
     """CREATE TABLE IF NOT EXISTS usuarios (
         id TEXT PRIMARY KEY,
         email TEXT NOT NULL UNIQUE,
@@ -247,6 +262,9 @@ _indices = [
     "CREATE INDEX IF NOT EXISTS idx_lembretes_owner ON lembretes(owner_id)",
     "CREATE INDEX IF NOT EXISTS idx_lembretes_pendentes ON lembretes(status, horario_envio)",
     "CREATE INDEX IF NOT EXISTS idx_wuzapi_instancias_owner ON wuzapi_instancias(owner_id)",
+    "CREATE INDEX IF NOT EXISTS idx_dispositivos_owner ON dispositivos(owner_id)",
+    "CREATE INDEX IF NOT EXISTS idx_eventos_owner ON eventos(owner_id)",
+    "CREATE INDEX IF NOT EXISTS idx_eventos_tipo ON eventos(tipo)",
 ]
 
 try:

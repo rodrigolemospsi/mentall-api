@@ -1072,6 +1072,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       if (!mounted) return;
 
       if (resultado.sucesso) {
+        ref.read(telemetriaServiceProvider).registrarEvento('transcricao');
         final textoTranscrito = resultado.transcricao.trim();
 
         if (textoTranscrito.isEmpty) {
@@ -1226,6 +1227,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       if (!mounted) return;
 
       if (resultado.sucesso) {
+        ref.read(telemetriaServiceProvider).registrarEvento('sintese');
         _preencherController(
           controller: _relatoPosSessaoController,
           texto: resultado.relatoClinicoOrganizado,
@@ -1422,6 +1424,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
       if (!mounted) return;
 
+      ref.read(telemetriaServiceProvider).registrarEvento('sessao_salva');
       Navigator.pop(context);
     } catch (erro) {
       Log.erro(erro, contexto: 'sessao_form_page:salvarSessao');

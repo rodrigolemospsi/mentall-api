@@ -43,7 +43,9 @@ from models.schemas import (
     ContratoRequest,
     ContratoResponse,
     ContratoStatusResponse,
+    EventoRequest,
     HealthResponse,
+    HeartbeatRequest,
     LembreteRequest,
     LembreteResponse,
     LoginRequest,
@@ -59,6 +61,7 @@ from models.schemas import (
     ResponderAnamneseRequest,
     SinteseRequest,
     SinteseResponse,
+    TelemetriaResponse,
     TranscricaoRequest,
     TranscricaoResponse,
     VerificarCodigoRequest,
@@ -1873,6 +1876,41 @@ def redefinir_senha(request: RedefinirSenhaRequest, _req: Request):
     executar("DELETE FROM resets_senha WHERE email_hash = ?", (email_hash,)).commit()
     log.info("Senha redefinida para e-mail %s", email_hash[:16])
     return RecuperacaoResponse(sucesso=True, mensagem="Senha redefinida com sucesso.")
+
+
+@app.post(
+    "/telemetria/heartbeat",
+    response_model=TelemetriaResponse,
+    tags=["Telemetria"],
+    dependencies=[Depends(_verificar_token)],
+)
+def telemetria_heartbeat(
+    request: HeartbeatRequest, _req: Request, auth: tuple = Depends(_verificar_token)
+):
+    _rate_limit_check(_req, max_requests=60)
+    _, owner_id = auth
+    from services.telemetria import registrar_heartbeat
+
+    registrar_heartbeat(owner_id, request.device_id, request.plataforma, request.versao_app)
+    return TelemetriaResponse()
+
+
+@app.post(
+    "/telemetria/evento",
+    response_model=TelemetriaResponse,
+    tags=["Telemetria"],
+    dependencies=[Depends(_verificar_token)],
+)
+def telemetria_evento(
+    request: EventoRequest, _req: Request, auth: tuple = Depends(_verificar_token)
+):
+    _rate_limit_check(_req, max_requests=120)
+    _, owner_id = auth
+    from services.telemetria import registrar_evento
+
+    if not registrar_evento(owner_id, request.device_id, request.tipo):
+        raise HTTPException(status_code=422, detail="Tipo de evento nao permitido.")
+    return TelemetriaResponse()
 
 
 if __name__ == "__main__":

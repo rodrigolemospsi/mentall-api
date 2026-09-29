@@ -74,6 +74,7 @@ Future<void> _enviarAnamneseWhatsApp({
   if (abriu) {
     final service = ref.read(anamneseEnviadaServiceProvider);
     await service.marcarComoEnviada(anamnese);
+    ref.read(telemetriaServiceProvider).registrarEvento('anamnese_enviada');
   } else if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Não foi possível abrir o WhatsApp.')),
@@ -226,6 +227,7 @@ Future<void> _enviarContratoWhatsApp({
       pacienteId: paciente.id,
     );
 
+    ref.read(telemetriaServiceProvider).registrarEvento('contrato_enviado');
     ref.invalidate(contratoPorPacienteProvider(paciente.id));
   } else if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(

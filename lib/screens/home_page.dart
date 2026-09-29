@@ -167,6 +167,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       doOuDa: _doOuDa,
       opcoesModoAtendimento: perfil?.opcoesModoAtendimento ?? const [],
       auditoriaService: ref.read(auditoriaServiceProvider),
+      telemetriaService: ref.read(telemetriaServiceProvider),
     );
   }
 

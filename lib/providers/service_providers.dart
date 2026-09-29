@@ -30,6 +30,7 @@ import '../services/pacote_service.dart';
 import '../services/perfil_profissional_service.dart';
 import '../services/progresso_service.dart';
 import '../services/sessao_service.dart';
+import '../services/telemetria_service.dart';
 import '../services/transcricao_relato_service.dart';
 
 final encryptionServiceProvider = Provider<EncryptionService>((ref) {
@@ -42,6 +43,9 @@ final authServiceProvider = Provider<AuthService>((ref) {
   final encryption = ref.watch(encryptionServiceProvider);
   return AuthService(encryption);
 });
+
+/// Telemetria (Fase 2): presença (heartbeat) e eventos de uso, sem PII.
+final telemetriaServiceProvider = Provider<TelemetriaService>((ref) => TelemetriaService());
 
 /// Sinal para o [AppLockGate] re-armar o timer de inatividade (incrementado
 /// quando o usuário desbloqueia o app ou voltas a interagir).

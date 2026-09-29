@@ -45,7 +45,10 @@ class AppLockGate extends ConsumerStatefulWidget {
 class _AppLockGateState extends ConsumerState<AppLockGate>
     with WidgetsBindingObserver {
   Timer? _inactivityTimer;
+  Timer? _heartbeatTimer;
   bool _bloqueado = false;
+
+  static const Duration _heartbeatIntervalo = Duration(minutes: 3);
 
   @override
   void initState() {
@@ -53,14 +56,27 @@ class _AppLockGateState extends ConsumerState<AppLockGate>
     WidgetsBinding.instance.addObserver(this);
     AppLockGate.onUserActivity = _resetarInactivityTimer;
     _resetarInactivityTimer();
+    _iniciarTelemetria();
   }
 
   @override
   void dispose() {
     _inactivityTimer?.cancel();
+    _heartbeatTimer?.cancel();
     AppLockGate.onUserActivity = null;
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  /// Presença (Fase 2): heartbeat no boot e a cada [_heartbeatIntervalo].
+  void _iniciarTelemetria() {
+    _enviarHeartbeat();
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(_heartbeatIntervalo, (_) => _enviarHeartbeat());
+  }
+
+  void _enviarHeartbeat() {
+    unawaited(ref.read(telemetriaServiceProvider).heartbeat());
   }
 
   void _resetarInactivityTimer() {
@@ -97,6 +113,7 @@ class _AppLockGateState extends ConsumerState<AppLockGate>
       _bloquear();
     } else if (state == AppLifecycleState.resumed) {
       _resetarInactivityTimer();
+      _enviarHeartbeat();
     }
   }
 

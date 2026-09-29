@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../models/paciente.dart';
 import '../services/logger.dart';
 import '../services/paciente_service.dart';
+import '../services/telemetria_service.dart';
 import '../services/lgpd/auditoria_service.dart';
 import '../utils/imagem_cache.dart';
 import '../utils/mentall_colors.dart';
@@ -20,6 +21,7 @@ Future<void> mostrarDialogNovoPaciente({
   required String doOuDa,
   List<String> opcoesModoAtendimento = const [],
   AuditoriaService? auditoriaService,
+  TelemetriaService? telemetriaService,
 }) async {
   final nomeController = TextEditingController();
   final contatoController = TextEditingController();
@@ -320,6 +322,7 @@ Future<void> mostrarDialogNovoPaciente({
                               descricao: nome,
                               pacienteId: paciente.id,
                             );
+                            telemetriaService?.registrarEvento('paciente_criado');
                             if (!context.mounted) return;
                             if (dialogContext.mounted) {
                               Navigator.of(dialogContext).pop();
