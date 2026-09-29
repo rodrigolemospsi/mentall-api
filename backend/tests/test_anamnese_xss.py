@@ -77,13 +77,13 @@ class TestRenderizacaoClientSideSegura(unittest.TestCase):
         self.assertNotIn("var min = q.min", html)
         self.assertNotIn("var max = q.max", html)
 
-    def test_onclick_nao_contem_id_interpolado(self):
+    def test_sem_handler_inline_onclick(self):
         html = _template_html()
-        # toggleYn agora recebe apenas o botao; o id vem do data-id do pai.
-        self.assertNotIn("toggleYn(\\'", html)
-        self.assertNotIn("toggleYn('" , html)
-        self.assertRegex(html, r"onclick=\"toggleYn\(this, true\)\"")
-        self.assertRegex(html, r"onclick=\"toggleYn\(this, false\)\"")
+        # Sem handlers inline: o CSP com nonce nao executa 'onclick'. O toggle
+        # usa delegacao por classe (.btn-sim/.btn-nao) via addEventListener.
+        self.assertNotIn("onclick=", html)
+        self.assertIn("addEventListener('click'", html)
+        self.assertIn(".btn-sim, .btn-nao", html)
 
     def test_toggleYn_resolve_id_pelo_data_id(self):
         html = _template_html()

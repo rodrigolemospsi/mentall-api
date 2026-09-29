@@ -223,7 +223,7 @@
   <div class="secao-aceite" id="secao-aceite">
     <label for="nome-confirmacao">Digite seu nome completo para confirmar:</label>
     <input type="text" id="nome-confirmacao" placeholder="Seu nome completo" autocomplete="off">
-    <button class="btn-aceitar" id="btn-aceitar" onclick="aceitar()">Li e aceito</button>
+    <button class="btn-aceitar" id="btn-aceitar" type="button">Li e aceito</button>
     <div id="erro-msg" class="erro" style="display:none;"></div>
     <div class="confirmacao">Ao marcar &ldquo;Li e aceito&rdquo;, {{artigo_termo}} {{termo_pessoa}} declara que leu, compreendeu e concorda com os termos deste acordo terap&ecirc;utico.</div>
   </div>
@@ -303,6 +303,9 @@ async function aceitar() {
     btn.textContent = 'Li e aceito';
   }
 }
+
+var btnAceitar = document.getElementById('btn-aceitar');
+if (btnAceitar) btnAceitar.addEventListener('click', aceitar);
 </script>
 </body>
 </html>

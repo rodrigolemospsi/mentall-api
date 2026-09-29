@@ -287,6 +287,13 @@ def _renderizar_paragrafos_personalizados(texto_bruto: str) -> str:
     return "".join(blocos)
 
 
+def _com_nonce_script(html: str, nonce: str) -> str:
+    """Adiciona o nonce do CSP às tags <script> inline do HTML."""
+    if not nonce:
+        return html
+    return html.replace("<script>", f'<script nonce="{nonce}">')
+
+
 def _renderizar_template_personalizado(
     token: str,
     dados: dict,
@@ -294,6 +301,7 @@ def _renderizar_template_personalizado(
     aceito_em: str,
     base_url: str,
     nome_aceite: str = "",
+    nonce: str = "",
 ) -> HTMLResponse:
     nome_paciente = dados.get("nome_paciente", "")
     nome_profissional = dados.get("nome_profissional", "")
@@ -519,7 +527,7 @@ async function aceitar() {{
   var btn = document.getElementById('btn-aceitar');
   btn.disabled = true; btn.textContent = 'Enviando...'; erroEl.style.display = 'none';
   try {{
-    var resp = await fetch('{base_url}/contratos/{token}/aceitar', {{ method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify({{nome: nome}}) }});
+    var resp = await fetch('/contratos/{token}/aceitar', {{ method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify({{nome: nome}}) }});
     if (resp.ok) {{ document.getElementById('secao-aceite').style.display = 'none'; document.getElementById('sucesso-msg').style.display = 'block'; }}
     else {{ var d = await resp.json(); erroEl.textContent = d.erro || d.detail || 'Erro ao registrar.'; erroEl.style.display = 'block'; btn.disabled = false; btn.textContent = 'Li e aceito'; }}
   }} catch(e) {{ erroEl.textContent = 'Erro de conex\\u00e3o.'; erroEl.style.display = 'block'; btn.disabled = false; btn.textContent = 'Li e aceito'; }}
@@ -527,7 +535,7 @@ async function aceitar() {{
 </script>
 </body>
 </html>"""
-    return HTMLResponse(content=page_html)
+    return HTMLResponse(content=_com_nonce_script(page_html, nonce))
 
 
 def _verificar_senha(senha: str) -> bool:
@@ -638,6 +646,9 @@ app.add_middleware(
 # Security headers middleware
 @app.middleware("http")
 async def _security_headers(request: Request, call_next):
+    # Nonce por resposta para o CSP: o <script> inline só executa com este nonce
+    # (substitui o 'unsafe-inline' do script-src).
+    request.state.csp_nonce = secrets.token_urlsafe(16)
     response = await call_next(request)
     if request.url.path.startswith("/anamneses/"):
         response.headers["Cache-Control"] = "no-store"
@@ -647,9 +658,10 @@ async def _security_headers(request: Request, call_next):
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     if "text/html" in (response.headers.get("content-type") or ""):
+        nonce = getattr(request.state, "csp_nonce", "")
         response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
-            "frame-ancestors 'none'; base-uri 'self'"
+            f"default-src 'self'; script-src 'self' 'nonce-{nonce}'; "
+            "style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'self'"
         )
     return response
 
@@ -1174,6 +1186,7 @@ def _pagina_contrato(token: str, _req: Request):
             aceito_em=aceito_em,
             base_url=base_url,
             nome_aceite=contrato.get("nome_aceite") or "",
+            nonce=getattr(_req.state, "csp_nonce", ""),
         )
 
     template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", "contrato.html")
@@ -1195,7 +1208,7 @@ def _pagina_contrato(token: str, _req: Request):
         "{{termo_profissional}}": "do psic\u00f3logo",
         "{{psicologo_ou_psicologa}}": html.escape(psicologo_ou_psicologa),
         "{{local_data}}": "",
-        "{{url_aceitar}}": f"{base_url}/contratos/{token}/aceitar",
+        "{{url_aceitar}}": f"/contratos/{token}/aceitar",
         "{{data_aceite}}": _formatar_data_br(aceito_em) if aceito_em else "-",
         "{{data_aceite_iso}}": aceito_em or "",
         "{{nome_aceite}}": html.escape(contrato.get("nome_aceite") or ""),
@@ -1208,6 +1221,7 @@ def _pagina_contrato(token: str, _req: Request):
         page_html = page_html.replace(chave, str(valor))
 
     page_html = page_html.replace("<!--", "").replace("-->", "")
+    page_html = _com_nonce_script(page_html, getattr(_req.state, "csp_nonce", ""))
 
     return HTMLResponse(content=page_html)
 
@@ -1389,6 +1403,7 @@ p {{ color:#64748B; font-size:15px; }}
     html = html.replace("const DADOS_PROFISSIONAL = {{DADOS_PROFISSIONAL}};",
                         bloco_script)
     html = html.replace("const TEMPLATE = {{TEMPLATE}};", "")
+    html = _com_nonce_script(html, getattr(_req.state, "csp_nonce", ""))
 
     return HTMLResponse(content=html)
 

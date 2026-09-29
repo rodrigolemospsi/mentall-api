@@ -291,7 +291,7 @@ body {
     <div class="titulo-acordo">Questionário inicial</div>
     <p class="intro-acordo">Cerca de 10 minutos.</p>
     <form id="form-anamnese"></form>
-    <button class="btn-enviar" id="btn-enviar" onclick="enviar()">Enviar respostas</button>
+    <button class="btn-enviar" id="btn-enviar" type="button">Enviar respostas</button>
     <div class="erro-msg" id="erro-msg"></div>
   </div>
   <div class="sucesso" id="sucesso">
@@ -412,8 +412,8 @@ function renderPergunta(q) {
       break;
     case 'yesno':
       html += '<div class="btn-sim-nao">';
-      html += '<button type="button" class="btn-sim" aria-pressed="false" onclick="toggleYn(this, true)">Sim</button>';
-      html += '<button type="button" class="btn-nao" aria-pressed="false" onclick="toggleYn(this, false)">Não</button>';
+      html += '<button type="button" class="btn-sim" aria-pressed="false">Sim</button>';
+      html += '<button type="button" class="btn-nao" aria-pressed="false">Não</button>';
       html += '</div>';
       if (q.condicional_sim) {
         html += '<div class="condicional-sim" id="cond-' + id + '" style="display:none; margin-top:10px;">';
@@ -557,6 +557,14 @@ function enviar() {
 }
 
 renderForm(TEMPLATE);
+
+document.getElementById('btn-enviar').addEventListener('click', enviar);
+document.getElementById('form-anamnese').addEventListener('click', function(ev) {
+  var alvo = ev.target;
+  var btn = (alvo && alvo.closest) ? alvo.closest('.btn-sim, .btn-nao') : null;
+  if (!btn) return;
+  toggleYn(btn, btn.classList.contains('btn-sim'));
+});
 </script>
 </body>
 </html>
