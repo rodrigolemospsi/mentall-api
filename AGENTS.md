@@ -40,6 +40,21 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Segurança (29/09/2026) — ROTAÇÃO DO `WUZAPI_WEBHOOK_TOKEN`
+
+### Contexto
+- Pendência do pentest: o token do webhook do wuzapi (enviado na **query string**) pode ter vazado em access logs. Rotacionado.
+
+### O que mudou
+- Novo `WUZAPI_WEBHOOK_TOKEN`. Atualizado em: **`backend/.env`**, **secret no Fly** (`mentall-api`) e o **`users.webhook`** do wuzapi (`~/wuzapi/dbdata/users.db`, instância `profissional`).
+- Serviços reiniciados (wuzapi + backend local via `launchctl`) e a máquina do Fly atualizada ao trocar o secret.
+
+### Verificação
+- `POST /wuzapi/webhook?token=<novo>` → **200** (local e Fly); com o token **antigo** → **403**. O wuzapi passou a apontar para o novo. Sem mudança de código.
+
+### Pendências
+- Frente 1 (restante): scan de dependências no CI (pip-audit/osv-scanner) como **gate**.
+
 ## Ops (29/09/2026) — LIMPEZA DE CONTAS (só o dono)
 
 ### Contexto
