@@ -95,10 +95,12 @@ flutter:
 
 flutter_launcher_icons:
   android: true
-  ios: false
+  ios: true
   image_path: "assets/images/logo_mentallpro_sem_nome_01.png"
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/images/logo_mentallpro_sem_nome_01.png"
+  # App Store exige ícone SEM canal alfa.
+  remove_alpha_ios: true
 
   # To add assets to your application, add an assets section, like this:
   # assets:
