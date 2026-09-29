@@ -241,6 +241,7 @@ _tabelas = [
         password_hash TEXT NOT NULL,
         nome TEXT NOT NULL DEFAULT '',
         plano TEXT NOT NULL DEFAULT 'gratis',
+        role TEXT NOT NULL DEFAULT 'user',
         status TEXT NOT NULL DEFAULT 'pendente',
         criado_em TEXT NOT NULL,
         ultimo_acesso_em TEXT,
@@ -290,6 +291,7 @@ def _garantir_coluna(tabela: str, coluna: str, tipo: str) -> None:
 
 
 # Migracoes incrementais (para bancos ja existentes)
+_garantir_coluna("usuarios", "role", "TEXT NOT NULL DEFAULT 'user'")
 _garantir_coluna("usuarios", "email_verificacao_token_hash", "TEXT")
 _garantir_coluna("usuarios", "email_verificacao_expiracao", "TEXT")
 _garantir_coluna("recuperacoes", "codigo_hash", "TEXT")

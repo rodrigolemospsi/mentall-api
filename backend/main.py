@@ -16,7 +16,10 @@ from email.mime.text import MIMEText
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request, status
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+
+import admin_ui
+from services import admin as admin_service
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import jwt
@@ -1911,6 +1914,80 @@ def telemetria_evento(
     if not registrar_evento(owner_id, request.device_id, request.tipo):
         raise HTTPException(status_code=422, detail="Tipo de evento nao permitido.")
     return TelemetriaResponse()
+
+
+ADMIN_COOKIE = "mentall_admin"
+
+
+def _usuario_admin_autenticado(request: Request) -> bool:
+    """Valida a sessão do painel pelo cookie httpOnly (JWT) + papel admin."""
+    token = request.cookies.get(ADMIN_COOKIE)
+    if not token:
+        return False
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except JWTError:
+        return False
+    username = (payload.get("sub") or "").strip()
+    if not username:
+        return False
+    if username == APP_USERNAME:
+        return True
+    from services.usuarios import obter_por_email
+
+    usuario = obter_por_email(username)
+    return bool(usuario and (usuario.get("role") or "") == "admin")
+
+
+@app.get("/admin", response_class=HTMLResponse, tags=["Admin"])
+def admin_painel(request: Request, pagina: int = 1, busca: str = ""):
+    _rate_limit_check(request, max_requests=120)
+    if not _usuario_admin_autenticado(request):
+        return HTMLResponse(admin_ui.pagina_login())
+    kpis = admin_service.kpis()
+    usuarios = admin_service.listar_usuarios(pagina=pagina, limite=25, busca=busca)
+    return HTMLResponse(admin_ui.pagina_dashboard(kpis, usuarios, busca))
+
+
+@app.post("/admin/login", tags=["Admin"])
+async def admin_login(request: Request):
+    _rate_limit_check(request, max_requests=10, chave_extra="admin")
+    form = await request.form()
+    email = (form.get("email") or "").strip()
+    senha = form.get("senha") or ""
+
+    if email.lower() == APP_USERNAME.lower() and _verificar_senha(senha):
+        usuario = {"email": APP_USERNAME, "id": APP_USER_ID, "role": "admin"}
+    else:
+        from services.usuarios import autenticar
+
+        usuario = autenticar(email, senha)
+
+    if usuario is None or (usuario.get("role") or "user") != "admin":
+        return HTMLResponse(
+            admin_ui.pagina_login("Credenciais inválidas ou sem permissão."),
+            status_code=401,
+        )
+
+    token = _criar_token_jwt(usuario["email"], usuario["id"])
+    resp = RedirectResponse("/admin", status_code=303)
+    resp.set_cookie(
+        ADMIN_COOKIE,
+        token,
+        max_age=JWT_EXPIRATION * 60,
+        httponly=True,
+        secure=True,
+        samesite="strict",
+        path="/admin",
+    )
+    return resp
+
+
+@app.post("/admin/logout", tags=["Admin"])
+def admin_logout():
+    resp = RedirectResponse("/admin", status_code=303)
+    resp.delete_cookie(ADMIN_COOKIE, path="/admin")
+    return resp
 
 
 if __name__ == "__main__":
