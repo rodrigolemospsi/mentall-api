@@ -40,6 +40,29 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Correções e Funcionalidades (29/09/2026) — FASE 3: PAINEL DO DONO (web)
+
+### Contexto
+- Painel web **só do dono** (Fase 3 do plano de venda recorrente), consumindo a telemetria da Fase 2. Decisão de segurança: **server-rendered pelo backend** (mesma origem, sem CORS) + **cookie `httpOnly`** — evita código de admin em bundle público e token acessível a JS.
+
+### O que mudou (arquivos)
+- **Backend:**
+  - Coluna **`role`** em `usuarios` (default `'user'`) + migração `_garantir_coluna`.
+  - `services/admin.py`: `kpis()` (total, **online agora** ≤5 min, aparelhos, eventos por tipo) e `listar_usuarios()` (paginado + busca + online/aparelho).
+  - `admin_ui.py`: login e dashboard **server-rendered** (HTML/CSS, **sem JS inline**).
+  - Rotas **`GET /admin`**, **`POST /admin/login`**, **`POST /admin/logout`**; sessão em **cookie `httpOnly`+`Secure`+`SameSite=Strict`** (path `/admin`). Gate: `role='admin'` (ou admin legado).
+  - `backend/tests/test_admin.py` (10).
+- **Ops:** conta `rodrigolemosba@gmail.com` → `role='admin'` no Turso.
+
+### Verificação
+- Backend **208/208** (era 198; +10). CI verde (Backend · Flutter · Deploy).
+- Produção: `GET https://mentall-api.fly.dev/admin` → 200 (form de login); CSP com nonce.
+
+### Pendências
+- **Dono:** abrir `https://mentall-api.fly.dev/admin`, entrar com e-mail/senha e conferir KPIs/lista.
+- **Domínio** `admin.mentallpro.com.br`: apontar **CNAME → `mentall-api.fly.dev`** e emitir o certificado no Fly (`fly certs add admin.mentallpro.com.br`).
+- Receita do mês: depende da Fase 4 (assinaturas).
+
 ## Correções e Funcionalidades (29/09/2026) — FASE 2: TELEMETRIA (heartbeat + eventos)
 
 ### Contexto
