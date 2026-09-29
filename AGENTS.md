@@ -40,6 +40,24 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Segurança (28/09/2026) — CSP COM NONCE (remove `unsafe-inline` do `script-src`)
+
+### Contexto
+- Pendência do Strix: o CSP das páginas públicas (contrato/anamnese) usava `script-src 'self' 'unsafe-inline'`, o que permite executar script inline injetado.
+
+### O que mudou (arquivos)
+- `backend/main.py`: o middleware gera um **nonce por resposta** (`request.state.csp_nonce`) e o CSP passa a **`script-src 'self' 'nonce-...'`**; as rotas (contrato/anamnese) injetam o nonce nas tags `<script>` via `_com_nonce_script`.
+- `backend/templates/anamnese.html` e `contrato.html`: **removidos os handlers inline `onclick`**; toggle/enviar/aceitar passam a usar `addEventListener` (delegação por classe `.btn-sim/.btn-nao`).
+- `fetch` do aceite agora **relativo** (`/contratos/{token}/aceitar`) — mesma origem, para não ser barrado pelo CSP.
+- `backend/tests/test_csp.py` (novo, 2) + `test_anamnese_xss.py` atualizado.
+
+### Verificação
+- Backend **190/190** (era 188; +2). CI verde (Backend · Flutter · Deploy).
+- Produção: CSP com **`script-src 'self' 'nonce-...'`** (sem `unsafe-inline`); Fly **v35**.
+
+### Pendências
+- Verificar no navegador (contrato e anamnese): a página carrega e o botão envia (nonce aplicado).
+
 ## Segurança (28/09/2026) — TRUSTED_PROXIES (CIDR) + `--proxy-headers`
 
 ### Contexto
