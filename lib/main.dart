@@ -21,6 +21,7 @@ import 'providers/service_providers.dart';
 import 'screens/app_start_page.dart';
 import 'services/auth_service.dart';
 import 'services/demo_data_service.dart';
+import 'services/demo_lojas_service.dart';
 import 'services/encryption_service.dart';
 import 'services/hive_migration_service.dart';
 import 'services/logger.dart';
@@ -180,7 +181,13 @@ Future<void> _iniciarApp() async {
   }
   debugPrint('[startup] auth: ${sw.elapsedMilliseconds}ms');
 
-  await DemoDataService(encryption: encryption).semearSeNecessario();
+  // `DEMO_LOJAS=true` semeia um dataset para as capturas de tela das lojas
+  // (Helena, 23 pacientes, agenda e financeiro) no lugar do paciente demo.
+  if (DemoLojasService.ativoPorPadrao) {
+    await DemoLojasService(encryption: encryption).semearSeNecessario();
+  } else {
+    await DemoDataService(encryption: encryption).semearSeNecessario();
+  }
   debugPrint('[startup] demo: ${sw.elapsedMilliseconds}ms');
 
   ErrorWidget.builder = (FlutterErrorDetails details) {
