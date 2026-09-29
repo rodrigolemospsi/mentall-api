@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:prontuario_tcc/hive_registrar.g.dart';
 import 'package:prontuario_tcc/services/api_client.dart';
+import 'package:prontuario_tcc/services/credenciais_store.dart';
 import 'package:prontuario_tcc/services/telemetria_service.dart';
 
 void main() {
@@ -24,7 +25,8 @@ void main() {
   setUp(() async {
     await Hive.box<String>('app_config').clear();
     await Hive.box<String>('auth_meta').clear();
-    ApiClient.authToken = 'token-de-teste';
+    ApiClient.authToken = _jwtValido();
+    ApiClient.credenciaisStore = _FakeCredenciaisStore();
     ApiClient.httpClient = MockClient((_) async => throw StateError('nao mockado'));
   });
 
@@ -100,4 +102,35 @@ void main() {
 
     expect(chamou, isFalse);
   });
+
+  test('heartbeat não envia sem autenticação (evita 401)', () async {
+    ApiClient.authToken = null;
+    var chamou = false;
+    ApiClient.httpClient = MockClient((_) async {
+      chamou = true;
+      return http.Response('{}', 200);
+    });
+
+    await TelemetriaService().heartbeat();
+
+    expect(chamou, isFalse);
+  });
+}
+
+/// JWT de teste válido (3 partes, `exp` no futuro) para o `ensureAuthenticated`.
+String _jwtValido() {
+  final exp = DateTime.now().add(const Duration(hours: 1)).millisecondsSinceEpoch ~/ 1000;
+  final payload = base64.encode(utf8.encode(jsonEncode({'exp': exp})));
+  return 'header.$payload.signature';
+}
+
+class _FakeCredenciaisStore implements CredenciaisStore {
+  @override
+  Future<void> salvar(String username, String password) async {}
+
+  @override
+  Future<(String?, String?)> carregar() async => (null, null);
+
+  @override
+  Future<void> limpar() async {}
 }

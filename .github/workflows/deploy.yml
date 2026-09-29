@@ -4,6 +4,13 @@ on:
   push:
     branches:
       - master
+    # Mudanças só de documentação não reimplantam o backend (não reiniciam a
+    # máquina no Fly em cima de quem está usando o app/painel).
+    paths-ignore:
+      - 'AGENTS.md'
+      - 'tasks/**'
+      - 'docs/**'
+      - '**.md'
   pull_request:
     branches:
       - master

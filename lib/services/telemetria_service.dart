@@ -71,6 +71,9 @@ class TelemetriaService {
   /// pode quebrar o app.
   Future<void> heartbeat() async {
     try {
+      // Garante sessão válida (reautentica pela credencial durável se preciso):
+      // assim "online" conta mesmo com o app em segundo plano/travado.
+      if (!await ApiClient.ensureAuthenticated()) return;
       await ApiClient.post(
         '/telemetria/heartbeat',
         body: {
@@ -140,6 +143,7 @@ class TelemetriaService {
 
   Future<bool> _enviarEvento(String tipo) async {
     try {
+      if (!await ApiClient.ensureAuthenticated()) return false;
       final res = await ApiClient.post(
         '/telemetria/evento',
         body: {'device_id': deviceId, 'tipo': tipo},
