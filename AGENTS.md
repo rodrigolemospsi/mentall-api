@@ -40,6 +40,26 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Lojas (29/09/2026) — SCREENSHOTS (emulador + seed de demo)
+
+### Contexto
+- Frente 2 (publicação): gerar as **capturas de tela** exigidas pelas lojas.
+
+### O que mudou (arquivos)
+- **Emulador Android** instalado (`emulator` + `system-images;android-34;google_apis;arm64-v8a`), AVD **`mentall`** (Pixel 7).
+- `lib/services/demo_lojas_service.dart` (novo): semeia **Helena** (com foto), **23 pacientes**, **7 agendamentos** para hoje, **R$ 5.780** recebidos + **R$ 380** pendentes (mês corrente) e uma **sessão com IA** (relato/síntese/formulação/intervenções/apontamentos). Gated por **`--dart-define=DEMO_LOJAS=true`** → produção intacta.
+- `lib/main.dart`: usa o seed no lugar do paciente demo quando a flag está ligada.
+- `test/services/demo_lojas_service_test.dart` (6).
+- `store/screenshots/*.png` (5, **1080×2160 RGB**): Home, Pacientes, Financeiro, Agenda, Sessão com IA.
+
+### Verificação
+- `flutter analyze` limpo; `flutter test` **242/242** (era 236; +6). Capturas geradas no emulador (Android 14) e ajustadas ao Play (máx 2:1, sem alfa).
+
+### Pendências (Frente 2)
+- Descrição/categorias, Política/Termos (URL pública) e nota LGPD.
+- Contas de dev (Play/App Store) + keystore de release.
+- App Store: screenshots próprios (6.7"/6.5"/5.5").
+
 ## Lojas (29/09/2026) — ÍCONES (iOS sem alpha + 512 do Play)
 
 ### Contexto
