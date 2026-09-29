@@ -66,6 +66,20 @@ class TestClienteIp(unittest.TestCase):
         req = FakeRequest(xff="198.51.100.1, 177.50.1.2", host="203.0.113.9")
         self.assertEqual(main._cliente_ip(req), "177.50.1.2")
 
+    def test_peer_dentro_de_cidr_trusted_confia_no_xff(self):
+        # TRUSTED_PROXIES aceita CIDR (ex.: edge do Fly). IP publico (nao
+        # "privado" para o ipaddress) dentro da faixa confiavel = proxy.
+        main.TRUSTED_PROXIES = {"8.8.8.0/24"}
+        self.addCleanup(lambda: setattr(main, "TRUSTED_PROXIES", set()))
+        req = FakeRequest(xff="198.51.100.1, 177.50.1.2", host="8.8.8.8")
+        self.assertEqual(main._cliente_ip(req), "177.50.1.2")
+
+    def test_peer_fora_do_cidr_trusted_ignora_xff(self):
+        main.TRUSTED_PROXIES = {"8.8.8.0/24"}
+        self.addCleanup(lambda: setattr(main, "TRUSTED_PROXIES", set()))
+        req = FakeRequest(xff="198.51.100.1, 177.50.1.2", host="1.1.1.1")
+        self.assertEqual(main._cliente_ip(req), "1.1.1.1")
+
     def test_ignora_valores_vazios_no_xff(self):
         req = FakeRequest(xff="200.0.0.1, , 177.50.1.2", host="10.0.0.1")
         self.assertEqual(main._cliente_ip(req), "177.50.1.2")

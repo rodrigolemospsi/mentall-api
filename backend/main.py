@@ -122,6 +122,25 @@ def _parse_trusted_proxies() -> set[str]:
 TRUSTED_PROXIES = _parse_trusted_proxies()
 
 
+def _ip_em_proxies(peer: str) -> bool:
+    """True se `peer` está em TRUSTED_PROXIES (IP exato ou dentro de um CIDR)."""
+    import ipaddress as _ip
+    try:
+        addr = _ip.ip_address(peer)
+    except ValueError:
+        return False
+    for item in TRUSTED_PROXIES:
+        try:
+            if "/" in item:
+                if addr in _ip.ip_network(item, strict=False):
+                    return True
+            elif addr == _ip.ip_address(item):
+                return True
+        except ValueError:
+            continue
+    return False
+
+
 def _cliente_ip(request: Request) -> str:
     """Retorna o IP real do cliente para chaves de rate limit.
 
@@ -135,7 +154,7 @@ def _cliente_ip(request: Request) -> str:
 
     import ipaddress as _ip
 
-    if peer not in TRUSTED_PROXIES and not _peer_eh_proxy(peer):
+    if not _ip_em_proxies(peer) and not _peer_eh_proxy(peer):
         return peer
 
     try:
