@@ -1936,7 +1936,13 @@ def _usuario_admin_autenticado(request: Request) -> bool:
     from services.usuarios import obter_por_email
 
     usuario = obter_por_email(username)
-    return bool(usuario and (usuario.get("role") or "") == "admin")
+    # Só conta confirmada (ativa) e com papel admin. Sem isso, um cookie emitido
+    # antes de uma suspensão continuaria abrindo o painel.
+    return bool(
+        usuario
+        and (usuario.get("role") or "") == "admin"
+        and (usuario.get("status") or "") == "ativo"
+    )
 
 
 @app.get("/admin", response_class=HTMLResponse, tags=["Admin"])
@@ -1957,13 +1963,24 @@ async def admin_login(request: Request):
     senha = form.get("senha") or ""
 
     if email.lower() == APP_USERNAME.lower() and _verificar_senha(senha):
-        usuario = {"email": APP_USERNAME, "id": APP_USER_ID, "role": "admin"}
+        usuario = {
+            "email": APP_USERNAME,
+            "id": APP_USER_ID,
+            "role": "admin",
+            "status": "ativo",
+        }
     else:
         from services.usuarios import autenticar
 
         usuario = autenticar(email, senha)
 
-    if usuario is None or (usuario.get("role") or "user") != "admin":
+    # Exige conta confirmada (ativo) + papel admin (mesmo portão do /auth/login,
+    # que recusa 'pendente' com 403).
+    if (
+        usuario is None
+        or (usuario.get("role") or "user") != "admin"
+        or (usuario.get("status") or "") != "ativo"
+    ):
         return HTMLResponse(
             admin_ui.pagina_login("Credenciais inválidas ou sem permissão."),
             status_code=401,

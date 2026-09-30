@@ -10,11 +10,11 @@ from services.usuarios import hash_senha
 SENHA = "SenhaForte123"
 
 
-def _criar_usuario(uid, email, role):
+def _criar_usuario(uid, email, role, status="ativo"):
     db.executar(
         "INSERT INTO usuarios (id, email, password_hash, nome, plano, status, role, criado_em) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (uid, email, hash_senha(SENHA), "Nome", "gratis", "ativo", role, "2026-01-01T00:00:00+00:00"),
+        (uid, email, hash_senha(SENHA), "Nome", "gratis", status, role, "2026-01-01T00:00:00+00:00"),
     ).commit()
 
 
@@ -150,6 +150,21 @@ class AdminHttpTests(unittest.IsolatedAsyncioTestCase):
     async def test_cookie_de_usuario_comum_nao_acessa(self):
         # Um token JWT válido de usuário comum NÃO deve abrir o painel.
         token = main._criar_token_jwt("psi@ex.com", "user-1")
+        r = await self.client.get("/admin", headers={"Cookie": f"mentall_admin={token}"})
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("Entrar", r.text)
+        self.assertNotIn("Psicólogos", r.text)
+
+    async def test_login_admin_pendente_recusado(self):
+        # Conta nao confirmada (pendente) nao entra no painel, mesmo com papel admin.
+        _criar_usuario("pend-1", "pend@ex.com", "admin", status="pendente")
+        r = await self.client.post("/admin/login", data={"email": "pend@ex.com", "senha": SENHA})
+        self.assertEqual(r.status_code, 401)
+        self.assertNotIn("mentall_admin=", r.headers.get("set-cookie", ""))
+
+    async def test_cookie_de_admin_pendente_nao_acessa(self):
+        _criar_usuario("pend-2", "pend2@ex.com", "admin", status="pendente")
+        token = main._criar_token_jwt("pend2@ex.com", "pend-2")
         r = await self.client.get("/admin", headers={"Cookie": f"mentall_admin={token}"})
         self.assertEqual(r.status_code, 200)
         self.assertIn("Entrar", r.text)
