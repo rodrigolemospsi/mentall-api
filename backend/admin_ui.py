@@ -5,16 +5,52 @@ Todos os valores dinâmicos passam por `html.escape` (anti-XSS).
 """
 import html
 import math
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
+# O backend grava tudo em UTC (correto para armazenar); o painel exibe no
+# horário de Brasília (o dono lê pelo PC no Brasil).
+_FUSO_BRASILIA = ZoneInfo("America/Sao_Paulo")
 
 
 def _esc(valor) -> str:
     return html.escape(str(valor if valor is not None else ""))
 
 
-def _quando(iso: str) -> str:
+def _para_brasilia(iso) -> datetime | None:
     if not iso:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(iso))
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(_FUSO_BRASILIA)
+
+
+def _quando(iso) -> str:
+    dt = _para_brasilia(iso)
+    if dt is None:
         return "-"
-    return _esc(str(iso)[:16].replace("T", " "))
+    return _esc(dt.strftime("%d/%m/%Y %H:%M"))
+
+
+def _visto_ha(iso) -> str:
+    """Tempo relativo desde o último heartbeat (contexto para online/offline)."""
+    dt = _para_brasilia(iso)
+    if dt is None:
+        return "-"
+    segundos = (datetime.now(timezone.utc) - dt.astimezone(timezone.utc)).total_seconds()
+    if segundos < 90:
+        return "agora"
+    minutos = int(segundos // 60)
+    if minutos < 60:
+        return f"há {minutos} min"
+    horas = minutos // 60
+    if horas < 24:
+        return f"há {horas} h"
+    return f"há {horas // 24} d"
 
 
 _ESTILO = """
@@ -78,6 +114,7 @@ def _linha_usuario(u: dict) -> str:
         f"<td>{_esc(u.get('status'))}</td>"
         f"<td>{aparelho or '-'}</td>"
         f"<td>{estado}</td>"
+        f"<td>{_visto_ha(u.get('ultimo_hb'))}</td>"
         f"<td>{_quando(u.get('ultimo_acesso_em'))}</td>"
         "</tr>"
     )
@@ -92,7 +129,7 @@ def pagina_dashboard(kpis: dict, pagina: dict, busca: str = "") -> str:
     ) or '<span class="off">nenhum</span>'
 
     linhas = "".join(_linha_usuario(u) for u in pagina["usuarios"]) or (
-        '<tr><td colspan="8" class="off">Nenhum psicólogo encontrado.</td></tr>'
+        '<tr><td colspan="9" class="off">Nenhum psicólogo encontrado.</td></tr>'
     )
 
     total = pagina["total"]
@@ -134,7 +171,7 @@ def pagina_dashboard(kpis: dict, pagina: dict, busca: str = "") -> str:
   <table>
     <thead><tr>
       <th>E-mail</th><th>Nome</th><th>Plano</th><th>Papel</th><th>Status</th>
-      <th>Aparelho</th><th>Presença</th><th>Último acesso</th>
+      <th>Aparelho</th><th>Presença</th><th>Visto</th><th>Último acesso</th>
     </tr></thead>
     <tbody>{linhas}</tbody>
   </table>

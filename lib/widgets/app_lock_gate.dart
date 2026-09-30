@@ -48,7 +48,9 @@ class _AppLockGateState extends ConsumerState<AppLockGate>
   Timer? _heartbeatTimer;
   bool _bloqueado = false;
 
-  static const Duration _heartbeatIntervalo = Duration(minutes: 3);
+  // 60s: margem folgada dentro da janela de presença do painel (10 min), para
+  // um único beat perdido não derrubar o usuário para "offline".
+  static const Duration _heartbeatIntervalo = Duration(seconds: 60);
 
   @override
   void initState() {
@@ -105,12 +107,31 @@ class _AppLockGateState extends ConsumerState<AppLockGate>
     if (!mounted) return;
     setState(() => _bloqueado = false);
     _resetarInactivityTimer();
+    // Presença imediata após desbloquear (o heartbeat do boot pode ter falhado
+    // por o JWT ainda não existir).
+    _enviarHeartbeat();
+  }
+
+  /// "Visto por último" ANTES de apagar o JWT: o `bloquear()` zera o token, e
+  /// sem isso o painel marcaria offline assim que o Android suspende o app
+  /// (tela apagada / troca de app). O timeout curto evita atrasar o bloqueio
+  /// se a rede estiver ruim.
+  Future<void> _aoPausar() async {
+    try {
+      await ref
+          .read(telemetriaServiceProvider)
+          .heartbeat()
+          .timeout(const Duration(seconds: 3));
+    } catch (_) {
+      // Best-effort: bloqueia mesmo sem conseguir avisar a nuvem.
+    }
+    await _bloquear();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
-      _bloquear();
+      unawaited(_aoPausar());
     } else if (state == AppLifecycleState.resumed) {
       _resetarInactivityTimer();
       _enviarHeartbeat();

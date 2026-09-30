@@ -53,6 +53,53 @@ class AdminServiceTests(unittest.TestCase):
         self.assertEqual(pagina["total"], 1)
         self.assertEqual(pagina["usuarios"][0]["email"], "b@ex.com")
 
+    def test_online_considera_heartbeat_recente_fora_da_janela_antiga(self):
+        # Antes a janela era 5 min: um heartbeat de 8 min aparecia offline.
+        # Agora (10 min) o app pausado/suspenso continua contando como online.
+        from datetime import datetime, timedelta, timezone
+        ha_8min = (datetime.now(timezone.utc) - timedelta(minutes=8)).isoformat()
+        db.executar(
+            "INSERT INTO dispositivos "
+            "(device_id, owner_id, plataforma, versao_app, ultimo_heartbeat_em, criado_em) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            ("dev-8min", "u1", "android", "1.0.44", ha_8min, ha_8min),
+        ).commit()
+        pagina = admin.listar_usuarios(pagina=1, limite=10, busca="")
+        por_id = {u["id"]: u for u in pagina["usuarios"]}
+        self.assertTrue(por_id["u1"]["online"])
+
+    def test_listar_usuarios_expoe_ultimo_heartbeat(self):
+        from services.telemetria import registrar_heartbeat
+        registrar_heartbeat("u1", "dev-bbbbbbbb", "android", "1.0.44")
+        pagina = admin.listar_usuarios(pagina=1, limite=10, busca="")
+        por_id = {u["id"]: u for u in pagina["usuarios"]}
+        self.assertTrue(por_id["u1"]["ultimo_hb"])
+        self.assertIsNone(por_id["u2"]["ultimo_hb"])
+
+
+class AdminUiTests(unittest.TestCase):
+    def test_quando_converte_para_horario_de_brasilia(self):
+        from admin_ui import _quando
+        self.assertEqual(_quando("2026-09-30T12:08:00+00:00"), "30/09/2026 09:08")
+
+    def test_quando_vazio_retorna_traco(self):
+        from admin_ui import _quando
+        self.assertEqual(_quando(""), "-")
+        self.assertEqual(_quando(None), "-")
+
+    def test_visto_ha_formata_tempo_relativo(self):
+        from datetime import datetime, timedelta, timezone
+        from admin_ui import _visto_ha
+        agora = datetime.now(timezone.utc)
+        self.assertEqual(_visto_ha(agora.isoformat()), "agora")
+        self.assertEqual(
+            _visto_ha((agora - timedelta(minutes=3)).isoformat()), "há 3 min"
+        )
+        self.assertEqual(
+            _visto_ha((agora - timedelta(hours=2)).isoformat()), "há 2 h"
+        )
+        self.assertEqual(_visto_ha(None), "-")
+
 
 class AdminHttpTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):

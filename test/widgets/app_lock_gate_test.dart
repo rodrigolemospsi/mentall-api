@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prontuario_tcc/providers/service_providers.dart';
 import 'package:prontuario_tcc/services/auth_service.dart';
 import 'package:prontuario_tcc/services/encryption_service.dart';
+import 'package:prontuario_tcc/services/telemetria_service.dart';
 import 'package:prontuario_tcc/widgets/app_lock_gate.dart';
 
 void main() {
@@ -122,6 +123,43 @@ void main() {
     expect(bloqueou, isTrue);
   });
 
+  testWidgets('ao pausar envia heartbeat (visto por ultimo) antes de bloquear', (
+    tester,
+  ) async {
+    final eventos = <String>[];
+    final auth = _FakeAuth(
+      onBloquear: () => eventos.add('bloquear'),
+      desbloqueado: true,
+      requerAutenticacao: true,
+    );
+    final telemetria = _FakeTelemetria(
+      onHeartbeat: () => eventos.add('heartbeat'),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authServiceProvider.overrideWithValue(auth),
+          telemetriaServiceProvider.overrideWithValue(telemetria),
+        ],
+        child: MaterialApp(
+          builder: (context, child) => AppLockGate(
+            lockScreenBuilder: (_, _) => const _TelaBloqueioFake(),
+            child: child!,
+          ),
+          home: const _TelaA(),
+        ),
+      ),
+    );
+    await tester.pump();
+    eventos.clear(); // ignora o heartbeat do boot
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pumpAndSettle();
+
+    expect(eventos, ['heartbeat', 'bloquear']);
+  });
+
   testWidgets('nao bloqueia quando autenticacao nao e exigida', (tester) async {
     var bloqueou = false;
     final auth = _FakeAuth(
@@ -208,4 +246,13 @@ class _FakeAuth extends AuthService {
 
   @override
   Future<void> bloquear() async => onBloquear();
+}
+
+class _FakeTelemetria extends TelemetriaService {
+  _FakeTelemetria({required this.onHeartbeat});
+
+  final void Function() onHeartbeat;
+
+  @override
+  Future<void> heartbeat() async => onHeartbeat();
 }

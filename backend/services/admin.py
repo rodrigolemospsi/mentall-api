@@ -10,7 +10,11 @@ from services.db import executar
 
 log = logging.getLogger("mentall.admin")
 
-ONLINE_JANELA_MINUTOS = 5
+# Janela de presença. O app envia heartbeat no boot, a cada 60s em primeiro
+# plano, ao pausar e ao retomar. Uma janela maior que o intervalo cobre o caso
+# em que o Android suspende o app (tela apagada / troca de app) — antes eram
+# 5 min e o usuário aparecia offline mesmo com o app aberto.
+ONLINE_JANELA_MINUTOS = 10
 
 
 def _limite_online_iso() -> str:
@@ -75,6 +79,7 @@ def listar_usuarios(pagina: int = 1, limite: int = 25, busca: str = "") -> dict:
         usuarios.append({
             **row,
             "online": bool(ultimo_hb and ultimo_hb >= limite_online),
+            "ultimo_hb": ultimo_hb,
             "aparelho": (dev["plataforma"] if dev else "") or "",
             "versao_app": (dev["versao_app"] if dev else "") or "",
         })

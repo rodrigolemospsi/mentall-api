@@ -65,8 +65,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           );
         }
         // Restabelece a sessão do servidor após o desbloqueio (não bloqueia a
-        // navegação; o JWT fica pronto para as próximas chamadas).
-        unawaited(authService.estabelecerSessaoServidor());
+        // navegação; o JWT fica pronto para as próximas chamadas) e registra
+        // presença assim que a sessão existe.
+        final telemetria = ref.read(telemetriaServiceProvider);
+        unawaited(
+          authService
+              .estabelecerSessaoServidor()
+              .then((_) => telemetria.heartbeat()),
+        );
         ref.read(lockRefreshProvider.notifier).state++;
         _navegarParaHome();
       } else {
