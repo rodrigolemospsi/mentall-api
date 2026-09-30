@@ -40,6 +40,22 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Acessos (30/09/2026) — NOVO DONO DO PAINEL + GATE DE `status`
+
+### Contexto
+- O dono pediu um **segundo administrador** do painel (`/admin`).
+
+### O que mudou (dados no Turso)
+- Criada a conta **`anderson.lemos@icloud.com`** (nome "Anderson Lemos"), **`role='admin'`**, `status='ativo'` — login no painel confirmado (303). **Senha não registrada aqui** (repassar por canal seguro; troca via app ou novo comando).
+- **Não há tela/rota para promover** um dono: hoje é `UPDATE usuarios SET role='admin' WHERE email=?` (decisão do dono: **sem script/UI** por enquanto).
+
+### O que mudou (código)
+- `backend/main.py`: `/admin/login` e `_usuario_admin_autenticado` passam a exigir **`status='ativo'`** (antes só checavam o papel — uma conta `pendente` com `role='admin'` entrava no painel sem confirmar o e-mail; o `/auth/login` já recusava `pendente` com 403). O admin legado (`APP_USERNAME`) segue ativo.
+- `backend/tests/test_admin.py` (+2): login de admin `pendente` recusado; cookie de admin `pendente` não abre o painel.
+
+### Verificação
+- Backend **215/215** (era 213; +2). CI verde (Backend · Flutter · Dependency scan · Deploy). Produção: login do Anderson 303; `/health` 200.
+
 ## Correções e Funcionalidades (30/09/2026) — PRESENÇA CONFIÁVEL + PAINEL EM HORÁRIO DE BRASÍLIA
 
 ### Contexto
