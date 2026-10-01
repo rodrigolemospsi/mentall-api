@@ -355,7 +355,7 @@ class PdfExportService {
         pw.SizedBox(height: 8),
         _linhaSeparadora(),
         pw.SizedBox(height: 12),
-        _secaoClinica(sessao, config),
+        ..._secaoClinicaBlocos(sessao, config),
         pw.SizedBox(height: 16),
         _secaoExportacao(),
         _secaoDisclaimerIa(),
@@ -407,78 +407,6 @@ class PdfExportService {
           ),
         ],
       ),
-    );
-  }
-
-  pw.Widget _secaoClinica(
-    Sessao sessao,
-    ConfiguracaoAbordagemClinica config,
-  ) {
-    final campos = <pw.Widget>[];
-
-    void addCampo(String label, String texto) {
-      if (texto.trim().isEmpty) return;
-      campos.add(pw.Padding(
-        padding: const pw.EdgeInsets.only(bottom: 12),
-        child: pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Text(
-              label.toUpperCase(),
-              style: pw.TextStyle(
-                fontSize: 8,
-                fontWeight: pw.FontWeight.bold,
-                color: _secundaria,
-                letterSpacing: 0.8,
-              ),
-            ),
-            pw.SizedBox(height: 4),
-            pw.Container(
-              padding: const pw.EdgeInsets.only(left: 10),
-              decoration: pw.BoxDecoration(
-                border: pw.Border(
-                  left: pw.BorderSide(color: _primariaClara, width: 2),
-                ),
-              ),
-              child: pw.Text(
-                _quebrarTextosLongos(texto),
-                textAlign: pw.TextAlign.left,
-                style: const pw.TextStyle(
-                  fontSize: Tipografia.xxs,
-                  height: 1.5,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ));
-    }
-
-    final sintese = _concatenarSintese(sessao);
-    final formulacao = _concatenarFormulacao(sessao);
-    final intervencoes = _concatenarIntervencoes(sessao);
-
-    addCampo('Relato pós-sessão', sessao.relatoPosSessao);
-    addCampo('Síntese clínica', sintese);
-    addCampo(config.tituloFormulaClinica, formulacao);
-    addCampo(config.tituloIntervencoes, intervencoes);
-    addCampo('Apontamentos', sessao.apontamentosCopiloto);
-    addCampo('Artigos sugeridos', sessao.artigosSugeridos);
-
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: campos.isEmpty
-          ? [
-              pw.Text(
-                'Nenhum conteúdo clínico registrado nesta sessão.',
-                style: pw.TextStyle(
-                  color: _secundaria,
-                  fontSize: Tipografia.xxs,
-                  fontStyle: pw.FontStyle.italic,
-                ),
-              ),
-            ]
-          : campos,
     );
   }
 
@@ -899,42 +827,27 @@ class PdfExportService {
           if (sessao.relatoPosSessao.trim().isNotEmpty) ...[
             _tituloSecao('Relato Clínico Organizado'),
             pw.SizedBox(height: 4),
-            _blocoTexto(sessao.relatoPosSessao),
+            ..._blocoTextoBlocos(sessao.relatoPosSessao),
             pw.SizedBox(height: 12),
           ],
           if (sessao.transcricaoRevisada.trim().isNotEmpty) ...[
             _tituloSecao('Transcrição Revisada'),
             pw.SizedBox(height: 4),
-            _blocoTexto(sessao.transcricaoRevisada),
+            ..._blocoTextoBlocos(sessao.transcricaoRevisada),
             pw.SizedBox(height: 12),
           ] else if (sessao.transcricaoRelato.trim().isNotEmpty) ...[
             _tituloSecao('Transcrição'),
             pw.SizedBox(height: 4),
-            _blocoTexto(sessao.transcricaoRelato),
+            ..._blocoTextoBlocos(sessao.transcricaoRelato),
             pw.SizedBox(height: 12),
           ],
           if (sessao.apontamentosCopiloto.trim().isNotEmpty) ...[
             _tituloSecao('Apontamentos'),
             pw.SizedBox(height: 4),
-            pw.Container(
-              padding: const pw.EdgeInsets.all(10),
-              decoration: pw.BoxDecoration(
-                color: PdfColors.blue50,
-                borderRadius:
-                    const pw.BorderRadius.all(pw.Radius.circular(6)),
-              ),
-              child: pw.Text(
-                sessao.apontamentosCopiloto,
-                style: pw.TextStyle(
-                  fontSize: Tipografia.xxs,
-                  height: 1.4,
-                  fontStyle: pw.FontStyle.italic,
-                ),
-              ),
-            ),
+            ..._blocoTextoBlocos(sessao.apontamentosCopiloto, destaque: true),
             pw.SizedBox(height: 12),
           ],
-          _secaoClinica(sessao, config),
+          ..._secaoClinicaBlocos(sessao, config),
           pw.SizedBox(height: 12),
           _secaoRevisao(sessao),
           pw.SizedBox(height: 12),
@@ -1486,21 +1399,47 @@ class PdfExportService {
     );
   }
 
-  pw.Widget _blocoTexto(String texto) {
-    return pw.Container(
-      width: double.infinity,
-      padding: const pw.EdgeInsets.only(left: 10),
-      decoration: pw.BoxDecoration(
-        border: pw.Border(
-          left: pw.BorderSide(color: _primariaClara, width: 2),
+  /// Como o antigo `_blocoTexto`, mas devolve uma **lista** de blocos
+  /// pagináveis (um por pedaço de até [_dividirEmBlocos]). Um `Text` único
+  /// muito alto não é quebrado pelo `MultiPage` e lança `PdfTooBigPageException`;
+  /// dividir em blocos permite a paginação (fix do item 26 para os textos soltos
+  /// da Síntese Revisada). `destaque` reproduz o card azul dos apontamentos.
+  List<pw.Widget> _blocoTextoBlocos(String texto, {bool destaque = false}) {
+    final pedacos = PdfExportService._dividirEmBlocos(texto);
+    return [
+      for (final pedaco in pedacos)
+        pw.Container(
+          width: double.infinity,
+          padding: destaque
+              ? const pw.EdgeInsets.all(10)
+              : const pw.EdgeInsets.only(left: 10),
+          decoration: pw.BoxDecoration(
+            color: destaque ? PdfColors.blue50 : null,
+            borderRadius: destaque
+                ? const pw.BorderRadius.all(pw.Radius.circular(6))
+                : null,
+            border: destaque
+                ? null
+                : pw.Border(
+                    left: pw.BorderSide(color: _primariaClara, width: 2),
+                  ),
+          ),
+          child: pw.Text(
+            _quebrarTextosLongos(pedaco),
+            textAlign: pw.TextAlign.left,
+            style: destaque
+                ? pw.TextStyle(
+                    fontSize: Tipografia.xxs,
+                    height: 1.4,
+                    fontStyle: pw.FontStyle.italic,
+                  )
+                : const pw.TextStyle(
+                    fontSize: Tipografia.xxs,
+                    height: 1.5,
+                  ),
+          ),
         ),
-      ),
-      child: pw.Text(
-        _quebrarTextosLongos(texto),
-        textAlign: pw.TextAlign.left,
-        style: const pw.TextStyle(fontSize: Tipografia.xxs, height: 1.5),
-      ),
-    );
+    ];
   }
 
   /// Quebra tokens longos sem espaço (ex.: URLs de artigos sugeridos) para o
@@ -1539,6 +1478,32 @@ class PdfExportService {
       anamnese: anamnese,
       perfil: perfil,
       templateJson: templateJson,
+    );
+  }
+
+  /// Apenas para testes: gera os bytes do "Registro de Sessão" sem share sheet.
+  static Future<Uint8List?> gerarPdfSessaoParaTeste({
+    required Sessao sessao,
+    required Paciente paciente,
+    required PerfilProfissional perfil,
+  }) async {
+    return PdfExportService()._gerarPdfSessao(
+      sessao: sessao,
+      paciente: paciente,
+      perfil: perfil,
+    );
+  }
+
+  /// Apenas para testes: gera os bytes da "Síntese Revisada" sem share sheet.
+  static Future<Uint8List?> gerarPdfSinteseRevisadaParaTeste({
+    required Sessao sessao,
+    required Paciente paciente,
+    required PerfilProfissional perfil,
+  }) async {
+    return PdfExportService()._gerarPdfSinteseRevisada(
+      sessao: sessao,
+      paciente: paciente,
+      perfil: perfil,
     );
   }
 

@@ -202,4 +202,65 @@ void main() {
       expect(pdf!.length, greaterThan(1000));
     });
   });
+
+  group('PdfExportService exportadores de sessao (item 26)', () {
+    final paciente = Paciente(id: 'p1', nome: 'Linda Tester');
+    final perfil = PerfilProfissional(
+      id: 'pr1',
+      nome: 'Dr. Teste',
+      registroProfissional: 'CRP 00/00000',
+      abordagemClinica: 'TCC',
+    );
+
+    String longo() => List.generate(40, (i) {
+          return 'Parágrafo ${i + 1}: o paciente relatou, ao longo da sessão, '
+              'preocupações persistentes com ansiedade social, evitação de '
+              'situações de exposição e pensamentos automáticos de avaliação '
+              'negativa, com impacto funcional no trabalho e nos vínculos. '
+              'Foram trabalhadas reestruturação cognitiva, exposição gradual '
+              'e técnicas de respiração para manejo da ativação fisiológica.';
+        }).join('\n\n');
+
+    test('Registro de Sessão pagina conteúdo clínico muito longo', () async {
+      final sessao = Sessao(
+        id: 's1',
+        pacienteId: 'p1',
+        numeroSessao: 1,
+        data: DateTime(2026, 8, 1, 14, 0),
+        relatoPosSessao: longo(),
+        eventosImportantes: longo(),
+      );
+
+      final pdf = await PdfExportService.gerarPdfSessaoParaTeste(
+        sessao: sessao,
+        paciente: paciente,
+        perfil: perfil,
+      ).timeout(const Duration(seconds: 30));
+
+      expect(pdf, isNotNull);
+      expect(pdf!.length, greaterThan(1000));
+    });
+
+    test('Síntese Revisada pagina transcrição/apontamentos muito longos',
+        () async {
+      final sessao = Sessao(
+        id: 's2',
+        pacienteId: 'p1',
+        numeroSessao: 1,
+        data: DateTime(2026, 8, 1, 14, 0),
+        relatoPosSessao: longo(),
+        transcricaoRelato: longo(),
+        apontamentosCopiloto: longo(),
+      );
+
+      final pdf = await PdfExportService.gerarPdfSinteseRevisadaParaTeste(
+        sessao: sessao,
+        paciente: paciente,
+        perfil: perfil,
+      ).timeout(const Duration(seconds: 30));
+
+      expect(pdf, isNotNull);
+      expect(pdf!.length, greaterThan(1000));
+    });
+  });
 }
