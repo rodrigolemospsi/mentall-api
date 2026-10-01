@@ -10,6 +10,7 @@ import '../services/backup_storage.dart';
 import '../services/configuracoes_service.dart';
 import '../utils/mentall_colors.dart';
 import '../utils/raio.dart';
+import 'lembretes_page.dart';
 import 'login_page.dart';
 import 'redefinir_senha_page.dart';
 import '../utils/tipografia.dart';
@@ -310,6 +311,20 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
                   onChanged: (v) {
                     if (v != null) config.setAntecedenciaPadraoMinutos(v);
                   },
+                ),
+              ),
+              const Divider(indent: 16),
+              ListTile(
+                leading:
+                    Icon(Icons.notifications_active_outlined, color: context.corPrimaria),
+                title: const Text('Lembretes agendados'),
+                subtitle: const Text(
+                  'Veja e cancele os lembretes de WhatsApp agendados na nuvem.',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LembretesPage()),
                 ),
               ),
             ],

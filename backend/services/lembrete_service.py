@@ -350,9 +350,35 @@ async def cancelar_lembrete(compromisso_id: str, owner_id: str = "") -> bool:
         return deletado
 
 
-def listar_lembretes() -> list[dict]:
-    cur = executar("SELECT * FROM lembretes")
+def listar_lembretes(owner_id: str, status: str | None = None) -> list[dict]:
+    """Lista os lembretes do owner (nunca de outro). Opcionalmente por status."""
+    if status:
+        cur = executar(
+            "SELECT * FROM lembretes WHERE owner_id = ? AND status = ? "
+            "ORDER BY horario_envio",
+            (owner_id, status),
+        )
+    else:
+        cur = executar(
+            "SELECT * FROM lembretes WHERE owner_id = ? ORDER BY horario_envio",
+            (owner_id,),
+        )
     return cur.fetchall()
+
+
+async def cancelar_todos_lembretes(owner_id: str) -> int:
+    """Cancela (soft) todos os lembretes pendentes do owner. Retorna o total.
+
+    Soft-cancel preserva o historico (mesmo padrao usado para limpar orfaos)
+    e o scheduler so processa status='pendente', entao nada mais e enviado."""
+    async with _LOCK:
+        cur = executar(
+            "UPDATE lembretes SET status = 'cancelado' "
+            "WHERE owner_id = ? AND status = 'pendente'",
+            (owner_id,),
+        )
+        cur.commit()
+        return cur.rowcount or 0
 
 
 def registrar_receipt(payload: dict) -> int:

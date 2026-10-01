@@ -348,6 +348,15 @@ class ApiClient {
         .timeout(customTimeout ?? timeout);
   }
 
+  static Future<http.Response> delete(String path, {Duration? customTimeout}) async {
+    return httpClient
+        .delete(
+          Uri.parse('$baseUrl$path'),
+          headers: defaultHeaders(),
+        )
+        .timeout(customTimeout ?? timeout);
+  }
+
   static Future<void> registrarRecuperacao(String email, String recoveryToken) async {
     await post('/auth/registrar-recuperacao', body: {
       'email': email,

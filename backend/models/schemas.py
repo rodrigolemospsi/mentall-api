@@ -182,6 +182,27 @@ class LembreteResponse(BaseModel):
     erro: str = ""
 
 
+class LembreteItem(BaseModel):
+    id: str
+    compromisso_id: str
+    telefone: str = ""
+    mensagem: str = ""
+    horario_envio: str = ""
+    canal: str = "whatsapp"
+    status: str = "pendente"
+    tentativas: int = 0
+
+
+class LembretesListResponse(BaseModel):
+    sucesso: bool = True
+    lembretes: list[LembreteItem] = []
+
+
+class LembretesCancelResponse(BaseModel):
+    sucesso: bool = True
+    cancelados: int = 0
+
+
 class AnamneseRequest(BaseModel):
     template_json: str = Field(min_length=10, max_length=50_000)
     abordagem: str = Field(max_length=100)

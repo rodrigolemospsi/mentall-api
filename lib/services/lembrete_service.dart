@@ -172,6 +172,38 @@ class LembreteService {
     } catch (_) {}
   }
 
+  /// Lista os lembretes agendados do profissional no backend (fonte de verdade
+  /// dos envios por WhatsApp). `status` opcional (ex.: 'pendente').
+  static Future<List<Map<String, dynamic>>> listarLembretes({String? status}) async {
+    try {
+      await ApiClient.ensureAuthenticated();
+      final query = (status != null && status.isNotEmpty) ? '?status=$status' : '';
+      final response = await ApiClient.get('/lembretes$query');
+      if (response.statusCode != 200) return const [];
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final lista = (data['lembretes'] as List?) ?? const [];
+      return lista.whereType<Map<String, dynamic>>().toList();
+    } catch (e) {
+      Log.erro(e, contexto: 'LembreteService.listarLembretes');
+      return const [];
+    }
+  }
+
+  /// Cancela todos os lembretes pendentes do profissional. Retorna quantos
+  /// foram cancelados (0 em caso de erro).
+  static Future<int> cancelarTodosLembretes() async {
+    try {
+      await ApiClient.ensureAuthenticated();
+      final response = await ApiClient.delete('/lembretes');
+      if (response.statusCode != 200) return 0;
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return (data['cancelados'] as num?)?.toInt() ?? 0;
+    } catch (e) {
+      Log.erro(e, contexto: 'LembreteService.cancelarTodosLembretes');
+      return 0;
+    }
+  }
+
   Future<void> _cancelarExistente(String compromissoId) async {
     await _notifications.cancel(compromissoId.hashCode);
   }

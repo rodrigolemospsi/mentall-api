@@ -49,8 +49,11 @@ from models.schemas import (
     EventoRequest,
     HealthResponse,
     HeartbeatRequest,
+    LembreteItem,
     LembreteRequest,
     LembreteResponse,
+    LembretesCancelResponse,
+    LembretesListResponse,
     LoginRequest,
     LoginResponse,
     ProgressoRequest,
@@ -91,7 +94,9 @@ from services.lembrete_service import (
     _enviar_whatsapp_via_wuzapi,
     agendar_lembrete,
     cancelar_lembrete,
+    cancelar_todos_lembretes,
     iniciar_scheduler,
+    listar_lembretes,
     parar_scheduler,
     registrar_receipt,
     salvar_instancia_wuzapi,
@@ -1312,6 +1317,46 @@ async def remover_lembrete(compromisso_id: str, _req: Request, auth: tuple = Dep
     if not ok:
         return LembreteResponse(sucesso=False, erro="Lembrete não encontrado.")
     return LembreteResponse(sucesso=True, id=compromisso_id)
+
+
+@app.get(
+    "/lembretes",
+    response_model=LembretesListResponse,
+    tags=["Lembretes"],
+    dependencies=[Depends(_verificar_token)],
+)
+def listar_lembretes_endpoint(_req: Request, status: str | None = None, auth: tuple = Depends(_verificar_token)):
+    _, owner_id = auth
+    _rate_limit_check(_req, max_requests=30)
+    linhas = listar_lembretes(owner_id, status)
+    itens = [
+        LembreteItem(
+            id=r["id"],
+            compromisso_id=r["compromisso_id"],
+            telefone=r.get("telefone") or "",
+            mensagem=r.get("mensagem") or "",
+            horario_envio=r.get("horario_envio") or "",
+            canal=r.get("canal") or "whatsapp",
+            status=r.get("status") or "pendente",
+            tentativas=r.get("tentativas") or 0,
+        )
+        for r in linhas
+    ]
+    return LembretesListResponse(lembretes=itens)
+
+
+@app.delete(
+    "/lembretes",
+    response_model=LembretesCancelResponse,
+    tags=["Lembretes"],
+    dependencies=[Depends(_verificar_token)],
+)
+async def cancelar_todos_lembretes_endpoint(_req: Request, auth: tuple = Depends(_verificar_token)):
+    _, owner_id = auth
+    _rate_limit_check(_req, max_requests=5)
+    total = await cancelar_todos_lembretes(owner_id)
+    log.info("Cancelamento de lembretes em lote: owner=%s cancelados=%s", owner_id[:8], total)
+    return LembretesCancelResponse(cancelados=total)
 
 
 @app.post(

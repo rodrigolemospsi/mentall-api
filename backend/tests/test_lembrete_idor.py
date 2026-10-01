@@ -92,12 +92,15 @@ class TestIDORLembretes(unittest.TestCase):
         rid_a = self._agendar("cmp1", "ownerA")
         rid_b = self._agendar("cmp1", "ownerB")
 
-        rows = mod.listar_lembretes()
+        rows = mod.listar_lembretes("ownerA") + mod.listar_lembretes("ownerB")
         self.assertEqual(len(rows), 2)
         self.assertNotEqual(rid_a, rid_b)
         self.assertNotEqual(rid_a, "cmp1")
         owners = {r["owner_id"] for r in rows}
         self.assertEqual(owners, {"ownerA", "ownerB"})
+        # Isolamento: a listagem de um owner nunca traz a do outro.
+        self.assertEqual(len(mod.listar_lembretes("ownerA")), 1)
+        self.assertEqual(len(mod.listar_lembretes("ownerB")), 1)
 
     def test_cancelar_so_remove_do_proprio_owner(self):
         self._agendar("cmp1", "ownerA")
@@ -106,22 +109,23 @@ class TestIDORLembretes(unittest.TestCase):
         deletado = asyncio.run(mod.cancelar_lembrete("cmp1", "ownerB"))
         self.assertTrue(deletado)
 
-        rows = mod.listar_lembretes()
+        rows = mod.listar_lembretes("ownerA")
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["owner_id"], "ownerA")
+        self.assertEqual(len(mod.listar_lembretes("ownerB")), 0)
 
     def test_cancelar_de_outro_owner_nao_encontra(self):
         self._agendar("cmp1", "ownerA")
         deletado = asyncio.run(mod.cancelar_lembrete("cmp1", "ownerB"))
         self.assertFalse(deletado)
-        self.assertEqual(len(mod.listar_lembretes()), 1)
+        self.assertEqual(len(mod.listar_lembretes("ownerA")), 1)
 
     def test_reagendamento_mesmo_owner_atualiza_sem_duplicar(self):
         rid_1 = self._agendar("cmp1", "ownerA", telefone="(75) 9229-8347")
         rid_2 = self._agendar("cmp1", "ownerA", telefone="(75) 9000-0000")
 
         self.assertEqual(rid_1, rid_2)
-        rows = mod.listar_lembretes()
+        rows = mod.listar_lembretes("ownerA")
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["telefone"], "(75) 9000-0000")
 
