@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/service_providers.dart';
+import '../services/backup_storage.dart';
+import '../services/configuracoes_service.dart';
 import '../utils/mentall_colors.dart';
 import '../utils/raio.dart';
 import '../utils/tipografia.dart';
@@ -143,15 +145,162 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
     );
   }
 
+  String _labelFrequenciaBackup(String f) {
+    switch (f) {
+      case 'diario':
+        return 'Diário, automaticamente (a cada 24h)';
+      case 'semanal':
+        return 'Semanal (a cada 7 dias)';
+      case 'mensal':
+        return 'Mensal (a cada 30 dias)';
+      case 'off':
+      default:
+        return 'Desativado';
+    }
+  }
+
+  String _abreviaPasta(String caminho) {
+    if (caminho.length <= 34) return caminho;
+    return '…${caminho.substring(caminho.length - 33)}';
+  }
+
+  String _formatarDataHora(DateTime d) {
+    final dia = d.day.toString().padLeft(2, '0');
+    final mes = d.month.toString().padLeft(2, '0');
+    final hora = d.hour.toString().padLeft(2, '0');
+    final min = d.minute.toString().padLeft(2, '0');
+    return '$dia/$mes/${d.year} às $hora:$min';
+  }
+
+  bool _backupAtrasado(ConfiguracoesService config) {
+    final f = config.backupFrequencia;
+    if (f == 'off') return false;
+    final ultimo = config.ultimoBackupEm;
+    if (ultimo == null) return true;
+    final dias = switch (f) {
+      'diario' => 1,
+      'semanal' => 7,
+      _ => 30,
+    };
+    return DateTime.now().difference(ultimo).inDays >= dias;
+  }
+
+  Future<void> _escolherPasta(ConfiguracoesService config) async {
+    final pasta = await escolherPastaBackup();
+    if (pasta != null) {
+      await config.setBackupLocal(pasta);
+    }
+  }
+
+  Future<void> _fazerBackupAgora() async {
+    final caminho =
+        await ref.read(backupAgendamentoServiceProvider).executar();
+    if (!mounted) return;
+    _mostrarSnackBar(
+      caminho != null
+          ? 'Backup salvo em: ${_abreviaPasta(caminho)}'
+          : 'Não foi possível salvar o backup. Tente novamente.',
+      caminho != null ? context.corSuccess : context.corError,
+    );
+  }
+
+  Widget _cardBackupAutomatico(
+    BuildContext context,
+    ConfiguracoesService config,
+  ) {
+    final atrasado = _backupAtrasado(config);
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Raio.xxl),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+              child: Row(
+                children: [
+                  Icon(Icons.schedule_outlined, color: context.corPrimaria),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Backup automático',
+                    style: TextStyle(
+                      fontSize: Tipografia.lg,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ListTile(
+              leading: Icon(Icons.update_outlined, color: context.corPrimaria),
+              title: const Text('Frequência'),
+              subtitle: Text(_labelFrequenciaBackup(config.backupFrequencia)),
+              trailing: DropdownButton<String>(
+                value: config.backupFrequencia,
+                underline: const SizedBox.shrink(),
+                items: const [
+                  DropdownMenuItem(value: 'off', child: Text('Desativado')),
+                  DropdownMenuItem(value: 'diario', child: Text('Diário')),
+                  DropdownMenuItem(value: 'semanal', child: Text('Semanal')),
+                  DropdownMenuItem(value: 'mensal', child: Text('Mensal')),
+                ],
+                onChanged: (v) {
+                  if (v != null) config.setBackupFrequencia(v);
+                },
+              ),
+            ),
+            const Divider(height: 1, indent: 16),
+            ListTile(
+              leading: Icon(Icons.folder_outlined, color: context.corPrimaria),
+              title: const Text('Local do backup'),
+              subtitle: Text(
+                config.backupLocal.isEmpty
+                    ? 'Pasta padrão do app'
+                    : _abreviaPasta(config.backupLocal),
+              ),
+              trailing: TextButton(
+                onPressed: () => _escolherPasta(config),
+                child: const Text('Escolher'),
+              ),
+            ),
+            const Divider(height: 1, indent: 16),
+            ListTile(
+              leading: Icon(
+                atrasado ? Icons.warning_amber : Icons.verified_user_outlined,
+                color: atrasado ? context.corWarning : context.corSuccess,
+              ),
+              title: const Text('Último backup'),
+              subtitle: Text(
+                config.ultimoBackupEm == null
+                    ? 'Nenhum backup feito ainda'
+                    : _formatarDataHora(config.ultimoBackupEm!),
+              ),
+              trailing: TextButton(
+                onPressed: _fazerBackupAgora,
+                child: const Text('Fazer agora'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    ref.watch(configuracoesRevisaoProvider);
+    final config = ref.read(configuracoesServiceProvider);
     final exportando = ref.watch(_exportandoProvider);
     final importando = ref.watch(_importandoProvider);
 
     return Scaffold(
       backgroundColor: context.corFundo,
       appBar: AppBar(
-        title: const Text('Backup e restauração'),
+        title: const Text('Backup e dados'),
         backgroundColor: context.corPrimaria,
         foregroundColor: context.corOnPrimaria,
       ),
@@ -249,6 +398,8 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
               ),
             ),
           ),
+          const SizedBox(height: 16),
+          _cardBackupAutomatico(context, config),
           const SizedBox(height: 24),
           Card(
             elevation: 0,

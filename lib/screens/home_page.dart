@@ -405,7 +405,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   children: [
                     Icon(Icons.backup_outlined, size: 20),
                     SizedBox(width: 10),
-                    Text('Backup e restauração'),
+                    Text('Backup e dados'),
                   ],
                 ),
               ),
