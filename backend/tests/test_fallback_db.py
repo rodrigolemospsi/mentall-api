@@ -19,6 +19,14 @@ class TestFallbackFailClosed(unittest.TestCase):
         db._conexao = None
         db._usa_turso = False
 
+    def test_reset_cache_zera_a_conexao_sem_erro(self):
+        # Regressao: reset_cache chamava _obter_conexao.cache_clear() (inexistente).
+        db._conexao = object()
+        db._usa_turso = True
+        db.reset_cache()  # nao deve lancar AttributeError
+        self.assertIsNone(db._conexao)
+        self.assertFalse(db._usa_turso)
+
     def test_fallback_desabilitado_lanca_em_vez_de_aceitar_escrita(self):
         with mock.patch.object(db, "ALLOW_SQLITE_FALLBACK", False):
             with mock.patch.object(db, "TURSO_URL", ""):

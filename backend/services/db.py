@@ -162,8 +162,18 @@ class _CursorWrapper:
         return self
 
 
-def reset_cache():
-    _obter_conexao.cache_clear()
+def reset_cache() -> None:
+    """Descarta a conexao em cache para forcar uma nova conexao na proxima
+    chamada.
+
+    Antes chamava ``_obter_conexao.cache_clear()`` — metodo inexistente (a
+    funcao nunca teve ``lru_cache``), o que levantava ``AttributeError``. Agora
+    apenas zera o estado do modulo sob o lock.
+    """
+    global _conexao, _usa_turso
+    with _conexao_lock:
+        _conexao = None
+        _usa_turso = False
 
 
 _tabelas = [
