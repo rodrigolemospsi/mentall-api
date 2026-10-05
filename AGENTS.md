@@ -40,6 +40,43 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Correções e Funcionalidades (05/10/2026) — FRENTE C (LEMBRETES ÓRFÃOS) + ITENS PARCIAIS DA AUDITORIA
+
+### Contexto
+- Fechar a **Frente C** (o profissional cancelar os próprios lembretes agendados na nuvem) e resolver 4 itens parciais da auditoria de 06/09 (26, 27, 12, 13).
+
+### O que mudou (arquivos)
+- **Lembretes (Frente C):** backend `GET /lembretes` (escopado por `owner_id` + `?status=`) e `DELETE /lembretes` (soft-cancel em lote dos pendentes). `listar_lembretes` agora **exige `owner_id`** (antes listava todas as linhas, sem filtrar dono — fecha vazamento). App: `ApiClient.delete`, `LembreteService.listarLembretes/cancelarTodosLembretes` e tela `lib/screens/lembretes_page.dart` (Configurações > Agenda e lembretes).
+- **PDF (item 26):** `lib/services/pdf_export_service.dart` pagina conteúdo clínico longo em "Registro de Sessão" e "Síntese Revisada" (`_secaoClinicaBlocos` + novo `_blocoTextoBlocos`); removidos `_secaoClinica`/`_blocoTexto` órfãos. Hooks de teste `gerarPdfSessaoParaTeste`/`gerarPdfSinteseRevisadaParaTeste`.
+- **Descarte de edição (item 27):** `compromisso_form_dialog.dart` e `novo_paciente_dialog.dart` confirmam descarte (`PopScope(canPop:false)` + snapshot), no padrão do `perfil_profissional_form_page`.
+- **Áudio (item 12):** ao salvar com "não manter" (ou ao remover o áudio), o `.m4a` é excluído — `AudioRelatoService.excluirArquivoAudioFisico` (no-op no web, testável sem instanciar o gravador); `audioRelatoPath` zerado.
+- **DB (item 13):** `services/db.py` `reset_cache()` corrigido (chamava `cache_clear` inexistente → `AttributeError`); **`ALLOW_SQLITE_FALLBACK=false` nos secrets do Fly** (fail-closed já existia no código; faltava ligar no deploy).
+
+### Verificação
+- Backend **221/221** (era 215; +6). Flutter **260/260** (era ~243; +17). `flutter analyze` limpo.
+  - Nota: o commit do áudio sobrescreveu por engano `test/services/audio_relato_service_test.dart` (perdeu 4 testes pré-existentes); restaurado em `faa984a`.
+- Produção: `/health` 200 (`database: turso`) após o secret do Fly (a máquina foi reiniciada — rolling).
+- APK: `MentAllPRO-v1.0.46.apk` (~79,4 MB), sha256 `cecec4f38d0040b1d792d1baeb8baf67af07f571e6f43105a9abff5b2b776fdc`.
+
+### Pendências
+- Verificar no aparelho: tela "Lembretes agendados" (listar/cancelar), descarte nos diálogos e exclusão do áudio ao "não manter".
+- Itens ainda abertos: matriz visual de acessibilidade (item 30, adiada) e paginação do "Histórico" (`_cardSessao`, não incluída no item 26).
+
+## Acessos (30/09/2026) — REDEFINIÇÃO DA SENHA DO ADMIN ANDERSON
+
+### Contexto
+- A senha do 2º admin do painel (`anderson.lemos@icloud.com`) **não havia sido registrada** (decisão de segurança). O dono pediu a redefinição.
+
+### O que mudou (dados no Turso)
+- `password_hash` de `anderson.lemos@icloud.com` trocado via `services.usuarios.redefinir_senha` (bcrypt), com conexão confirmada no Turso. **Nova senha não registrada aqui** (repassada por canal seguro).
+
+### Verificação
+- Conexão Turso confirmada (`db._usa_turso=True`, abortado se caísse no SQLite local); `hash_mudou=True`; `verificar_senha(nova)=True`; `role=admin`, `status=ativo`.
+- Produção: `POST https://mentall-api.fly.dev/admin/login` com a nova senha → **303** para `/admin`.
+
+### Pendências
+- Nenhuma. Senha é irrecuperável (bcrypt); próximas trocas via app ou novo comando.
+
 ## Acessos (30/09/2026) — NOVO DONO DO PAINEL + GATE DE `status`
 
 ### Contexto
