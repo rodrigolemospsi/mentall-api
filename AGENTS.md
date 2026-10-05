@@ -40,6 +40,24 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## UI/Configurações (05/10/2026) — BACKUP UNIFICADO EM "BACKUP E DADOS"
+
+### Contexto
+- Havia backup em dois lugares: **Configurações > "Backup e dados"** (automático) e **menu ⋮ da Home > "Backup e restauração"** (exportar/importar). O dono pediu unificar tudo no menu de backup.
+
+### O que mudou (arquivos)
+- `lib/screens/backup_restore_page.dart`: vira o hub único — título **"Backup e dados"**; novo bloco **"Backup automático"** (frequência, local do backup, último backup + **"Fazer agora"**), com os helpers movidos de Configurações.
+- `lib/screens/configuracoes_page.dart`: removida a seção "Backup e dados" e os helpers/import órfãos (`_labelFrequenciaBackup`, `_abreviaPasta`, `_formatarDataHora`, `_backupAtrasado`, `backup_storage.dart`).
+- `lib/screens/home_page.dart`: item do menu ⋮ renomeado para **"Backup e dados"** (valor `'backup'` inalterado).
+- `test/widgets/backup_restore_page_test.dart` (novo, 3): renderiza exportar/importar + automático, persiste a frequência e dispara "Fazer agora".
+
+### Verificação
+- Flutter **263/263** (era 260; +3). Backend inalterado (**221/221**). `flutter analyze` limpo.
+- APK: `MentAllPRO-v1.0.47.apk` (~79,4 MB), sha256 `9b2e11236fd8428dbb9f6e61d88fc38d0626b4f2a3d2fd0072f28a61ff4bcb33`.
+
+### Pendências
+- Verificar no aparelho: menu ⋮ > "Backup e dados" (automático + exportar/importar). Só código de app — **sem deploy de backend**.
+
 ## Correções e Funcionalidades (05/10/2026) — FRENTE C (LEMBRETES ÓRFÃOS) + ITENS PARCIAIS DA AUDITORIA
 
 ### Contexto
