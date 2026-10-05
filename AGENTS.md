@@ -51,11 +51,12 @@
 - **Descarte de edição (item 27):** `compromisso_form_dialog.dart` e `novo_paciente_dialog.dart` confirmam descarte (`PopScope(canPop:false)` + snapshot), no padrão do `perfil_profissional_form_page`.
 - **Áudio (item 12):** ao salvar com "não manter" (ou ao remover o áudio), o `.m4a` é excluído — `AudioRelatoService.excluirArquivoAudioFisico` (no-op no web, testável sem instanciar o gravador); `audioRelatoPath` zerado.
 - **DB (item 13):** `services/db.py` `reset_cache()` corrigido (chamava `cache_clear` inexistente → `AttributeError`); **`ALLOW_SQLITE_FALLBACK=false` nos secrets do Fly** (fail-closed já existia no código; faltava ligar no deploy).
+- **Deploy:** push para `master` (7 commits) → CI verde. O gate `pip-audit` acusou **PyJWT 2.14.0 → PYSEC-2026-4141** (novo advisory); bump para **`2.15.0`** e novo push (`253ca15`) → CI verde e deploy concluído.
 
 ### Verificação
 - Backend **221/221** (era 215; +6). Flutter **260/260** (era ~243; +17). `flutter analyze` limpo.
   - Nota: o commit do áudio sobrescreveu por engano `test/services/audio_relato_service_test.dart` (perdeu 4 testes pré-existentes); restaurado em `faa984a`.
-- Produção: `/health` 200 (`database: turso`) após o secret do Fly (a máquina foi reiniciada — rolling).
+- Produção: `/health` 200 (`database: turso`); `GET /lembretes` sem auth → **401** (rota nova no ar). A máquina foi reiniciada pelo secret do Fly (rolling) e pelo deploy.
 - APK: `MentAllPRO-v1.0.46.apk` (~79,4 MB), sha256 `cecec4f38d0040b1d792d1baeb8baf67af07f571e6f43105a9abff5b2b776fdc`.
 
 ### Pendências
