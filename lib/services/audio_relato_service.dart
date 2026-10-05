@@ -275,6 +275,32 @@ class AudioRelatoService {
     _caminhoAudioAtual = null;
   }
 
+  /// Exclui fisicamente o arquivo de áudio do relato por caminho.
+  ///
+  /// Usado quando o profissional escolhe **não manter** o áudio (ao salvar a
+  /// sessão) ou remove o áudio de uma sessão. No web não há arquivo local
+  /// (o áudio vive em memória/Base64), então é no-op. A falha de exclusão é
+  /// registrada mas não interrompe o fluxo.
+  Future<void> excluirArquivoAudio(String? caminho) async {
+    if (kIsWeb || caminho == null || caminho.isEmpty) return;
+
+    _cacheAudioDescriptografado.remove(caminho);
+    await AudioRelatoService.excluirArquivoAudioFisico(caminho);
+  }
+
+  /// Exclui o arquivo físico sem instanciar o gravador (testável isoladamente).
+  static Future<void> excluirArquivoAudioFisico(String caminho) async {
+    try {
+      final file = File(caminho);
+      if (await file.exists()) {
+        await file.delete();
+        Log.info('Audio do relato excluido do dispositivo.');
+      }
+    } catch (e) {
+      Log.erro(e, contexto: 'AudioRelatoService.excluirArquivoAudio');
+    }
+  }
+
   /// Informa se há gravação em andamento.
   Future<bool> estaGravando() async {
     if (!_inicializado) return false;

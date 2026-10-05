@@ -18,6 +18,8 @@ import 'package:prontuario_tcc/services/sessao_service.dart';
 import 'package:prontuario_tcc/providers/service_providers.dart';
 
 class _FakeAudioRelatoService implements AudioRelatoService {
+  final List<String> audiosExcluidos = [];
+
   @override Future<void> cancelarGravacao() async {}
   @override Future<String> iniciarGravacao({required String sessaoId}) async => '';
   @override Future<String?> pararGravacao() async => null;
@@ -27,6 +29,9 @@ class _FakeAudioRelatoService implements AudioRelatoService {
   @override Future<bool> verificarPermissaoMicrofone() async => true;
   @override Future<bool> estaGravando() async => false;
   @override Future<void> removerAudioAtual() async {}
+  @override Future<void> excluirArquivoAudio(String? caminho) async {
+    if (caminho != null && caminho.isNotEmpty) audiosExcluidos.add(caminho);
+  }
   @override String? get caminhoAudioAtual => null;
   @override Future<void> dispose() async {}
 }
@@ -396,6 +401,53 @@ void main() {
       await pump(tester, sessao: jaRevisada);
 
       expect(find.text('Marcar como revisado'), findsNothing);
+    });
+  });
+
+  group('Audio nao mantido (item 12)', () {
+    const caminhoAudio = '/tmp/mentall/relato_s9_1.m4a';
+    late Sessao sessao;
+
+    setUp(() async {
+      sessao = Sessao(
+        id: 's9', pacienteId: 'p1', numeroSessao: 9,
+        data: DateTime(2026, 7, 30, 10, 0),
+        relatoPosSessao: 'Relato teste',
+        audioRelatoPath: caminhoAudio,
+        audioMantido: false,
+      );
+      await Hive.box<Sessao>('sessoes').put('s9', sessao);
+    });
+
+    testWidgets('salvar com "nao manter" exclui o arquivo fisico',
+        (tester) async {
+      await pump(tester, sessao: sessao);
+      await tester.tap(find.text('Editar'));
+      await tester.pump();
+      await tester.pump();
+
+      await tester.scrollUntilVisible(
+        find.text('Salvar sessão'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      final salvar = find.widgetWithText(FilledButton, 'Salvar sessão');
+      await tester.ensureVisible(salvar);
+      await tester.pump();
+      await tester.runAsync(() async {
+        await tester.tap(salvar);
+        await Hive.box<Sessao>('sessoes').flush();
+      });
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(fakeAudio.audiosExcluidos, contains(caminhoAudio));
+
+      await tester.runAsync(() async {
+        await Hive.box<Sessao>('sessoes').close();
+        await Hive.openBox<Sessao>('sessoes');
+      });
+      final salva = Hive.box<Sessao>('sessoes').get('s9')!;
+      expect(salva.audioRelatoPath, isEmpty);
     });
   });
 }

@@ -994,12 +994,15 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
     if (!mounted || confirmar != true) return;
 
+    final caminhoRemovido = _audioRelatoPath;
+
     try {
       if (ref.read(reproduzindoAudioProvider)) {
         await _audioPlayer.stop();
       }
 
       await _audioRelatoService.removerAudioAtual();
+      await _audioRelatoService.excluirArquivoAudio(caminhoRemovido);
 
       if (!mounted) return;
 
@@ -1462,7 +1465,16 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
     sessao.planoProximaSessao = _planoProximaSessaoController.text.trim();
     sessao.apontamentosCopiloto = _apontamentosController.text.trim();
 
-    sessao.audioRelatoPath = _audioRelatoPath;
+    final caminhoAudio = _audioRelatoPath;
+    if (_audioMantido) {
+      sessao.audioRelatoPath = caminhoAudio;
+    } else {
+      // "Não manter": desvincula e exclui o arquivo físico do dispositivo.
+      sessao.audioRelatoPath = '';
+      if (caminhoAudio.isNotEmpty) {
+        unawaited(_audioRelatoService.excluirArquivoAudio(caminhoAudio));
+      }
+    }
     sessao.audioRelatoBase64 = kIsWeb ? _audioRelatoBase64 : '';
     sessao.dataProcessamentoIa = _dataProcessamentoIa;
     sessao.geradoComIa = _geradoComIa;
