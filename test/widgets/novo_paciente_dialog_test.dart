@@ -32,7 +32,7 @@ void main() {
     (widget) => widget is TextField && widget.decoration?.labelText == label,
   );
 
-  Future<void> abrir(WidgetTester tester) async {
+  Future<void> abrirDialogo(WidgetTester tester) async {
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: Builder(
       builder: (context) => TextButton(
         onPressed: () => mostrarDialogNovoPaciente(
@@ -49,9 +49,43 @@ void main() {
     ))));
     await tester.tap(find.text('Novo'));
     await tester.pumpAndSettle();
+  }
+
+  Future<void> abrir(WidgetTester tester) async {
+    await abrirDialogo(tester);
     await tester.enterText(campo('Nome completo'), 'Paciente sintetico');
     await tester.ensureVisible(campo('Data de nascimento'));
   }
+
+  testWidgets('Cancelar sem alteracoes fecha direto, sem confirmacao',
+      (tester) async {
+    await abrirDialogo(tester);
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Descartar alterações?'), findsNothing);
+    expect(find.byType(AlertDialog), findsNothing);
+  });
+
+  testWidgets('Cancelar com alteracoes pede confirmacao; continuar e descartar',
+      (tester) async {
+    await abrir(tester);
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Descartar alterações?'), findsOneWidget);
+
+    // Continuar editando mantem o dialogo principal aberto.
+    await tester.tap(find.text('Continuar editando'));
+    await tester.pumpAndSettle();
+    expect(find.text('Descartar alterações?'), findsNothing);
+    expect(find.byType(AlertDialog), findsOneWidget);
+
+    // Descartar fecha definitivamente.
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Descartar'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
+  });
 
   testWidgets('mascara permite digitar e apagar ano parcial', (tester) async {
     await abrir(tester);
@@ -64,6 +98,9 @@ void main() {
       expect(text.replaceAll('/', ''), digits);
     }
     await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+    // Ha alteracoes (nome digitado): confirma o descarte.
+    await tester.tap(find.text('Descartar'));
     await tester.pumpAndSettle();
   });
 

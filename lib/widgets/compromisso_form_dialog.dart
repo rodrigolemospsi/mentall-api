@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../utils/raio.dart';
@@ -72,6 +74,7 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
   late int _minutosAntecedencia;
   late FrequenciaRecorrencia _recorrencia;
   late DateTime? _dataLimiteRecorrencia;
+  String? _snapshotInicial;
 
   bool get _editando => widget.compromissoExistente != null;
   bool get _editandoRecorrente =>
@@ -121,6 +124,53 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
       _recorrencia = FrequenciaRecorrencia.nenhuma;
       _dataLimiteRecorrencia = null;
       _pacienteSelecionado = null;
+    }
+    _snapshotInicial = jsonEncode(_estadoAtual());
+  }
+
+  Map<String, dynamic> _estadoAtual() => {
+        'paciente': _pacienteSelecionado?.id,
+        'data': _data.toIso8601String(),
+        'horaInicio': '${_horaInicio.hour}:${_horaInicio.minute}',
+        'horaFim': '${_horaFim.hour}:${_horaFim.minute}',
+        'titulo': _tituloController.text,
+        'observacoes': _observacoesController.text,
+        'mensagemLembrete': _mensagemLembreteController.text,
+        'lembreteAtivado': _lembreteAtivado,
+        'minutosAntecedencia': _minutosAntecedencia,
+        'recorrencia': _recorrencia.value,
+        'dataLimiteRecorrencia': _dataLimiteRecorrencia?.toIso8601String(),
+      };
+
+  bool get _temAlteracoes =>
+      _snapshotInicial != null &&
+      jsonEncode(_estadoAtual()) != _snapshotInicial;
+
+  Future<void> _confirmarDescarte() async {
+    if (!_temAlteracoes) {
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
+    final descartar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Descartar alterações?'),
+        content:
+            const Text('Há alterações não salvas. Seus dados serão perdidos.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Continuar editando'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Descartar'),
+          ),
+        ],
+      ),
+    );
+    if (descartar == true && mounted) {
+      Navigator.of(context).pop();
     }
   }
 
@@ -319,7 +369,13 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _confirmarDescarte();
+      },
+      child: AlertDialog(
       title: Text(_editando ? 'Editar compromisso' : 'Novo compromisso'),
       content: SingleChildScrollView(
         child: Form(
@@ -569,7 +625,7 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: _confirmarDescarte,
           child: const Text('Cancelar'),
         ),
         FilledButton(
@@ -577,6 +633,7 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
           child: Text(_editando ? 'Salvar' : 'Criar'),
         ),
       ],
+      ),
     );
   }
 }

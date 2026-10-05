@@ -36,13 +36,61 @@ Future<void> mostrarDialogNovoPaciente({
   bool salvando = false;
   String? erroDataNascimento;
 
+  String estadoAtual() => jsonEncode({
+        'nome': nomeController.text,
+        'contato': contatoController.text,
+        'email': emailController.text,
+        'nascimento': dataNascimentoController.text,
+        'observacoes': observacoesController.text,
+        'foto': fotoBase64,
+        'tipo': tipoAtendimento,
+        'modo': modoAtendimento,
+        'tratamento': tratamento,
+      });
+  final snapshotInicial = estadoAtual();
+
+  Future<void> confirmarDescarte(BuildContext dialogContext) async {
+    if (salvando) return;
+    if (estadoAtual() == snapshotInicial) {
+      if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+      return;
+    }
+    final descartar = await showDialog<bool>(
+      context: dialogContext,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Descartar alterações?'),
+        content:
+            const Text('Há alterações não salvas. Seus dados serão perdidos.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Continuar editando'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Descartar'),
+          ),
+        ],
+      ),
+    );
+    if (descartar == true && dialogContext.mounted) {
+      Navigator.of(dialogContext).pop();
+    }
+  }
+
   try {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (dialogContext, setDialogState) {
-            return AlertDialog(
+            return PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, _) {
+                if (didPop) return;
+                confirmarDescarte(dialogContext);
+              },
+              child: AlertDialog(
               title: Text('$novoOuNova $termoSingular'),
               content: SingleChildScrollView(
                 child: Column(
@@ -252,9 +300,7 @@ Future<void> mostrarDialogNovoPaciente({
                 TextButton(
                   onPressed: salvando
                       ? null
-                      : () {
-                          Navigator.of(dialogContext).pop();
-                        },
+                      : () => confirmarDescarte(dialogContext),
                   child: const Text('Cancelar'),
                 ),
                 FilledButton(
@@ -364,6 +410,7 @@ Future<void> mostrarDialogNovoPaciente({
                       : const Text('Salvar'),
                 ),
               ],
+              ),
             );
           },
         );
