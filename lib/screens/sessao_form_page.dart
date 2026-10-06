@@ -1289,11 +1289,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
             .read(configuracoesServiceProvider)
             .sugerirArtigos;
         if (sugerirArtigos && resultado.temasPesquisa.isNotEmpty) {
-          _buscarArtigosEmBackground(
-            resultado.temasPesquisa,
-            resultado.relatoClinicoOrganizado,
-            resultado.sinteseClinica,
-          );
+          _buscarArtigosEmBackground(resultado.temasPesquisa);
         }
 
         if (_numeroSessao > 1) {
@@ -1825,8 +1821,6 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
   Future<void> _buscarArtigosEmBackground(
     List<dynamic> temasPesquisa,
-    String relatoClinico,
-    String sinteseClinica,
   ) async {
     // Tokens de sessão + tipo: duas buscas na mesma sessão não se sobrescrevem,
     // e uma busca não é invalidada por uma operação de outro tipo.
@@ -1835,15 +1829,9 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
     _buscandoArtigos = true;
     _triggerRebuild();
 
-    final contexto = [
-      relatoClinico,
-      sinteseClinica,
-    ].where((t) => t.trim().isNotEmpty).join(' ');
-
     try {
       final artigos = await _iaClinicaService.gerarArtigos(
         temasPesquisa: temasPesquisa,
-        contextoClinico: contexto,
       );
 
       if (!mounted ||

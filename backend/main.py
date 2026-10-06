@@ -930,7 +930,6 @@ async def artigos(request: ArtigosRequest, _req: Request):
         None,
         gerar_artigos,
         request.temas_pesquisa,
-        request.contexto_clinico,
     )
 
     return ArtigosResponse(

@@ -79,7 +79,6 @@ class SinteseResponse(BaseModel):
 
 class ArtigosRequest(BaseModel):
     temas_pesquisa: list = Field(default_factory=list)
-    contexto_clinico: str = Field(default="", max_length=100_000)
 
 
 class ArtigosResponse(BaseModel):

@@ -40,11 +40,9 @@ class TestFormatarArtigos(unittest.TestCase):
             "citacoes": 10,
             "autores": "Autor A; Autor B",
             "link": "https://doi.org/10.1590/abc",
-            "justificativa": "Relevante para o caso.",
         }]
         out = mod._formatar_artigos(artigos)
         self.assertIn("1. Transtorno de Ansiedade Social (2019, 10 citações) - Autor A; Autor B", out)
-        self.assertIn("Relevância: Relevante para o caso.", out)
         self.assertIn("https://doi.org/10.1590/abc", out)
 
     def test_formata_sem_metadados(self):

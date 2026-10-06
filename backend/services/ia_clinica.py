@@ -156,60 +156,6 @@ def _buscar_candidatos_tema(especifico: str, amplo: str) -> list:
     return candidatos[:MAX_CANDIDATOS_POR_TEMA + 1]
 
 
-def _rerankear_artigos(candidatos: list, contexto_clinico: str) -> list:
-    sem_justificativa = [
-        {**c, "justificativa": ""} for c in candidatos[:MAX_ARTIGOS_TOTAL]
-    ]
-    if not contexto_clinico.strip() or len(candidatos) <= 1:
-        return sem_justificativa
-
-    linhas = []
-    for i, c in enumerate(candidatos, 1):
-        cabecalho = f"{i}. {c['titulo']}"
-        if c.get("ano"):
-            cabecalho += f" ({c['ano']})"
-        if c.get("autores"):
-            cabecalho += f" - {c['autores']}"
-        linhas.append(cabecalho)
-        if c.get("resumo"):
-            linhas.append(f"   Resumo: {c['resumo'][:350]}")
-
-    prompt = f"""Você é um assistente de pesquisa clínica em psicologia.
-
-CONTEXTO CLÍNICO DA SESSÃO:
-{_sanitizar_prompt(contexto_clinico[:1500])}
-
-ARTIGOS CANDIDATOS:
-{chr(10).join(linhas)}
-
-Selecione até {MAX_ARTIGOS_TOTAL} artigos MAIS RELEVANTES para o contexto clínico acima.
-Critérios: relação direta com o problema clínico central da sessão, com as intervenções realizadas ou com a evolução do caso; utilidade prática para o profissional.
-Descarte artigos genéricos ou apenas tangenciais - é melhor indicar menos artigos do que artigos fora do tema.
-
-Responda apenas com JSON puro (sem markdown):
-{{"selecionados": [{{"indice": 1, "justificativa": "1 frase curta explicando a relevância clínica para esta sessão"}}]}}
-Se nenhum candidato for relevante, retorne {{"selecionados": []}}."""
-
-    resultado = _chamar_llm_json(_get_provider(), prompt, temperature=0.1)
-    if not isinstance(resultado, dict) or "selecionados" not in resultado:
-        return sem_justificativa
-
-    selecionados = []
-    for sel in resultado.get("selecionados", [])[:MAX_ARTIGOS_TOTAL]:
-        if not isinstance(sel, dict):
-            continue
-        try:
-            idx = int(sel.get("indice", 0))
-        except (TypeError, ValueError):
-            continue
-        if 1 <= idx <= len(candidatos):
-            selecionados.append({
-                **candidatos[idx - 1],
-                "justificativa": str(sel.get("justificativa", "")).strip(),
-            })
-    return selecionados
-
-
 def _formatar_artigos(artigos: list) -> str:
     linhas = []
     for i, art in enumerate(artigos[:MAX_ARTIGOS_TOTAL], 1):
@@ -224,13 +170,11 @@ def _formatar_artigos(artigos: list) -> str:
         if art.get("autores"):
             linha += f" - {art['autores']}"
         linhas.append(linha)
-        if art.get("justificativa"):
-            linhas.append(f"   Relevância: {art['justificativa']}")
         linhas.append(f"   {art['link']}")
     return "\n".join(linhas)
 
 
-def _montar_artigos(temas_pesquisa: list, contexto_clinico: str = "") -> str:
+def _montar_artigos(temas_pesquisa: list) -> str:
     temas = _normalizar_temas(temas_pesquisa)
     if not temas:
         return ""
@@ -249,11 +193,7 @@ def _montar_artigos(temas_pesquisa: list, contexto_clinico: str = "") -> str:
     if not candidatos:
         return _montar_artigos_sugeridos(temas_fallback)
 
-    selecionados = _rerankear_artigos(candidatos, contexto_clinico)
-    if not selecionados:
-        return _montar_artigos_sugeridos(temas_fallback)
-
-    return _formatar_artigos(selecionados)
+    return _formatar_artigos(candidatos)
 
 
 def _montar_artigos_sugeridos(temas_pesquisa: list) -> str:
@@ -410,14 +350,14 @@ def _parse_resultado_sucesso(resultado_raw: dict) -> dict:
         }
 
 
-def gerar_artigos(temas_pesquisa: list, contexto_clinico: str) -> dict:
+def gerar_artigos(temas_pesquisa: list) -> dict:
     """Busca e formata artigos cientificos a partir dos temas de pesquisa.
 
     Chamada em um segundo passo (apos a sintese ja ter sido retornada),
     para nao bloquear a resposta principal da sintese.
     """
     try:
-        artigos = _montar_artigos(temas_pesquisa or [], contexto_clinico or "")
+        artigos = _montar_artigos(temas_pesquisa or [])
         return {"sucesso": True, "artigos_sugeridos": artigos, "erro": ""}
     except Exception as e:
         log.exception("Erro ao buscar artigos: %s", e)

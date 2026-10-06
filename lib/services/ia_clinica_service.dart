@@ -161,14 +161,12 @@ class IaClinicaService {
 
   Future<String?> gerarArtigos({
     required List<dynamic> temasPesquisa,
-    required String contextoClinico,
   }) async {
     try {
       final resultado = await _fazerRequisicaoComRetry(
         endpoint: '/gerar-artigos',
         body: {
           'temas_pesquisa': temasPesquisa,
-          'contexto_clinico': contextoClinico,
         },
       );
 

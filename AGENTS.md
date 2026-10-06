@@ -40,6 +40,46 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Remoção do rerank por IA nas indicações de artigos (06/10/2026) — MENOS DADO, MENOS FALHA
+
+### Contexto
+- A linha "Relevância:" nunca chegava à tela. A causa era falha **silenciosa**: o Gemini devolvia
+  **503 (capacidade)**, `_chamar_llm_json_gemini` capturava tudo sob o rótulo enganoso "Gemini JSON
+  error", `_rerankear_artigos` degradava para os candidatos sem justificativa, o backend respondia
+  **200 com sucesso** e o app **persistia** o resultado degradado na sessão.
+- O dono confirmou que a justificativa **não tem valor** para o profissional: ele quer os artigos
+  pertinentes, não o caminho percorrido. E a recuperação por palavra-chave sozinha entrega
+  **3 de 3 artigos relevantes** — o rerank não sustentava nada.
+
+### O que mudou (arquivos)
+- `backend/services/ia_clinica.py`: `_rerankear_artigos` removida (~68 linhas); `_montar_artigos` e
+  `gerar_artigos` perdem o parâmetro `contexto_clinico`; `_formatar_artigos` não emite mais a linha
+  `Relevância:`.
+- `backend/models/schemas.py` e `backend/main.py`: campo e argumento `contexto_clinico` removidos.
+- `lib/services/ia_clinica_service.dart` e `lib/screens/sessao_form_page.dart`: o app deixa de montar
+  e enviar relato+síntese como contexto.
+- `backend/tests/test_prompt_injection.py`: removido `test_contexto_clinico_sanitizado_no_rerank`
+  (existia porque texto clínico cru era injetado num prompt — sem contexto, sem injeção).
+- `backend/tests/test_artigos.py`: removida a asserção da linha `Relevância:`.
+- **Mantido:** `_sanitizar_prompt` / `INJECAO_PADROES` / `MAX_PROMPT_CHARS` (usados em ~15 pontos da
+  síntese e do progresso) e toda a recuperação por palavra-chave no OpenAlex.
+
+### Verificação
+- `flutter analyze --no-pub`: limpo. `flutter test --no-pub`: **263/263**. Backend isolado:
+  **220/220** (era 221; -1 pelo teste do rerank removido — queda esperada).
+- Efeito: até 100.000 caracteres de narrativa clínica deixam de sair do aparelho por sessão, e some
+  a dependência de LLM (e a classe de falha silenciosa por 503) neste fluxo.
+
+### Pendências
+- `/gerar-artigos` passa a ser a única função de IA que pode rodar **100% local** (só palavras-chave
+  saem do aparelho). Não implementado.
+- Considerar filtrar a fonte para `journal` no OpenAlex: os resultados vêm muito de repositórios e
+  agregadores (LA Referencia, ARES, Zenodo, Dialnet, Redalyc).
+- `log.info("Solicitacao de artigos - temas=%d")` continua sendo a única janela para saber quais
+  palavras o extrator produz.
+- A mesma fragilidade de rótulo (`log.exception("Gemini JSON error")` para 503/timeout) permanece em
+  `_chamar_llm_json_gemini`, que ainda serve a geração de progresso.
+
 ## Verificação do backup no emulador (06/10/2026) — EXPORT/IMPORT APROVADOS
 
 ### Contexto

@@ -1,9 +1,8 @@
 """Testes do fix de prompt injection (pentest Strix 30/08).
 
 Antes, `gerar_progresso` interpolava `sessao_atual['sintese']`, `relato`,
-`intervencoes` e as escalas cru; `_rerankear_artigos` interpolava
-`contexto_clinico` cru. Agora todos passam por `_sanitizar_prompt` (blocklist
-de padrões de injeção + truncamento).
+`intervencoes` e as escalas cru. Agora todos passam por `_sanitizar_prompt`
+(blocklist de padrões de injeção + truncamento).
 """
 import os
 import unittest
@@ -54,24 +53,6 @@ class TestSanitizacaoProgresso(unittest.TestCase):
     def test_escalas_sanitizadas(self):
         prompt = self._prompt()
         self.assertNotIn("unrestricted assistant", prompt)
-
-
-class TestSanitizacaoRerank(unittest.TestCase):
-    def test_contexto_clinico_sanitizado_no_rerank(self):
-        capturado = {}
-
-        def fake_llm(provider, prompt, temperature=0.1):
-            capturado["prompt"] = prompt
-            return {"selecionados": []}
-
-        candidatos = [
-            {"id": "1", "titulo": "Artigo real", "ano": 2021, "autores": "A. Autor", "link": "https://x", "resumo": "resumo"},
-            {"id": "2", "titulo": "Artigo dois", "ano": 2022, "autores": "B. Autor", "link": "https://y", "resumo": "resumo"},
-        ]
-        with mock.patch.object(mod, "_chamar_llm_json", side_effect=fake_llm), \
-             mock.patch.object(mod, "_get_provider", return_value="openai"):
-            mod._rerankear_artigos(candidatos, contexto_clinico=INJETADO)
-        self.assertNotIn("unrestricted assistant", capturado["prompt"])
 
 
 class TestSanitizador(unittest.TestCase):
