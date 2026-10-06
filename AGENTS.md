@@ -40,6 +40,36 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Verificação do backup no emulador (06/10/2026) — EXPORT/IMPORT APROVADOS
+
+### Contexto
+- Fechar a pendência da seção de 05/10 (verificar no aparelho o menu ⋮ > "Backup e dados").
+  Feito no emulador `mentall` (API 34) com o APK release da v1.0.47 — mesmo código publicado.
+
+### O que mudou (arquivos)
+- `AGENTS.md`: esta seção. **Nenhum código foi alterado.**
+
+### Verificação
+- **Hub unificado confirmado:** "Backup e dados" traz Exportar + Importar + Backup automático
+  (frequência / local / último backup) numa só página — o objetivo do commit de 05/10.
+- **Export (end-to-end):** botão -> JSON gravado em cache -> folha de compartilhamento do sistema
+  (`share_plus`). **O backup NÃO é texto puro:** envelope AES-GCM (`tipo`/`nonce`/`cifrado`/`mac`,
+  380.150 bytes). Confirma que o achado "backup plaintext" (seção de 29/08) segue corrigido —
+  mandar o arquivo para Gmail/Drive não vaza prontuário.
+- **Import (end-to-end):** `file_picker` entregou e cacheou o arquivo; o import decifrou o envelope e
+  **gravou seletivamente por ID** — `pacientes`, `sessoes`, `perfil_profissional`, `app_config` e
+  `encryption_meta` com mtime 11:32 (mesmo minuto do retorno do picker), enquanto outras 9 caixas
+  ficaram em 29/09. Home intacta (23 pacientes); 0 `FATAL EXCEPTION`.
+- **Prova indireta da cripto:** se o MAC AES-GCM falhasse, `importarDeJson` lançaria, cairia no catch
+  ("Não foi possível importar o backup") e **nenhuma** caixa seria reescrita. Houve escrita, logo o
+  round-trip export -> cifra -> import -> decifra é consistente com a chave do aparelho.
+
+### Pendências
+- Não exercitado: a gravação em disco do "Fazer agora" (o teste de widget cobre o disparo com
+  dublê, não a escrita real), nem a persistência da frequência por interação real.
+- UX menor (não é defeito): o botão fica em "Exportando..." enquanto a folha de compartilhamento
+  está aberta, porque `Share.shareXFiles` só resolve quando ela fecha.
+
 ## Verificações no emulador (06/10/2026) — GATE DE BIOMETRIA OK + STARTUP MEDIDO
 
 ### Contexto
