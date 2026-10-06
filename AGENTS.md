@@ -40,6 +40,34 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Encerramento de plano (06/10/2026) — PLANO DE STARTUP/PIN ARQUIVADO
+
+### Contexto
+- O plano `.opencode/plans/otimizacao-startup-pin.md` (startup 13s → <3s) seguia no repo como
+  se estivesse pendente. A verificação contra o código mostrou que 3 dos 4 itens já estavam no
+  ar desde 13/08 e que o item 4 (PBKDF2 nativo no Android) ficou obsoleto com a mudança de
+  arquitetura de 02/09 (envelope encryption: desbloqueio lê a chave do Keystore, sem KDF na UI).
+
+### O que mudou (arquivos)
+- `.opencode/plans/otimizacao-startup-pin.md`: cabeçalho **ENCERRADO** com data, motivo e aviso de
+  segurança sobre o snippet do `MainActivity`; conteúdo original preservado abaixo. O arquivo é
+  ignorado pelo git, então a marcação é local.
+- `AGENTS.md`: esta seção.
+
+### Verificação
+- Itens 1-3 rastreados no código: `_sessoesDoMesHomeProvider` (`home_dashboard.dart:549`),
+  `_tabsConstruidas` (`main_shell.dart:19`), cache de frame (`sessao_service.dart:14-15,35-67`) —
+  todos introduzidos em `4f10804` (13/08/2026, junto de Dockerfile/Fly.io, sem menção no título).
+- PBKDF2 hoje só em `login_page.dart:241` (migração única do PIN legado) e
+  `backup_restore_page.dart:82` (backup/restore). `app_start_page.dart` não referencia PIN,
+  PBKDF2 nem desbloqueio.
+- Suíte Flutter **263/263**, backend **221/221**, `flutter analyze` limpo (medidos em 06/10/2026,
+  antes desta alteração — que é só de documentação).
+
+### Pendências
+- Nenhuma de código. Se o startup voltar a incomodar, **medir antes** (DevTools/Stopwatch): o PBKDF2
+  não está mais no caminho de abertura.
+
 ## UI/Configurações (05/10/2026) — BACKUP UNIFICADO EM "BACKUP E DADOS"
 
 ### Contexto
