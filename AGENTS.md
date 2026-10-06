@@ -1112,25 +1112,28 @@ App Flutter para prontuário clínico adaptado à abordagem terapêutica do prof
 - **Banco local:** Hive CE (hive_ce + hive_ce_flutter + hive_ce_generator)
 - **Áudio:** record + audioplayers + path_provider
 - **Geração de código:** build_runner + hive_ce_generator
-- **Backend:** Python FastAPI, OpenAI GPT-4.1 / DeepSeek / Gemini (síntese) + gpt-4o-transcribe (transcrição)
-- **Deploy backend:** Render.com (plano gratuito, cold start ~30-60s)
-- **Segurança:** Criptografia AES-256-CBC com PBKDF2-HMAC-SHA256 (100k iterações, pointycastle) + IV aleatório por registro + autenticação JWT no backend (python-jose + passlib)
+- **Backend:** Python FastAPI. **Síntese:** OpenAI (padrão `gpt-4o-mini`) / DeepSeek (`deepseek-v4-flash`) / Gemini (`gemini-3.7-flash`). **Transcrição:** Groq `whisper-large-v3-turbo` (padrão) ou OpenAI `gpt-4o-mini-transcribe` (`TRANSCRICAO_PROVIDER`)
+- **Deploy backend:** Fly.io, região `gru` (São Paulo) — CI + `flyctl deploy` a cada push em `master`
+- **Segurança:** Criptografia **AES-256-GCM** (nonce aleatório por registro; o formato CBC antigo é só legado) com PBKDF2-HMAC-SHA256 (100k iterações, pointycastle) + autenticação JWT no backend (python-jose + passlib)
 
 ## Infraestrutura
 
-### Backend em Nuvem (Render)
-- **URL produção:** `https://mentall-api.onrender.com`
+### Backend em Nuvem (Fly.io) — migrado do Render
+- **URL produção:** `https://mentall-api.fly.dev`
 - **Repositório GitHub:** `https://github.com/rodrigolemospsi/mentall-api`
-- **Plano:** Free (cold start na primeira requisição após inatividade)
-- **Deploy:** Automático via push no branch `master`
-- **Configuração:** `render.yaml` na raiz do repo (Blueprint)
-- **Variáveis de ambiente no Render:**
+- **Região:** `gru` (São Paulo); `fly.toml` + `Dockerfile` na raiz
+- **Deploy:** push no branch `master` dispara o GitHub Action **Deploy to Fly.io**
+  (`flyctl deploy --remote-only`). O workflow reimplanta **em qualquer push que não seja só de docs**,
+  então um push de código reinicia a máquina (ver 29/09/2026).
+- **Configuração:** `fly.toml`. O `render.yaml` da raiz é **resquício da era Render** e nenhum workflow
+  o usa.
+- **Variáveis de ambiente (secrets do Fly):**
   - `OPENAI_API_KEY` — chave API da OpenAI (projeto, formato `sk-proj-...`)
   - `OPENAI_PROJECT_ID` — ID do projeto OpenAI (formato `proj_...`)
   - `GEMINI_API_KEY` — chave API do Google Gemini (opcional; usada apenas se `IA_MODEL_PROVIDER=gemini`)
   - `DEEPSEEK_API_KEY` — chave API do DeepSeek (formato `sk-...`)
   - `IA_MODEL_PROVIDER` — provedor de síntese: `openai`, `deepseek` (ativo em produção) ou `gemini`
-  - `IA_MODEL` — modelo específico (opcional; padrão por provedor: `gpt-4.1`, `deepseek-chat`, `gemini-2.0-flash`)
+  - `IA_MODEL` — modelo OpenAI (padrão `gpt-4o-mini`). DeepSeek é fixo em `deepseek-v4-flash` e o Gemini usa `GEMINI_MODEL` (padrão `gemini-3.7-flash`) — ver `_get_model_name`
   - `JWT_SECRET` — chave secreta para tokens JWT
   - `APP_PASSWORD_HASH` — hash bcrypt da senha (vazio = senha padrão `admin`)
   - `OPENALEX_API_KEY` — chave gratuita da OpenAlex (https://openalex.org/settings/api, $1/dia ≈ 10k buscas; **obrigatória** — sem ela a API retorna 429 em IP de datacenter)
@@ -1140,8 +1143,8 @@ App Flutter para prontuário clínico adaptado à abordagem terapêutica do prof
 
 ### APK (Android)
 - **Permissões necessárias:** `INTERNET`, `RECORD_AUDIO`, `usesCleartextTraffic=true`
-- **URL do backend:** Configurável via Hive box `app_config`. Padrão: `https://mentall-api.onrender.com`
-- **Timeout API:** 120 segundos (necessário para cold start do Render + transcrição)
+- **URL do backend:** Configurável via Hive box `app_config`. Padrão: `https://mentall-api.fly.dev` (`api_client.dart`)
+- **Timeout API:** 120 segundos (transcrição longa)
 - **Diálogo de config:** Ícone ![dns](...) na AppBar da Home permite alterar URL sem rebuild
 
 ### Desenvolvimento Local
@@ -1250,7 +1253,10 @@ backend/
 
 ### Arquivos de Deploy
 ```
-render.yaml                          # Render Blueprint (na raiz do repo)
+fly.toml                             # Config do Fly.io (região gru)
+Dockerfile                           # Imagem do backend
+.github/workflows/                   # CI + "Deploy to Fly.io"
+render.yaml                          # LEGADO (era Render; nenhum workflow usa)
 ```
 
 ## Segurança
@@ -1262,10 +1268,17 @@ render.yaml                          # Render Blueprint (na raiz do repo)
 - Expiração do token: 480 minutos (8 horas)
 
 ### Criptografia Local
-- **Algoritmo**: AES-256-CBC (encrypt + pointycastle)
-- **Proteção**: PIN do usuário deriva chave que protege a chave AES mestra
+- **Algoritmo**: **AES-256-GCM**, formato `3:<nonce base64>:<cifra base64>`. O formato `2:` (CBC) é
+  **legado**, só é lido; `migrarParaGcm` converte.
+- **Chave**: PBKDF2 (SHA-256/HMAC, 100k iterações) deriva a chave mestra do PIN, e ela é persistida em
+  **cofre durável** (Android Keystore RSA-OAEP / iOS Keychain) que **não exige biometria** — é o que
+  garante dado cifrado mesmo sem bloqueio de tela (correção da vuln-0013).
+- **Escrita é fail-closed**: `EncryptedServiceMixin.encrypt` **lança** `StateError` quando a proteção
+  não está disponível, em vez de gravar em texto puro. A **leitura** é fail-open por desenho: no boot,
+  antes do desbloqueio, devolve o valor como está para não travar (o app pede desbloqueio e relê).
+- **Nunca cifra o que já está cifrado**: `criptografar` preserva valor no formato `3:`/`2:` (via
+  `estaCifrado`) — evita a dupla criptografia que torna o dado ilegível (seção 06/10/2026).
 - **Services**: `PacienteService`, `SessaoService`, `PerfilProfissionalService` criptografam/descriptografam automaticamente
-- **Fallback**: Sem PIN = dados em texto puro; descriptografia detecta texto puro e retorna como está
 
 ### LGPD / Privacidade
 - **Áudio**: Limite de 5 minutos com contador e parada automática
@@ -1276,7 +1289,9 @@ render.yaml                          # Render Blueprint (na raiz do repo)
 - **IA**: Apenas apoio documental, nunca substitui julgamento clínico
 - **Tela Privacidade**: Acessível pelo ícone de escudo na Home — PIN, áudio, IA, retenção, auditoria
 - **Exportação**: Aviso de dados sensíveis; 5 formatos de PDF
-- **Logs**: `Log.auditoria()` separado de `Log.erro()`; logs técnicos não contêm dados clínicos
+- **Logs**: `Log.auditoria()` separado de `Log.erro()`. O log técnico é gravado **cifrado**; sem cifra
+  disponível grava apenas o rótulo (nível e contexto) com `(conteudo nao registrado: cifra
+  indisponivel)` — **nunca o conteúdo**, que pode conter PII (`response.body`). Ver 06/10/2026.
 
 ## Padrões e Regras de Código
 
@@ -1305,8 +1320,29 @@ Chamadas à API (`TranscricaoRelatoService`, `IaClinicaService`) devem chamar `A
 
 ## Problemas Conhecidos
 
+### Achados da auditoria de degradação silenciosa (06/10/2026) — EM ABERTO
+Já corrigidos: guarda de schema da síntese, campo do profissional preservado, `crpVerificado` gravado,
+dupla criptografia, PII no log técnico (+ expurgo do histórico) e busca de artigos que não apaga.
+**Continuam abertos:**
+- **`/health`** responde `status:"ok"` mesmo com o banco em fallback SQLite — o monitor não enxerga.
+- **`ALLOW_SQLITE_FALLBACK`** tem default `"true"` no repositório; se os secrets do Fly não tiverem
+  `false`, uma queda do Turso aceita escrita e confirma sucesso (o dado some no restart).
+- **`_registrarAuditoria`** não é `await`ado: a falha vira Future não tratado e o evento LGPD pode
+  nunca ser gravado.
+- **Bloqueio por inatividade** desbloqueia sem prompt e sem o aviso de fail-safe (que só existe no
+  login).
+- **Migração Hive**: o marcador de schema avança mesmo com registros não migrados (nunca repete).
+- **Anamnese**: `status='respondido'` com `respostas_json` vazio é gravado (gatilho no backend).
+- **OpenAlex**: falha de rede chega ao app como `sucesso: true` com "Busca sugerida" —
+  indistinguível de "as bases não tinham artigos".
+- **wuzapi/lembretes**: webhook inválido responde 200 e o recibo se perde; falha de banco vira
+  "wuzapi não conectado"; lembrete pode ser duplicado ou marcado como falha por erro de leitura.
+- **Recuperação de senha/PIN**: `except: pass` deixa o bloqueio por tentativas **fail-open**.
+- **Áudio "não mantido"**: a exclusão do arquivo é `unawaited` — se falhar, o áudio permanece.
+- **`progresso_service.dart`**: `..take(limite)` em cascata não tem efeito (bug funcional).
+
 ### APK
-- Release: 69.9MB (era 69.2MB antes das correções de 03/08/2026)
+- Versão atual `1.0.47+48`; release ~70MB.
 
 ## Cores do App
 ```
@@ -1351,8 +1387,8 @@ A tela de sessão foi simplificada:
 ## Comandos
 
 ### App Flutter
-- `flutter analyze` — análise estática (0 errors, ~24 warnings/infos cosméticos)
-- `flutter test` — 85 testes
+- `flutter analyze --no-pub` — estado atual: **No issues found!**
+- `flutter test --no-pub` — **276 testes** (o total muda a cada correção; use o que o runner informar)
 - `dart run build_runner build` — gerar adapters Hive
 - `flutter build web` — build de produção
 - `flutter build apk` — build APK Android release (saída: `build/app/outputs/flutter-apk/app-release.apk`)
@@ -1369,23 +1405,24 @@ pip install -r requirements.txt
 python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### Deploy (Render)
+### Deploy (Fly.io)
 ```bash
 git add -A
 git commit -m "mensagem"
 git push origin master
-# Deploy automático pelo Render — sem comandos adicionais
+# O GitHub Action "Deploy to Fly.io" roda CI + flyctl deploy --remote-only.
+# ATENCAO: ele reimplanta em qualquer push que nao seja so de docs.
 ```
 
-### Testar API no Render
+### Testar API em produção
 ```bash
 # Health check
-curl https://mentall-api.onrender.com/health
+curl https://mentall-api.fly.dev/health
 
-# Login (obter token JWT)
-curl -X POST https://mentall-api.onrender.com/auth/login \
+# Login (obter token JWT) — a senha padrao "admin" nao vale mais em producao
+curl -X POST https://mentall-api.fly.dev/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin"}'
+  -d '{"username":"<usuario>","password":"<senha>"}'
 ```
 
 ## Memória: Layout do Acordo Terapêutico (PDF de referência)
