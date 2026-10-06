@@ -640,7 +640,9 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://mentall-api.onrender.com",
+        # NAO reintroduzir mentall-api.onrender.com: a plataforma foi
+        # abandonada e o subdominio pode ser registrado por terceiros, que
+        # passariam a ser origem confiavel desta API (com credentials).
         "https://rodrigolemospsi.github.io",
         "https://mentallpro.com.br",
         "https://www.mentallpro.com.br",
