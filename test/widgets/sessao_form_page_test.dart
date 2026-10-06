@@ -406,6 +406,39 @@ void main() {
       expect(find.text('Marcar como revisado'), findsNothing);
     });
 
+    testWidgets('trocar a transcricao preserva a origem da IA', (tester) async {
+      // Sessao de IA JA revisada. Antes, alterar a transcricao zerava
+      // `geradoComIa` com os campos clínicos preservados, e o conteudo de IA
+      // podia ser salvo sem nova revisao (buraco residual do gate).
+      // O bloqueio do salvamento em si e provado pelo teste seguinte.
+      await pump(tester, sessao: jaRevisada);
+      expect(find.text('Marcar como revisado'), findsNothing);
+
+      await tester.tap(find.text('Editar'));
+      await tester.pump();
+      await tester.pump();
+
+      final transcricao = find.byWidgetPredicate((widget) =>
+          widget is TextField && widget.controller?.text == 'Transcricao teste');
+      await tester.ensureVisible(transcricao);
+      await tester.enterText(transcricao, 'Transcricao alterada');
+      await tester.pump();
+      await tester.pump();
+
+      // A revisao foi invalidada E a origem da IA sobreviveu — por isso o botao
+      // volta a aparecer. Com o bug antigo (`geradoComIa = false`), ele NAO
+      // apareceria e o gate deixaria de valer.
+      expect(
+        find.text('Marcar como revisado'),
+        findsOneWidget,
+        reason: 'a origem da IA deve sobreviver a invalidacao, senao o gate '
+            'deixa de valer sobre o conteudo ja preenchido',
+      );
+
+      // E o conteudo de IA continua nos campos (nao foi apagado).
+      expect(find.textContaining('Sintese gerada'), findsOneWidget);
+    });
+
     testWidgets('salvar e BLOQUEADO enquanto a sintese de IA nao for revisada',
         (tester) async {
       await pump(tester, sessao: comSintese);

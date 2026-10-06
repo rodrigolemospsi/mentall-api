@@ -40,6 +40,42 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Buraco do gate de revisão fechado (06/10/2026) — A ORIGEM NÃO SE APAGA
+
+### Contexto
+O gate de revisão exigia `geradoComIa && !revisado`. Havia um caminho que o contornava:
+`_invalidarIaERevisaoPorAlteracaoDaTranscricao()` (`sessao_form_page.dart:440`) zerava `_geradoComIa`
+**preservando os campos clínicos que a IA tinha preenchido**. Depois de alterar a transcrição, o texto
+de origem IA ficava no formulário marcado como se não fosse de IA — e podia ser salvo sem revisão.
+
+### O que mudou (arquivos)
+- `lib/screens/sessao_form_page.dart`: a invalidação **não zera mais `_geradoComIa`**. O que se
+  invalida é a **revisão** (o material de origem mudou, então o conteúdo precisa ser reconferido); a
+  origem da IA permanece enquanto o texto dela estiver nos campos. A mensagem ao profissional passou a
+  dizer a verdade: os campos foram preservados **mas precisam ser conferidos**, e ele deve marcar a
+  revisão de novo (ou gerar nova síntese).
+- `test/widgets/sessao_form_page_test.dart` (+1): alterar a transcrição de uma sessão de IA já revisada
+  faz o botão "Marcar como revisado" **voltar a aparecer**, com o conteúdo preservado — provando que a
+  origem sobreviveu. O bloqueio do salvamento já era provado pelo teste vizinho.
+
+### Por que não limpar os campos
+Limpar o conteúdo na invalidação era a alternativa e foi **descartada**: os campos podem conter texto
+que o profissional **editou à mão**, e apagá-lo perderia trabalho. Preservar os campos e manter o gate
+não perde dado nem abre exceção.
+
+### Verificação
+- `flutter analyze --no-pub`: limpo. `flutter test --no-pub`: **282/282** (era 281). Backend isolado:
+  **246/246**.
+- Nota de teste: a primeira versão falhava porque o SnackBar da invalidação cobria o botão de salvar e
+  o `tap()` não acertava — e o texto no hit test era o novo aviso, o que já provava que a invalidação
+  disparava com o comportamento novo. O teste foi simplificado para verificar a propriedade central
+  (origem preservada) sem depender do toque.
+
+### Pendências
+- O gate segue **por sessão**: se o profissional substituir manualmente todo o texto da IA,
+  `geradoComIa` permanece `true` e ele precisará marcar a revisão mesmo para o próprio texto. É
+  fail-closed e aceitável.
+
 ## Gate de revisão humana implementado (06/10/2026) — A GARANTIA PASSOU A SER DO SOFTWARE
 
 ### Contexto
@@ -1466,10 +1502,6 @@ dupla criptografia, PII no log técnico (+ expurgo do histórico) e busca de art
 - **`progresso_service.dart`**: `..take(limite)` em cascata não tem efeito (bug funcional).
 
 ### Achados da auditoria da documentação (06/10/2026) — EM ABERTO
-- **Buraco residual do gate de revisão**: `_invalidarIaERevisaoPorAlteracaoDaTranscricao()`
-  (`sessao_form_page.dart:441`) zera `geradoComIa` **preservando os campos clínicos preenchidos pela
-  IA** — nesse caminho o gate pode ser contornado. Decidir: limpar os campos na invalidação, ou o gate
-  olhar outra marcação.
 - **`migrarParaGcm` / `migrarCamposLegados` sem chamador**: o formato legado `2:` (CBC) é lido mas
   **nunca migrado**. Ligar isso reescreve todos os campos cifrados — o tipo de operação do incidente de
   16/07. Decisão do dono.

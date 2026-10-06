@@ -429,8 +429,9 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
         const SnackBar(
           duration: Duration(seconds: 4),
           content: Text(
-            'A transcrição foi alterada. A síntese e a revisão foram invalidadas. '
-            'Os campos clínicos foram preservados — gere nova síntese se necessário.',
+            'A transcrição foi alterada. Os campos clínicos foram preservados, mas '
+            'precisam ser conferidos: marque a revisão novamente antes de salvar, '
+            'ou gere uma nova síntese.',
           ),
         ),
       );
@@ -438,7 +439,11 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   }
 
   void _invalidarIaERevisaoPorAlteracaoDaTranscricao() {
-    _geradoComIa = false;
+    // NAO zerar `_geradoComIa` aqui. Os campos clínicos sao PRESERVADOS, entao o
+    // texto que esta neles continua sendo de origem IA — apagar a origem fazia o
+    // gate de revisao deixar de valer e o conteudo podia ser salvo sem nova
+    // conferencia. O que se invalida e a REVISAO: o material de origem mudou,
+    // entao o profissional precisa conferir de novo (ver AGENTS.md 06/10/2026).
     _revisadoPeloProfissional = false;
     _dataProcessamentoIa = null;
     _erroProcessamentoIa = '';
