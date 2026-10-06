@@ -1,74 +1,59 @@
 # Checklist de publicação nas lojas de app (Google Play / App Store)
 
-> **Status (30/08/2026):** pendências de segurança do pentest Strix de 30/08 corrigidas
-> (IDORs, XSS, prompt injection, rate-limit XFF, webhook token, supply-chain, criptografia
-> parcial, logs, inactivity). Restam **decisões do dono** e **pendências técnicas de loja**.
-> APK mais recente: `MentAllPRO-v1.0.28.apk` (versão `1.0.28+29`).
+> **Status (06/10/2026):** revisado após auditoria do `AGENTS.md` e das `tasks/` contra o código.
+> APK mais recente: **`1.0.47+48`** (este arquivo dizia `1.0.28+29`).
+>
+> **As 4 pendências que este arquivo chamava de "bloqueiam publicação" estão RESOLVIDAS**
+> (fail-closed de criptografia, CSP sem `unsafe-inline`, `TRUSTED_PROXIES`, `--proxy-headers`).
+> O que bloqueia publicação hoje é: **keystore de produção, política de privacidade em URL pública,
+> descrição/categorias e a assinatura (RevenueCat)**.
 
-## 1. Pendências de SEGURANÇA que bloqueiam publicação
+## 1. SEGURANÇA — resolvido
 
-Estas são as pendências que, se não resolvidas, podem gerar rejeição na revisão das lojas
-(especialmente por envolver **dados sensíveis de saúde** — LGPD):
+- [x] **Fail-closed de criptografia (vuln-0013)** — `EncryptedServiceMixin.encrypt` **lança**
+  `StateError` sem proteção (`lib/services/encrypted_service_mixin.dart:6-16`); o uso é bloqueado
+  (`lib/screens/app_start_page.dart:83-85`); indicador de proteção ativa/inativa na Home
+  (`home_page.dart:505-514`) e em Configurações (`configuracoes_page.dart:57-58,100-108`). O cofre
+  durável (Keystore/Keychain, sem biometria) garante cifra mesmo sem bloqueio de tela.
+- [x] **CSP com nonce** (sem `unsafe-inline`) — `backend/main.py:675-677`; coberto por
+  `backend/tests/test_csp.py`.
+- [x] **`TRUSTED_PROXIES`** — `backend/main.py:113,133` + secret no Fly (`AGENTS.md`, 28/09).
+- [x] **`--proxy-headers`** — `Dockerfile:11`, `backend/start_backend.sh:6`, `render.yaml:8`.
+- [ ] **Re-scan Strix:** o último foi 30/08. Houve mudanças de segurança em 06/10 (guarda de schema
+  da síntese, dupla criptografia, PII no log, CORS) **sem novo scan registrado**.
 
-- [ ] **Fail-closed de criptografia (vuln-0013, decisão do dono):** hoje, se o dispositivo não
-  tem bloqueio de tela/biometria (ex.: tablet clínico compartilhado), a chave fica só em memória
-  e dados clínicos podem ser persistidos em **texto puro** silenciosamente.
-  - Ação recomendada: tela de setup obrigatória que orienta ativar o bloqueio de tela do
-    dispositivo **antes** de permitir o uso do prontuário (como o `AudioRelatoService` já faz
-    para gravação), **e** um indicador visível de "proteção ativa/inativa" na Home e em
-    Configurações > Segurança.
-  - Parcial já aplicado em 30/08: `EncryptionService.gerarChave()` retorna `false` quando a
-    chave não é durável e `main.dart` loga aviso de auditoria. Falta o bloqueio (fail-closed).
-- [ ] **CSP `script-src 'unsafe-inline'`** no backend: remover `unsafe-inline` e usar
-  hashes/nonces para os scripts inline de `contrato.html`/`anamnese.html` (recomendação do
-  relatório Strix para harden futuro; também evita questionamentos de revisão de segurança).
-- [ ] **`TRUSTED_PROXIES` no deploy:** definir os IPs do edge do Fly na env
-  `TRUSTED_PROXIES` (`.env` + secrets do Fly). Sem isso, atrás do proxy o rate-limit por IP
-  perde a distinção por cliente real. (O Dockerfile já roda uvicorn com `--proxy-headers`.)
-- [ ] **Normalizar `render.yaml`/`start_backend.sh`:** adicionar `--proxy-headers` ao uvicorn
-  nesses dois caminhos (hoje só o Dockerfile tem). Se não forem mais usados, remover para
-  evitar deploy inseguro futuro.
+## 2. Pendências TÉCNICAS de loja — o que realmente falta
 
-## 2. Pendências TÉCNICAS de loja
+- [x] **Ícone** — `pubspec.yaml:96-103`; `store/play_icon_512.png` (512×512); mipmaps 48-192; iOS
+  1024 sem alpha.
+- [ ] **Screenshots:** Play pronto (5 em `store/screenshots/`, 1080×2160). **Falta App Store**
+  (6.7", 6.5", 5.5").
+- [ ] **Descrição e categorias:** texto pt-BR e inglês, categoria (declaração de Saúde), palavras-chave.
+- [ ] **Política de Privacidade e Termos em URL pública** — hoje só existem **páginas in-app**
+  (`lib/screens/lgpd/`). O repositório irmão `site-mentall-pro` tem apenas `index.html`, sem essas
+  páginas nem deploy. **É o bloqueio mais concreto.**
+- [ ] **Keystore de produção** — a integração está pronta
+  (`android/app/build.gradle.kts:10-18,45-62`, variáveis `MENTALL_*`), mas o keystore **não existe**.
+  Guardar fora do repositório.
+- [ ] **Assinatura / RevenueCat (Fase 1 do plano de negócio)** — produtos no Play Billing e StoreKit,
+  integração, preço e teste de 7 dias (`tasks/plan.md`). **Nada implementado.**
+- [ ] **Contas de desenvolvedor:** Play (US$ 25) e App Store (US$ 99/ano).
+- [ ] **Nota LGPD para o console:** declaração sobre dados sensíveis de saúde (art. 5º, II e 11).
+- [ ] **Pré-lançamento em aparelho real:** login/conta, PIN, biometria, áudio, IA, backup/restore,
+  WhatsApp.
 
-- [ ] **Ícone do app:** regenerar ícone adaptativo (Android) e legado a partir da logo
-  `logo_mentallpro_sem_nome` (pendência registrada desde 15/08). Verificar mipmaps e
-  tamanhos exigidos (Play exige 512×512; App Store exige ícone sem alpha).
-- [ ] **Telas de captura (screenshots):** gerar screenshots das telas principais (Home,
-  Pacientes, Sessão com IA, Financeiro, Agenda) em resoluções exigidas por cada loja
-  (Play: telefone ≥ 2 telas; App Store: 6.7", 6.5", 5.5").
-- [ ] **Descrição e categorias:** texto de descrição do app (pt-BR e inglês), categoria
-  (Saúde/Medicina — Medical no Play? requer declaração), palavras-chave.
-- [ ] **Política de Privacidade e Termos de Uso:** publicar em URL pública (repositório
-  `mentall-site`/Vercel ou GitHub Pages) e preencher no console da loja. **Destaque LGPD**:
-  coleta/armazenamento de dados sensíveis de saúde, criptografia local, sem venda de dados.
-- [ ] **Nota da LGPD:** declaração específica sobre dados sensíveis de saúde (art. 5º, II e
-  11 da LGPD), finalidade (prontuário clínico), base legal (consentimento do titular).
-- [ ] **CPI / Google Play Console:** conta de desenvolvedor (US$ 25) e conta App Store
-  (US$ 99/ano). Verificar se há empresa/CNPJ ou usar conta individual.
-- [ ] **Assinatura do release (keystore):** gerar/cuidar da keystore de produção do Android
-  (Play App Signing recomendado) e do certificado iOS. **Guardar em local seguro** (senha +
-  arquivo .keystore fora do repo).
-- [ ] **Plano de assinatura / RevenueCat (Fase 1 do plano de negócio):** configurar produtos
-  de assinatura no Play Billing e StoreKit, integrar RevenueCat, definir preço e teste de 7
-  dias grátis (ver `tasks/plan.md`).
-- [ ] **Pré-lançamento:** teste do APK release em aparelho real (física: login/conta, PIN,
-  biometria, áudio, IA, backup/restore, WhatsApp), teste do fluxo de conta e-mail.
+## 3. INFRA — resolvido
 
-## 3. Pendências de INFRA (backend/deploy) relacionadas
+- [x] **Deploy das dependências** — produção responde `/health` 200 (`database: turso`).
+- [x] **Rotação do `WUZAPI_WEBHOOK_TOKEN`** — `AGENTS.md` (29/09): token novo -> 200, antigo -> 403.
+- [x] **CI com scan de dependências** — `.github/workflows/deploy.yml:64-88`, gate em `:94`.
+- [ ] **Conferir os demais secrets do Fly** (JWT_SECRET, chaves de IA, Turso, SMTP, wuzapi).
+  `ALLOW_SQLITE_FALLBACK=false` foi setado em 28/09, mas **não é verificável a partir do repositório**.
 
-- [ ] **Deploy das dependências novas:** rodar `uv pip install -r requirements.txt` no
-  ambiente e redeploy do Fly (migração `fastapi`/`PyJWT`/`starlette`).
-- [ ] **Rotacionar `WUZAPI_WEBHOOK_TOKEN`** após a mudança para `Authorization: Bearer` (o
-  token antigo pode ter vazado em access logs).
-- [ ] **Secrets do Fly:** adicionar `TRUSTED_PROXIES` e conferir os demais secrets
-  (JWT_SECRET, chaves de IA, Turso, SMTP, wuzapi).
-- [ ] **CI:** adicionar scan de dependências (pip-audit/osv-scanner/trivy) no GitHub Actions
-  como gate de segurança (recomendação Strix medium-term).
+## 4. Regressão antes do envio
 
-## 4. Regressão de segurança antes do envio
-
-- [ ] `flutter analyze` limpo (1 warning pré-existente em `tools/`).
-- [ ] Suíte Flutter completa (atualmente **156/156**) e backend (**132/132**).
-- [ ] Re-verificar com Strix scoped após qualquer mudança de segurança (ver skill
-  `fix-security-vulnerabilities-with-strix`).
+- [ ] `flutter analyze --no-pub` — hoje: **No issues found!** (o warning antigo de `tools/` não
+  existe mais).
+- [ ] Suítes: Flutter **276/276**, backend **246/246**. Os números que este arquivo trazia
+  (156/156 e 132/132) eram de 30/08.
+- [ ] Re-verificar com Strix após as mudanças de 06/10.

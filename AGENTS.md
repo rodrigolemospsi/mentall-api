@@ -40,6 +40,60 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Auditoria da documentação contra o código (06/10/2026) — O DOC MENTIA SOBRE A REVISÃO
+
+### Contexto
+Pergunta do dono: "o AGENTS.md está atualizado?". Foram auditadas as seções **sem data** (as que
+descrevem o estado atual, não o histórico), em quatro frentes independentes, cada afirmação conferida
+contra o código com `arquivo:linha`. **Resultado: mais de 40 afirmações desatualizadas ou falsas** —
+três delas sobre segurança e uma sobre conformidade.
+
+### O achado crítico (DECISÃO DE PRODUTO PENDENTE)
+O arquivo afirmava **"Revisão: Obrigatória pelo profissional"**. **Não é.**
+`_salvarSessao()` (`sessao_form_page.dart:1373`) valida apenas `sessaoSalvandoProvider` e
+`_existeAcaoEmAndamento`; a flag `revisadoPeloProfissional` é gravada como campo comum (`:1490`) e o
+único efeito é o rótulo "Revisão pendente". **Conteúdo gerado por IA pode ser salvo no prontuário sem
+revisão marcada.** Enquanto o gate não existir, a revisão humana é garantia de **processo**, não de
+**software** — e é ela que sustenta a narrativa de apoio documental (LGPD/CFP).
+
+### Correções aplicadas (somente documentação)
+- **Segurança**: JWT é **PyJWT** (não python-jose); a senha vem de `APP_PASSWORD_HASH` (não existe
+  `admin`/`admin`); a chave mestra é **aleatória** (PBKDF2 só no caminho legado, 10k iterações, e
+  `kdf_version` não tem escritor); o áudio usa envelope binário `[MAV1][nonce][cifra]`; PDFs: 6 opções
+  no diálogo e 7 geradores; o microtexto dos 5 minutos **não está na tela**.
+- **Infra**: a seção apontava para o **Render** (plataforma abandonada) — app e deploy estão no
+  **Fly.io**. `render.yaml` marcado como legado.
+- **Stack**: "Riverpod 100%, 0 `setState`" -> há ~55 `setState` em 10 arquivos.
+- **Cores**: a tabela descrevia a paleta de **PDF/HTML** como se fosse o tema. O app usa
+  `ColorScheme.fromSeed(#8806CE)` (M3) e as cores de UI são derivadas dele.
+- **Estrutura**: contagens (providers 12->42, StateProviders 21->20, campos Hive 12/10/31/9 ->
+  16/13/35/10, linhas dos arquivos), arquivo deletado (`agenda_inline_widget.dart`), `lib/utils/`
+  ausente (agora **gerado de `ls lib/utils`**) e indentação da árvore de widgets.
+- **Memória do Acordo**: o PDF de referência **não existe** no repositório; o título é `#3C096C` e a
+  logo `#C77DFF` (não "azul").
+- **`tasks/lojas_app.md`**: as **4 pendências que ele chamava de bloqueadoras de publicação estão
+  resolvidas** (fail-closed, CSP, `TRUSTED_PROXIES`, `--proxy-headers`); o cabeçalho dizia `1.0.28+29`.
+  **`tasks/todo.md`**: Fases 2 e 3 inteiras marcadas como pendentes e já implementadas.
+- **CORS**: removida a origem `mentall-api.onrender.com` do `main.py` (subdomínio de terceiro,
+  tratado como confiável com `allow_credentials`).
+
+### Achados de código que NÃO foram corrigidos (precisam de decisão)
+- **Gate de revisão** (acima): o mais importante.
+- `migrarParaGcm` / `migrarCamposLegados` **sem nenhum chamador**: o formato legado `2:` é lido mas
+  nunca migrado. Ligar isso reescreve todos os campos cifrados — exatamente o tipo de operação do
+  incidente de 16/07. Decisão do dono.
+- `excluirPaciente` (hard delete em cascata) **sem chamador de produção** — dead code destrutivo.
+- `StatusProcessamentoCard` é **dead code**.
+- Não existe evento de auditoria para **remoção/regravação de áudio**, exigido pela especificação do
+  PDF de arquitetura LGPD.
+
+### Verificação
+- Nenhum arquivo de código alterado nesta rodada além do CORS (commit `4f9fbb5`). `flutter analyze`
+  limpo, **276/276** Flutter, **246/246** backend.
+- Método: quatro auditorias independentes com evidência `arquivo:linha`; as afirmações de maior
+  consequência foram conferidas pelo próprio agente antes de virarem texto — a da revisão, inclusive,
+  foi lida linha por linha.
+
 ## Expurgo do log em claro e A1 nas indicações de artigos (06/10/2026)
 
 ### Contexto
@@ -1108,13 +1162,15 @@ App Flutter para prontuário clínico adaptado à abordagem terapêutica do prof
 ## Stack
 - **Framework:** Flutter (SDK ^3.12.2)
 - **Linguagem:** Dart / Python (backend)
-- **Estado:** Riverpod 100% — 0 `setState` em todo o app. StreamProvider + StateProvider + ConsumerStatefulWidget
+- **Estado:** Riverpod como base (StreamProvider + StateProvider + ConsumerStatefulWidget), **mas não é
+  100%**: há ~55 `setState` em 10 arquivos (ex.: `login_page.dart`, `conta_page.dart`,
+  `compromisso_form_dialog.dart`, `app_lock_gate.dart`, `app_start_page.dart`)
 - **Banco local:** Hive CE (hive_ce + hive_ce_flutter + hive_ce_generator)
 - **Áudio:** record + audioplayers + path_provider
 - **Geração de código:** build_runner + hive_ce_generator
 - **Backend:** Python FastAPI. **Síntese:** OpenAI (padrão `gpt-4o-mini`) / DeepSeek (`deepseek-v4-flash`) / Gemini (`gemini-3.7-flash`). **Transcrição:** Groq `whisper-large-v3-turbo` (padrão) ou OpenAI `gpt-4o-mini-transcribe` (`TRANSCRICAO_PROVIDER`)
 - **Deploy backend:** Fly.io, região `gru` (São Paulo) — CI + `flyctl deploy` a cada push em `master`
-- **Segurança:** Criptografia **AES-256-GCM** (nonce aleatório por registro; o formato CBC antigo é só legado) com PBKDF2-HMAC-SHA256 (100k iterações, pointycastle) + autenticação JWT no backend (python-jose + passlib)
+- **Segurança:** Criptografia **AES-256-GCM** (nonce aleatório por registro; o formato `2:` CBC é só legado e **não migra automaticamente** — `migrarCamposLegados` não tem chamador). A chave mestra é **aleatória** em cofre durável; PBKDF2 só no caminho legado de PIN. Autenticação **PyJWT** no backend
 
 ## Infraestrutura
 
@@ -1163,19 +1219,19 @@ lib/
 │   └── configuracao_abordagem_clinica.dart # 14 templates de abordagens (inclui Análise do Comportamento)
 ├── models/
 │   ├── enums.dart                          # AbordagemClinica (14), TermoPessoaAtendida, StatusProcessamento, OrigemRelato (6)
-│   ├── paciente.dart / .g.dart             # Hive typeId: 1 (12 campos: +email, +dataAtualizacao, +fotoBase64)
-│   ├── perfil_profissional.dart / .g.dart  # Hive typeId: 3 (10 campos: +fotoBase64)
-│   ├── sessao.dart / .g.dart               # Hive typeId: 2 (31 campos: +transcricaoRevisada, +artigosSugeridos)
+│   ├── paciente.dart / .g.dart             # Hive typeId: 1 (16 campos)
+│   ├── perfil_profissional.dart / .g.dart  # Hive typeId: 3 (13 campos)
+│   ├── sessao.dart / .g.dart               # Hive typeId: 2 (35 campos)
 │   ├── compromisso.dart / .g.dart          # Hive typeId: 4 (17 campos: +canalLembrete)
-│   ├── contrato_terapeutico.dart / .g.dart # Hive typeId: 5 (9 campos)
+│   ├── contrato_terapeutico.dart / .g.dart # Hive typeId: 5 (10 campos)
 │   └── lgpd/
 │       └── registro_auditoria.dart / .g.dart  # Hive typeId: 10
 ├── screens/
 │   ├── app_start_page.dart                 # Roteamento inicial (verifica PIN + perfil)
-│   ├── home_page.dart                      # Lista de pacientes + botão servidor + Privacidade
+│   ├── home_page.dart                      # Dashboard (saudações, ações rápidas, KPIs) + Privacidade
 │   ├── login_page.dart                     # Tela de PIN (configurar/desbloquear)
-│   ├── paciente_detail_page.dart           # Detalhes + sessões + acesso última sessão ~720 linhas
-│   ├── sessao_form_page.dart               # Formulário de sessão ~1901 linhas (+ error handling)
+│   ├── paciente_detail_page.dart           # Detalhes + sessões + acesso última sessão ~893 linhas
+│   ├── sessao_form_page.dart               # Formulário de sessão ~1972 linhas (+ error handling)
 │   ├── backup_restore_page.dart            # Export/import JSON (conditional import)
 │   ├── backup_restore_page_web.dart        # Web: Blob download + FileUpload
 │   ├── backup_restore_page_io.dart         # Mobile/desktop: share_plus (export) + file_picker (import)
@@ -1188,8 +1244,8 @@ lib/
 │       ├── politica_privacidade_page.dart   # Política de Privacidade
 │       └── termos_uso_page.dart             # Termos de Uso
 ├── providers/
-│   ├── service_providers.dart              # 12 providers (Stream com async* para emitir valor inicial)
-│   └── sessao_form_providers.dart          # 21 StateProviders públicos da tela de sessão (fase 1 do refactor)
+│   ├── service_providers.dart              # 42 providers (Stream com async* para emitir valor inicial)
+│   └── sessao_form_providers.dart          # 20 StateProviders públicos da tela de sessão (fase 1 do refactor)
 ├── services/
 │   ├── api_client.dart                     # URL dinâmica via Hive + credenciais no Hive + ensureAuthenticated() + timeout 120s
 │   ├── paciente_service.dart               # + criptografia AES nos campos sensíveis + cascade delete
@@ -1199,37 +1255,50 @@ lib/
 │   ├── lembrete_service.dart               # Agendamento de notificações locais + envio ao backend (WhatsApp/SMS)
 │   ├── backup_service.dart                 # Export/import JSON com exclusão de áudio grande + O(1) import
 │   ├── transcricao_relato_service.dart     # Lê arquivo .m4a e converte Base64 (mobile) + JWT auto-auth
-│   ├── ia_clinica_service.dart             # Conectado ao backend GPT-4.1 + pseudonimização + retry 5xx
+│   ├── ia_clinica_service.dart             # Conectado ao backend (gpt-4o-mini por padrão) + pseudonimização + retry
 │   ├── audio_relato_service.dart           # Gravação web (WAV/Base64) + mobile (M4A/arquivo)
 │   ├── status_clinico_sessao_service.dart
 │   ├── hive_migration_service.dart         # Schema V3
 │   ├── encryption_service.dart             # PBKDF2-HMAC-SHA256 (100k iterações) + IV aleatório por registro
 │   ├── auth_service.dart                   # PIN local + JWT backend (credenciais no Hive)
-│   ├── pdf_export_service.dart             # 5 tipos + contrato: sessão, histórico, relatório, síntese, prontuário
+│   ├── pdf_export_service.dart             # 7 geradores (sessão, histórico, relatório, síntese, prontuário, anamnese, financeiro)
 │   ├── contrato_service.dart               # CRUD contratos + comunicação com backend
 │   ├── configuracoes_service.dart          # Preferências (duração, lembretes, IA, tema, canal)
 │   ├── logger.dart                         # Log.erro / Log.info / Log.auditoria + persistência em Hive+arquivo
 │   └── lgpd/
 │       ├── auditoria_service.dart          # Registro de eventos LGPD
 │       └── pdf_arquitetura_lgpd_service.dart
+├── utils/                                  # gerado de `ls lib/utils`
+│   ├── app_bar_padrao.dart
+│   ├── artigos_validacao.dart
+│   ├── imagem_cache.dart
+│   ├── mentall_colors.dart
+│   ├── raio.dart
+│   ├── responsivo.dart
+│   ├── sessao_form_helpers.dart
+│   └── tipografia.dart
 ├── widgets/
-  │   ├── home_dashboard.dart                # Dashboard da Home (5 seções: saudação, ações, KPIs, sessões, atividade)
-  │   ├── agenda_inline_widget.dart          # Agenda inline (Dia/Semana/Mês) ~640 linhas
-  │   ├── compromisso_form_dialog.dart       # Diálogo de criação/edição de compromisso
-  │   ├── novo_paciente_dialog.dart          # Diálogo de cadastro de paciente
-  │   ├── paciente_card_home.dart            # Card de paciente na lista (avatar, status, WhatsApp)
-  │   ├── paciente_resumo_card.dart          # Card de resumo na ficha do paciente (+ status contrato)
-  │   ├── sessao_card.dart                   # Card de sessão na lista
-  │   ├── sessao_audio_controls.dart         # Controles de áudio extraídos do SessaoFormPage (+ 12 providers de áudio/IA)
-  │   ├── sessao_artigos_sugeridos.dart      # Card de artigos sugeridos extraído do SessaoFormPage
-  │   ├── sessao_form_widgets.dart           # CardBuscandoArtigos + AudioMantidoSwitch + BotaoSalvarSessao
-  │   ├── sessao_progresso_widget.dart       # SecaoProgressoWidget (evolução clínica) — fase 2 do refactor
-  │   ├── sessao_financeiro_widget.dart      # SecaoFinanceiroWidget — fase 2 do refactor
-  │   ├── sessao_relato_ia_widget.dart       # SecaoRelatoIaWidget + SessaoFormActions — fase 2 do refactor
-  │   ├── secao_campos_clinicos_widget.dart   # 4 seções clínicas simplificadas
-  │   └── lgpd/
-  │       └── aviso_privacidade_ia_card.dart
+│   ├── home_dashboard.dart                # Dashboard da Home (5 seções)
+│   ├── compromisso_form_dialog.dart       # Diálogo de criação/edição de compromisso
+│   ├── novo_paciente_dialog.dart          # Diálogo de cadastro de paciente
+│   ├── paciente_card_home.dart            # Card de paciente na lista (avatar, status, WhatsApp)
+│   ├── paciente_resumo_card.dart          # Card de resumo na ficha do paciente (+ status contrato)
+│   ├── sessao_card.dart                   # Card de sessão na lista
+│   ├── sessao_audio_controls.dart         # Controles de áudio (+ 12 providers de áudio/IA)
+│   ├── sessao_artigos_sugeridos.dart      # Card de artigos sugeridos
+│   ├── sessao_form_widgets.dart           # CardBuscandoArtigos + AudioMantidoSwitch + BotaoSalvarSessao
+│   ├── sessao_progresso_widget.dart       # SecaoProgressoWidget (evolução clínica)
+│   ├── sessao_financeiro_widget.dart      # SecaoFinanceiroWidget
+│   ├── sessao_relato_ia_widget.dart       # SecaoRelatoIaWidget + SessaoFormActions
+│   ├── secao_campos_clinicos_widget.dart  # 5 seções clínicas simplificadas
+│   ├── status_processamento_card.dart     # DEAD CODE — zero usos (achado 06/10)
+│   └── lgpd/
+│       └── aviso_privacidade_ia_card.dart
 ```
+
+> As árvores abaixo listam os **principais** arquivos, não todos. Para a lista completa use `ls` —
+> a auditoria de 06/10 achou omissões (ex.: `lib/utils/`, `backend/admin_ui.py`, `backend/tests/`,
+> e ~17 services / 6 screens / 6 models não listados).
 
 ### Backend Python (`backend/`)
 ```
@@ -1237,13 +1306,13 @@ backend/
 ├── main.py                           # FastAPI app, CORS, JWT auth, rotas protegidas, /health com debug de provedores
 ├── .env                              # Chaves de API + JWT_SECRET (NÃO commitar)
 ├── .env.example                      # Template com variáveis documentadas
-├── requirements.txt                  # openai>=1.0.0 + httpx + python-jose + passlib
+├── requirements.txt                  # openai==1.109.1 + PyJWT==2.15.0 + bcrypt + httpx
 ├── models/
 │   └── schemas.py                    # Pydantic models + LoginRequest/LoginResponse
 ├── templates/
 │   └── contrato.html                  # Página HTML do Acordo Terapêutico (patient-facing)
 ├── services/
-│   ├── ia_clinica.py                 # Síntese clínica (OpenAI/DeepSeek/Gemini) + busca de artigos (OpenAlex > SciELO RSS > rerank IA > links)
+│   ├── ia_clinica.py                 # Síntese clínica (OpenAI/DeepSeek/Gemini) + busca de artigos (cascata de filtros OpenAlex; sem rerank por IA desde 06/10)
 │   ├── transcricao.py               # Transcrição (gpt-4o-mini-transcribe, modelo configurável via TRANSCRICAO_MODEL)
 │   ├── contrato_service.py          # Armazenamento de contratos (token único + aceite)
 │   └── lembrete_service.py          # Scheduler de lembretes WhatsApp/SMS (asyncio + Twilio/Meta)
@@ -1262,17 +1331,23 @@ render.yaml                          # LEGADO (era Render; nenhum workflow usa)
 ## Segurança
 
 ### Autenticação
-- **Backend**: JWT (python-jose) — rota `POST /auth/login`, endpoints protegidos via `Authorization: Bearer <token>`
+- **Backend**: JWT com **PyJWT** (`requirements.txt`: `PyJWT==2.15.0`; `main.py:25` `import jwt`) — rota `POST /auth/login`, endpoints protegidos via `Authorization: Bearer <token>`
 - **Flutter**: `ApiClient.ensureAuthenticated()` chamado antes de cada requisição API (transcrição e síntese)
-- Token JWT gerado automaticamente com credenciais fixas (`admin`/`admin`)
+- Usuário padrão `admin` (env `APP_USERNAME`), mas a **senha vem de `APP_PASSWORD_HASH` (bcrypt) por
+  ambiente e o boot FALHA sem ela** (`main.py:229-234`). Não há senha fixa no código, e o app não tem
+  credencial embutida: usa `setCredentials()` (`api_client.dart:84,309`).
 - Expiração do token: 480 minutos (8 horas)
 
 ### Criptografia Local
 - **Algoritmo**: **AES-256-GCM**, formato `3:<nonce base64>:<cifra base64>`. O formato `2:` (CBC) é
   **legado**, só é lido; `migrarParaGcm` converte.
-- **Chave**: PBKDF2 (SHA-256/HMAC, 100k iterações) deriva a chave mestra do PIN, e ela é persistida em
-  **cofre durável** (Android Keystore RSA-OAEP / iOS Keychain) que **não exige biometria** — é o que
-  garante dado cifrado mesmo sem bloqueio de tela (correção da vuln-0013).
+- **Chave**: a chave mestra é **aleatória** (`Key.fromSecureRandom(32)`, `encryption_service.dart:247`),
+  gerada no boot (`main.dart:161-162`) e persistida em **cofre durável** (`flutter_secure_storage` sem
+  biometria, chave `aes_master_key_duravel`) — é o que garante dado cifrado mesmo sem bloqueio de tela
+  (correção da vuln-0013). **PBKDF2 existe só no caminho legado de PIN** (`:356`, `:418`), e
+  `kdf_version` **não tem escritor**, então as iterações efetivas são **10.000**, não 100.000.
+- **Áudio**: não usa o formato `3:` — usa envelope binário `[MAV1][nonce 12B][cifra]`
+  (`encryption_service.dart:121-155`), com MAC. Não é decifrável por `descriptografar()`.
 - **Escrita é fail-closed**: `EncryptedServiceMixin.encrypt` **lança** `StateError` quando a proteção
   não está disponível, em vez de gravar em texto puro. A **leitura** é fail-open por desenho: no boot,
   antes do desbloqueio, devolve o valor como está para não travar (o app pede desbloqueio e relê).
@@ -1282,13 +1357,24 @@ render.yaml                          # LEGADO (era Render; nenhum workflow usa)
 
 ### LGPD / Privacidade
 - **Áudio**: Limite de 5 minutos com contador e parada automática
-- **Microtexto**: "Relato breve do profissional após a sessão. Limite: 5 minutos." na tela de gravação
+- **Microtexto**: a frase existe **apenas na especificação do PDF de arquitetura LGPD**
+  (`pdf_arquitetura_lgpd_service.dart:219`), **não na tela** — a tela de gravação
+  (`widgets/sessao_audio_controls.dart:129-143`) mostra só "Tempo de gravação" + mm:ss. O limite de
+  5 min e a parada automática existem (`sessao_form_page.dart:75,545-547`).
 - **Auditoria**: Registro de eventos (gravação, transcrição, IA, revisão) em `RegistroAuditoria` (typeId 10)
-- **Arquivamento**: Em vez de exclusão (padrão desde o início)
-- **Revisão**: Obrigatória pelo profissional (campo `revisadoPeloProfissional`)
+- **Arquivamento**: a UI usa `arquivarPaciente` (`pacientes_page.dart:115`). Existe `excluirPaciente`
+  (hard delete em cascata, `paciente_service.dart:113-166`) **sem chamador de produção** — dead code
+  com potencial destrutivo.
+- **Revisão**: registrada em `revisadoPeloProfissional`, **mas NÃO bloqueia o salvamento**.
+  `_salvarSessao()` (`sessao_form_page.dart:1373`) valida apenas `sessaoSalvandoProvider` e
+  `_existeAcaoEmAndamento` — não checa a flag, que é gravada como um campo qualquer (`:1490`). O único
+  efeito hoje é o rótulo "Revisão pendente" (`status_clinico_sessao_service.dart:123`).
+  **Consequência: conteúdo gerado por IA pode ser salvo no prontuário sem revisão marcada.**
+  ⚠️ PENDÊNCIA DE PRODUTO: criar o gate (bloquear/avisar o salvamento quando `geradoComIa` e não
+  revisado). Enquanto não existir, a garantia é de processo, não de software.
 - **IA**: Apenas apoio documental, nunca substitui julgamento clínico
 - **Tela Privacidade**: Acessível pelo ícone de escudo na Home — PIN, áudio, IA, retenção, auditoria
-- **Exportação**: Aviso de dados sensíveis; 5 formatos de PDF
+- **Exportação**: Aviso de dados sensíveis; **6 opções no diálogo** (`paciente_detail_page.dart:669-797`) e **7 geradores** no serviço (`pdf_export_service.dart`)
 - **Logs**: `Log.auditoria()` separado de `Log.erro()`. O log técnico é gravado **cifrado**; sem cifra
   disponível grava apenas o rótulo (nível e contexto) com `(conteudo nao registrado: cifra
   indisponivel)` — **nunca o conteúdo**, que pode conter PII (`response.body`). Ver 06/10/2026.
@@ -1345,44 +1431,58 @@ dupla criptografia, PII no log técnico (+ expurgo do histórico) e busca de art
 - Versão atual `1.0.47+48`; release ~70MB.
 
 ## Cores do App
+
+> **ATENÇÃO — a tabela anterior estava errada.** O app **não usa paleta fixa**: `lib/main.dart:255` cria
+> o tema com `ColorScheme.fromSeed(seedColor: #8806CE)` (Material 3, `tonalSpot`) e
+> `lib/utils/mentall_colors.dart` deriva tudo de `colorScheme`. Os hexadecimais que estavam aqui
+> (#1E293B, #334155, #F7F9FA, #D32F2F…) são a paleta de **PDF/HTML**, não de tela. Não existe
+> `lib/theme/` — o tema está em `lib/main.dart:_criarTema`.
+
+TEMA REAL (Material 3, derivado do seed #8806CE)
 ```
-Primary:         #8806CE   French violet (AppBar, FAB, títulos, ações)
-Primary Claro:   #A10AF5   Variação clara (bordas/acentos)
-Primary Médio:   #6D05A5   Variação média
-Primary Escuro:  #52047C   Variação escura (splash escuro)
-Sombra profunda: #360250   Variação mais escura da logo
-Primary BG:      #A10AF5 12%  Fundo translúcido de cards de destaque
-Text Heading:    #1E293B   Títulos
-Text Body:       #334155   Corpo de texto
-Text Secondary:  #475569   Texto secundário
-Text Muted:      #64748B   Texto suave
-Placeholder:     #94A3B8   Placeholders, tabs inativas
-Disabled:        #CBD5E1   Elementos desabilitados
-Page BG:         #F7F9FA   Fundo de todas as telas
-Card BG:         #F8FAFC   Fundo de cards (PDF)
-Surface:         #F1F5F9   Superfícies alternativas
-Divider:         #E2E8F0   Separadores e bordas sutis
-Success:         #2E7D32   Ativo, realizado, OK
-Error:           #D32F2F   Erros
-Warning:         #E65100   Pendente de revisão
-Warning BG:      #FFF3E0   Fundo de aviso
-Danger:          #C62828   Faltou, ação destrutiva
-WhatsApp BG:     #25D366   Fundo botão WhatsApp
-WhatsApp Text:   #075E54   Texto botão WhatsApp
-Scheduled:       #1976D2   Status agendado
-Cancelled:       #757575   Cancelado, inativo
+primary               #725187   AppBar, FAB, ações
+primaryContainer      #F4DAFF
+surface               #FFF7FC   Fundo das telas (scaffoldBackgroundColor, main.dart:273)
+surfaceContainerLow   #FAF1F9   corSuperficie (cards)
+onSurface             #1E1A20   Texto: heading 100%, body 87%, secondary 60%, muted 50%,
+                                placeholder 38%, disabled 25%  (mentall_colors.dart:17-23)
+onSurfaceVariant      #4B454D
+outlineVariant        #CDC3CE   corDivider
+error                 #BA1A1A   corError
+```
+
+MARCA / SEED / SEMÂNTICAS
+```
+#8806CE    seed do tema + cor de PDF (pdf_export_service.dart:18) + manifest + splash
+#A10AF5    Primary Claro (PDF) — corAcaoBorda / corAcaoFgClaro
+#52047C    splash escuro (android/.../drawable-night/launch_background.xml)
+#A10AF5 12%  fundo translúcido de cards de destaque (0x1FA10AF5)
+#6D05A5 / #360250   NÃO DETERMINADO — só aparecem neste AGENTS.md, sem uso no código
+#2E7D32 sucesso · #E65100 atenção · #C62828 perigo · #1976D2 agendado · #757575 cancelado
+#25D366 / #075E54 WhatsApp · #0D9488 corPacote          (mentall_colors.dart:44-54)
+```
+
+DOCUMENTOS (PDF/HTML — NÃO é a UI do app)
+```
+#1E293B título · #334155 corpo · #475569 subtítulo · #64748B secundária
+#F7F9FA fundo (HTML do backend) · #F8FAFC card (PDF) · #F1F5F9 superfície (PDF)
+#94A3B8 sombra de card · #E2E8F0 borda de ação (PDF) · #CBD5E1 desabilitado (contrato.html)
+#FFF3E0 fundo de aviso (PDF)
 ```
 
 ## Layout da Sessão (após redesenho 08/07/2026)
 A tela de sessão foi simplificada:
-- **Cabeçalho**: nome em maiúsculo/negrito + "Sessão N" (sem abordagem)
+- **Cabeçalho**: apenas `SESSÃO N` em maiúsculo/negrito (`sessao_form_page.dart:1747-1764`) — **o nome do paciente não aparece na tela** (só no prompt de IA)
 - **Info**: apenas data e horário (sem tema principal, sem humor)
 - **Breve relato**: controles de áudio + transcrição + botão IA + relato clínico organizado
 - **Síntese clínica**: 1 campo combinado (eventos + evolução + observações)
 - **Formulação clínica**: 1 campo combinado (pensamentos + emoções + comportamentos)
-- **Intervenções**: 1 campo combinado (intervenções + técnicas)
+- **Intervenções**: 1 campo (`intervencoes`); `tecnicasTcc` é forçado a `''` (`sessao_form_page.dart:1470`) — só o PDF concatena os dois, e sempre com técnicas vazias
 - **Apontamentos**: 1 campo (renomeado de "Apontamentos do Copiloto")
-- Removidos: Tarefas e planos, status card, humor, tema principal
+- Removidos: **Tarefas** (`tarefaCasa` nunca aparece), status card, humor, tema principal
+- **"Plano para a próxima sessão" NÃO foi removido** — existe e é renderizado
+  (`secao_campos_clinicos_widget.dart:86-95`, persistido em `sessao.planoProximaSessao`)
+- `StatusProcessamentoCard` é **dead code** (zero usos)
 
 ## Comandos
 
@@ -1394,7 +1494,7 @@ A tela de sessão foi simplificada:
 - `flutter build apk` — build APK Android release (saída: `build/app/outputs/flutter-apk/app-release.apk`)
 
 ### Web (Chrome)
-- ⚠️ `flutter run -d chrome` atualmente quebrado (debug service timeout)
+- `flutter run -d chrome` — a alegação de que está quebrado ("debug service timeout") **não tem evidência no repositório**; `tools/gerar_guia_mac_pdf.dart:364` ainda recomenda o comando. **NÃO DETERMINADO** — revalidar antes de repetir.
 - Alternativa: `flutter build web` + `python -m http.server 5000` no diretório `build/web`
 - **Sempre use porta fixa 5000** para não perder dados do Hive/localStorage
 
@@ -1411,7 +1511,7 @@ git add -A
 git commit -m "mensagem"
 git push origin master
 # O GitHub Action "Deploy to Fly.io" roda CI + flyctl deploy --remote-only.
-# ATENCAO: ele reimplanta em qualquer push que nao seja so de docs.
+# ATENCAO: reimplanta em qualquer push fora de docs/**, tasks/** e **.md (paths-ignore do workflow).
 ```
 
 ### Testar API em produção
@@ -1427,7 +1527,10 @@ curl -X POST https://mentall-api.fly.dev/auth/login \
 
 ## Memória: Layout do Acordo Terapêutico (PDF de referência)
 
-O layout do contrato (`contrato.html` + `main.py` `_renderizar_template_personalizado`) segue o modelo do PDF `Acordo Terapêutico.pdf` na raiz do projeto.
+O layout do contrato (`backend/templates/contrato.html` + `main.py` `_renderizar_template_personalizado`)
+segue um modelo de referência. **O arquivo `Acordo Terapêutico.pdf` NÃO existe no repositório** — a
+referência é esta tabela abaixo, não um PDF. Os únicos PDFs do repo são
+`docs/prompt_site_institucional_mentall_pro.pdf` e `auditoria/relatorio_auditoria.pdf`.
 
 ### Especificações de layout
 
@@ -1436,11 +1539,11 @@ O layout do contrato (`contrato.html` + `main.py` `_renderizar_template_personal
 | Psicólogo + Nome | Esquerda | 16px (12pt) | **Bold** (700) | Preto (#1E293B) |
 | CRP | Esquerda | 16px | Normal | Preto (#1E293B) |
 | Paciente: Nome | Esquerda | 16px | **"Paciente:" bold** | Preto (#1E293B) |
-| Acordo Terapêutico | Centralizado | 20px | **Bold** | Azul (#2563EB — marca MentAll) |
+| Acordo Terapêutico | Centralizado | 20px | **Bold** | Roxo (#3C096C — marca MentAll; `contrato.html:62`, `main.py:393`) |
 | Intro | Centralizado | 12px | Normal | Cinza (#64748B) |
 | Subtítulos (Compromissos, Cancelamentos, etc.) | Esquerda | 16px | **Bold** | Preto (#1E293B) — **sem borda, sem cor azul** |
 | Corpo do texto | Esquerda | 16px | Normal | Escuro (#334155), `text-align: justify` |
-| Logo MentAll | Canto superior direito | 12px | Bold | Azul, opacidade 0.45 |
+| Logo MentAll | Canto superior direito | 12px | Bold | Lilás (#C77DFF, `contrato.html:31`), opacidade 0.45 |
 
 ### Elementos NÃO presentes no layout
 - **Sem bordas nos subtítulos** (h2 sem `border-bottom`)
