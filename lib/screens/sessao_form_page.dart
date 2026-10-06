@@ -1148,6 +1148,11 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
   }) {
     final textoLimpo = texto.trim();
 
+    // A IA preenche, nunca apaga: se ela nao devolveu conteudo para este campo,
+    // o texto que o profissional ja escreveu permanece. Apagar era o efeito
+    // colateral de uma resposta parcial (ver AGENTS.md, secao 06/10/2026).
+    if (textoLimpo.isEmpty && controller.text.trim().isNotEmpty) return;
+
     controller.value = TextEditingValue(
       text: textoLimpo,
       selection: TextSelection.collapsed(offset: textoLimpo.length),

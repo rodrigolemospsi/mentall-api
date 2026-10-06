@@ -40,6 +40,55 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Auditoria de degradação silenciosa e primeiras correções (06/10/2026) — O ERRO QUE VIRA SUCESSO
+
+### Contexto
+Auditoria dedicada à classe de falha que causou o bug do rerank: **erro engolido -> resultado
+degradado devolvido como sucesso -> persistido no prontuário, sem aviso**. Foram varridos os 76
+`except` do backend e os 163 `catch` do app, seguindo a cadeia até a persistência.
+Achados de gravidade alta corrigidos aqui; o restante está em Pendências.
+
+### O que mudou (arquivos)
+- `backend/services/ia_clinica.py`: `_parse_resultado_sucesso` agora **exige conteúdo clínico**.
+  Resposta JSON válida porém fora do schema (`{}`, `{"erro": ...}`, recusa do modelo) devolve
+  `sucesso: False` — antes devolvia **sucesso com os 6 campos vazios**, a cascata de provedores
+  parava no primeiro e o app gravava prontuário em branco. Campos agora passam por `.strip()`.
+- `lib/screens/sessao_form_page.dart`: `_preencherController` **não sobrescreve campo preenchido com
+  vazio** ("a IA preenche, nunca apaga"). O helper só era usado nesse fluxo.
+- `lib/services/perfil_profissional_service.dart`: `salvarPerfil` copiava campo por campo e **não
+  copiava `crpVerificado`/`crpDataVerificacao`**, então o `true` da verificação do CFP era descartado
+  na gravação. Como `atualizarPerfil` **não tem nenhum chamador**, o selo "Verificado" só existia em
+  modo demo — e `crp_verificado: false` era enviado no contrato do paciente e na anamnese, e omitido
+  no PDF, para todo profissional.
+- `backend/tests/test_sintese_schema.py` (novo, 9 testes); `test_artigos_filtros.py` (+2 testes do
+  caminho de exceção de rede, lacuna apontada pela própria auditoria).
+
+### Verificação
+- `flutter analyze --no-pub`: limpo. `flutter test --no-pub`: **263/263**. Backend isolado:
+  **246/246** (era 235).
+
+### Pendências (achadas na auditoria, NÃO corrigidas)
+- **Banco**: Turso fora -> SQLite efêmero com escrita confirmada como sucesso (2.866 linhas de
+  fallback nos logs reais), e `/health` responde sempre `status:"ok"`. `ALLOW_SQLITE_FALLBACK` tem
+  default `"true"` no repositório; não é possível conferir os secrets do Fly daqui.
+- **Artigos**: falha de rede ainda chega ao app como `sucesso: true` com "Busca sugerida" (o rótulo é
+  honesto), o app **não avisa**, e `_artigosSugeridos = ''` antes da busca **apaga os artigos já
+  salvos na sessão** quando a busca falha.
+- **Anamnese**: `status='respondido'` com `respostas_json` vazio é gravado (gatilho no backend).
+- **Cripto**: `descriptografar` devolve o criptograma como conteúdo; salvar re-cifra e corrompe o dado
+  de forma permanente. Log técnico é gravado em **texto puro** (box e `mentall_tecnicos.log`) quando
+  a cifra falha ou não está configurada — pode conter nome/telefone do paciente.
+- **Migração**: o marcador de schema avança mesmo com registros não migrados.
+- **Bloqueio por inatividade**: desbloqueia sem prompt e sem o aviso de fail-safe, que só existe na
+  tela de login.
+- **Auditoria LGPD**: `_registrarAuditoria` não é `await`ado — a falha vira Future não tratado e o
+  evento pode nunca ser gravado.
+- **wuzapi/lembretes**: webhook inválido responde 200 e o recibo se perde; falha de banco vira
+  "wuzapi não conectado"; lembrete pode ser duplicado ou marcado como falha por erro de leitura.
+- **Recuperação de senha/PIN**: `except: pass` deixa o bloqueio por tentativas **fail-open**.
+- `lib/services/progresso_service.dart:51-58`: `..take(limite)` em cascata não tem efeito (bug
+  funcional, não é degradação silenciosa).
+
 ## Qualidade das indicações de artigos (06/10/2026) — PERIÓDICO PRIMEIRO + LIMPEZA
 
 ### Contexto

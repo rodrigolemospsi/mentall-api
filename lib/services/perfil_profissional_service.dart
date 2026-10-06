@@ -42,6 +42,12 @@ class PerfilProfissionalService with EncryptedServiceMixin {
     perfilExistente.modalidadesAtendimentoJson = perfil.modalidadesAtendimentoJson;
     perfilExistente.enderecosConsultoriosJson = perfil.enderecosConsultoriosJson;
     perfilExistente.fotoBase64 = perfil.fotoBase64;
+    // Sem estas duas linhas o `true` da verificacao do CFP era descartado na
+    // gravacao: `atualizarPerfil` nao tem chamador, entao o selo "Verificado"
+    // nunca chegava ao disco e `crp_verificado: false` ia para o contrato do
+    // paciente, a anamnese e o PDF (ver AGENTS.md, secao 06/10/2026).
+    perfilExistente.crpVerificado = perfil.crpVerificado;
+    perfilExistente.crpDataVerificacao = perfil.crpDataVerificacao;
     perfilExistente.dataAtualizacao = DateTime.now();
     if (perfil.tratamento.isNotEmpty) {
       perfilExistente.tratamento = perfil.tratamento;

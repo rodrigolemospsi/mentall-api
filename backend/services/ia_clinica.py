@@ -323,18 +323,46 @@ IMPORTANTE:
 """
 
 
+CAMPOS_CONTEUDO_SINTESE = (
+    "relato_clinico_organizado",
+    "apontamentos_copiloto",
+    "sintese_clinica",
+    "formulacao_clinica",
+    "intervencoes",
+    "plano_proxima_sessao",
+)
+
+
 def _parse_resultado_sucesso(resultado_raw: dict) -> dict:
     try:
         temas_pesquisa = resultado_raw.get("temas_pesquisa", []) or []
+        conteudo = {
+            campo: str(resultado_raw.get(campo) or "").strip()
+            for campo in CAMPOS_CONTEUDO_SINTESE
+        }
+
+        # JSON sintaticamente valido mas fora do schema (ex.: {}, {"erro": ...},
+        # recusa do modelo) NAO pode virar sucesso: sem esta guarda o app
+        # sobrescrevia os campos clinicos com vazio e gravava prontuario em
+        # branco, sem erro visivel (ver AGENTS.md, secao 06/10/2026).
+        if not any(conteudo.values()):
+            log.warning(
+                "Sintese sem nenhum campo de conteudo. Chaves recebidas: %s",
+                sorted(resultado_raw.keys()),
+            )
+            return {
+                "sucesso": False,
+                "erro": "A IA não retornou conteúdo clínico. Tente novamente.",
+            }
 
         return {
             "sucesso": True,
-            "relato_clinico_organizado": resultado_raw.get("relato_clinico_organizado", ""),
-            "apontamentos_copiloto": resultado_raw.get("apontamentos_copiloto", ""),
-            "sintese_clinica": resultado_raw.get("sintese_clinica", ""),
-            "formulacao_clinica": resultado_raw.get("formulacao_clinica", ""),
-            "intervencoes": resultado_raw.get("intervencoes", ""),
-            "plano_proxima_sessao": resultado_raw.get("plano_proxima_sessao", ""),
+            "relato_clinico_organizado": conteudo["relato_clinico_organizado"],
+            "apontamentos_copiloto": conteudo["apontamentos_copiloto"],
+            "sintese_clinica": conteudo["sintese_clinica"],
+            "formulacao_clinica": conteudo["formulacao_clinica"],
+            "intervencoes": conteudo["intervencoes"],
+            "plano_proxima_sessao": conteudo["plano_proxima_sessao"],
             "temas_pesquisa": temas_pesquisa,
             "artigos_sugeridos": "",
             "erro": "",

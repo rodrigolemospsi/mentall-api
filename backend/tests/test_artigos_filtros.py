@@ -68,6 +68,30 @@ class TestCascataFiltros(unittest.TestCase):
         self.assertEqual(len(chamados), 3)
         self.assertEqual(candidatos, [])
 
+    def test_excecao_de_rede_cai_para_o_proximo_filtro(self):
+        """Falha de rede no primeiro filtro nao pode derrubar a busca inteira."""
+        chamados = []
+
+        def fake_get(url, params=None, timeout=None):
+            chamados.append(params["filter"])
+            if len(chamados) == 1:
+                raise ConnectionError("sem rede")
+            return _Resp([_work("B")])
+
+        with mock.patch.object(mod.requests, "get", side_effect=fake_get):
+            candidatos = mod._buscar_candidatos_openalex("ruminacao")
+        self.assertEqual(len(chamados), 2)
+        self.assertEqual(candidatos[0]["titulo"], "B")
+
+    def test_excecao_em_todos_os_filtros_nao_propaga(self):
+        """Documenta o comportamento atual: excecao vira lista vazia.
+
+        ATENCAO: e por isso que uma falha de rede chega ao app igual a "as bases
+        nao tinham artigos". Ver a pendencia registrada no AGENTS.md.
+        """
+        with mock.patch.object(mod.requests, "get", side_effect=ConnectionError("sem rede")):
+            self.assertEqual(mod._buscar_candidatos_openalex("ruminacao"), [])
+
     def test_candidato_nao_carrega_mais_resumo(self):
         _, candidatos = self._rodar([_Resp([_work("A")])])
         self.assertNotIn("resumo", candidatos[0])
