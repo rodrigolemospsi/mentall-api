@@ -32,6 +32,22 @@ ResultadoBuscaArtigos resolverBuscaArtigos({
   return ResultadoBuscaArtigos(artigos: artigosBuscados.trim(), falhou: false);
 }
 
+/// True quando o salvamento deve ser **bloqueado** por falta de revisão.
+///
+/// Conteúdo gerado por IA só entra no prontuário depois de o profissional marcar
+/// a revisão — é o que sustenta a garantia de "IA como apoio documental"
+/// (LGPD/CFP). Antes desta regra, `_salvarSessao` gravava o registro sem revisão
+/// alguma: a flag `revisadoPeloProfissional` era apenas informativa.
+///
+/// Sessões sem IA (`geradoComIa == false`) não são afetadas — a revisão não se
+/// aplica ao que o profissional escreveu por conta própria.
+bool precisaRevisarAntesDeSalvar({
+  required bool geradoComIa,
+  required bool revisadoPeloProfissional,
+}) {
+  return geradoComIa && !revisadoPeloProfissional;
+}
+
 String concatenarSintese(Sessao s) {
   final partes = <String>[];
   if (s.eventosImportantes.trim().isNotEmpty) {

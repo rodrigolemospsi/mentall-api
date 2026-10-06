@@ -40,6 +40,44 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Gate de revisão humana implementado (06/10/2026) — A GARANTIA PASSOU A SER DO SOFTWARE
+
+### Contexto
+A auditoria da documentação provou que o `AGENTS.md` afirmava **"Revisão: Obrigatória pelo
+profissional"** sem que nada a impusesse: `_salvarSessao()` validava apenas `sessaoSalvandoProvider` e
+`_existeAcaoEmAndamento`. A flag `revisadoPeloProfissional` era informativa, e conteúdo gerado por IA
+podia ser gravado no prontuário sem revisão marcada.
+
+### O que mudou (arquivos)
+- `lib/utils/sessao_form_helpers.dart`: nova `precisaRevisarAntesDeSalvar({geradoComIa,
+  revisadoPeloProfissional})` — regra nomeada, pura e testável: bloqueia quando
+  `geradoComIa && !revisadoPeloProfissional`.
+- `lib/screens/sessao_form_page.dart`: `_salvarSessao()` chama a regra **antes de qualquer efeito**
+  (antes de parar áudio ou marcar `sessaoSalvandoProvider`) e, se bloqueado, orienta o profissional a
+  usar "Marcar como revisado".
+- `test/services/revisao_gate_test.dart` (novo, 4 testes) e um teste de widget que verifica o bloqueio
+  **de ponta a ponta** (`test/widgets/sessao_form_page_test.dart`): o aviso aparece **e nada é gravado**
+  no Hive.
+
+### Por que bloquear em vez de só avisar
+Um aviso permitiria gravar conteúdo de IA não revisado com um clique de confirmação — e a afirmação
+"revisão obrigatória" continuaria falsa. Bloquear é fail-closed, no mesmo espírito do
+`EncryptedServiceMixin.encrypt`. **Sessões sem IA não são afetadas** (`geradoComIa == false`) e o botão
+de revisão aparece exatamente na condição que o gate exige — não há beco sem saída.
+
+### Verificação
+- `flutter analyze --no-pub`: limpo. `flutter test --no-pub`: **281/281** (era 276). Backend isolado:
+  **246/246**.
+- O gate **quebrou um teste existente** (`Persistencia de artigos sugeridos`), cuja fixture salvava uma
+  sessão de IA nunca revisada — estado que o gate agora impede. A fixture passou a refletir um estado
+  alcançável (revisada) e o cenário bloqueado virou teste próprio.
+
+### Pendência conhecida (buraco residual do gate)
+`_invalidarIaERevisaoPorAlteracaoDaTranscricao()` (`sessao_form_page.dart:441`) zera `geradoComIa`
+**preservando os campos clínicos que a IA preencheu**. Nesse caminho, texto de origem IA pode ser salvo
+com `geradoComIa=false` e sem revisão, **contornando o gate**. É decisão de produto: ou esses campos
+são limpos na invalidação, ou o gate passa a olhar outra marcação.
+
 ## Auditoria da documentação contra o código (06/10/2026) — O DOC MENTIA SOBRE A REVISÃO
 
 ### Contexto
@@ -78,7 +116,7 @@ revisão marcada.** Enquanto o gate não existir, a revisão humana é garantia 
   tratado como confiável com `allow_credentials`).
 
 ### Achados de código que NÃO foram corrigidos (precisam de decisão)
-- **Gate de revisão** (acima): o mais importante.
+- ~~**Gate de revisão**~~ — **implementado no mesmo dia** (ver a seção mais recente no topo).
 - `migrarParaGcm` / `migrarCamposLegados` **sem nenhum chamador**: o formato legado `2:` é lido mas
   nunca migrado. Ligar isso reescreve todos os campos cifrados — exatamente o tipo de operação do
   incidente de 16/07. Decisão do dono.
@@ -1369,9 +1407,9 @@ render.yaml                          # LEGADO (era Render; nenhum workflow usa)
   `_salvarSessao()` (`sessao_form_page.dart:1373`) valida apenas `sessaoSalvandoProvider` e
   `_existeAcaoEmAndamento` — não checa a flag, que é gravada como um campo qualquer (`:1490`). O único
   efeito hoje é o rótulo "Revisão pendente" (`status_clinico_sessao_service.dart:123`).
-  **Consequência: conteúdo gerado por IA pode ser salvo no prontuário sem revisão marcada.**
-  ⚠️ PENDÊNCIA DE PRODUTO: criar o gate (bloquear/avisar o salvamento quando `geradoComIa` e não
-  revisado). Enquanto não existir, a garantia é de processo, não de software.
+  **Gate implementado em 06/10/2026**: `_salvarSessao` agora **bloqueia** o salvamento nessa condição
+  (`precisaRevisarAntesDeSalvar`), com aviso orientando a usar "Marcar como revisado" — botão que
+  aparece exatamente nessa condição. Sessões sem IA não são afetadas.
 - **IA**: Apenas apoio documental, nunca substitui julgamento clínico
 - **Tela Privacidade**: Acessível pelo ícone de escudo na Home — PIN, áudio, IA, retenção, auditoria
 - **Exportação**: Aviso de dados sensíveis; **6 opções no diálogo** (`paciente_detail_page.dart:669-797`) e **7 geradores** no serviço (`pdf_export_service.dart`)

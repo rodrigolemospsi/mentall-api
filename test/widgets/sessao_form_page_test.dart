@@ -291,6 +291,9 @@ void main() {
         transcricaoRelato: 'Transcricao teste',
         geradoComIa: true,
         statusProcessamento: 'ia_processada',
+        // Sessao de IA so chega ao fluxo de editar+salvar depois de revisada:
+        // salvar sem revisao e bloqueado pelo gate (ver AGENTS.md 06/10/2026).
+        revisadoPeloProfissional: true,
         artigosSugeridos:
             '1. Artigo Teste (2020) — Autor A\n   https://doi.org/10.1234/teste',
       );
@@ -401,6 +404,48 @@ void main() {
       await pump(tester, sessao: jaRevisada);
 
       expect(find.text('Marcar como revisado'), findsNothing);
+    });
+
+    testWidgets('salvar e BLOQUEADO enquanto a sintese de IA nao for revisada',
+        (tester) async {
+      await pump(tester, sessao: comSintese);
+
+      await tester.tap(find.text('Editar'));
+      await tester.pump();
+      await tester.pump();
+
+      final relato = find.byWidgetPredicate((widget) =>
+          widget is TextField && widget.controller?.text == 'Relato teste');
+      await tester.ensureVisible(relato);
+      await tester.enterText(relato, 'Nao deve ser persistido');
+      await tester.scrollUntilVisible(
+        find.text('Salvar sessão'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      final salvar = find.widgetWithText(FilledButton, 'Salvar sessão');
+      await tester.ensureVisible(salvar);
+      await tester.pump();
+      await tester.runAsync(() async {
+        await tester.tap(salvar);
+        await Hive.box<Sessao>('sessoes').flush();
+      });
+      await tester.pump(const Duration(milliseconds: 500));
+
+      // O gate avisou...
+      expect(find.textContaining('Confira e use'), findsOneWidget);
+
+      // ...e nada foi gravado.
+      await tester.runAsync(() async {
+        await Hive.box<Sessao>('sessoes').close();
+        await Hive.openBox<Sessao>('sessoes');
+      });
+      final salva = Hive.box<Sessao>('sessoes').get('s4')!;
+      expect(
+        encryption.descriptografar(salva.relatoPosSessao),
+        'Relato teste',
+        reason: 'o salvamento bloqueado nao pode ter alterado o registro',
+      );
     });
   });
 

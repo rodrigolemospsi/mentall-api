@@ -1384,6 +1384,24 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
       return;
     }
 
+    // Gate de revisão: conteúdo gerado por IA não vai ao prontuário sem o
+    // profissional marcar que conferiu. Sem isto, a revisão era apenas
+    // informativa (ver AGENTS.md, seção 06/10/2026).
+    if (precisaRevisarAntesDeSalvar(
+      geradoComIa: _geradoComIa,
+      revisadoPeloProfissional: _revisadoPeloProfissional,
+    )) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Este conteúdo foi gerado por IA. Confira e use "Marcar como '
+            'revisado" antes de salvar no prontuário.',
+          ),
+        ),
+      );
+      return;
+    }
+
     if (_reproduzindoAudio) {
       await _audioPlayer.stop();
 
