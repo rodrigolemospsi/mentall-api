@@ -40,6 +40,42 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Verificações no emulador (06/10/2026) — GATE DE BIOMETRIA OK + STARTUP MEDIDO
+
+### Contexto
+- Suspeita de que o app abria direto na Home sem exigir autenticação (sinal de alarme nº 1 do
+  checklist). **Não é bug** — o gate roda e o emulador cai no fail-safe por não ter tela bloqueada.
+- As métricas de startup existentes (`[startup]` no logcat, `Displayed` do sistema) medem a init do
+  Dart e o splash, **não** o tempo até a Home. Medição real: **~3,5s até a Home** no emulador.
+
+### O que mudou (arquivos)
+- `AGENTS.md`: esta seção. **Nenhum código foi alterado.**
+
+### Verificação
+- **Gate (funciona como projetado):** `chave_gerada` existe no `encryption_meta.hive`
+  (`encryption_service.dart:188-191`) -> `requerAutenticacao` true (`auth_service.dart:285`) ->
+  `LoginPage` montado (`app_start_page.dart:106`) -> auto-tentativa (`login_page.dart:30,40`). Com
+  `locksettings get-disabled=true` (emulador sem tela bloqueada) `suportaGate()` é false -> fail-safe
+  (`auth_service.dart:195-206`) -> cofre durável -> Home, com o aviso de `login_page.dart:56-66`. Em
+  aparelho COM tela bloqueada o prompt aparece e cancelar honra o gate (linha 199: "não burla").
+- **Startup:** `[startup]` ~708-710ms (init Dart) e `Displayed +1s537ms` (= splash, primeiro frame).
+  Aos 3,5s o app já estava na Home. **Suspeito principal é o splash, não o KDF:**
+  `app_start_page.dart:45-49` usa 1s se `obterPerfil() != null`, senão 3s; a splash seguia opaca aos
+  2,0s, sugerindo a ramificação de 3s (hipótese a confirmar — seriam até 2s gratuitos por lançamento).
+- `flutter analyze` limpo; `flutter test` **263/263**; `tests/run_isolated.py` **221/221**;
+  `flutter build apk --release` OK (13,3s), sha256 `9b2e1123...ff4bcb33` = o mesmo da v1.0.47;
+  instalado e aberto no emulador `mentall` (API 34) sem erro fatal.
+
+### Pendências
+- **Release `1.0.47+48` em limbo:** 3 commits locais sem push (inclui este). O `deploy.yml` roda o job
+  `deploy` até para mudança só de app (`paths-ignore` cobre só `*.md`/`tasks/`/`docs/`),
+  reiniciando o backend no Fly sem necessidade.
+- **Upgrade do Flutter:** `package_info_plus`, `sentry_flutter`, `share_plus`, `wakelock_plus` aplicam
+  KGP e o Gradle avisa que versões futuras do Flutter **falharão** o build — atualizar os 4 antes de
+  qualquer `flutter upgrade`.
+- Confirmar a duração do splash; medir startup em aparelho físico (emulador != baixo custo).
+- APK release usa assinatura de debug (`key.properties` ausente) — não serve para a Play Store.
+
 ## Encerramento de plano (06/10/2026) — PLANO DE STARTUP/PIN ARQUIVADO
 
 ### Contexto
