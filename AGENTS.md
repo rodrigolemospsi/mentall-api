@@ -1465,6 +1465,20 @@ dupla criptografia, PII no log técnico (+ expurgo do histórico) e busca de art
 - **Áudio "não mantido"**: a exclusão do arquivo é `unawaited` — se falhar, o áudio permanece.
 - **`progresso_service.dart`**: `..take(limite)` em cascata não tem efeito (bug funcional).
 
+### Achados da auditoria da documentação (06/10/2026) — EM ABERTO
+- **Buraco residual do gate de revisão**: `_invalidarIaERevisaoPorAlteracaoDaTranscricao()`
+  (`sessao_form_page.dart:441`) zera `geradoComIa` **preservando os campos clínicos preenchidos pela
+  IA** — nesse caminho o gate pode ser contornado. Decidir: limpar os campos na invalidação, ou o gate
+  olhar outra marcação.
+- **`migrarParaGcm` / `migrarCamposLegados` sem chamador**: o formato legado `2:` (CBC) é lido mas
+  **nunca migrado**. Ligar isso reescreve todos os campos cifrados — o tipo de operação do incidente de
+  16/07. Decisão do dono.
+- **`excluirPaciente`** (`paciente_service.dart:113-166`): hard delete em cascata **sem chamador de
+  produção** — dead code com potencial destrutivo.
+- **`StatusProcessamentoCard`**: dead code (zero usos).
+- **Falta evento de auditoria para remoção/regravação de áudio**, exigido pela especificação do PDF de
+  arquitetura LGPD (`pdf_arquitetura_lgpd_service.dart:214`).
+
 ### APK
 - Versão atual `1.0.47+48`; release ~70MB.
 
