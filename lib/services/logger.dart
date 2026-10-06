@@ -41,34 +41,36 @@ class Log {
       final timestamp = DateTime.now().toIso8601String();
       final linha = '[$timestamp] $mensagem';
 
-      // Criptografa a linha para o box Hive (sem nunca logar PII em claro
-      // quando a proteção está ativa). O arquivo continua sendo cifrado
-      // individualmente por _persistirArquivo.
-      String linhaParaBox = linha;
+      // Fail-closed, como no EncryptedServiceMixin.encrypt: uma linha de log
+      // tecnico pode carregar PII (ex.: `response.body` com nome e telefone do
+      // paciente). Se a cifra nao estiver disponivel, grava-se apenas o rotulo
+      // (quando, onde e de que tipo) e NUNCA o texto. Antes desta correcao a
+      // linha ia em claro para o box e para mentall_tecnicos.log.
       final enc = _encryptionService;
+      String? linhaCifrada;
       if (enc != null && enc.configurado && linha.isNotEmpty) {
         try {
-          linhaParaBox = enc.criptografar(linha);
+          linhaCifrada = enc.criptografar(linha);
         } catch (_) {
-          // Se a criptografia falhar, mantém a linha original (o box de logs
-          // é técnico; a auditoria PII já fica cifrada no box de auditoria).
+          linhaCifrada = null;
         }
       }
+      final linhaSegura = linhaCifrada ?? '[$timestamp] ${_redigir(mensagem)}';
 
       if (kIsWeb) {
-        _persistirWeb(linhaParaBox);
+        _persistirWeb(linhaSegura);
         return;
       }
 
       final box = Hive.box<String>(_boxName);
       final linhas = (box.get('log') ?? '').split('\n').where((l) => l.isNotEmpty).toList();
-      linhas.add(linhaParaBox);
+      linhas.add(linhaSegura);
       if (linhas.length > _maxLogLines) {
         linhas.removeRange(0, linhas.length - _maxLogLines);
       }
       await box.put('log', linhas.join('\n'));
 
-      await _persistirArquivo(linha);
+      await _persistirArquivo(linhaSegura);
     } catch (_) {}
   }
 
@@ -84,19 +86,15 @@ class Log {
     } catch (_) {}
   }
 
-  static Future<void> _persistirArquivo(String linha) async {
+  /// Grava no arquivo tecnico uma linha **ja protegida** (cifrada ou redigida).
+  ///
+  /// A decisao de protecao e tomada em [_persistir]: aqui nunca chega texto em
+  /// claro, e por isso este metodo nao cifra nada por conta propria.
+  static Future<void> _persistirArquivo(String linhaParaEscrever) async {
     try {
       final dir = await getApplicationDocumentsDirectory();
       final arquivo = File('${dir.path}/mentall_tecnicos.log');
       final existe = await arquivo.exists();
-
-      String linhaParaEscrever = linha;
-      if (_encryptionService != null && _encryptionService!.configurado) {
-        final encrypted = _encryptionService!.criptografar(linha);
-        if (encrypted != linha) {
-          linhaParaEscrever = encrypted;
-        }
-      }
 
       if (!existe) {
         await arquivo.writeAsString('$linhaParaEscrever\n');
@@ -109,6 +107,19 @@ class Log {
       }
       await arquivo.writeAsString('$linhaParaEscrever\n', mode: FileMode.append);
     } catch (_) {}
+  }
+
+  /// Versao sem conteudo da linha: preserva o nivel e o contexto (o valor de
+  /// diagnostico) e descarta a mensagem, que pode conter PII.
+  static String _redigir(String mensagem) {
+    for (final marcador in const ['ERRO: ', 'INFO: ', 'AUDITORIA: ']) {
+      final posicao = mensagem.indexOf(marcador);
+      if (posicao != -1) {
+        return '${mensagem.substring(0, posicao + marcador.length)}'
+            '(conteudo nao registrado: cifra indisponivel)';
+      }
+    }
+    return '(conteudo nao registrado: cifra indisponivel)';
   }
 
   static Future<String> obterLogs() async {

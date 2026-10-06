@@ -40,6 +40,43 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Log técnico deixa de gravar PII em texto puro (06/10/2026) — FAIL-CLOSED TAMBÉM NO LOG
+
+### Contexto
+Achado M3 da auditoria de degradação silenciosa. O log técnico tinha **dois caminhos de vazamento**:
+- **box** (`_persistir`): se o serviço de cifra fosse nulo ou não estivesse configurado — a janela do
+  boot, antes do desbloqueio — ou se `criptografar` lançasse, a linha permanecia em **texto puro** e
+  era gravada no Hive;
+- **arquivo** (`_persistirArquivo`): mesma lógica, gravando **texto puro em disco** em
+  `mentall_tecnicos.log`.
+
+As linhas podem conter `response.body` (`anamnese_enviada_service.dart:112`,
+`api_client.dart:227`) — ou seja, **nome e telefone do paciente**. O comentário do próprio código
+afirmava "sem nunca logar PII em claro", o que não se cumpria.
+
+### O que mudou (arquivos)
+- `lib/services/logger.dart`: a linha só é persistida **cifrada**; sem cifra disponível grava-se
+  apenas o rótulo (nível e contexto) via novo `_redigir`, com o marcador
+  `(conteudo nao registrado: cifra indisponivel)`. `_persistirArquivo` deixou de cifrar por conta
+  própria — recebe a linha já protegida, então não resta caminho que escreva texto puro. Passa a valer
+  a mesma regra fail-closed do `EncryptedServiceMixin.encrypt`.
+- `test/services/logger_pii_test.dart` (novo, 3 testes): comprova que o conteúdo **não** aparece no
+  box sem cifra, que com cifra a linha continua legível, e que `info`/`auditoria` seguem a regra.
+
+### Verificação
+- `flutter analyze --no-pub`: limpo. `flutter test --no-pub`: **269/269** (era 266). Backend isolado:
+  **246/246** (inalterado).
+- Commit anterior publicado: CI run `37530943493` verde (4/4 jobs), deploy 1m0s, `/health` 200.
+
+### Pendências
+- **O histórico já gravado em claro por versões anteriores permanece em disco** até o usuário limpar
+  os logs: não há migração nem expurgo automático. A correção impede vazamento **novo**, não apaga o
+  antigo.
+- Quando a cifra está indisponível, o conteúdo deixa de ser recuperável para diagnóstico — é o custo
+  deliberado de não vazar PII. O rótulo (quando, onde, de que tipo) é preservado.
+- `obterLogs()` devolve o conteúdo cru do box, misturando linhas cifradas e redigidas; quem exibe o
+  log precisa decifrar. Não foi alterado aqui.
+
 ## Guarda contra dupla criptografia (06/10/2026) — A LEITURA QUE FALHA NÃO PODE DESTRUIR O DADO
 
 ### Contexto
