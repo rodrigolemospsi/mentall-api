@@ -40,6 +40,35 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Retry para indisponibilidade transitória da IA (06/10/2026) — O 503 DEIXA DE SER SILENCIOSO
+
+### Contexto
+- Um **503 do Gemini** ("high demand, usually temporary") derrubava a busca de artigos **sem nenhuma
+  retentativa**, e o log rotulava tudo como "Gemini JSON error" — inclusive 503, timeout e falha de
+  rede. Foi esse rótulo que atrasou o diagnóstico.
+- A síntese **já tinha** cascata de provedores (`gerar_sintese_clinica`), e por isso resistia. Os
+  helpers JSON (`_chamar_llm_json_*`), que servem progresso e artigos, não tinham retry nem cascata.
+
+### O que mudou (arquivos)
+- `backend/services/ia_clinica.py`: novos `_erro_transitorio` (classifica 408/429/5xx/timeout/rede
+  como retentável; erro de formato e de autenticação, não) e `_executar_com_retry` (até 3 tentativas,
+  backoff de 2s e 4s via `time.sleep` — seguro porque os callers rodam em `run_in_executor`). Os três
+  `_chamar_llm_json_*` passaram a usá-lo e trocaram o rótulo único por três mensagens distintas
+  (tentativa / indisponível após N / falha não transitória). O contrato de retorno foi preservado.
+- `backend/tests/test_llm_retry.py` (novo, 10 testes): classificação de erro e comportamento do retry
+  (retenta e vence, desiste no máximo, não retenta erro não transitório, `time.sleep` mockado).
+
+### Verificação
+- `flutter analyze --no-pub`: limpo. `flutter test --no-pub`: **263/263**. Backend isolado:
+  **230/230** (era 220; +10 do teste novo).
+- Efeito: um 503 isolado passa a ser absorvido por retentativa em vez de degradar a saída.
+
+### Pendências
+- A cascata de provedores continua **só na síntese**. Os helpers JSON retentam, mas não trocam de
+  provedor se a indisponibilidade for longa — considerar alinhar ao padrão da síntese.
+- `_reconstruir_resumo_openalex` segue calculando o `resumo` dos candidatos, que ficou sem leitor
+  após a remoção do rerank (2 linhas para remover).
+
 ## Remoção do rerank por IA nas indicações de artigos (06/10/2026) — MENOS DADO, MENOS FALHA
 
 ### Contexto

@@ -1,6 +1,8 @@
 import json
 import logging
 import os
+import re
+import time
 from urllib.parse import quote_plus
 
 import requests
@@ -653,6 +655,55 @@ Retorne um JSON com o seguinte formato:
         return {"sucesso": False, "erro": f"Erro ao gerar progresso: {str(e)}"}
 
 
+MAX_TENTATIVAS_LLM = 3
+ATRASOS_RETRY_LLM = (2, 4)
+STATUS_TRANSITORIOS_LLM = frozenset({408, 429, 500, 502, 503, 504})
+
+
+def _erro_transitorio(e: Exception) -> bool:
+    """True se a falha vale retentativa (429, 5xx, timeout, conexao).
+
+    Erro de formato, autenticacao ou parametro nao melhora repetindo a chamada.
+    """
+    if isinstance(e, json.JSONDecodeError):
+        return False
+    for atributo in ("code", "status_code", "http_status", "status"):
+        valor = getattr(e, atributo, None)
+        if isinstance(valor, int):
+            return valor in STATUS_TRANSITORIOS_LLM
+    if isinstance(e, OSError):  # cobre TimeoutError e ConnectionError
+        return True
+    # SDKs costumam citar o status no texto (ex.: "503 UNAVAILABLE")
+    return bool(re.search(r"\b(?:408|429|50[0-4])\b", str(e)))
+
+
+def _executar_com_retry(rotulo: str, tentar):
+    """Roda `tentar()` com retry e backoff para indisponibilidade do provedor.
+
+    `tentar` deve devolver o dict ja parseado e levantar excecao ao falhar.
+    Devolve sempre um dict: o do provedor, ou {"sucesso": False, "erro": ...}
+    quando o erro nao e transitorio ou as tentativas se esgotam.
+    """
+    ultimo_erro: Exception | None = None
+    for tentativa in range(MAX_TENTATIVAS_LLM):
+        try:
+            return tentar()
+        except Exception as e:
+            ultimo_erro = e
+            if not _erro_transitorio(e):
+                log.exception("%s: falha nao transitoria: %s", rotulo, e)
+                break
+            if tentativa == MAX_TENTATIVAS_LLM - 1:
+                log.error("%s indisponivel apos %d tentativas: %s",
+                          rotulo, MAX_TENTATIVAS_LLM, e)
+                break
+            atraso = ATRASOS_RETRY_LLM[min(tentativa, len(ATRASOS_RETRY_LLM) - 1)]
+            log.warning("%s indisponivel (tentativa %d/%d), aguardando %ds: %s",
+                        rotulo, tentativa + 1, MAX_TENTATIVAS_LLM, atraso, e)
+            time.sleep(atraso)
+    return {"sucesso": False, "erro": str(ultimo_erro)}
+
+
 def _chamar_llm_json(provider: str, prompt: str, temperature: float = 0.3) -> dict:
     if provider == "openai":
         return _chamar_llm_json_openai(prompt, temperature)
@@ -665,7 +716,8 @@ def _chamar_llm_json(provider: str, prompt: str, temperature: float = 0.3) -> di
 
 def _chamar_llm_json_openai(prompt: str, temperature: float) -> dict:
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    try:
+
+    def tentar() -> dict:
         response = client.chat.completions.create(
             model=_get_model_name("openai"),
             messages=[{"role": "user", "content": prompt}],
@@ -674,9 +726,8 @@ def _chamar_llm_json_openai(prompt: str, temperature: float) -> dict:
             temperature=temperature,
         )
         return json.loads(response.choices[0].message.content)
-    except Exception as e:
-        log.exception("OpenAI JSON error: %s", e)
-        return {"sucesso": False, "erro": str(e)}
+
+    return _executar_com_retry("OpenAI", tentar)
 
 
 def _chamar_llm_json_deepseek(prompt: str, temperature: float) -> dict:
@@ -684,7 +735,7 @@ def _chamar_llm_json_deepseek(prompt: str, temperature: float) -> dict:
         api_key=os.getenv("DEEPSEEK_API_KEY"),
         base_url="https://api.deepseek.com/v1",
     )
-    try:
+    def tentar() -> dict:
         response = client.chat.completions.create(
             model="deepseek-v4-flash",
             messages=[{"role": "user", "content": prompt}],
@@ -697,9 +748,8 @@ def _chamar_llm_json_deepseek(prompt: str, temperature: float) -> dict:
         if content.endswith("```"):
             content = content[:-3]
         return json.loads(content)
-    except Exception as e:
-        log.exception("DeepSeek JSON error: %s", e)
-        return {"sucesso": False, "erro": str(e)}
+
+    return _executar_com_retry("DeepSeek", tentar)
 
 
 def _chamar_llm_json_gemini(prompt: str, temperature: float) -> dict:
@@ -707,7 +757,7 @@ def _chamar_llm_json_gemini(prompt: str, temperature: float) -> dict:
         api_key=os.getenv("GEMINI_API_KEY"),
         http_options=types.HttpOptions(timeout=120000),
     )
-    try:
+    def tentar() -> dict:
         response = client.models.generate_content(
             model="gemini-3.7-flash",
             contents=prompt,
@@ -717,7 +767,6 @@ def _chamar_llm_json_gemini(prompt: str, temperature: float) -> dict:
             ),
         )
         return json.loads(response.text)
-    except Exception as e:
-        log.exception("Gemini JSON error: %s", e)
-        return {"sucesso": False, "erro": str(e)}
+
+    return _executar_com_retry("Gemini", tentar)
 
