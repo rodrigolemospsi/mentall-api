@@ -40,6 +40,7 @@ INJECAO_PADROES = [
 ]
 OPENALEX_FILTROS_BASE = "language:pt,type:article,from_publication_date:2010-01-01"
 OPENALEX_FILTRO_PSICOLOGIA = "primary_topic.field.id:fields/32"
+OPENALEX_FILTRO_PERIODICO = "primary_location.source.type:journal"
 
 
 def _sanitizar_prompt(texto: str) -> str:
@@ -61,20 +62,17 @@ def _openalex_params(params: dict) -> dict:
     return params
 
 
-def _reconstruir_resumo_openalex(inverted_index: dict) -> str:
-    if not inverted_index:
-        return ""
-    posicoes = []
-    for palavra, indices in inverted_index.items():
-        for i in indices:
-            posicoes.append((i, palavra))
-    posicoes.sort()
-    return " ".join(palavra for _, palavra in posicoes)[:400]
-
-
 def _buscar_candidatos_openalex(consulta: str) -> list:
     consulta_limpa = consulta.replace(",", " ").replace(":", " ").strip()
+    # Cascata, do mais restrito ao mais amplo: periodico de psicologia ->
+    # psicologia -> qualquer area. O filtro de periodico tira repositorio e
+    # agregador, que dominavam o topo (medido em 06/10/2026); se ele zerar a
+    # consulta, caimos para o proximo em vez de nao devolver nada.
     filtros = (
+        (
+            f"title_and_abstract.search:{consulta_limpa},{OPENALEX_FILTROS_BASE},"
+            f"{OPENALEX_FILTRO_PSICOLOGIA},{OPENALEX_FILTRO_PERIODICO}"
+        ),
         f"title_and_abstract.search:{consulta_limpa},{OPENALEX_FILTROS_BASE},{OPENALEX_FILTRO_PSICOLOGIA}",
         f"title_and_abstract.search:{consulta_limpa},{OPENALEX_FILTROS_BASE}",
     )
@@ -114,9 +112,6 @@ def _buscar_candidatos_openalex(consulta: str) -> list:
                     "link": link,
                     "ano": work.get("publication_year"),
                     "citacoes": work.get("cited_by_count"),
-                    "resumo": _reconstruir_resumo_openalex(
-                        work.get("abstract_inverted_index")
-                    ),
                 })
 
             if candidatos:

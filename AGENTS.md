@@ -40,6 +40,39 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Qualidade das indicações de artigos (06/10/2026) — PERIÓDICO PRIMEIRO + LIMPEZA
+
+### Contexto
+- Duas pendências da seção anterior: (a) os resultados vinham muito de **repositórios e
+  agregadores** (LA Referencia, Dialnet, Zenodo) em vez de periódicos; (b) `_reconstruir_resumo_openalex`
+  seguia calculando o `resumo` dos candidatos, que ficou **sem leitor** após a remoção do rerank.
+- O filtro de periódico foi **medido antes de implementar**, na configuração real do app.
+
+### O que mudou (arquivos)
+- `backend/services/ia_clinica.py`: novo `OPENALEX_FILTRO_PERIODICO`
+  (`primary_location.source.type:journal`). A busca passa a ter **cascata de 3 filtros**:
+  periódico + psicologia → psicologia → qualquer área. `_reconstruir_resumo_openalex` e o campo
+  `resumo` dos candidatos foram removidos.
+- `backend/tests/test_artigos_filtros.py` (novo, 5 testes): verifica a **ordem da cascata** e a
+  degradação (se um filtro zera, cai para o próximo em vez de não devolver nada).
+
+### Verificação
+- Medição, mesma consulta e mesma configuração: `ruminação` 52→36;
+  `transtorno de ansiedade generalizada mindfulness` 11→7; `episódio depressivo maior` 24→20.
+  **Nenhuma consulta zerou**, e o topo passou a ser periódico — no lugar do repositório
+  LA Referencia, agora vem *Temas em Saúde* (artigo sobre risco de suicídio em EDM).
+- `flutter analyze --no-pub`: limpo. `flutter test --no-pub`: **263/263**. Backend isolado:
+  **235/235** (era 230; +5 do teste novo).
+- Lote anterior publicado no mesmo dia: CI run `37527021295` verde (4/4 jobs), deploy 54s,
+  `/health` 200 e `/gerar-progresso` sem auth → 401.
+
+### Pendências
+- A cascata de provedores de IA continua **só na síntese**; os helpers JSON retentam, mas não trocam
+  de provedor se a indisponibilidade for longa.
+- `log.info("Solicitacao de artigos - temas=%d")` segue sendo a única janela para saber quais
+  palavras o extrator produz.
+- `/gerar-artigos` pode virar **100% local** (só palavras-chave saem do aparelho).
+
 ## Retry para indisponibilidade transitória da IA (06/10/2026) — O 503 DEIXA DE SER SILENCIOSO
 
 ### Contexto
