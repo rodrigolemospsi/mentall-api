@@ -40,6 +40,42 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Expurgo do log em claro e A1 nas indicações de artigos (06/10/2026)
+
+### Contexto
+Duas pendências da auditoria de degradação silenciosa, autorizadas juntas:
+- **Log legado**: a correção M3 impede gravação **nova** de PII em texto puro, mas não apaga o que as
+  versões anteriores já gravaram em disco (box e `mentall_tecnicos.log`) — texto que pode conter nome
+  e telefone de paciente.
+- **A1**: quando a busca de artigos falhava (retorno `null`), o campo já havia sido limpo antes da
+  busca, nada avisava o profissional e o app **persistia `artigosSugeridos = ''`**, apagando as
+  indicações salvas na sessão. O card simplesmente desaparecia.
+
+### O que mudou (arquivos)
+- `lib/services/logger.dart`: novo `purgarHistoricoLegado()`, com flag `purge_log_claro_v1` gravada no
+  próprio box. **Preserva as linhas que já estavam cifradas** (começam com `3:`/`2:`) e descarta o
+  texto puro — no box e no arquivo —, e só age **uma vez**, para não apagar diagnóstico novo.
+- `lib/main.dart`: expurgo chamado no boot logo após as migrações. O box de logs já está aberto e o
+  expurgo **não depende da chave de cifra**.
+- `lib/utils/sessao_form_helpers.dart`: novo `resolverBuscaArtigos` (lógica pura e testável).
+  `null` = falha -> mantém as indicações anteriores; string vazia = sucesso sem resultados -> limpa,
+  porque as antigas eram de outra síntese.
+- `lib/screens/sessao_form_page.dart`: guarda o valor anterior, passa pela busca via o resolver e
+  **avisa o profissional** quando a busca falha, informando se as indicações anteriores foram mantidas.
+- Testes: `artigos_busca_resolver_test.dart` (novo, 5) e `logger_pii_test.dart` (+2: o expurgo e a
+  preservação das linhas cifradas).
+
+### Verificação
+- `flutter analyze --no-pub`: limpo. `flutter test --no-pub`: **276/276**. Backend isolado:
+  **246/246**.
+
+### Pendências
+- O backend ainda devolve `sucesso: true` com o texto "Busca sugerida" quando o OpenAlex falha: o app
+  **não distingue** isso de "as bases não tinham artigos". O rótulo é honesto (links reais de busca) e
+  o fallback é útil — falta sinalizar a falha na resposta, o que é decisão de produto.
+- O expurgo roda **uma vez por instalação**: quem não atualizar o app permanece com o histórico em
+  claro no aparelho.
+
 ## Log técnico deixa de gravar PII em texto puro (06/10/2026) — FAIL-CLOSED TAMBÉM NO LOG
 
 ### Contexto

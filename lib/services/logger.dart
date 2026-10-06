@@ -9,6 +9,7 @@ import 'encryption_service.dart';
 class Log {
   static const String _boxName = 'logs_tecnicos';
   static const int _maxLogLines = 500;
+  static const String _purgeKey = 'purge_log_claro_v1';
   static EncryptionService? _encryptionService;
 
   static void setEncryptionService(EncryptionService service) {
@@ -120,6 +121,56 @@ class Log {
       }
     }
     return '(conteudo nao registrado: cifra indisponivel)';
+  }
+
+  /// Expurgo **único** do log técnico gravado em texto puro por versões
+  /// anteriores à correção de 06/10/2026 — aqueles arquivos podem conter nome e
+  /// telefone de paciente. Roda no boot e grava uma flag no próprio box, então
+  /// não depende da chave de cifra (que ainda não existe neste ponto do boot).
+  ///
+  /// Idempotente: depois da primeira execução não toca mais no log, para não
+  /// apagar diagnóstico novo.
+  static Future<void> purgarHistoricoLegado() async {
+    try {
+      final box = Hive.box<String>(_boxName);
+      if (box.get(_purgeKey) == 'ok') return;
+
+      // Preserva o que JÁ estava cifrado (começa com '3:' ou '2:') e descarta o
+      // resto, que é texto puro. A distinção é confiável: a linha cifrada não
+      // carrega timestamp, então texto claro sempre começa com '['.
+      bool segura(String l) => l.startsWith('3:') || l.startsWith('2:');
+      final linhas = (box.get('log') ?? '')
+          .split('\n')
+          .where((l) => l.isNotEmpty && segura(l))
+          .toList();
+      if (linhas.isEmpty) {
+        await box.delete('log');
+      } else {
+        await box.put('log', linhas.join('\n'));
+      }
+
+      if (!kIsWeb) {
+        try {
+          final dir = await getApplicationDocumentsDirectory();
+          final arquivo = File('${dir.path}/mentall_tecnicos.log');
+          if (await arquivo.exists()) {
+            final seguras = (await arquivo.readAsString())
+                .split('\n')
+                .where((l) => l.isNotEmpty && segura(l))
+                .toList();
+            if (seguras.isEmpty) {
+              await arquivo.delete();
+            } else {
+              await arquivo.writeAsString('${seguras.join('\n')}\n');
+            }
+          }
+        } catch (_) {
+          // Sem acesso ao diretório (ou sem plugin): o box já foi limpo.
+        }
+      }
+
+      await box.put(_purgeKey, 'ok');
+    } catch (_) {}
   }
 
   static Future<String> obterLogs() async {

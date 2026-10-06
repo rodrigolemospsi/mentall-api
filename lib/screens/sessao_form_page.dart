@@ -1266,6 +1266,9 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
           texto: resultado.planoProximaSessao,
         );
 
+        // Guarda o valor anterior: se a busca falhar, ele é restaurado em vez
+        // de perdido (ver resolverBuscaArtigos).
+        final artigosAnteriores = _artigosSugeridos;
         _artigosSugeridos = '';
 
         _gerandoSinteseIa = false;
@@ -1294,7 +1297,10 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
             .read(configuracoesServiceProvider)
             .sugerirArtigos;
         if (sugerirArtigos && resultado.temasPesquisa.isNotEmpty) {
-          _buscarArtigosEmBackground(resultado.temasPesquisa);
+          _buscarArtigosEmBackground(
+            resultado.temasPesquisa,
+            artigosAnteriores,
+          );
         }
 
         if (_numeroSessao > 1) {
@@ -1826,6 +1832,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
 
   Future<void> _buscarArtigosEmBackground(
     List<dynamic> temasPesquisa,
+    String artigosAnteriores,
   ) async {
     // Tokens de sessão + tipo: duas buscas na mesma sessão não se sobrescrevem,
     // e uma busca não é invalidada por uma operação de outro tipo.
@@ -1844,8 +1851,25 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
           _geracaoArtigos != geracao) {
         return;
       }
-      if (artigos != null && artigos.trim().isNotEmpty) {
-        _artigosSugeridos = artigos;
+      final resultado = resolverBuscaArtigos(
+        artigosBuscados: artigos,
+        artigosAnteriores: artigosAnteriores,
+      );
+      _artigosSugeridos = resultado.artigos;
+
+      if (resultado.falhou) {
+        // Antes, a falha só fazia o card sumir: o profissional não era avisado e
+        // os artigos já salvos na sessão eram apagados junto.
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              artigosAnteriores.trim().isNotEmpty
+                  ? 'Não foi possível buscar novos artigos. '
+                      'As indicações anteriores foram mantidas.'
+                  : 'Não foi possível buscar artigos científicos agora.',
+            ),
+          ),
+        );
       }
     } finally {
       if (mounted &&

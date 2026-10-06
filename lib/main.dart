@@ -148,6 +148,9 @@ Future<void> _iniciarApp() async {
   await HiveMigrationService().executar();
   debugPrint('[startup] migration: ${sw.elapsedMilliseconds}ms');
 
+  // Expurgo unico do log tecnico em texto puro deixado por versoes anteriores.
+  await Log.purgarHistoricoLegado();
+
   final encryption = EncryptionService();
   EncryptionService.setInstance(encryption);
   await encryption.inicializar();

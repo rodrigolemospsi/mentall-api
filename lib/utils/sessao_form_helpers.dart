@@ -8,6 +8,30 @@ import '../providers/service_providers.dart';
 /// Extraídos de `sessao_form_page.dart` (fase 3 do plano de refatoração) para
 /// reduzir o tamanho do arquivo e permitir teste isolado da lógica de dados.
 
+/// Decisão sobre as indicações de artigos depois de uma busca.
+///
+/// `artigosBuscados == null` significa **falha** (rede, HTTP, servidor): as
+/// indicações anteriores são mantidas, porque apagá-las seria perder dado já
+/// salvo na sessão por causa de uma indisponibilidade momentânea. String vazia
+/// significa sucesso sem resultados — aí limpar é o correto, porque as
+/// indicações antigas eram de outra síntese.
+class ResultadoBuscaArtigos {
+  final String artigos;
+  final bool falhou;
+
+  const ResultadoBuscaArtigos({required this.artigos, required this.falhou});
+}
+
+ResultadoBuscaArtigos resolverBuscaArtigos({
+  required String? artigosBuscados,
+  required String artigosAnteriores,
+}) {
+  if (artigosBuscados == null) {
+    return ResultadoBuscaArtigos(artigos: artigosAnteriores, falhou: true);
+  }
+  return ResultadoBuscaArtigos(artigos: artigosBuscados.trim(), falhou: false);
+}
+
 String concatenarSintese(Sessao s) {
   final partes = <String>[];
   if (s.eventosImportantes.trim().isNotEmpty) {
