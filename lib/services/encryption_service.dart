@@ -480,8 +480,37 @@ class EncryptionService {
     }
   }
 
+  /// True se `texto` já está no formato cifrado do app (`3:` GCM ou `2:` CBC).
+  ///
+  /// Existe para **nunca cifrar o que já está cifrado**: quando a leitura de um
+  /// campo falha (chave indisponível, dado corrompido), `descriptografar`
+  /// devolve o próprio criptograma; se ele fosse cifrado de novo ao salvar, o
+  /// conteúdo original só seria recuperável com duas decifragens — o campo
+  /// passaria a aparecer cifrado para sempre. Foi o incidente de 16/07/2026.
+  bool estaCifrado(String texto) {
+    // Um criptograma real é prefixo + nonce de 12 bytes em base64 (16 chars) +
+    // cifra. O piso de 40 caracteres evita confundir texto clínico com
+    // criptograma: uma frase de prontuário não passa em `_pareceBase64`.
+    if (texto.length < 40) return false;
+    if (!texto.startsWith('3:') && !texto.startsWith('2:')) return false;
+    final segundo = texto.indexOf(':', 2);
+    if (segundo == -1) return false;
+    return _pareceBase64(texto.substring(2, segundo)) &&
+        _pareceBase64(texto.substring(segundo + 1));
+  }
+
   String criptografar(String texto) {
     if (_key == null || texto.isEmpty) return texto;
+
+    // Preserva o criptograma original em vez de envolvê-lo em uma segunda
+    // camada (ver [estaCifrado]).
+    if (estaCifrado(texto)) {
+      Log.erro(
+        'Campo ja cifrado recebido em criptografar: preservado sem re-cifrar.',
+        contexto: 'EncryptionService.criptografar',
+      );
+      return texto;
+    }
 
     try {
       final nonce = encrypt.IV.fromSecureRandom(12);

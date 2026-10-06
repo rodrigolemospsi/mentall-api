@@ -40,6 +40,49 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Guarda contra dupla criptografia (06/10/2026) — A LEITURA QUE FALHA NÃO PODE DESTRUIR O DADO
+
+### Contexto
+Achado M2 da auditoria de degradação silenciosa. Cadeia do incidente:
+1. a chave está indisponível (boot, antes do desbloqueio) ou a decifragem falha;
+2. `descriptografar` devolve o **próprio criptograma** como se fosse conteúdo (fail-open da leitura,
+   intencional: lançar quebraria o boot);
+3. o app exibe o criptograma no campo clínico;
+4. o profissional salva -> `criptografar` envolve o criptograma em uma **segunda camada**;
+5. o conteúdo original passa a exigir duas decifragens: **o prontuário fica ilegível para sempre**.
+
+Não é hipótese: o projeto **já viveu esse incidente em 16/07/2026**, citado no comentário de
+`sessao_service.dart:264`. A mitigação existente cobria só o caminho de cifra parcial na
+retentativa, não o campo cifrado voltando pela leitura.
+
+### O que mudou (arquivos)
+- `lib/services/encryption_service.dart`: novo `estaCifrado(String)` (formatos `3:` GCM e `2:` CBC,
+  com piso de 40 caracteres para não confundir texto clínico com criptograma) e guarda em
+  `criptografar` — o **funil único** de cifra do app. Valor já cifrado é devolvido intacto em vez de
+  re-cifrado, com o ocorrido registrado no log.
+- `test/services/encrypted_service_mixin_test.dart` (+3 testes): reconhecimento do formato, não
+  re-cifragem, e o **caminho do incidente de ponta a ponta** (leitura sem chave -> salvamento)
+  provando que o dado continua legível.
+
+### Por que a correção mudou em relação ao plano inicial
+O plano era fazer a tela mostrar "não foi possível ler este registro" no lugar do criptograma.
+Lendo o código, isso **criaria uma perda nova**: com o campo exibido vazio, salvar gravaria vazio e o
+criptograma original seria perdido de fato. Exibir o criptograma é feio, mas **preserva o dado** — e
+com a guarda em `criptografar` ele é gravado de volta sem alteração. A camada certa para a proteção é
+o funil da cifra, não a tela.
+
+### Verificação
+- `flutter analyze --no-pub`: limpo. `flutter test --no-pub`: **266/266** (era 263). Backend isolado:
+  **246/246** (inalterado).
+
+### Pendências
+- O campo ilegível continua sendo **exibido** como criptograma. Melhorar isso exige um aviso que
+  **preserve o valor original** (nunca deixar o campo vazio) — é desenho de UI, não só código.
+- `descriptografar` segue fail-open na leitura (intencional, pelo boot) e `criptografar` segue
+  fail-open quando `_key == null` (linha 484): o fail-closed de escrita está no
+  `EncryptedServiceMixin.encrypt`, que lança antes de chegar aqui. Vale revisar chamadas diretas a
+  `criptografar` que não passam pelo mixin.
+
 ## Auditoria de degradação silenciosa e primeiras correções (06/10/2026) — O ERRO QUE VIRA SUCESSO
 
 ### Contexto

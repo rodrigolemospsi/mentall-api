@@ -42,4 +42,45 @@ void main() {
     // desbloqueio e relê.
     expect(service.decrypt('3:abc:def'), '3:abc:def');
   });
+
+  test('estaCifrado reconhece o formato real e ignora texto clinico', () async {
+    final encryption = EncryptionService();
+    await encryption.gerarChave();
+
+    expect(encryption.estaCifrado(encryption.criptografar('dado clinico')), isTrue);
+    expect(encryption.estaCifrado('3:abcdefghijklmnop:ABCDEFGHIJKLMNOPQRSTUVWX'), isTrue);
+    expect(encryption.estaCifrado('2:abcdefghijklmnop:ABCDEFGHIJKLMNOPQRSTUVWX'), isTrue);
+
+    expect(encryption.estaCifrado(''), isFalse);
+    expect(encryption.estaCifrado('Paciente relata ansiedade intensa.'), isFalse);
+    expect(encryption.estaCifrado('3:abc:def'), isFalse);
+    expect(encryption.estaCifrado('3: relato da sessao com espacos'), isFalse);
+  });
+
+  test('criptografar NAO re-cifra um valor ja cifrado', () async {
+    final encryption = EncryptionService();
+    await encryption.gerarChave();
+
+    final cifrado = encryption.criptografar('dado clinico');
+    final deNovo = encryption.criptografar(cifrado);
+
+    expect(deNovo, cifrado, reason: 'o criptograma original deve ser preservado');
+    expect(encryption.descriptografar(deNovo), 'dado clinico');
+  });
+
+  test('caminho do incidente: leitura sem chave + salvamento nao destroi o dado',
+      () async {
+    // Leitura antes do desbloqueio devolve o criptograma; se o profissional
+    // salvar nesse estado, o valor nao pode ser cifrado de novo.
+    final encryption = EncryptionService();
+    await encryption.gerarChave();
+    final original = encryption.criptografar('relato clinico sensivel');
+
+    final lidoSemChave = _ServiceComMixin(null).decrypt(original);
+    expect(lidoSemChave, original);
+
+    final regravado = _ServiceComMixin(encryption).encrypt(lidoSemChave);
+    expect(regravado, original);
+    expect(encryption.descriptografar(regravado), 'relato clinico sensivel');
+  });
 }
