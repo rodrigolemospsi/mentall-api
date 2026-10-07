@@ -113,6 +113,16 @@ def _buscar_candidatos_openalex(consulta: str) -> list:
                     "link": link,
                     "ano": work.get("publication_year"),
                     "citacoes": work.get("cited_by_count"),
+                    # Metadado ATRIBUÍDO pela base (descritores indexados). Já vem
+                    # no payload — não custa chamada extra — e é o que permite
+                    # separar artigo de TRATAMENTO de artigo de INSTRUMENTO.
+                    "keywords": [
+                        (k or {}).get("display_name", "")
+                        for k in (work.get("keywords") or [])
+                    ],
+                    "palavras_resumo": " ".join(
+                        (work.get("abstract_inverted_index") or {}).keys()
+                    ),
                 })
 
             if candidatos:
@@ -125,33 +135,67 @@ def _buscar_candidatos_openalex(consulta: str) -> list:
     return []
 
 
+MAX_DESCRITORES = 3
+
+# Siglas que são homônimos na literatura brasileira. "TCC", sozinho, traz
+# majoritariamente "Trabalho de Conclusão de Curso" (medido: 644 resultados, o
+# primeiro sobre serious games). Ver AGENTS.md (07/10/2026).
+_EXPANSOES_SIGLAS = {
+    "tcc": "terapia cognitivo-comportamental",
+    "act": "terapia de aceitação e compromisso",
+    "dbt": "terapia comportamental dialética",
+}
+
+SINAL_TRATAMENTO_PADRAO = (
+    "therapy,therapist,treatment,intervention,interventions,psychotherapy,efficacy,"
+    "effectiveness,randomized,randomised,clinical trial,outcome,cbt,cognitive behavioral,"
+    "cognitive behavioural,mindfulness,counseling,counselling,rehabilitation,management,care"
+)
+
+
+def _marcas_tratamento() -> tuple:
+    """Termos que indicam artigo de TRATAMENTO (e não de instrumento/psicometria).
+
+    Configurável por `IA_ARTIGOS_SINAL_TRATAMENTO` (lista separada por vírgula),
+    para o dono ajustar o vocabulário sem depender de deploy.
+    """
+    bruto = os.getenv("IA_ARTIGOS_SINAL_TRATAMENTO", SINAL_TRATAMENTO_PADRAO)
+    marcas = tuple(m.strip().lower() for m in bruto.split(",") if m.strip())
+    if marcas:
+        return marcas
+    return tuple(m.strip().lower() for m in SINAL_TRATAMENTO_PADRAO.split(",") if m.strip())
+
+
+def _tem_sinal_tratamento(candidato: dict) -> bool:
+    """True se o metadado ATRIBUÍDO ao artigo indica tratamento/intervenção.
+
+    Olha as `keywords` (descritores indexados pela base) e, quando não houver,
+    as palavras do resumo — os dois já vêm no payload, sem custo extra.
+    """
+    texto = " ; ".join(
+        [str(k).lower() for k in (candidato.get("keywords") or [])]
+        + [str(candidato.get("palavras_resumo") or "").lower()]
+    )
+    return any(m in texto for m in _marcas_tratamento())
+
+
 def _normalizar_temas(temas_pesquisa: list) -> list:
-    temas = []
-    for item in (temas_pesquisa or [])[:2]:
+    """Descritores de busca, na ordem devolvida pelo modelo — UM conceito cada.
+
+    Ordem esperada: 1) abordagem clínica, 2) tema central da sessão,
+    3) contexto da pessoa atendida (quando houver). Siglas homônimas são
+    expandidas (ver `_EXPANSOES_SIGLAS`).
+    """
+    descritores = []
+    for item in (temas_pesquisa or [])[:MAX_DESCRITORES]:
         if isinstance(item, dict):
-            especifico = str(item.get("especifico", "")).strip()
-            amplo = str(item.get("amplo", "")).strip()
+            valor = str(item.get("especifico", "")).strip() or str(item.get("amplo", "")).strip()
         else:
-            especifico = str(item).strip()
-            amplo = ""
-        if especifico or amplo:
-            temas.append((especifico, amplo))
-    return temas
-
-
-def _buscar_candidatos_tema(especifico: str, amplo: str) -> list:
-    consultas = [c for c in dict.fromkeys([especifico, amplo]) if c]
-    candidatos = []
-    chaves = set()
-    for consulta in consultas:
-        achados = _buscar_candidatos_openalex(consulta)
-        for c in achados:
-            chave = c.get("id") or c["link"]
-            if chave in chaves:
-                continue
-            chaves.add(chave)
-            candidatos.append(c)
-    return candidatos[:MAX_CANDIDATOS_POR_TEMA + 1]
+            valor = str(item).strip()
+        valor = _EXPANSOES_SIGLAS.get(valor.lower(), valor)
+        if valor:
+            descritores.append(valor)
+    return descritores
 
 
 def _formatar_artigos(artigos: list) -> str:
@@ -173,25 +217,53 @@ def _formatar_artigos(artigos: list) -> str:
 
 
 def _montar_artigos(temas_pesquisa: list) -> str:
-    temas = _normalizar_temas(temas_pesquisa)
-    if not temas:
+    """Busca por PARES de descritores e filtra pelo metadado indexado.
+
+    Três medições de 07/10/2026 moldam este desenho (ver AGENTS.md):
+    - combinar 3+ conceitos numa consulta retorna ZERO (a base faz "E" entre
+      as palavras) — por isso os descritores têm um conceito cada e a busca usa
+      pares;
+    - um "OU" global faz o descritor mais genérico dominar o resultado (99% dos
+      artigos vinham só dele) — por isso não há OU, e sim pontuação por par;
+    - o termo amplo traz homônimos ("Inventário de Depressão Maior") — por isso o
+      crivo por metadado antes de apresentar.
+    """
+    descritores = _normalizar_temas(temas_pesquisa)
+    if not descritores:
         return ""
 
-    candidatos = []
-    chaves_vistas = set()
-    for especifico, amplo in temas:
-        for c in _buscar_candidatos_tema(especifico, amplo):
+    pares = [(descritores[0], descritores[1] if len(descritores) > 1 else "")]
+    if len(descritores) >= 3:
+        pares.append((descritores[0], descritores[2]))
+        pares.append((descritores[1], descritores[2]))
+
+    pontuados = {}
+    for posicao, (a, b) in enumerate(pares):
+        consulta = " ".join(p for p in (a, b) if p).strip()
+        if not consulta:
+            continue
+        for c in _buscar_candidatos_openalex(consulta):
             chave = c.get("id") or c["link"]
-            if chave in chaves_vistas:
-                continue
-            chaves_vistas.add(chave)
-            candidatos.append(c)
+            registro = pontuados.setdefault(chave, {"cand": c, "pares": 0, "peso": 0.0})
+            registro["pares"] += 1
+            registro["peso"] += 1.0 / (posicao + 1)
 
-    temas_fallback = [especifico or amplo for especifico, amplo in temas]
-    if not candidatos:
-        return _montar_artigos_sugeridos(temas_fallback)
+    if not pontuados:
+        return _montar_artigos_sugeridos(descritores)
 
-    return _formatar_artigos(candidatos)
+    aprovados = [r for r in pontuados.values() if _tem_sinal_tratamento(r["cand"])]
+    if not aprovados:
+        log.info(
+            "Artigos: %d candidatos, nenhum com sinal de tratamento; "
+            "mostrando buscas sugeridas em vez de artigo fora do tema.",
+            len(pontuados),
+        )
+        return _montar_artigos_sugeridos(descritores)
+
+    # Quem casa mais descritores primeiro; o peso desempata (o par
+    # abordagem+tema vale mais que os pares com o contexto).
+    aprovados.sort(key=lambda r: (-r["pares"], -r["peso"]))
+    return _formatar_artigos([r["cand"] for r in aprovados])
 
 
 def _montar_artigos_sugeridos(temas_pesquisa: list) -> str:
@@ -201,7 +273,7 @@ def _montar_artigos_sugeridos(temas_pesquisa: list) -> str:
     profissional que são buscas, não artigos — evita parecer artigo inventado."""
     temas_validos = [
         str(t).strip() for t in (temas_pesquisa or []) if str(t).strip()
-    ][:2]
+    ][:MAX_DESCRITORES]
     if not temas_validos:
         return ""
 
@@ -410,21 +482,28 @@ Com base no material acima, gere um JSON válido com a seguinte estrutura (sem m
     "intervencoes": "Intervenções realizadas pelo profissional e técnicas ou recursos clínicos utilizados, compatíveis com a abordagem {abordagem}.",
     "plano_proxima_sessao": "Foco, temas pendentes ou objetivos para a próxima sessão. Se não houver, deixe vazio.",
     "temas_pesquisa": [
-        {{"especifico": "expressão de busca específica", "amplo": "expressão de busca ampla"}},
-        {{"especifico": "expressão de busca específica", "amplo": "expressão de busca ampla"}}
+        {{"especifico": "descritor 1 - a abordagem clínica do profissional", "amplo": ""}},
+        {{"especifico": "descritor 2 - o tema central da sessão", "amplo": ""}},
+        {{"especifico": "descritor 3 - o contexto da pessoa atendida, se houver", "amplo": ""}}
     ]
 }} 
 
 TEMAS DE PESQUISA CIENTÍFICA:
-No campo "temas_pesquisa", extraia exatamente 2 temas de busca científica a partir do conteúdo clínico da sessão. Para cada tema, forneça duas versões:
-- "especifico": expressão de busca específica (4 a 6 palavras) combinando o problema clínico central com contexto, população ou intervenção. Ex: "terapia cognitiva ansiedade social adultos".
-- "amplo": versão reduzida da mesma busca (2 a 3 palavras), para uso como alternativa caso a específica não retorne resultados. Ex: "ansiedade social".
+No campo "temas_pesquisa", devolva 3 DESCRITORES de busca para artigos científicos. Cada descritor é UM ÚNICO conceito, curto (2 a 4 palavras).
+
+REGRA CRÍTICA: NUNCA junte dois assuntos no mesmo descritor. As bases fazem "E" entre as palavras, então um descritor com 3 ou mais conceitos (ex.: "terapia cognitiva ansiedade social adultos") retorna ZERO resultados. Escreva um conceito por descritor.
+
+Descritor 1 - a abordagem clínica "{abordagem}", por extenso, como se digita numa base científica em português. Escreva "terapia cognitivo-comportamental", NUNCA "TCC" (a sigla significa Trabalho de Conclusão de Curso); "terapia de aceitação e compromisso", não "ACT"; "terapia comportamental dialética", não "DBT".
+Descritor 2 - o tema central trabalhado na sessão, UM conceito (ex.: "depressão maior", "ansiedade social", "luto").
+Descritor 3 - o contexto da pessoa atendida, SOMENTE se o material trouxer idade, momento de vida ou condição social E se isso for DISCRIMINANTE (ex.: "idoso", "adolescente", "mulher viúva", "estudante"). NÃO use termos que servem para quase qualquer pessoa, como "adulto" ou "paciente". Se não houver contexto discriminante, deixe "especifico" VAZIO.
+
+Preencha apenas o campo "especifico" de cada item; deixe "amplo" sempre vazio.
+
 Critérios:
-1. O primeiro tema deve focar no problema clínico central da sessão; o segundo pode combinar outro tema relevante da sessão com a abordagem {abordagem}.
-2. Use termos consagrados na literatura científica em português, como seriam digitados em uma base de dados científica.
-3. NÃO inclua o nome do {termo} nem qualquer dado que identifique a pessoa atendida.
-4. NÃO invente títulos de artigos nem links - apenas expressões de busca.
-5. Se o material clínico for insuficiente, retorne lista vazia.
+1. Use termos consagrados na literatura científica em português.
+2. NÃO inclua o nome do {termo} nem dado que identifique a pessoa atendida.
+3. NÃO invente títulos nem links - apenas descritores de busca.
+4. Se o material clínico for insuficiente, retorne lista vazia.
 
 IMPORTANTE:
 - Use o termo "{termo}" para se referir à pessoa atendida

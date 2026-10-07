@@ -42,6 +42,44 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Indicações de artigos: descritores alinhados + crivo por metadado (07/10/2026)
+
+### Contexto
+O dono relatou que **num relato nenhuma indicação foi relevante** e no seguinte foram assertivas. Investigando com ele: os 3 artigos eram sobre um **instrumento** ("Inventário de Depressão Maior") quando a sessão era sobre **tratamento** (TCC).
+
+### Causa raiz: a instrução do prompt
+O prompt pedia, literalmente: *expressão de busca específica **(4 a 6 palavras) combinando** o problema clínico central **com contexto, população ou intervenção***, e dava o exemplo empilhado *"terapia cognitiva ansiedade social adultos"*. **A base faz "E" entre as palavras**, então 3+ conceitos retornam ZERO — e aí o código caía no termo amplo de 2 palavras, que casa com homônimos.
+
+Medições (OpenAlex, PT, psicologia, 07/10/2026):
+- `terapia cognitivo-comportamental depressão maior remissão parcial` → **0**
+- `terapia cognitivo-comportamental depressão maior` → **21, todos pertinentes**
+- `depressão maior` (o fallback) → **975**, os 3 primeiros são o **inventário**
+
+### Outras medições que moldaram o desenho
+- **`OU` (`|`) existe, mas `(D1 E D2) OU D3` faz o genérico dominar:** 2.285 resultados ≈ 2.265 (só "idoso"). Parênteses são **ignorados**; a palavra `or` **não** é operador (vira termo de busca); repetir a chave de filtro faz **E**, não OU.
+- **A sigla "TCC" é homônimo:** 644 resultados, o primeiro sobre *serious games* — na literatura brasileira "TCC" é majoritariamente *Trabalho de Conclusão de Curso*. `terapia cognitivo-comportamental` traz 850 corretos.
+- **O crivo negativo (detectar instrumento) falhava:** marcava como "instrumento" o **único artigo bom** (via `topics` largos). O crivo **positivo** (exigir sinal de tratamento, só nas `keywords`) manteve 10/10 nos controles.
+
+### O que mudou (arquivos)
+- `backend/services/ia_clinica.py`:
+  - **prompt**: 3 descritores de **UM conceito** — (1) a abordagem clínica por extenso (nunca a sigla), (2) o tema central, (3) o contexto da pessoa atendida **só se discriminante** ("idoso", "viúva"; **não** "adulto");
+  - **`_normalizar_temas`**: devolve descritores (não mais pares específico/amplo), teto de 3, com `_EXPANSOES_SIGLAS` (tcc/act/dbt);
+  - **`_montar_artigos`**: busca por **pares** (`D1+D2`, `D1+D3`, `D2+D3`), pontua por quantos pares cada artigo casa, e **corta em 3**;
+  - **crivo `_tem_sinal_tratamento`**: usa as `keywords` **atribuídas pela base** (já vinham no payload e eram descartadas) e, sem elas, as palavras do resumo. Marcas configuráveis por `IA_ARTIGOS_SINAL_TRATAMENTO`;
+  - **sem candidato aprovado → buscas sugeridas** (links), em vez de artigo fora do tema (decisão do dono);
+  - **removida `_buscar_candidatos_tema`**: ela fazia **união** de específico+amplo, então o termo amplo poluía a lista mesmo quando o específico funcionava.
+- `backend/tests/test_artigos_relevancia.py` (novo, 12 testes) e `TestNormalizarTemas` atualizado (codificava o contrato anterior).
+
+### Verificação
+- Backend isolado: **277/277** (era 265; +12). `flutter analyze` limpo; **282/282** Flutter.
+- **Cadeia real, material real:** antes → 3 artigos de instrumento; depois → *"TCC da depressão: relato de caso"* e *"Psicoeducação na TCC: um caso de depressão"*. A busca caiu de ~6s para **1,1s** (1 consulta em vez de 4).
+
+### Pendências
+- **O crivo é heurístico** (lista de palavras): pode cortar artigo bom em tema não testado (luto, dependência química, violência doméstica). Amostra medida: 3 consultas.
+- **Passa coisa estranha:** *"Trimetilaminúria e TCC"* (doença metabólica rara) sobreviveu por ter "TCC"/"intervenção" nas keywords.
+- **O contexto só hierarquiza se for discriminante** — "adulto" (3.895 resultados) não discrimina; o prompt já foi ajustado para não emiti-lo.
+- **A idade existe no app** (`paciente.dart`: `dataNascimento`/`idade`) mas **não é enviada** ao backend; hoje o extrator a lê do próprio relato.
+
 ## Circuito aberto nos provedores de IA (07/10/2026)
 
 ### Contexto

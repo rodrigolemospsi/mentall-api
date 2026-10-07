@@ -53,15 +53,25 @@ class TestFormatarArtigos(unittest.TestCase):
 
 
 class TestNormalizarTemas(unittest.TestCase):
-    def test_aceita_dicts_e_strings(self):
-        temas = [
-            {"especifico": "terapia cognitiva ansiedade", "amplo": "ansiedade"},
-            "depressão",
-        ]
-        norm = mod._normalizar_temas(temas)
-        self.assertEqual(len(norm), 2)
-        self.assertEqual(norm[0], ("terapia cognitiva ansiedade", "ansiedade"))
-        self.assertEqual(norm[1], ("depressão", ""))
+    def test_aceita_dicts_e_strings_na_ordem(self):
+        norm = mod._normalizar_temas([
+            {"especifico": "terapia cognitivo-comportamental", "amplo": ""},
+            {"especifico": "depressão maior", "amplo": ""},
+            "idoso",
+        ])
+        self.assertEqual(
+            norm, ["terapia cognitivo-comportamental", "depressão maior", "idoso"])
+
+    def test_expande_sigla_homonima(self):
+        # "TCC" traz majoritariamente "Trabalho de Conclusão de Curso" na base.
+        self.assertEqual(mod._normalizar_temas(["TCC"]), ["terapia cognitivo-comportamental"])
+        self.assertEqual(mod._normalizar_temas(["act"]), ["terapia de aceitação e compromisso"])
+
+    def test_limita_a_tres_descritores(self):
+        self.assertEqual(len(mod._normalizar_temas(["a", "b", "c", "d"])), 3)
+
+    def test_usa_amplo_quando_especifico_vazio(self):
+        self.assertEqual(mod._normalizar_temas([{"amplo": "luto"}]), ["luto"])
 
     def test_ignora_itens_invalidos(self):
         self.assertEqual(mod._normalizar_temas([{"especifico": "  "}]), [])
