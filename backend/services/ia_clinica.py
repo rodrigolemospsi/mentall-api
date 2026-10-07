@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import re
+import threading
 import time
 from urllib.parse import quote_plus
 
@@ -245,6 +246,88 @@ def _ordem_providers() -> list[str]:
         )
         return list(PROVEDORES_DISPONIVEIS)
     return validos
+
+
+# ── Circuito por provedor ───────────────────────────────────────────────────
+# Um provedor que acabou de falhar nao deve ser tentado de novo na chamada
+# seguinte. Em 07/10/2026 a cascata tentava o Gemini a cada sintese, pagando o
+# 503 de novo, porque nao lembrava da falha anterior (ver AGENTS.md).
+#
+# Estado NA MEMORIA DO PROCESSO: correto enquanto houver uma maquina so. Se um
+# dia houver mais de uma instancia, cada uma teria seu proprio circuito.
+CIRCUITO_HARD_SEGUNDOS = 1200   # cota, chave invalida, modelo inexistente
+CIRCUITO_SOFT_SEGUNDOS = 180    # 503, timeout, instabilidade momentanea
+CIRCUITO_SOFT_FALHAS = 2        # quantas falhas transitorias abrem o circuito
+
+_estado_provedores: dict[str, dict] = {}
+_lock_provedores = threading.Lock()
+
+_MARCADORES_FALHA_DURA = (
+    "insufficient_quota", "credit_balance", "no credits",
+    "invalid_api_key", "incorrect api key", "authentication",
+    "model_not_found", "does not have access", "permission",
+)
+
+
+def _falha_dura(erro: str) -> bool:
+    """Falha que nao melhora repetindo: cota, chave, modelo ou permissao."""
+    texto = (erro or "").lower()
+    return any(m in texto for m in _MARCADORES_FALHA_DURA)
+
+
+def _registrar_falha(provider: str, erro: str) -> None:
+    dura = _falha_dura(erro)
+    with _lock_provedores:
+        anterior = _estado_provedores.get(provider, {})
+        _estado_provedores[provider] = {
+            "falhas": int(anterior.get("falhas", 0)) + 1,
+            "quando": time.time(),
+            "dura": dura,
+        }
+    log.warning(
+        "Circuito: %s falhou (%s); nao sera tentado pelos proximos %ds.",
+        provider,
+        "falha dura" if dura else "falha transitoria",
+        CIRCUITO_HARD_SEGUNDOS if dura else CIRCUITO_SOFT_SEGUNDOS,
+    )
+
+
+def _registrar_sucesso(provider: str) -> None:
+    with _lock_provedores:
+        _estado_provedores.pop(provider, None)
+
+
+def _provedor_disponivel(provider: str) -> bool:
+    with _lock_provedores:
+        estado = _estado_provedores.get(provider)
+    if not estado:
+        return True
+    desde = time.time() - estado["quando"]
+    if estado.get("dura"):
+        return desde > CIRCUITO_HARD_SEGUNDOS
+    if int(estado.get("falhas", 0)) < CIRCUITO_SOFT_FALHAS:
+        return True
+    return desde > CIRCUITO_SOFT_SEGUNDOS
+
+
+def _provedores_a_tentar() -> list[str]:
+    """Ordem configurada, pulando os provedores com o circuito aberto."""
+    ordem = _ordem_providers()
+    disponiveis = [p for p in ordem if _provedor_disponivel(p)]
+    pulados = [p for p in ordem if p not in disponiveis]
+    if pulados:
+        log.info("Circuito aberto: pulando %s", ", ".join(pulados))
+    if not disponiveis:
+        # Todos abertos: vale UMA tentativa no primeiro da ordem, para o estado
+        # poder se recuperar em vez de falhar de imediato.
+        return ordem[:1]
+    return disponiveis
+
+
+def _limpar_estado_provedores() -> None:
+    """Zera o circuito (usado pelos testes)."""
+    with _lock_provedores:
+        _estado_provedores.clear()
 
 
 def _get_model_name(provider: str | None = None) -> str:
@@ -599,7 +682,7 @@ def gerar_sintese(
         ordem_providers = _ordem_providers()
 
         ultimo_erro = ""
-        for prov in ordem_providers:
+        for prov in _provedores_a_tentar():
             log.info(
                 "Gerando síntese - provider=%s modelo=%s sessão=%d",
                 prov,
@@ -608,8 +691,10 @@ def gerar_sintese(
             )
             resultado = _chamar_provider_sintese(prov, prompt)
             if resultado.get("sucesso"):
+                _registrar_sucesso(prov)
                 return resultado
             ultimo_erro = resultado.get("erro", "")
+            _registrar_falha(prov, str(ultimo_erro))
             log.warning(
                 "Provedor %s falhou na síntese (tentando próximo): %s",
                 prov,
@@ -699,14 +784,16 @@ Retorne um JSON com o seguinte formato:
         # (visto em producao em 07/10/2026). Agora percorre a mesma ordem da
         # sintese, para que um provedor fora do ar nao derrube o progresso.
         ultimo_erro = ""
-        for provider in _ordem_providers():
+        for provider in _provedores_a_tentar():
             log.info("gerar_progresso: provider=%s sessao=%d", provider, numero_sessao)
             resultado = _chamar_llm_json(provider, prompt, temperature=0.3)
             # Sucesso = o JSON do modelo (que NAO tem a chave "sucesso").
             # Falha = os dicionarios de erro, que sempre trazem sucesso=False.
             if resultado.get("sucesso") is not False:
+                _registrar_sucesso(provider)
                 return resultado
             ultimo_erro = str(resultado.get("erro", ""))
+            _registrar_falha(provider, ultimo_erro)
             log.warning(
                 "Provedor %s falhou no progresso (tentando proximo): %s",
                 provider, ultimo_erro,
