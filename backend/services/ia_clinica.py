@@ -219,6 +219,34 @@ def _get_provider() -> str:
     return os.getenv("IA_MODEL_PROVIDER", "openai").strip().lower()
 
 
+PROVEDORES_DISPONIVEIS = ("openai", "deepseek")
+ORDEM_PROVEDORES_PADRAO = "openai,deepseek"
+
+
+def _ordem_providers() -> list[str]:
+    """Ordem de tentativa dos provedores de texto, do primeiro ao último.
+
+    O **Gemini saiu da cascata em 07/10/2026**: a API devolvia 503 em toda a
+    familia Flash (medido, de duas redes diferentes) e o unico modelo que
+    respondia (3.1-flash-lite) falhou 1 de 2 vezes e entregou o menor conteudo.
+    Ver AGENTS.md (secao 07/10/2026).
+
+    Configuravel por `IA_PROVIDER_ORDER` (ex.: "deepseek,openai") — a ordem muda
+    por secret, sem deploy. Nomes desconhecidos sao descartados: assim o Gemini
+    nao volta por engano ao mexer no secret.
+    """
+    bruto = os.getenv("IA_PROVIDER_ORDER", ORDEM_PROVEDORES_PADRAO)
+    ordem = [p.strip().lower() for p in bruto.split(",") if p.strip()]
+    validos = [p for p in ordem if p in PROVEDORES_DISPONIVEIS]
+    if not validos:
+        log.warning(
+            "IA_PROVIDER_ORDER invalido (%r); usando o padrao %r",
+            bruto, ORDEM_PROVEDORES_PADRAO,
+        )
+        return list(PROVEDORES_DISPONIVEIS)
+    return validos
+
+
 def _get_model_name(provider: str | None = None) -> str:
     provider = (provider or _get_provider()).strip().lower()
     if provider == "openai":
@@ -568,10 +596,7 @@ def gerar_sintese(
             prompt_abordagem=prompt_abordagem,
         )
 
-        provider = _get_provider()
-        ordem_providers = [provider] + [
-            p for p in ("gemini", "openai", "deepseek") if p != provider
-        ]
+        ordem_providers = _ordem_providers()
 
         ultimo_erro = ""
         for prov in ordem_providers:
@@ -670,9 +695,23 @@ Retorne um JSON com o seguinte formato:
 }}"""
 
     try:
-        provider = _get_provider()
-        log.info("gerar_progresso: provider=%s sessao=%d", provider, numero_sessao)
-        return _chamar_llm_json(provider, prompt, temperature=0.3)
+        # Antes usava um provedor so: com o Gemini em 503 gastava 32s e falhava
+        # (visto em producao em 07/10/2026). Agora percorre a mesma ordem da
+        # sintese, para que um provedor fora do ar nao derrube o progresso.
+        ultimo_erro = ""
+        for provider in _ordem_providers():
+            log.info("gerar_progresso: provider=%s sessao=%d", provider, numero_sessao)
+            resultado = _chamar_llm_json(provider, prompt, temperature=0.3)
+            # Sucesso = o JSON do modelo (que NAO tem a chave "sucesso").
+            # Falha = os dicionarios de erro, que sempre trazem sucesso=False.
+            if resultado.get("sucesso") is not False:
+                return resultado
+            ultimo_erro = str(resultado.get("erro", ""))
+            log.warning(
+                "Provedor %s falhou no progresso (tentando proximo): %s",
+                provider, ultimo_erro,
+            )
+        return {"sucesso": False, "erro": ultimo_erro or "Nenhum provedor disponivel."}
     except Exception as e:
         log.exception("Erro ao gerar progresso: %s", e)
         return {"sucesso": False, "erro": f"Erro ao gerar progresso: {str(e)}"}

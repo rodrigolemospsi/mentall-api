@@ -42,6 +42,54 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Provedores de IA: Gemini fora, OpenAI primeiro (07/10/2026)
+
+### Contexto
+A síntese levava **52s** em produção. Medi os logs e a causa **não era o modelo**: a cascata
+tentava, em ordem fixa, provedores que estavam fora — **19s** no Gemini (503), **9s** na OpenAI
+(429 "no credits"), e só então **24s** no DeepSeek, que funcionava.
+
+Investigando o 503 do Gemini (pedido do dono), a causa ficou clara por medição:
+- **não era a chave** (válida, 62 modelos listados), **nem o nome do modelo** (o `gemini-3.7-flash`
+  está listado, com `generateContent`), **nem a rede** (falha igual daqui e do Fly);
+- a **família Flash inteira devolvia 503**; o `3.8-flash` estourou timeout de 25s; os modelos
+  **Pro devolviam 429** (fora do plano);
+- o único que respondia, `gemini-3.1-flash-lite`, **falhou 1 de 2 vezes** e entregou o **menor
+  conteúdo** (aderência 44,9% contra 62,4% do `gpt-4.1` e 84,3% do DeepSeek) — descartado;
+- dois modelos **aposentados** (`gemini-2.5-flash`, `gemini-2.5-flash-lite`) ainda aparecem na
+  lista e devolvem **404**. **"Estar na lista" não significa "funciona".**
+
+**Achado grave no caminho:** o `/gerar-progresso` **não tinha cascata** — usava um provedor só, que
+em produção era o Gemini. Resultado medido em produção: **32s e falha**, devolvendo HTTP 200 com
+`sucesso:false`. A evolução clínica estava **morta**.
+
+### O que mudou (arquivos)
+- `backend/services/ia_clinica.py`: nova `_ordem_providers()` — padrão **`openai,deepseek`**,
+  configurável por `IA_PROVIDER_ORDER`, com **nomes desconhecidos descartados** (assim o Gemini não
+  volta por engano ao mexer no secret). A **síntese** passou a usá-la e o **progresso** ganhou a
+  reserva que não tinha (percorre a mesma ordem, parando no primeiro que responder).
+- `backend/tests/test_ordem_providers.py` (novo, 8 testes), incluindo a regressão "alguém põe
+  `gemini,openai` no secret".
+- **Secrets do Fly:** `IA_MODEL` = **`gpt-4.1`**. Uma tentativa de trocar para `gpt-4o-mini`
+  **quebrou** (403 `model_not_found`: a conta só tem 3 modelos) e foi revertida. **`IA_MODEL` é
+  obrigatório** — o default do código (`gpt-4o-mini`) não existe nesta conta, então remover o
+  secret quebra a OpenAI.
+
+### Verificação
+- Backend isolado: **254/254** (era 246; +8). `flutter analyze` limpo; **282/282** Flutter.
+- Medição (mesmo material clínico real, 2 rodadas cada): **`gpt-4.1` 11,9s** / aderência 62,4% ·
+  **DeepSeek 27,3s** / 84,3% · `gemini-lite` 16,3s / 44,9% com 1 falha. O `invent%` empatou (~66%):
+  nenhum provedor inventa mais que os outros — a diferença é **quanto do material capturam**.
+
+### Pendências
+- **O DeepSeek registra mais do que foi dito** (escores PHQ-9/GAD-7, distorções nomeadas, hipótese
+  diagnóstica) contra a velocidade do `gpt-4.1`. Sem **streaming**, a escolha é entre 12s enxuto e
+  27s fiel; com streaming, dá para ter o fiel.
+- `IA_MODEL_PROVIDER=gemini` continua nos secrets, **sem efeito na seleção** (só alimenta o nome do
+  modelo no log). Vale limpar para não confundir.
+- A cascata **ainda insiste em quem acabou de falhar** (não há circuito aberto): se a OpenAI cair, a
+  próxima síntese paga o tempo dela de novo.
+
 ## Buraco do gate de revisão fechado (06/10/2026) — A ORIGEM NÃO SE APAGA
 
 ### Contexto
