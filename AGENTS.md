@@ -150,10 +150,11 @@ em produção era o Gemini. Resultado medido em produção: **32s e falha**, dev
 - **O DeepSeek registra mais do que foi dito** (escores PHQ-9/GAD-7, distorções nomeadas, hipótese
   diagnóstica) contra a velocidade do `gpt-4.1`. Sem **streaming**, a escolha é entre 12s enxuto e
   27s fiel; com streaming, dá para ter o fiel.
-- `IA_MODEL_PROVIDER=gemini` continua nos secrets, **sem efeito na seleção** (só alimenta o nome do
-  modelo no log). Vale limpar para não confundir.
-- A cascata **ainda insiste em quem acabou de falhar** (não há circuito aberto): se a OpenAI cair, a
-  próxima síntese paga o tempo dela de novo.
+- `IA_MODEL_PROVIDER=gemini` continua nos secrets e agora é **inerte**: `_get_provider()` só é
+  alcançável por um `_get_model_name()` **sem argumento**, e as 5 chamadas passam o provedor
+  explicitamente. A seleção depende **só** de `IA_PROVIDER_ORDER`. Vale remover o secret.
+- A cascata **deixou de insistir** em quem acabou de falhar — o circuito aberto veio no commit
+  seguinte (`8308fc8`), na seção "Circuito aberto nos provedores de IA".
 
 ## Buraco do gate de revisão fechado (06/10/2026) — A ORIGEM NÃO SE APAGA
 
