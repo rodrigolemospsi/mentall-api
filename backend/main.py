@@ -77,6 +77,12 @@ from models.schemas import (
     WhatsAppRequest,
     WhatsAppResponse,
     WuzapiConfigRequest,
+    WuzapiDesconectarRequest,
+    WuzapiParearRequest,
+    WuzapiParearResponse,
+    WuzapiQrResponse,
+    WuzapiStatusResponse,
+    WuzapiTestarRequest,
 )
 from services.anamnese_service import (
     criar_anamnese,
@@ -102,6 +108,7 @@ from services.lembrete_service import (
     salvar_instancia_wuzapi,
 )
 from services.transcricao import transcrever_audio
+from services import wuzapi_admin
 
 _rate_limit_store: dict[str, list[float]] = {}
 
@@ -1032,6 +1039,89 @@ def configurar_wuzapi(request: WuzapiConfigRequest, _req: Request, auth: tuple =
         sucesso=True,
         mensagem="Instancia wuzapi configurada.",
     )
+
+
+@app.get(
+    "/wuzapi/status",
+    response_model=WuzapiStatusResponse,
+    tags=["Mensagens"],
+    dependencies=[Depends(_verificar_token)],
+)
+def wuzapi_status(_req: Request, auth: tuple = Depends(_verificar_token)):
+    """Estado da conexao do WhatsApp do profissional (para a tela de configuracoes)."""
+    _rate_limit_check(_req, max_requests=60)
+    _, owner_id = auth
+    estado = wuzapi_admin.status(owner_id)
+    return WuzapiStatusResponse(sucesso=True, **estado)
+
+
+@app.post(
+    "/wuzapi/parear",
+    response_model=WuzapiParearResponse,
+    tags=["Mensagens"],
+    dependencies=[Depends(_verificar_token)],
+)
+def wuzapi_parear(request: WuzapiParearRequest, _req: Request,
+                  auth: tuple = Depends(_verificar_token)):
+    """Gera o codigo de pareamento (vincula o WhatsApp no mesmo celular, sem QR)."""
+    _rate_limit_check(_req, max_requests=10)
+    if not request.telefone.strip():
+        raise HTTPException(status_code=400, detail="Telefone não informado.")
+    _, owner_id = auth
+    return WuzapiParearResponse(**wuzapi_admin.parear(owner_id, request.telefone))
+
+
+@app.get(
+    "/wuzapi/qr",
+    response_model=WuzapiQrResponse,
+    tags=["Mensagens"],
+    dependencies=[Depends(_verificar_token)],
+)
+def wuzapi_qr(_req: Request, auth: tuple = Depends(_verificar_token)):
+    """QR Code (data URI) como alternativa ao codigo de pareamento."""
+    _rate_limit_check(_req, max_requests=30)
+    _, owner_id = auth
+    return WuzapiQrResponse(**wuzapi_admin.qr(owner_id))
+
+
+@app.post(
+    "/wuzapi/desconectar",
+    response_model=WhatsAppResponse,
+    tags=["Mensagens"],
+    dependencies=[Depends(_verificar_token)],
+)
+def wuzapi_desconectar(request: WuzapiDesconectarRequest, _req: Request,
+                       auth: tuple = Depends(_verificar_token)):
+    """Desconecta a sessao (logout=False) ou desvincula o aparelho (logout=True)."""
+    _rate_limit_check(_req, max_requests=10)
+    _, owner_id = auth
+    if wuzapi_admin.desconectar(owner_id, logout=request.logout):
+        mensagem = "WhatsApp desconectado." if request.logout else "Conexão pausada."
+        return WhatsAppResponse(sucesso=True, mensagem=mensagem)
+    return WhatsAppResponse(sucesso=False, erro="Não foi possível desconectar o WhatsApp.")
+
+
+@app.post(
+    "/wuzapi/testar",
+    response_model=WhatsAppResponse,
+    tags=["Mensagens"],
+    dependencies=[Depends(_verificar_token)],
+)
+def wuzapi_testar(request: WuzapiTestarRequest, _req: Request,
+                  auth: tuple = Depends(_verificar_token)):
+    """Envia uma mensagem de teste pelo WhatsApp conectado do profissional."""
+    _rate_limit_check(_req, max_requests=10)
+    if not request.telefone.strip():
+        raise HTTPException(status_code=400, detail="Telefone não informado.")
+    _, owner_id = auth
+    mensagem_teste = (
+        "MentAll PRO: este é um teste de conexão do WhatsApp. "
+        "Se você recebeu esta mensagem, os lembretes automáticos estão funcionando."
+    )
+    resultado = wuzapi_admin.testar(owner_id, request.telefone, mensagem_teste)
+    if resultado["sucesso"]:
+        return WhatsAppResponse(sucesso=True, mensagem="Mensagem de teste enviada.")
+    return WhatsAppResponse(sucesso=False, erro=resultado["erro"])
 
 
 def _extrair_token_webhook(request: Request) -> str:

@@ -12,6 +12,7 @@ import '../utils/raio.dart';
 import 'lembretes_page.dart';
 import 'login_page.dart';
 import 'redefinir_senha_page.dart';
+import 'whatsapp_conexao_page.dart';
 import '../utils/tipografia.dart';
 
 class ConfiguracoesPage extends ConsumerStatefulWidget {
@@ -146,6 +147,19 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
           context,
             titulo: 'Agenda e lembretes',
             children: [
+              ListTile(
+                leading: Icon(Icons.chat_outlined, color: context.corPrimaria),
+                title: const Text('WhatsApp dos lembretes'),
+                subtitle: const Text(
+                  'Conecte seu WhatsApp e veja se os envios estão funcionando.',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const WhatsappConexaoPage()),
+                ),
+              ),
+              const Divider(indent: 16),
               ListTile(
                 leading: Icon(Icons.timelapse_outlined, color: context.corPrimaria),
                 title: const Text('Duração padrão da sessão'),

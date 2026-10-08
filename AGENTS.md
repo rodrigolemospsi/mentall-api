@@ -42,6 +42,38 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## WhatsApp (wuzapi) por profissional — conexão pelo app (08/10/2026)
+
+### Contexto
+Rodrigo relatou que o cadastro não apareceu no wuzapi e que os lembretes pararam após
+mudar o e-mail. Diagnóstico: (a) o app **nunca teve** tela de wuzapi (endpoint `/wuzapi/config`
+existia sem chamador); (b) a instância é amarrada ao `owner_id` (uuid aleatório — conta nova =
+órfã) e `_resolver_token_wuzapi` é fail-closed; (c) **em produção o backend não tinha
+`WUZAPI_BASE_URL`/`WUZAPI_ADMIN_TOKEN`** (MEDI: `fly secrets list`) — nada era enviado no app
+apontando para o Fly. Decidido: VPS dedicada BR, `wuzapi.mentallpro.com.br`, um número por
+profissional, **pareamento por código** (resolve o QR no mesmo celular) com QR de alternativa.
+
+### O que mudou (arquivos)
+- `backend/services/wuzapi_admin.py` (**novo**): provisiona instância por owner via `/admin/users`
+  (`events=ReadReceipt`), status (`/session/status`), parear (`/session/connect` + `/session/pairphone`),
+  `qr`, `desconectar`, `testar`. Fail-closed sem admin token/base URL.
+- `backend/models/schemas.py` + `backend/main.py`: schemas e endpoints JWT `GET /wuzapi/status`,
+  `POST /wuzapi/parear`, `GET /wuzapi/qr`, `POST /wuzapi/desconectar`, `POST /wuzapi/testar`.
+- App: `lib/services/wuzapi_service.dart` (novo), `lib/screens/whatsapp_conexao_page.dart` (novo) e
+  entrada em `lib/screens/configuracoes_page.dart` ("Agenda e lembretes").
+- Testes: `backend/tests/test_wuzapi_admin.py` (12), `test/services/wuzapi_service_test.dart` (6),
+  `test/screens/whatsapp_conexao_page_test.dart` (2). Planos em `tasks/plan_whatsapp_wuzapi.md`.
+
+### Verificação
+- Backend isolado: **289/289** (era 277; +12). `flutter analyze --no-pub` limpo; **290/290** Flutter.
+- Contrato conferido na fonte do wuzapi: `POST /session/pairphone` devolve `data.LinkingCode`.
+
+### Pendências
+- **Fase 3 (infra) não feita** — VPS ainda não contratada. Sem `WUZAPI_BASE_URL`/`WUZAPI_ADMIN_TOKEN`
+  no Fly, a tela funciona mas o envio em produção segue desligado.
+- O polling automático do status virou botão manual "Verificar conexão" (evita timer em teste).
+- `/wuzapi/config` mantido (deprecado). Verificar pareamento/lembrete no aparelho quando houver infra.
+
 ## Indicações de artigos: descritores alinhados + crivo por metadado (07/10/2026)
 
 ### Contexto
@@ -155,6 +187,25 @@ em produção era o Gemini. Resultado medido em produção: **32s e falha**, dev
   explicitamente. A seleção depende **só** de `IA_PROVIDER_ORDER`. Vale remover o secret.
 - A cascata **deixou de insistir** em quem acabou de falhar — o circuito aberto veio no commit
   seguinte (`8308fc8`), na seção "Circuito aberto nos provedores de IA".
+
+## Release (06/10/2026) — APK 1.0.48+49
+
+### Contexto
+- Rodrigo pediu para gerar o APK. A árvore estava limpa e o último APK (`1.0.47`, sha `9b2e1123...`)
+  era anterior aos commits do gate de revisão. Decisão do dono: **bump** para não sobrescrever o 1.0.47.
+
+### O que mudou (arquivos)
+- `pubspec.yaml`: `1.0.47+48` → **`1.0.48+49`**.
+- `MentAllPRO-v1.0.48.apk` (~79,4 MB), sha256 `7346cea700b9c8ed7373e1f508ed223ab30e794268112fdfe140c477c44aca21`.
+
+### Verificação (checklist de fumaça)
+- `flutter analyze --no-pub`: **No issues found!**
+- `flutter test --no-pub`: **282/282**.
+- `flutter build apk --release`: OK (~50s; aviso KGP de `package_info_plus`/`sentry_flutter`/`share_plus`/`wakelock_plus`, já conhecido).
+
+### Pendências
+- Verificar no aparelho o gate de revisão (marcar/desmarcar revisão, alterar transcrição) — só código de app, sem deploy de backend.
+- Bump não commitado (pubspec) — aguardando confirmação para commit de release.
 
 ## Buraco do gate de revisão fechado (06/10/2026) — A ORIGEM NÃO SE APAGA
 

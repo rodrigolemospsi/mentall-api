@@ -167,6 +167,39 @@ class WuzapiConfigRequest(BaseModel):
     wuzapi_user_id: int = 0
 
 
+class WuzapiStatusResponse(BaseModel):
+    sucesso: bool = True
+    configurado: bool = False
+    conectado: bool = False
+    logado: bool = False
+    numero: str = ""
+    erro: str = ""
+
+
+class WuzapiParearRequest(BaseModel):
+    telefone: str = Field(min_length=8, max_length=30)
+
+
+class WuzapiParearResponse(BaseModel):
+    sucesso: bool
+    codigo: str = ""
+    erro: str = ""
+
+
+class WuzapiQrResponse(BaseModel):
+    sucesso: bool
+    qr_code: str = ""
+    erro: str = ""
+
+
+class WuzapiDesconectarRequest(BaseModel):
+    logout: bool = False
+
+
+class WuzapiTestarRequest(BaseModel):
+    telefone: str = Field(min_length=8, max_length=30)
+
+
 class LembreteRequest(BaseModel):
     compromisso_id: str = Field(min_length=1, max_length=100)
     telefone: str = Field(min_length=8, max_length=30)
