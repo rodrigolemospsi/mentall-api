@@ -42,6 +42,67 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Comparativo de LGPD com concorrentes + calibração dos documentos (13/10/2026)
+
+### Contexto
+Rodrigo pediu, antes de executar o pacote LGPD, comparar os documentos de LGPD do MentAll com apps
+brasileiros de prontuário para psicólogos. Lidos nas fontes oficiais em 13/10/2026 (LI): **PsiLuz**
+(`/privacy` + `/lgpd`), **Zenklub/Conexa** (`/privacidade`), **Copilloto** (`/privacidade`),
+**ProntusCare** (`/privacidade.html`) e **PsicoPront** (`/privacidade`). **Mently** e **Corpora** não
+foram localizados nesta busca (não achei — não é afirmação de que não existam).
+
+### O que mudou (arquivos)
+- `docs/lgpd/18_comparativo_concorrentes.md` (**novo**, v1.0): matriz por elemento, síntese por
+  concorrente, gap→item do plano, onde o MentAll já está à frente (local-first, gate de revisão,
+  menores) e achados de posicionamento (2 concorrentes citam a Res. CFP 11/2018, revogada pela 9/2024;
+  retenção 5×20 anos; "100% conforme" × "em adequação").
+- `docs/lgpd/05_politica_de_privacidade.md` (v1.1): razão social+CNPJ, prazo de resposta **15 dias**
+  + canal **ANPD**, biometria não sai do aparelho, versionamento, aviso de cookies.
+- `docs/lgpd/06_termos_de_uso.md` (v1.1): nova **§12 Comunicações/opt-out** (seções 13–16 renumeradas);
+  contato com CNPJ.
+- `docs/lgpd/10_politica_de_retencao_e_descarte.md` (v1.1): §4.7 **benchmark de mercado** (5×20 anos;
+  tratamento do áudio pelos concorrentes) — insumo de **D8**.
+- `docs/lgpd/15_lojas_google_play_e_app_store.md` (v1.1): referências de mercado (subprocessadores
+  nomeados, "IA sem treinamento", manter "em adequação").
+- `docs/lgpd/17_registro_de_decisoes_e_revisoes.md` (v1.1): registra o comparativo; **corrige a linha
+  de base** (05–14 existiam mas eram listados como "não produzidos"); benchmark de D8; calendário.
+- `docs/lgpd/00_LEIA-ME.md` (v1.1): índice passa a incluir o **18**.
+- **Nenhum código** foi alterado; só documentação.
+
+### Verificação
+- Páginas dos concorrentes lidas diretamente (LI). Não há teste de app/backend a rodar (mudança só de
+  documentação). Links internos do pacote conferidos; `00_LEIA-ME`, `17` e `18` consistentes.
+
+### Pendências
+- Preencher placeholders (**razão social/CNPJ**, **DPO/e-mail**) — dependem do doc 13 e de decisão.
+- Decisões **D1/D2/D3/D8/D9** seguem abertas; **nada** dos textos públicos pode ir à URL antes dos P0.
+- Comparativo é revisado a cada novo provedor/funcionalidade e, no mínimo, **semestralmente**.
+
+## Teste no aparelho bloqueado pela política de cleartext do Android (08/10/2026)
+
+### Contexto
+Rodrigo instalou o `MentAllPRO-v1.0.49` e, ao trocar o servidor para o backend local
+(`http://192.168.x.x:8000`), o "Salvar e testar" falhou. Causa (LI):
+`android/app/src/main/AndroidManifest.xml` tem `usesCleartextTraffic="false"` e
+`network_security_config.xml` só permite HTTP em claro para `localhost`, `127.0.0.1`,
+`192.168.0.0` e `192.168.1.0` — que **não são faixas** (Android não aceita CIDR), então
+nenhum IP real da LAN casa. Firewall desligado; backend escuta `*:8000` e responde 200
+pelos dois IPs do Mac (MEDI). Wuzapi local conectado.
+
+### O que mudou (arquivos)
+- Só **investigação** (sem mudança de código nesta rodada). `pubspec.yaml` bumpado para
+  **`1.0.49+50`**; APK **`MentAllPRO-v1.0.49.apk`** (sha256 `9d9ef6c920f48355b2d448b2383b02f8eed692c9c9c92f90c89e3dbea6ab08e1`);
+  backend local reiniciado (`/wuzapi/*` no ar — 401 sem auth).
+
+### Verificação
+- `AndroidManifest.xml` e `network_security_config.xml` lidos (LI); bind/`lsof`/`curl`
+  e firewall medidos (MEDI).
+
+### Pendências
+- Testar no aparelho: decidir entre **`adb reverse tcp:8000` + servidor `http://localhost:8000`**
+  (usa o APK atual, sem rebuild) ou **rebuild** com exceção de cleartext para o IP da LAN.
+- No "Salvar e testar", credenciais = `APP_USERNAME`/senha do `backend/.env` local.
+
 ## WhatsApp (wuzapi) por profissional — conexão pelo app (08/10/2026)
 
 ### Contexto
@@ -67,6 +128,8 @@ profissional, **pareamento por código** (resolve o QR no mesmo celular) com QR 
 ### Verificação
 - Backend isolado: **289/289** (era 277; +12). `flutter analyze --no-pub` limpo; **290/290** Flutter.
 - Contrato conferido na fonte do wuzapi: `POST /session/pairphone` devolve `data.LinkingCode`.
+- APK de teste **`MentAllPRO-v1.0.49.apk`** (`1.0.48+49`→`1.0.49+50`), sha256 `9d9ef6c920f48355b2d448b2383b02f8eed692c9c9c92f90c89e3dbea6ab08e1`;
+  backend local reiniciado (`/wuzapi/*` no ar — 401 sem auth). Teste no aparelho usa o backend local + `WUZAPI_ADMIN_TOKEN`.
 
 ### Pendências
 - **Fase 3 (infra) não feita** — VPS ainda não contratada. Sem `WUZAPI_BASE_URL`/`WUZAPI_ADMIN_TOKEN`
