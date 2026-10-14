@@ -54,21 +54,25 @@ públicas; sem login; sem APK/descompilação).
 - **Infra fora do repo:** **Node 22.23.3** via tarball em `~/.local` (sem Homebrew), `npm prefix`
   em `~/.local`, **`rea-agents` 6.4.0**; MCP `rea` registrado em `~/.config/opencode/opencode.jsonc`
   com **`enabled: false`** (o REA adiciona ~170 ferramentas ao contexto).
-- `docs/competidores/` (**novo**): `00_LEIA-ME.md` (escopo/limites), `01_copilloto.md` (as 3 funções),
-  `02_metodo_rea.md` (instalação e como reproduzir).
+- `docs/competidores/` (**novo**): `00_LEIA-ME.md` (escopo/limites), `01_copilloto.md`,
+  `02_metodo_rea.md` (instalação e como reproduzir), `03_psiluz.md`, `04_psicopront.md`,
+  `05_prontuscare.md`, `06_zenklub.md` e `07_sintese.md` (3 funções × concorrentes + gaps).
 - `docs/lgpd/18` e `docs/lgpd/17`: cross-reference para `docs/competidores/`.
 - **Nenhum código** do app foi alterado.
 
 ### Verificação
 - `rea mcp doctor` → **healthy** (170 tools, 6 prompts). `rea doctor` → `node` OK.
-- Probe Copilloto (demo público via CDP): app é **Next.js/Turbopack**, sem source maps e **zero
-  domínio de terceiro** no cliente — logo os SDKs (Asaas/NFe.io/Jitsi/WhatsApp) são **server-side** e
-  **não** aparecem na análise estática do browser. Evidence IDs em `docs/competidores/01_copilloto.md`.
+- Probe REA (CDP) nos **5 concorrentes web** (Copilloto, PsiLuz, PsicoPront, ProntusCare, Zenklub):
+  todos são **server-side** e **não** expõem fornecedor de feature no cliente (Copilloto é
+  Next.js/Turbopack). O REA confirmou a arquitetura e revelou parte da **API/rotas** (ex.: PsiLuz —
+  `/auth/*` com **MFA/2FA** e **Google Calendar**). Evidence IDs em `docs/competidores/`.
 
 ### Pendências
-- Fase 1 cobriu só a **Copilloto**; faltam **PsiLuz, PsicoPront, ProntusCare** (web) e **Zenklub**.
-- Para confirmar fornecedores web (server-side) seria preciso **HAR autenticado** ou **APK (JADX)** —
-  ambos dependem de **aval jurídico** (ToS/EULA + Lei 9.609/98); fora do escopo atual.
+- Fase 1 cobriu **Copilloto, PsiLuz, PsicoPront, ProntusCare e Zenklub** (web). `07_sintese.md`
+  consolida os gaps do MentAll: **teleconsulta** (ausente), **Pix/fiscal**, **portal do paciente** e
+  **canal oficial**.
+- Confirmar os fornecedores (server-side) exigiria **HAR autenticado** ou **APK (JADX)** — ambos
+  dependem de **aval jurídico** (ToS/EULA + Lei 9.609/98); fora do escopo atual.
 
 ## Comparativo de LGPD com concorrentes + calibração dos documentos (13/10/2026)
 

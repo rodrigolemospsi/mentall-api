@@ -40,7 +40,11 @@ decidir o que construir:
 | 00 | `00_LEIA-ME.md` | Este guia e escopo |
 | 01 | `01_copilloto.md` | Copilloto — financeiro, mensagens e teleconsulta |
 | 02 | `02_metodo_rea.md` | Como o REA foi instalado/rodado e como reproduzir |
-| — | *(a criar)* | `02_psiluz.md`, `03_psicopront.md`, `04_prontuscare.md`, `05_zenklub.md` |
+| 03 | `03_psiluz.md` | PsiLuz |
+| 04 | `04_psicopront.md` | PsicoPront |
+| 05 | `05_prontuscare.md` | ProntusCare |
+| 06 | `06_zenklub.md` | Zenklub |
+| 07 | `07_sintese.md` | Síntese das 3 funções × concorrentes + gaps do MentAll |
 
 > **Regra de ouro:** cada afirmação traz a **evidência** (URL pública ou observação do REA). O que
 > não pôde ser verificado fica marcado como **não observado**, nunca como fato.
