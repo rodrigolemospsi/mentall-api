@@ -42,6 +42,34 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Infra REA + pesquisa de funcionalidades de concorrentes (14/10/2026)
+
+### Contexto
+Rodrigo pediu entender **como** os concorrentes implementam 3 funções — financeiro, mensagens ao
+paciente e teleconsulta — para reduzir nossas desvantagens. Ferramenta escolhida: **REA**
+(`morluto/rea`, MIT — engenharia reversa local via MCP/CLI), com escopo **seguro** (só fontes
+públicas; sem login; sem APK/descompilação).
+
+### O que mudou (arquivos)
+- **Infra fora do repo:** **Node 22.23.3** via tarball em `~/.local` (sem Homebrew), `npm prefix`
+  em `~/.local`, **`rea-agents` 6.4.0**; MCP `rea` registrado em `~/.config/opencode/opencode.jsonc`
+  com **`enabled: false`** (o REA adiciona ~170 ferramentas ao contexto).
+- `docs/competidores/` (**novo**): `00_LEIA-ME.md` (escopo/limites), `01_copilloto.md` (as 3 funções),
+  `02_metodo_rea.md` (instalação e como reproduzir).
+- `docs/lgpd/18` e `docs/lgpd/17`: cross-reference para `docs/competidores/`.
+- **Nenhum código** do app foi alterado.
+
+### Verificação
+- `rea mcp doctor` → **healthy** (170 tools, 6 prompts). `rea doctor` → `node` OK.
+- Probe Copilloto (demo público via CDP): app é **Next.js/Turbopack**, sem source maps e **zero
+  domínio de terceiro** no cliente — logo os SDKs (Asaas/NFe.io/Jitsi/WhatsApp) são **server-side** e
+  **não** aparecem na análise estática do browser. Evidence IDs em `docs/competidores/01_copilloto.md`.
+
+### Pendências
+- Fase 1 cobriu só a **Copilloto**; faltam **PsiLuz, PsicoPront, ProntusCare** (web) e **Zenklub**.
+- Para confirmar fornecedores web (server-side) seria preciso **HAR autenticado** ou **APK (JADX)** —
+  ambos dependem de **aval jurídico** (ToS/EULA + Lei 9.609/98); fora do escopo atual.
+
 ## Comparativo de LGPD com concorrentes + calibração dos documentos (13/10/2026)
 
 ### Contexto

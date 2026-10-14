@@ -169,6 +169,9 @@ enviado à OpenAI"), que dialoga com o nosso P0.1.
 5. **Manutenção:** este comparativo é **revisado** a cada novo provedor/funcionalidade e, no mínimo,
    **semestralmente** — concorrentes mudam de política com frequência (ex.: Copilloto versiona por
    data). A revisão entra no calendário do documento 17.
+6. **Funcionalidades (produto):** o comparativo de **como** os concorrentes implementam financeiro,
+   mensagens e teleconsulta está em `docs/competidores/` (ferramenta: REA). É complementar a este
+   documento — aqui interessa **transparência**, lá interessa **arquitetura de feature**.
 
 ---
 

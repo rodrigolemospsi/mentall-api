@@ -284,3 +284,6 @@ conclusão no histórico §3 com aprovador nomeado.
 - O comparativo de mercado (`18_comparativo_concorrentes.md`) é **referência viva** para a redação dos
   documentos públicos (05, 06, 10, 15) e entra na revisão semestral do §4 — concorrentes mudam de
   política com frequência.
+- A investigação de **funcionalidades** dos concorrentes (financeiro, mensagens, teleconsulta), feita
+  com a ferramenta **REA** e limitada a fontes **públicas**, vive em `docs/competidores/` (fora deste
+  pacote LGPD). Escopo e limites em `docs/competidores/00_LEIA-ME.md`.
