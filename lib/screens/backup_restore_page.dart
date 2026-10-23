@@ -10,6 +10,7 @@ import '../utils/raio.dart';
 import '../utils/tipografia.dart';
 import 'backup_restore_page_io.dart'
     if (dart.library.html) 'backup_restore_page_web.dart';
+import 'exportar_tudo_page.dart';
 
 final _exportandoProvider = StateProvider<bool>((ref) => false);
 final _importandoProvider = StateProvider<bool>((ref) => false);
@@ -573,6 +574,16 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
         title: const Text('Backup e dados'),
         backgroundColor: context.corPrimaria,
         foregroundColor: context.corOnPrimaria,
+        actions: [
+          IconButton(
+            tooltip: 'Exportar tudo em PDF',
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ExportarTudoPage()),
+            ),
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),

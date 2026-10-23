@@ -5,6 +5,7 @@ import '../utils/mentall_colors.dart';
 import '../utils/raio.dart';
 import '../utils/tipografia.dart';
 import 'conta_page.dart';
+import 'exportar_tudo_page.dart';
 
 /// Exclusão de conta dentro do app (item 2.4a do checklist de publicação).
 ///
@@ -278,11 +279,23 @@ class _ExclusaoContaPageState extends State<ExclusaoContaPage> {
         icone: Icons.info_outline,
         linhas: const [
           'Esta ação é definitiva: a conta não pode ser recuperada depois da exclusão.',
-          'Se quiser preservar uma cópia dos dados, exporte um backup em '
-              '"Backup e dados" antes de continuar. O backup é cifrado com a '
-              'senha que você definir.',
+          'Antes de continuar, você pode exportar TUDO em PDF (prontuário e '
+              'documentos) e/ou um backup cifrado. O PDF serve para leitura e '
+              'arquivo; o backup serve para restauração.',
           'A exclusão no servidor é imediata e o recibo aparece no fim do processo.',
         ],
+      ),
+      const SizedBox(height: 12),
+      OutlinedButton.icon(
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ExportarTudoPage()),
+        ),
+        icon: const Icon(Icons.picture_as_pdf_outlined),
+        label: const Text('Exportar tudo em PDF antes de continuar'),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+        ),
       ),
       const SizedBox(height: 20),
       FilledButton(

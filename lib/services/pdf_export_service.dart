@@ -7,10 +7,14 @@ import 'package:printing/printing.dart';
 
 import '../config/configuracao_abordagem_clinica.dart';
 import '../models/anamnese_enviada.dart';
+import '../models/contrato_terapeutico.dart';
+import '../models/exportacao_paciente.dart';
 import '../models/paciente.dart';
 import '../models/perfil_profissional.dart';
 import '../models/sessao.dart';
 import 'anamnese_labels.dart';
+import 'anamnese_templates.dart';
+import 'exportacao_arquivos.dart';
 import 'logger.dart';
 import '../utils/tipografia.dart';
 
@@ -1539,6 +1543,534 @@ class PdfExportService {
     final hora = data.hour.toString().padLeft(2, '0');
     final minuto = data.minute.toString().padLeft(2, '0');
     return '$hora:$minuto';
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Exportação completa em PDF (Fase 5Q) — prontuário/documentos + financeiro
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Gera o PDF consolidado de prontuário e documentos de TODOS os pacientes.
+  ///
+  /// Estrutura: capa, índice, modelo do acordo terapêutico e, por paciente,
+  /// dados cadastrais, contrato (status/datas/aceite), anamnese respondida e
+  /// as sessões ativas. É um documento legível/arquivável — NÃO substitui o
+  /// backup cifrado, que é o único formato restaurável.
+  Future<Uint8List> gerarPdfTudoConsolidado({
+    required PerfilProfissional perfil,
+    required List<ExportacaoPaciente> pacientes,
+    String contratoTemplate = '',
+  }) async {
+    await _carregarLogo();
+    final config = ConfiguracaoAbordagemClinica.porNome(perfil.abordagemClinica);
+    final agora = DateTime.now();
+    final totalSessoes = pacientes.fold<int>(
+      0,
+      (total, item) => total + item.sessoes.where((s) => s.estaAtiva).length,
+    );
+    final doc = pw.Document();
+
+    doc.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(36),
+        build: (context) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            pw.SizedBox(height: 48),
+            if (_logoImage != null) pw.Image(_logoImage!, height: 88),
+            pw.SizedBox(height: 28),
+            pw.Text(
+              'Prontuário e Documentos',
+              textAlign: pw.TextAlign.center,
+              style: pw.TextStyle(
+                fontSize: 26,
+                fontWeight: pw.FontWeight.bold,
+                color: _titulo,
+              ),
+            ),
+            pw.SizedBox(height: 6),
+            pw.Text(
+              'Exportação completa para leitura e arquivo',
+              textAlign: pw.TextAlign.center,
+              style: pw.TextStyle(
+                fontSize: Tipografia.smMd,
+                color: _secundaria,
+              ),
+            ),
+            pw.SizedBox(height: 22),
+            pw.Container(
+              width: double.infinity,
+              padding: const pw.EdgeInsets.all(14),
+              decoration: pw.BoxDecoration(
+                color: _fundo,
+                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                border: pw.Border.all(color: _linha, width: 0.5),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  _linhaInfoPdf('Profissional', perfil.nomeExibicao),
+                  if (perfil.possuiRegistroProfissional)
+                    _linhaInfoPdf('Registro', perfil.registroProfissional),
+                  _linhaInfoPdf(
+                    'Gerado em',
+                    '${_formatarData(agora)} às ${_formatarHorario(agora)}',
+                  ),
+                  _linhaInfoPdf('Pacientes', '${pacientes.length}'),
+                  _linhaInfoPdf('Sessões', '$totalSessoes'),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 20),
+            pw.Container(
+              width: double.infinity,
+              padding: const pw.EdgeInsets.all(14),
+              decoration: pw.BoxDecoration(
+                color: PdfColors.orange50,
+                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+                border: pw.Border.all(color: PdfColors.orange200, width: 0.5),
+              ),
+              child: pw.Text(
+                'DOCUMENTO COM DADOS SENSÍVEIS DE SAÚDE. Os PDFs gerados não '
+                'são cifrados: guarde-os em local seguro e compartilhe apenas '
+                'com quem deve ter acesso. Para restauração/portabilidade use o '
+                'backup cifrado do app (Backup e dados).',
+                style: pw.TextStyle(
+                  fontSize: Tipografia.xs,
+                  color: PdfColors.orange900,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(28),
+        header: (context) => _cabecalhoPagina(perfil),
+        footer: (context) => _rodapePagina(context),
+        build: (context) => [
+          _tituloDocumento('Índice'),
+          pw.SizedBox(height: 8),
+          pw.Text(
+            '${pacientes.length} paciente(s) · $totalSessoes sessão(ões) ativa(s)',
+            style: pw.TextStyle(fontSize: Tipografia.sm, color: _secundaria),
+          ),
+          pw.SizedBox(height: 10),
+          if (pacientes.isEmpty)
+            pw.Text(
+              'Nenhum paciente cadastrado.',
+              style: pw.TextStyle(fontSize: Tipografia.sm, color: _secundaria),
+            )
+          else
+            for (var i = 0; i < pacientes.length; i++)
+              _linhaIndicePdf(i + 1, pacientes[i]),
+          if (contratoTemplate.trim().isNotEmpty) ...[
+            pw.NewPage(),
+            _tituloDocumento('Modelo do Acordo Terapêutico'),
+            pw.SizedBox(height: 8),
+            pw.Text(
+              'Texto configurado atualmente no app. Cada paciente abaixo tem o '
+              'registro do próprio aceite.',
+              style: pw.TextStyle(fontSize: Tipografia.xs, color: _secundaria),
+            ),
+            pw.SizedBox(height: 10),
+            pw.Text(
+              contratoTemplate,
+              style: pw.TextStyle(
+                fontSize: Tipografia.sm,
+                color: _secundaria,
+              ),
+            ),
+          ],
+          for (final item in pacientes) ...[
+            pw.NewPage(),
+            _tituloDocumento('Paciente - ${item.paciente.nomeExibicao}'),
+            pw.SizedBox(height: 6),
+            _dadosPaciente(item.paciente),
+            ..._secoesContratoPdf(item.contrato),
+            ..._secoesAnamnesePdfPaciente(item.anamnese, perfil),
+            ..._secoesSessoesPdf(item.sessoes, config, item.paciente),
+            pw.SizedBox(height: 16),
+            _secaoDisclaimerIa(),
+            pw.SizedBox(height: 8),
+            _secaoExportacao(),
+          ],
+        ],
+      ),
+    );
+    return doc.save();
+  }
+
+  /// Gera o PDF do resumo financeiro histórico (todas as sessões, por mês).
+  ///
+  /// Vai em arquivo separado do prontuário; espelha a regra da tela
+  /// Financeiro (pago/recebido, pendente = a receber, convênio e pacote).
+  Future<Uint8List> gerarPdfFinanceiroConsolidado({
+    required PerfilProfissional perfil,
+    required List<Sessao> sessoes,
+  }) async {
+    await _carregarLogo();
+    const meses = [
+      'Janeiro',
+      'Fevereiro',
+      'Março',
+      'Abril',
+      'Maio',
+      'Junho',
+      'Julho',
+      'Agosto',
+      'Setembro',
+      'Outubro',
+      'Novembro',
+      'Dezembro',
+    ];
+
+    final porMes = <String, List<Sessao>>{};
+    for (final sessao in sessoes) {
+      final chave =
+          '${sessao.data.year}-${sessao.data.month.toString().padLeft(2, '0')}';
+      porMes.putIfAbsent(chave, () => <Sessao>[]).add(sessao);
+    }
+    final chaves = porMes.keys.toList()..sort();
+
+    double recebido = 0;
+    double pendente = 0;
+    double convenio = 0;
+    double pacote = 0;
+    for (final sessao in sessoes) {
+      switch (sessao.statusPagamento) {
+        case 'pago':
+          recebido += sessao.valorSessao;
+        case 'convenio':
+          convenio += sessao.valorSessao;
+        case 'pacote':
+          pacote += sessao.valorSessao;
+        default:
+          pendente += sessao.valorSessao;
+      }
+    }
+    final total = recebido + pendente + convenio + pacote;
+
+    final linhas = <List<String>>[];
+    for (final chave in chaves) {
+      final lista = porMes[chave]!;
+      double mesRecebido = 0;
+      double mesPendente = 0;
+      double mesConvenio = 0;
+      double mesPacote = 0;
+      for (final sessao in lista) {
+        switch (sessao.statusPagamento) {
+          case 'pago':
+            mesRecebido += sessao.valorSessao;
+          case 'convenio':
+            mesConvenio += sessao.valorSessao;
+          case 'pacote':
+            mesPacote += sessao.valorSessao;
+          default:
+            mesPendente += sessao.valorSessao;
+        }
+      }
+      final referencia = lista.first.data;
+      linhas.add(<String>[
+        '${meses[referencia.month - 1]}/${referencia.year}',
+        '${lista.length}',
+        _moedaPdf(mesRecebido),
+        _moedaPdf(mesPendente),
+        _moedaPdf(mesConvenio),
+        _moedaPdf(mesPacote),
+      ]);
+    }
+    linhas.add(<String>[
+      'Total',
+      '${sessoes.length}',
+      _moedaPdf(recebido),
+      _moedaPdf(pendente),
+      _moedaPdf(convenio),
+      _moedaPdf(pacote),
+    ]);
+
+    final doc = pw.Document();
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(28),
+        header: (context) => _cabecalhoPagina(perfil),
+        footer: (context) => _rodapePagina(context),
+        build: (context) => [
+          _tituloDocumento('Resumo Financeiro'),
+          pw.SizedBox(height: 8),
+          pw.Text(
+            'Histórico por mês - valores informados pelo profissional.',
+            style: pw.TextStyle(fontSize: Tipografia.sm, color: _secundaria),
+          ),
+          pw.SizedBox(height: 16),
+          pw.Row(
+            children: [
+              _cardFinanceiroPdf('Recebido', _moedaPdf(recebido), PdfColors.green),
+              _cardFinanceiroPdf('A receber', _moedaPdf(pendente), PdfColors.orange),
+            ],
+          ),
+          pw.SizedBox(height: 8),
+          pw.Row(
+            children: [
+              _cardFinanceiroPdf('Convênio', _moedaPdf(convenio), PdfColors.blue),
+              _cardFinanceiroPdf('Pacote', _moedaPdf(pacote), PdfColors.teal),
+            ],
+          ),
+          pw.SizedBox(height: 8),
+          pw.Row(
+            children: [
+              _cardFinanceiroPdf('Total', _moedaPdf(total), PdfColors.black),
+            ],
+          ),
+          pw.SizedBox(height: 20),
+          pw.TableHelper.fromTextArray(
+            headers: const <String>[
+              'Mês',
+              'Sessões',
+              'Recebido',
+              'A receber',
+              'Convênio',
+              'Pacote',
+            ],
+            data: linhas,
+            headerStyle: pw.TextStyle(
+              fontSize: 8,
+              fontWeight: pw.FontWeight.bold,
+              color: _titulo,
+            ),
+            cellStyle: const pw.TextStyle(fontSize: 8, color: _secundaria),
+            headerDecoration: const pw.BoxDecoration(color: _fundo),
+            border: pw.TableBorder.all(color: _linha, width: 0.5),
+            cellPadding:
+                const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+          ),
+          pw.SizedBox(height: 12),
+          pw.Text(
+            'Aviso: resumo informativo gerado a partir dos valores registrados '
+            'nas sessões; não substitui documento fiscal.',
+            style: pw.TextStyle(fontSize: Tipografia.xs, color: _secundaria),
+          ),
+          pw.SizedBox(height: 8),
+          _secaoExportacao(),
+        ],
+      ),
+    );
+    return doc.save();
+  }
+
+  /// Gera e compartilha os dois PDFs da exportação completa.
+  ///
+  /// O prontuário consolidado e o resumo financeiro vão em arquivos separados,
+  /// no mesmo share sheet.
+  Future<void> exportarTudoEmPdf({
+    required PerfilProfissional perfil,
+    required List<ExportacaoPaciente> pacientes,
+    required List<Sessao> todasSessoes,
+    String contratoTemplate = '',
+  }) async {
+    try {
+      final prontuario = await gerarPdfTudoConsolidado(
+        perfil: perfil,
+        pacientes: pacientes,
+        contratoTemplate: contratoTemplate,
+      );
+      final financeiro = await gerarPdfFinanceiroConsolidado(
+        perfil: perfil,
+        sessoes: todasSessoes,
+      );
+      final agora = DateTime.now();
+      final sufixo = '${agora.year}'
+          '${agora.month.toString().padLeft(2, '0')}'
+          '${agora.day.toString().padLeft(2, '0')}';
+      await compartilharPdfs([
+        (
+          nome: 'mentall_prontuario_e_documentos_$sufixo.pdf',
+          bytes: prontuario,
+        ),
+        (nome: 'mentall_financeiro_$sufixo.pdf', bytes: financeiro),
+      ]);
+    } catch (e) {
+      Log.erro(e, contexto: 'PdfExportService.exportarTudoEmPdf');
+      rethrow;
+    }
+  }
+
+  String _moedaPdf(double valor) => 'R\$ ${valor.toStringAsFixed(2)}';
+
+  pw.Widget _linhaInfoPdf(String rotulo, String valor) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 3),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.SizedBox(
+            width: 74,
+            child: pw.Text(
+              rotulo,
+              style: pw.TextStyle(
+                fontSize: 9,
+                fontWeight: pw.FontWeight.bold,
+                color: _secundaria,
+              ),
+            ),
+          ),
+          pw.Expanded(
+            child: pw.Text(
+              valor,
+              style: pw.TextStyle(fontSize: 9, color: _secundaria),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _tituloSecaoPdf(String texto) {
+    return pw.Text(
+      texto,
+      style: pw.TextStyle(
+        fontSize: Tipografia.baseMd,
+        fontWeight: pw.FontWeight.bold,
+        color: _titulo,
+      ),
+    );
+  }
+
+  pw.Widget _linhaIndicePdf(int numero, ExportacaoPaciente item) {
+    final sessoesAtivas = item.sessoes.where((s) => s.estaAtiva).length;
+    final extras = <String>[
+      if (item.contrato != null) 'contrato: ${item.contrato!.statusExibicao}',
+      if (item.anamnese != null && item.anamnese!.isRespondido)
+        'anamnese respondida',
+    ];
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 6),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.SizedBox(
+            width: 24,
+            child: pw.Text(
+              '$numero.',
+              style: pw.TextStyle(
+                fontSize: Tipografia.sm,
+                fontWeight: pw.FontWeight.bold,
+                color: _primaria,
+              ),
+            ),
+          ),
+          pw.Expanded(
+            child: pw.Text(
+              '${item.paciente.nomeExibicao} - $sessoesAtivas sessão(ões)'
+              '${extras.isEmpty ? '' : ' · ${extras.join(' · ')}'}',
+              style: pw.TextStyle(fontSize: Tipografia.sm, color: _secundaria),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<pw.Widget> _secoesContratoPdf(ContratoTerapeutico? contrato) {
+    if (contrato == null) return const <pw.Widget>[];
+    String dataOuTraco(DateTime? data) => data == null
+        ? '-'
+        : '${_formatarData(data)} às ${_formatarHorario(data)}';
+    return [
+      pw.SizedBox(height: 16),
+      _linhaSeparadora(),
+      pw.SizedBox(height: 8),
+      _tituloSecaoPdf('Acordo terapêutico'),
+      pw.SizedBox(height: 4),
+      _linhaInfoPdf('Status', contrato.statusExibicao),
+      _linhaInfoPdf('Criado em', dataOuTraco(contrato.dataCriacao)),
+      if (contrato.dataEnvio != null)
+        _linhaInfoPdf('Enviado em', dataOuTraco(contrato.dataEnvio)),
+      if (contrato.dataAceite != null)
+        _linhaInfoPdf('Aceito em', dataOuTraco(contrato.dataAceite)),
+      if (contrato.nomeAceite.trim().isNotEmpty)
+        _linhaInfoPdf('Aceito por', contrato.nomeAceite),
+    ];
+  }
+
+  List<pw.Widget> _secoesAnamnesePdfPaciente(
+    AnamneseEnviada? anamnese,
+    PerfilProfissional perfil,
+  ) {
+    final widgets = <pw.Widget>[
+      pw.SizedBox(height: 16),
+      _linhaSeparadora(),
+      pw.SizedBox(height: 8),
+      _tituloSecaoPdf('Anamnese'),
+      pw.SizedBox(height: 4),
+    ];
+    if (anamnese == null) {
+      widgets.add(
+        pw.Text(
+          'Anamnese não enviada para este paciente.',
+          style: pw.TextStyle(fontSize: Tipografia.xs, color: _secundaria),
+        ),
+      );
+      return widgets;
+    }
+    if (!anamnese.isRespondido) {
+      widgets.add(
+        pw.Text(
+          'Anamnese enviada em ${_formatarData(anamnese.dataCriacao)}; '
+          'aguardando resposta do paciente.',
+          style: pw.TextStyle(fontSize: Tipografia.xs, color: _secundaria),
+        ),
+      );
+      return widgets;
+    }
+    widgets.add(
+      pw.Text(
+        'Respondida em '
+        '${_formatarData(anamnese.dataResposta ?? anamnese.dataCriacao)}',
+        style: pw.TextStyle(fontSize: Tipografia.xs, color: _secundaria),
+      ),
+    );
+    widgets.add(pw.SizedBox(height: 8));
+    widgets.addAll(
+      _secoesAnamnesePdf(
+        AnamneseTemplates.templatePadrao(perfil.abordagemClinica),
+        anamnese.respostas,
+      ),
+    );
+    return widgets;
+  }
+
+  List<pw.Widget> _secoesSessoesPdf(
+    List<Sessao> sessoes,
+    ConfiguracaoAbordagemClinica config,
+    Paciente paciente,
+  ) {
+    final ativas = sessoes.where((s) => s.estaAtiva).toList()
+      ..sort((a, b) => b.data.compareTo(a.data));
+    return [
+      pw.SizedBox(height: 16),
+      _linhaSeparadora(),
+      pw.SizedBox(height: 8),
+      _tituloSecaoPdf('Sessões (${ativas.length})'),
+      pw.SizedBox(height: 4),
+      if (ativas.isEmpty)
+        pw.Text(
+          'Nenhuma sessão registrada.',
+          style: pw.TextStyle(fontSize: Tipografia.xs, color: _secundaria),
+        )
+      else
+        for (final sessao in ativas)
+          ..._secaoSessaoCompleta(
+            sessao: sessao,
+            config: config,
+            paciente: paciente,
+          ),
+    ];
   }
 
   Future<void> _salvarOuImprimir({

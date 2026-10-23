@@ -42,6 +42,45 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Exportação completa em PDF (prontuário + financeiro) — Fase 5Q (23/10/2026)
+
+### Contexto
+Levantado ao testar a exclusão de conta: se a conta é excluída, o prontuário cifrado continua no
+aparelho, mas o app não abre — sem um PDF legível não há "utilização posterior". Entrega: PDF único
+consolidado (dados, sessões, contratos e anamneses) + financeiro em arquivo separado, com
+autenticação local antes de gerar. PDF não substitui o backup cifrado (é leitura/arquivo, não restore).
+
+### O que mudou (arquivos)
+1. **`lib/models/exportacao_paciente.dart` (novo)** — agrega paciente + sessões + contrato + anamnese.
+2. **`lib/services/pdf_export_service.dart`** — `gerarPdfTudoConsolidado` (capa, índice, modelo do
+   acordo e, por paciente: dados, contrato com status/aceite, anamnese respondida e sessões),
+   `gerarPdfFinanceiroConsolidado` (por mês: recebido/a receber/convênio/pacote) e
+   `exportarTudoEmPdf` (gera os dois e compartilha juntos).
+3. **`lib/services/exportacao_arquivos{,_io,_web}.dart` (novos)** — compartilhamento multiplataforma
+   dos PDFs (no web, stub que informa indisponibilidade).
+4. **`lib/screens/exportar_tudo_page.dart` (novo)** — resumo do acervo, avisos (dado sensível e
+   "PDF ≠ backup"), autenticação local (biometria/PIN) e geração.
+5. **`lib/screens/exclusao_conta_page.dart`** — botão "Exportar tudo em PDF antes de continuar"
+   no passo 1 da exclusão.
+6. **`lib/screens/backup_restore_page.dart`** — ação "Exportar tudo em PDF" no AppBar.
+7. **`test/services/exportacao_completa_test.dart` (novo)** — 4 testes de geração dos PDFs.
+8. **`test/widgets/exportar_tudo_page_test.dart` (novo)** — 4 testes da tela.
+9. **`pubspec.yaml`** — `1.0.56+57` (APK de teste).
+10. **`AGENTS.md`** — esta seção.
+
+### Verificação
+- `flutter analyze --no-pub`: **No issues found** (MEDI, 23/10).
+- `flutter test --no-pub`: **345/345 OK** (MEDI, 23/10; 8 testes novos).
+- `flutter build apk --release`: APK `MentAllPRO-v1.0.56.apk` (debug signing).
+- Pendente NO APARELHO: gerar a exportação com conta real, conferir o share sheet, abrir o PDF e
+  validar contrato/anamnese/sessões; testar biometria/PIN.
+
+### Pendências / decisões
+- PDFs **não são cifrados** (23/10: aviso + autenticação agora; senha no PDF exige lib nova —
+  syncfusion ou similar — e fica para depois).
+- O financeiro é resumo histórico por mês (não por paciente); sessões arquivadas entram no
+  histórico — validar com o uso.
+
 ## Exclusão de conta dentro do app — Fase 5P (23/10/2026)
 
 ### Contexto
