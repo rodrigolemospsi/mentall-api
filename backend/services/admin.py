@@ -516,3 +516,88 @@ def arquivar_falhas_antigas(dias: int = DIAS_FALHA_ANTIGA) -> int:
     )
     cur.commit()
     return cur.rowcount or 0
+
+
+def estatisticas_dashboard() -> dict:
+    """Séries e percentuais para os gráficos/aneis do dashboard (Fase 5K).
+
+    LGPD: só contagens agregadas — nenhum conteúdo clínico."""
+    agora = datetime.now(timezone.utc)
+
+    # Últimos 12 meses (inclui o atual), do mais antigo para o mais recente.
+    meses = []
+    ano, mes = agora.year, agora.month
+    for _ in range(12):
+        meses.append((ano, mes))
+        mes -= 1
+        if mes == 0:
+            mes = 12
+            ano -= 1
+    meses.reverse()
+    inicio = f"{meses[0][0]:04d}-{meses[0][1]:02d}-01"
+    linhas = executar(
+        "SELECT substr(criado_em, 1, 7) AS mes, COUNT(*) AS n FROM usuarios "
+        "WHERE criado_em >= ? GROUP BY mes",
+        (inicio,),
+    ).fetchall()
+    por_mes = {linha["mes"]: int(linha["n"]) for linha in linhas}
+    rotulos = ["jan", "fev", "mar", "abr", "mai", "jun",
+               "jul", "ago", "set", "out", "nov", "dez"]
+    serie_meses = [
+        (rotulos[m - 1], por_mes.get(f"{a:04d}-{m:02d}", 0)) for a, m in meses
+    ]
+
+    status = {}
+    for linha in executar(
+        "SELECT status, COUNT(*) AS n FROM usuarios GROUP BY status"
+    ).fetchall():
+        status[linha["status"]] = int(linha["n"])
+
+    def pct(parte: int, total: int) -> int:
+        return int(round(100 * parte / total)) if total else 0
+
+    psicologos = _contar_n(
+        "SELECT COUNT(*) AS n FROM usuarios WHERE COALESCE(eh_psicologo, 1) = 1"
+    )
+    online = _contar_n(
+        "SELECT COUNT(DISTINCT d.owner_id) AS n FROM dispositivos d "
+        "JOIN usuarios u ON u.id = d.owner_id "
+        "WHERE d.ultimo_heartbeat_em >= ? AND COALESCE(u.eh_psicologo, 1) = 1",
+        (_limite_online_iso(),),
+    )
+    contratos_aceitos = _contar_n(
+        "SELECT COUNT(*) AS n FROM contratos WHERE status = 'aceito'"
+    )
+    contratos_total = _contar_n("SELECT COUNT(*) AS n FROM contratos")
+    lembretes_ok = _contar_n(
+        "SELECT COUNT(*) AS n FROM lembretes "
+        "WHERE status = 'enviado' OR entregue_em IS NOT NULL"
+    )
+    lembretes_total = _contar_n(
+        "SELECT COUNT(*) AS n FROM lembretes WHERE status IN ('enviado', 'falha')"
+    )
+    desde_7d = (agora - timedelta(days=7)).isoformat()
+    desde_14d = (agora - timedelta(days=14)).isoformat()
+    novos_7d = _contar_n(
+        "SELECT COUNT(*) AS n FROM usuarios WHERE criado_em >= ?", (desde_7d,)
+    )
+    novos_7d_antes = _contar_n(
+        "SELECT COUNT(*) AS n FROM usuarios WHERE criado_em >= ? AND criado_em < ?",
+        (desde_14d, desde_7d),
+    )
+    variacao = int(round(100 * (novos_7d - novos_7d_antes) / novos_7d_antes)) \
+        if novos_7d_antes else 0
+
+    return {
+        "serie_meses": serie_meses,
+        "status": status,
+        "online_pct": pct(online, psicologos),
+        "contratos_pct": pct(contratos_aceitos, contratos_total),
+        "contratos_aceitos": contratos_aceitos,
+        "contratos_total": contratos_total,
+        "lembretes_pct": pct(lembretes_ok, lembretes_total),
+        "lembretes_ok": lembretes_ok,
+        "lembretes_total": lembretes_total,
+        "novos_7d_antes": novos_7d_antes,
+        "variacao_novos_pct": variacao,
+    }

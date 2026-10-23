@@ -2351,6 +2351,7 @@ def admin_painel(request: Request, pagina: int = 1):
     kpis = admin_service.kpis()
     usuarios = admin_service.listar_usuarios(pagina=pagina, **filtros)
     extras = admin_service.kpis_operacionais()
+    estatisticas = admin_service.estatisticas_dashboard()
     saude = saude_service.coletar()
     opcoes = admin_service.opcoes_filtros()
     auditoria = admin_service.listar_auditoria(limite=8) if papel == "admin" else []
@@ -2363,6 +2364,7 @@ def admin_painel(request: Request, pagina: int = 1):
             saude=saude,
             opcoes=opcoes,
             auditoria=auditoria,
+            estatisticas=estatisticas,
             pode_email=(papel == "admin"),
         )
     )

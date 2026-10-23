@@ -108,6 +108,34 @@ lembrete falhava. Requisito do dono: **mostrar na home um alerta para reconectar
 O status vem do backend (`/wuzapi/status`), que agora também **sincroniza o banco** (Fase 5F), então o
 card da Saúde do painel e o alerta do app concordam entre si.
 
+## Dashboard v2 (transformação visual) — Fase 5K (24/10/2026)
+
+### Contexto
+O painel era funcional, mas visualmente simples. O dono pediu a transformação no estilo de um mock
+de admin dashboard web (sidebar colorida, topbar, cards com anéis, gráficos e tabelas limpas).
+
+### O que mudou
+1. **`backend/admin_ui.py`**
+   - **Tema v2** (CSS anexado ao `_ESTILO`): sidebar em gradiente roxo, topbar clara com busca,
+     botões de exportar/notificações, avatar; cards brancos com sombra; tabelas com cabeçalho
+     uppercase; pills de saúde; formulários e botões redesenhados; responsivo (`@media 760px`).
+   - **Novo layout compartilhado** (`_cabecalho_painel`): sidebar + topbar em **todas** as páginas
+     (dados, segurança, 2FA, e-mail, lembretes, detalhe); `_cabecalho_email` usa o mesmo layout.
+   - **Dashboard v2** (`pagina_dashboard`): KPIs (Psicólogos, Equipe, Online, Novos 7 dias, Contas
+     pendentes), 3 **anéis de progresso** (online, contratos aceitos, lembretes entregues), gráfico de
+     **barras** (cadastros por mês) e **donut** (distribuição de contas), Saúde, Operação, tabela de
+     pessoas com filtros e auditoria — tudo em HTML/CSS/SVG puro (sem JS externo; CSP ok).
+   - Helpers novos: `_icone` (SVG inline), `_anel`, `_grafico_barras`, `_grafico_donut`.
+   - Login/2FA ganharam cards centralizados no novo tema.
+2. **`backend/services/admin.py`** — `estatisticas_dashboard()`: série de 12 meses de cadastros,
+   distribuição por status, percentuais de online/contratos/lembretes e variação de novos 7 dias.
+3. **`backend/main.py`** — rota `/admin` calcula e passa `estatisticas` ao dashboard.
+4. **`backend/tests/test_admin_visual.py`** (novo) — 7 testes (estatísticas + layout/marcadores).
+
+### Compatibilidade
+Nenhuma rota, ação, formulário ou texto funcional mudou (testes antigos de funcionalidade continuam
+valendo). A transformação é só de apresentação, com gráficos calculados no servidor.
+
 ## Psicólogo × equipe do painel — Fase 5I (24/10/2026)
 
 ### Contexto

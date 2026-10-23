@@ -280,6 +280,84 @@ def _secao_auditoria(auditoria: list | None) -> str:
   </table>"""
 
 
+def _anel(pct, cor: str = "#7c3aed", tamanho: int = 86) -> str:
+    """Anel de progresso em SVG (server-side, sem JS)."""
+    pct = max(0, min(100, int(pct or 0)))
+    raio = 34
+    circunferencia = 2 * math.pi * raio
+    traco = circunferencia * pct / 100
+    return (
+        f'<svg class="anel" width="{int(tamanho)}" height="{int(tamanho)}" viewBox="0 0 84 84" '
+        'role="img" aria-label="' + f'{pct}%"' + '>'
+        f'<circle cx="42" cy="42" r="{raio}" fill="none" stroke="#eef1f8" stroke-width="10"/>'
+        f'<circle cx="42" cy="42" r="{raio}" fill="none" stroke="{cor}" stroke-width="10" '
+        f'stroke-linecap="round" stroke-dasharray="{traco:.1f} {circunferencia:.1f}" '
+        'transform="rotate(-90 42 42)"/>'
+        f'<text x="42" y="47" text-anchor="middle" class="anel-txt">{pct}%</text>'
+        "</svg>"
+    )
+
+
+def _grafico_barras(serie: list) -> str:
+    """Gráfico de barras em HTML/CSS puro (série: [(rótulo, valor)])."""
+    if not serie:
+        return '<p class="off">Sem dados ainda.</p>'
+    maximo = max((int(valor or 0) for _, valor in serie), default=0) or 1
+    colunas = []
+    for rotulo, valor in serie:
+        valor = int(valor or 0)
+        altura = 6 + int(88 * valor / maximo)
+        colunas.append(
+            '<div class="barra" title="' + _esc(str(rotulo)) + ": " + str(valor) + '">'
+            f'<span class="valor">{valor}</span>'
+            f'<div class="col" style="height:{altura}%"></div>'
+            f'<span class="rotulo">{_esc(str(rotulo))}</span>'
+            "</div>"
+        )
+    return '<div class="barras">' + "".join(colunas) + "</div>"
+
+
+def _grafico_donut(itens: list) -> str:
+    """Donut em SVG puro + legenda (itens: [(rótulo, valor, cor)])."""
+    total = sum(int(valor or 0) for _, valor, _ in itens)
+    if total <= 0:
+        return '<p class="off">Sem dados ainda.</p>'
+    raio = 34
+    circunferencia = 2 * math.pi * raio
+    offset = 0.0
+    partes = [
+        f'<circle cx="42" cy="42" r="{raio}" fill="none" stroke="#eef1f8" stroke-width="13"/>'
+    ]
+    legenda = []
+    for rotulo, valor, cor in itens:
+        valor = int(valor or 0)
+        if valor <= 0:
+            continue
+        traco = circunferencia * valor / total
+        partes.append(
+            f'<circle cx="42" cy="42" r="{raio}" fill="none" stroke="{cor}" stroke-width="13" '
+            f'stroke-dasharray="{traco:.1f} {circunferencia:.1f}" '
+            f'stroke-dashoffset="{-offset:.1f}" transform="rotate(-90 42 42)"/>'
+        )
+        offset += traco
+        legenda.append(
+            '<div class="linha">'
+            f'<span class="bolinha" style="background:{cor}"></span>'
+            f"<span>{_esc(str(rotulo))}</span>"
+            f'<span class="qtd">{valor}</span>'
+            "</div>"
+        )
+    svg = (
+        '<svg width="118" height="118" viewBox="0 0 84 84" role="img" '
+        f'aria-label="Distribuição de contas">{"".join(partes)}</svg>'
+    )
+    return (
+        '<div class="donut-wrap">'
+        + svg
+        + '<div class="legenda">' + "".join(legenda) + "</div></div>"
+    )
+
+
 def pagina_dashboard(
     kpis: dict,
     pagina: dict,
@@ -289,87 +367,114 @@ def pagina_dashboard(
     opcoes: dict | None = None,
     auditoria: list | None = None,
     pode_email: bool = True,
+    estatisticas: dict | None = None,
 ) -> str:
-    """Dashboard do dono: KPIs, saúde, operação, filtros/CSV e lista de psicólogos."""
+    """Dashboard v2 (Fase 5K): KPIs, anéis, gráficos e tabelas limpas."""
     filtros = filtros or {}
     extras = extras or {}
-    aparelhos = "".join(
-        f'<span class="pill">{_esc(p)}: {int(n)}</span>' for p, n in kpis["aparelhos"]
-    ) or '<span class="off">nenhum</span>'
-    eventos = "".join(
-        f'<span class="pill">{_esc(t)}: {int(n)}</span>' for t, n in kpis["eventos_por_tipo"]
-    ) or '<span class="off">nenhum</span>'
+    estatisticas = estatisticas or {}
+    usuarios = pagina.get("usuarios") or []
+    total = int(pagina.get("total") or 0)
+    total_paginas = max(1, math.ceil(total / max(1, int(pagina.get("limite") or 25))))
+    pagina_atual = int(pagina.get("pagina") or 1)
 
-    linhas = "".join(_linha_usuario(u) for u in pagina["usuarios"]) or (
+    pendentes = int(extras.get("usuarios_pendentes") or 0)
+    saude_geral = "ok"
+    for item in saude or []:
+        estado = item.get("estado") or "ok"
+        if estado == "erro":
+            saude_geral = "erro"
+            break
+        if estado == "atencao":
+            saude_geral = "atencao"
+    rotulo_saude = {
+        "ok": "tudo certo",
+        "atencao": "atenção",
+        "erro": "erro",
+    }.get(saude_geral, saude_geral)
+
+    kpis_html = f"""  <div class="kpis">
+    <div class="kpi"><div class="n">{int(kpis.get("psicologos") or 0)}</div><div class="l">Psicólogos</div></div>
+    <div class="kpi"><div class="n">{int(kpis.get("equipe") or 0)}</div><div class="l">Equipe do painel</div></div>
+    <div class="kpi"><div class="n">{int(kpis.get("online_agora") or 0)}</div><div class="l">Online agora</div></div>
+    <div class="kpi"><div class="n">{int(extras.get("novos_7d") or 0)}</div><div class="l">Novos (7 dias)</div></div>
+    <div class="kpi{' destaque' if pendentes else ''}"><div class="n">{pendentes}</div><div class="l">Contas pendentes</div></div>
+  </div>"""
+
+    pct_online = int(estatisticas.get("online_pct") or 0)
+    pct_contratos = int(estatisticas.get("contratos_pct") or 0)
+    pct_lembretes = int(estatisticas.get("lembretes_pct") or 0)
+    aneis_html = f"""  <div class="aneis">
+    <div class="anel-card">{_anel(pct_online)}
+      <div class="txt"><strong>Psicólogos online</strong>
+        <small>{int(kpis.get("online_agora") or 0)} de {int(kpis.get("psicologos") or 0)} com heartbeat recente</small></div>
+    </div>
+    <div class="anel-card">{_anel(pct_contratos, "#22c55e")}
+      <div class="txt"><strong>Contratos aceitos</strong>
+        <small>{int(estatisticas.get("contratos_aceitos") or 0)} de {int(estatisticas.get("contratos_total") or 0)} contratos</small></div>
+    </div>
+    <div class="anel-card">{_anel(pct_lembretes, "#0ea5e9")}
+      <div class="txt"><strong>Lembretes entregues</strong>
+        <small>{int(estatisticas.get("lembretes_ok") or 0)} de {int(estatisticas.get("lembretes_total") or 0)} enviados</small></div>
+    </div>
+  </div>"""
+
+    serie = estatisticas.get("serie_meses") or []
+    status = estatisticas.get("status") or {}
+    donut = _grafico_donut([
+        ("Ativos", status.get("ativo", 0), "#22c55e"),
+        ("Pendentes", status.get("pendente", 0), "#f59e0b"),
+        ("Suspensos", status.get("suspenso", 0), "#ef4444"),
+    ])
+    graficos_html = f"""  <div class="graficos">
+    <div class="painel-card">
+      <div class="titulo"><strong>Cadastros por mês</strong><small>Últimos 12 meses</small></div>
+      {_grafico_barras(serie)}
+    </div>
+    <div class="painel-card">
+      <div class="titulo"><strong>Distribuição de contas</strong><small>{int(kpis.get("total_usuarios") or 0)} contas</small></div>
+      {donut}
+    </div>
+  </div>"""
+
+    linhas = "".join(_linha_usuario(u) for u in usuarios) or (
         '<tr><td colspan="10" class="off">Nenhuma pessoa encontrada com esses filtros.</td></tr>'
     )
-
-    total = pagina["total"]
-    limite = pagina["limite"]
-    pag = pagina["pagina"]
-    total_paginas = max(1, math.ceil(total / limite))
-    qs_anterior = _querystring(filtros, pag - 1)
-    qs_proxima = _querystring(filtros, pag + 1)
-    anterior = (f'<a href="/admin?{qs_anterior}">&larr; Anterior</a>'
-                if pag > 1 else '<span class="off">&larr; Anterior</span>')
-    proxima = (f'<a href="/admin?{qs_proxima}">Próxima &rarr;</a>'
-               if pag < total_paginas else '<span class="off">Próxima &rarr;</span>')
-
-    pendentes = int(extras.get("usuarios_pendentes", 0) or 0)
-    card_pendentes = (
-        f'<div class="card{" alerta" if pendentes else ""}">'
-        f'<div class="n">{pendentes}</div><div class="l">Contas pendentes</div></div>'
-    )
-    card_novos = (
-        f'<div class="card"><div class="n">{int(extras.get("novos_7d", 0) or 0)}</div>'
-        f'<div class="l">Novos (7 dias)</div></div>'
-    )
+    pager = f"""  <div class="pager">
+    Página {pagina_atual} de {total_paginas} · {total} pessoa(s)
+    {f'<a href="/admin?{_querystring(filtros, max(1, pagina_atual - 1))}">← Anterior</a>' if pagina_atual > 1 else ''}
+    {f'<a href="/admin?{_querystring(filtros, min(total_paginas, pagina_atual + 1))}">Próxima →</a>' if pagina_atual < total_paginas else ''}
+  </div>"""
 
     return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MentAll PRO — Painel</title><style>{_ESTILO}</style>{_PWA_HEAD}</head>
 <body>
-{_cabecalho_painel(pode_email=pode_email)}
-<main>
-  <div class="cards">
-    <div class="card"><div class="n">{int(kpis["psicologos"])}</div><div class="l">Psicólogos</div></div>
-    <div class="card"><div class="n">{int(kpis["equipe"])}</div><div class="l">Equipe do painel</div></div>
-    <div class="card"><div class="n">{int(kpis["online_agora"])}</div><div class="l">Online agora</div></div>
-    {card_novos}
-    {card_pendentes}
-  </div>
-{_secao_saude(saude)}
+{_cabecalho_painel("psicologos", pode_email=pode_email)}
+{kpis_html}
+{aneis_html}
+{graficos_html}
 {_secao_operacao(extras)}
-  <h2>Aparelhos</h2>
-  <div>{aparelhos}</div>
-
-  <h2>Uso por tipo de evento</h2>
-  <div>{eventos}</div>
-
+  {_secao_saude(saude)}
   <h2>Pessoas ({total})</h2>
   {_form_filtros(filtros, opcoes)}
+  <div class="tabela-card">
   <table>
     <thead><tr>
       <th>E-mail</th><th>Nome</th><th>Plano</th><th>Papel</th><th>Psicólogo</th><th>Status</th>
-      <th>Aparelho</th><th>Presença</th><th>Visto</th><th>Último acesso</th>
+      <th>Aparelho</th><th>Online</th><th>Último heartbeat</th><th>Último acesso</th>
     </tr></thead>
     <tbody>{linhas}</tbody>
   </table>
-  <div class="pager">
-    {anterior}
-    <span>Página {pag} de {total_paginas}</span>
-    {proxima}
   </div>
-{_secao_auditoria(auditoria)}
+  {pager}
+  <div id="auditoria">{_secao_auditoria(auditoria)}</div>
 </main>
+  </div>
+</div>
 </body></html>"""
 
 
-# ---------------------------------------------------------------------------
-# E-mail (Mailu) — Fase 4 do painel (22/10/2026)
-# ---------------------------------------------------------------------------
-
-# CSS adicional desta seção (o _ESTILO original continua valendo)
 _ESTILO += """
   nav{margin-left:auto;margin-right:20px;display:flex;gap:16px;align-items:center}
   nav a{color:rgba(255,255,255,.78);text-decoration:none;font-size:14px;padding-bottom:2px}
@@ -424,13 +529,7 @@ def _alertas(msg: str = "", erro: str = "") -> str:
 
 
 def _cabecalho_email() -> str:
-    return (
-        "<header>"
-        "<h1>MentAll PRO — Painel</h1>"
-        + _nav("email")
-        + '<form method="post" action="/admin/logout"><button type="submit">Sair</button></form>'
-        "</header>"
-    )
+    return _cabecalho_painel("email")
 
 
 def _linha_caixa(c: dict) -> str:
@@ -600,6 +699,8 @@ def pagina_email(
     </div>
   </div>
 </main>
+  </div>
+</div>
 </body></html>"""
 
 
@@ -626,17 +727,102 @@ def pagina_confirmar_exclusao(caixa: dict) -> str:
     <a class="btn" style="background:#F1F5F9;color:#334155;border:1px solid #CBD5E1" href="/admin/email">Cancelar</a>
   </form>
 </main>
+  </div>
+</div>
 </body></html>"""
 
 
-def _cabecalho_painel(ativo: str = "psicologos", pode_email: bool = True) -> str:
-    """Cabeçalho comum das páginas do painel (nav + sair)."""
+_ICONES = {
+    "visao": '<path d="M3 10.6 12 3l9 7.6"/><path d="M5 9.8V21h14V9.8"/><path d="M9.5 21v-6h5v6"/>',
+    "usuarios": (
+        '<circle cx="9" cy="8" r="3.4"/>'
+        '<path d="M2.6 20c0-3.4 2.9-5.6 6.4-5.6s6.4 2.2 6.4 5.6"/>'
+        '<path d="M17.2 5.6a3 3 0 0 1 0 5.6"/><path d="M18.6 20c0-2.4-.9-4.2-2.5-5.2"/>'
+    ),
+    "escudo": (
+        '<path d="M12 3l7 3v5.4c0 4.3-2.9 7.9-7 9.6-4.1-1.7-7-5.3-7-9.6V6l7-3z"/>'
+        '<path d="m9 12 2 2 4-4"/>'
+    ),
+    "email": (
+        '<rect x="3" y="5.5" width="18" height="13" rx="2.6"/>'
+        '<path d="m4.2 7.2 7.8 5.8 7.8-5.8"/>'
+    ),
+    "relogio": '<circle cx="12" cy="12" r="8.4"/><path d="M12 7.6V12l3 2"/>',
+    "sair": (
+        '<path d="M15 4h3.4A1.6 1.6 0 0 1 20 5.6v12.8a1.6 1.6 0 0 1-1.6 1.6H15"/>'
+        '<path d="m10 8-4 4 4 4"/><path d="M6 12h9"/>'
+    ),
+    "busca": '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.3-3.3"/>',
+    "sino": (
+        '<path d="M18 8.4a6 6 0 1 0-12 0c0 5.6-2 6.8-2 6.8h16s-2-1.2-2-6.8"/>'
+        '<path d="M10.2 19.6a2 2 0 0 0 3.6 0"/>'
+    ),
+    "download": (
+        '<path d="M12 3.5v11.5"/><path d="m7.5 10.8 4.5 4.5 4.5-4.5"/>'
+        '<path d="M4 20.5h16"/>'
+    ),
+    "menu": '<path d="M4 6.5h16M4 12h16M4 17.5h16"/>',
+    "grafico": (
+        '<path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/>'
+        '<path d="M22 20H2"/>'
+    ),
+}
+
+
+def _icone(nome: str, tamanho: int = 20) -> str:
+    """Ícone SVG inline (sem dependência externa, funciona com a CSP)."""
+    caminho = _ICONES.get(nome, "")
     return (
-        "<header><h1>MentAll PRO — Painel</h1>"
-        + _nav(ativo, pode_email=pode_email)
-        + '<form method="post" action="/admin/logout"><button type="submit">Sair</button></form>'
-        + "</header>"
+        f'<svg class="ic" width="{int(tamanho)}" height="{int(tamanho)}" viewBox="0 0 24 24" '
+        'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" '
+        f'stroke-linejoin="round" aria-hidden="true">{caminho}</svg>'
     )
+
+
+def _cabecalho_painel(ativo: str = "psicologos", pode_email: bool = True) -> str:
+    """Layout v2 (Fase 5K): sidebar colorida + topbar com busca/ações/usuário."""
+    itens = [("visao", "Visão geral", "/admin", ("psicologos", "visao"))]
+    if pode_email:
+        itens.append(("email", "E-mail", "/admin/email", ("email",)))
+        itens.append(("relogio", "Lembretes", "/admin/lembretes", ("lembretes",)))
+    itens.append(("escudo", "Segurança", "/admin/seguranca", ("seguranca",)))
+
+    links = []
+    for icone, rotulo, href, chaves in itens:
+        classe = "item ativo" if ativo in chaves else "item"
+        links.append(
+            f'<a class="{classe}" href="{href}">{_icone(icone)}<span>{_esc(rotulo)}</span></a>'
+        )
+
+    return f"""<div class="layout">
+  <aside class="sidebar">
+    <div class="marca">
+      <span class="logo">M</span>
+      <div><strong>MentAll PRO</strong><small>Painel do dono</small></div>
+    </div>
+    <nav class="sidebar-nav">{''.join(links)}</nav>
+    <form class="sair" method="post" action="/admin/logout">
+      <button type="submit">{_icone("sair")}<span>Sair do painel</span></button>
+    </form>
+  </aside>
+  <div class="painel">
+    <header class="topbar">
+      <div class="busca-topo">
+        <form method="get" action="/admin">
+          {_icone("busca")}
+          <input type="text" name="busca" placeholder="Buscar psicólogo por e-mail ou nome" aria-label="Buscar">
+        </form>
+      </div>
+      <div class="top-acoes">
+        <a class="btn-topo" href="/admin/usuarios.csv" title="Exportar CSV">{_icone("download")}</a>
+        <a class="btn-topo" href="#auditoria" title="Últimas ações administrativas">{_icone("sino")}<span class="badge-dot"></span></a>
+        <div class="usuario-topo">
+          <span class="avatar">MP</span>
+          <div class="dados"><strong>Administrador</strong><small>Painel MentAll</small></div>
+        </div>
+      </div>
+    </header>
+    <main>"""
 
 
 _ESTILO += """
@@ -861,6 +1047,8 @@ def pagina_usuario(
   {_tabela_eventos(detalhe.get("eventos_por_tipo") or [], detalhe.get("eventos_recentes") or [])}
 {auditoria}
 </main>
+  </div>
+</div>
 </body></html>"""
 
 
@@ -966,6 +1154,8 @@ def pagina_seguranca(
     </div>
   </div>
 </main>
+  </div>
+</div>
 </body></html>"""
 
 
@@ -1001,6 +1191,8 @@ def pagina_2fa_ativar(ator: str, segredo: str, uri: str, erro: str = "") -> str:
     </div>
   </div>
 </main>
+  </div>
+</div>
 </body></html>"""
 
 
@@ -1021,6 +1213,8 @@ def pagina_2fa_backup(codigos: list[str]) -> str:
   <div class="codigos">{itens}</div>
   <p><a class="btn" href="/admin/seguranca">Voltar para Segurança</a></p>
 </main>
+  </div>
+</div>
 </body></html>"""
 
 
@@ -1036,6 +1230,8 @@ def pagina_sem_permissao(recurso: str = "") -> str:
   <p class="nota-lgpd">Seu papel não permite acessar esta área. Fale com o administrador do painel.</p>
   <p><a class="btn" href="/admin">Voltar ao painel</a></p>
 </main>
+  </div>
+</div>
 </body></html>"""
 
 
@@ -1172,4 +1368,667 @@ def pagina_lembretes(
     <tbody>{linhas}</tbody>
   </table>
 </main>
+  </div>
+</div>
 </body></html>"""
+
+
+_ESTILO += """
+/* ==========================================================================
+   Tema v2 do painel (Fase 5K) — inspirado no mock de admin dashboard:
+   sidebar colorida, topbar clara, cards com anéis, gráficos e tabelas limpas.
+   Este bloco é anexado ao final do _ESTILO e sobrescreve o tema anterior.
+   ========================================================================== */
+
+:root {
+  --v2-roxo: #7c3aed;
+  --v2-roxo-esc: #5b21b6;
+  --v2-sidebar-1: #6d28d9;
+  --v2-sidebar-2: #4c1d95;
+  --v2-fundo: #f3f5fb;
+  --v2-card: #ffffff;
+  --v2-texto: #0f172a;
+  --v2-muted: #64748b;
+  --v2-borda: #e6eaf2;
+  --v2-ok: #16a34a;
+  --v2-erro: #dc2626;
+  --v2-warn: #d97706;
+  --v2-sombra: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  background: var(--v2-fundo) !important;
+  color: var(--v2-texto);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ---------- Estrutura: sidebar + conteúdo ---------- */
+.layout {
+  display: flex;
+  min-height: 100vh;
+  align-items: stretch;
+}
+
+.sidebar {
+  width: 252px;
+  flex: 0 0 252px;
+  background: linear-gradient(180deg, var(--v2-sidebar-1) 0%, var(--v2-sidebar-2) 100%);
+  color: #ffffff;
+  padding: 22px 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.sidebar .marca {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 6px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.sidebar .marca .logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.16);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: 0.5px;
+}
+
+.sidebar .marca strong { display: block; font-size: 15px; letter-spacing: 0.2px; }
+.sidebar .marca small { color: rgba(255, 255, 255, 0.72); font-size: 11.5px; }
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 !important;
+  padding: 0;
+}
+
+.sidebar-nav a.item,
+.sidebar-nav a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.82) !important;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sidebar-nav a:hover { background: rgba(255, 255, 255, 0.10); color: #fff !important; }
+
+.sidebar-nav a.ativo,
+.sidebar-nav a.nav-on {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.sidebar .sair { margin-top: auto; }
+.sidebar .sair button,
+.sidebar .sair a {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.10);
+  color: #fff;
+  border: 0;
+  border-radius: 12px;
+  padding: 11px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+}
+.sidebar .sair button:hover { background: rgba(255, 255, 255, 0.18); }
+
+.ic { flex: 0 0 auto; }
+
+.painel { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+/* ---------- Topbar ---------- */
+.topbar,
+header.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 26px;
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-bottom: 1px solid var(--v2-borda);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  backdrop-filter: blur(6px);
+}
+
+.busca-topo { flex: 1; max-width: 460px; }
+.busca-topo form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f1f4fa;
+  border: 1px solid var(--v2-borda);
+  border-radius: 12px;
+  padding: 9px 12px;
+  margin: 0;
+}
+.busca-topo form .ic { color: var(--v2-muted); }
+.busca-topo input {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  outline: none;
+  font-size: 13.5px;
+  color: var(--v2-texto);
+  padding: 0;
+}
+
+.top-acoes { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.btn-topo {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: #f1f4fa;
+  border: 1px solid var(--v2-borda);
+  color: var(--v2-muted) !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+.btn-topo:hover { background: #e8ecf7; color: var(--v2-roxo) !important; }
+.badge-dot {
+  position: absolute;
+  top: 8px; right: 9px;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--v2-erro);
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.usuario-topo { display: flex; align-items: center; gap: 10px; padding-left: 6px; }
+.usuario-topo .avatar {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--v2-roxo), #a78bfa);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.3px;
+}
+.usuario-topo .dados strong { display: block; font-size: 13px; line-height: 1.1; }
+.usuario-topo .dados small { color: var(--v2-muted); font-size: 11.5px; }
+
+/* ---------- Conteúdo ---------- */
+/* ---------- Polimento pós-preview ---------- */
+.cards > div:not(.card) {
+  background: var(--v2-card);
+  border: 1px solid var(--v2-borda);
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: var(--v2-sombra);
+  flex: 1 1 170px;
+  min-width: 0;
+}
+.cards > div:not(.card) .pill { margin-top: 6px; }
+.cards > div:not(.card) .dica { display: inline-block; margin-bottom: 2px; }
+.barras .barra .col[style*="height:6%"] { opacity: 0.3; }
+tbody tr:nth-child(even) { background: #fbfcfe; }
+.acoes-linha .perigo { background: var(--v2-erro) !important; color: #fff !important; }
+
+main {
+  padding: 24px 26px 70px !important;
+  max-width: 1340px !important;
+  width: 100%;
+  margin: 0 auto !important;
+}
+
+main > h2,
+h2 {
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  color: var(--v2-muted) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 26px 0 10px !important;
+}
+
+h2:first-of-type { margin-top: 4px !important; }
+
+/* ---------- KPIs ---------- */
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.kpi {
+  background: var(--v2-card);
+  border: 1px solid var(--v2-borda);
+  border-radius: 16px;
+  padding: 16px 18px;
+  box-shadow: var(--v2-sombra);
+  position: relative;
+  overflow: hidden;
+}
+.kpi::after {
+  content: "";
+  position: absolute;
+  right: -28px; top: -28px;
+  width: 92px; height: 92px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.10), transparent 70%);
+}
+.kpi .n { font-size: 27px; font-weight: 800; color: var(--v2-texto); line-height: 1.15; }
+.kpi .l { font-size: 12.5px; color: var(--v2-muted); margin-top: 2px; }
+.kpi.destaque .n { color: var(--v2-erro); }
+
+/* compat: cards antigos (.cards/.card) continuam usados em outras páginas */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 10px; }
+.card {
+  background: var(--v2-card) !important;
+  border: 1px solid var(--v2-borda) !important;
+  border-radius: 16px !important;
+  padding: 16px 18px !important;
+  box-shadow: var(--v2-sombra);
+  min-width: 0 !important;
+}
+.card .n { font-size: 26px !important; font-weight: 800 !important; color: var(--v2-texto) !important; }
+.card .l { font-size: 12.5px !important; color: var(--v2-muted) !important; }
+.card.alerta .n { color: var(--v2-erro) !important; }
+
+/* ---------- Linha de anéis ---------- */
+.aneis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.anel-card {
+  background: var(--v2-card);
+  border: 1px solid var(--v2-borda);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: var(--v2-sombra);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.anel-card .anel { flex: 0 0 auto; }
+.anel-txt { font-size: 15px; font-weight: 800; fill: var(--v2-texto); }
+.anel-card .txt strong { display: block; font-size: 14.5px; }
+.anel-card .txt small { display: block; color: var(--v2-muted); font-size: 12px; margin-top: 3px; }
+
+/* ---------- Gráficos ---------- */
+.graficos {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.painel-card {
+  background: var(--v2-card);
+  border: 1px solid var(--v2-borda);
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: var(--v2-sombra);
+  min-width: 0;
+}
+.painel-card .titulo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.painel-card .titulo strong { font-size: 14.5px; }
+.painel-card .titulo small { color: var(--v2-muted); font-size: 12px; }
+
+.barras {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 175px;
+  padding-top: 6px;
+}
+.barras .barra {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 5px;
+}
+.barras .barra .col {
+  width: 100%;
+  max-width: 34px;
+  border-radius: 7px 7px 3px 3px;
+  background: linear-gradient(180deg, #a78bfa 0%, var(--v2-roxo) 55%, var(--v2-roxo-esc) 100%);
+  min-height: 4px;
+  transition: opacity 0.15s;
+}
+.barras .barra:hover .col { opacity: 0.82; }
+.barras .barra .rotulo { font-size: 10.5px; color: var(--v2-muted); }
+.barras .barra .valor { font-size: 10.5px; font-weight: 700; color: var(--v2-texto); }
+
+.donut-wrap { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.donut-wrap .legenda { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 130px; }
+.donut-wrap .legenda .linha { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--v2-texto); }
+.donut-wrap .legenda .bolinha { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.donut-wrap .legenda .qtd { margin-left: auto; color: var(--v2-muted); font-size: 12px; }
+
+/* ---------- Saúde do sistema ---------- */
+.saude-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f1f4fa;
+  border-radius: 999px;
+  padding: 5px 11px;
+  margin: 2px 4px 2px 0;
+  font-size: 12.5px;
+  color: var(--v2-texto);
+  border: 1px solid transparent;
+}
+.pill.saude-ok { background: #e7f8ee; color: #14532d; border-color: #bbf7d0; }
+.pill.saude-atencao { background: #fef7e6; color: #78350f; border-color: #fde68a; }
+.pill.saude-erro { background: #fdecec; color: #7f1d1d; border-color: #fecaca; }
+.pill.saude-info { background: #eef2ff; color: #312e81; border-color: #e0e7ff; }
+.pill.on { background: #e7f8ee; color: #14532d; }
+.pill.off { background: #f1f4fa; color: var(--v2-muted); }
+
+.on { color: var(--v2-ok) !important; font-weight: 600; }
+.off { color: #94a3b8 !important; }
+.erro { color: var(--v2-erro) !important; }
+.dica { color: var(--v2-muted); font-size: 12.5px; }
+.nota-lgpd { color: var(--v2-muted); font-size: 12.5px; margin: 0 0 16px; }
+
+/* ---------- Tabelas ---------- */
+.tabela-card {
+  background: var(--v2-card);
+  border: 1px solid var(--v2-borda);
+  border-radius: 18px;
+  box-shadow: var(--v2-sombra);
+  overflow: hidden;
+  margin-bottom: 18px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
+}
+thead th {
+  background: #f8fafc !important;
+  color: var(--v2-muted) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 700;
+  text-align: left;
+  padding: 12px 14px !important;
+  border-bottom: 1px solid var(--v2-borda) !important;
+  white-space: nowrap;
+}
+tbody td {
+  padding: 12px 14px !important;
+  font-size: 13px !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  color: var(--v2-texto);
+  vertical-align: middle;
+}
+tbody tr:last-child td { border-bottom: 0 !important; }
+tbody tr:hover { background: #fafbff; }
+table a { color: var(--v2-roxo) !important; text-decoration: none; font-weight: 600; }
+table a:hover { text-decoration: underline; }
+
+/* ---------- Filtros e botões ---------- */
+form.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 14px !important;
+  background: var(--v2-card);
+  border: 1px solid var(--v2-borda);
+  border-radius: 14px;
+  padding: 12px 14px !important;
+  box-shadow: var(--v2-sombra);
+}
+form.filtros input,
+form.filtros select,
+form.seg-form input,
+.acoes-linha input,
+.acoes-linha select {
+  padding: 9px 11px !important;
+  border: 1px solid var(--v2-borda) !important;
+  border-radius: 10px !important;
+  font-size: 13px !important;
+  background: #f8fafc;
+  color: var(--v2-texto);
+}
+form.filtros input:focus, form.filtros select:focus { outline: 2px solid rgba(124, 58, 237, 0.25); background: #fff; }
+
+button, .btn {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+form.filtros button,
+.btn,
+button.btn {
+  background: var(--v2-roxo) !important;
+  color: #fff !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  padding: 9px 16px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  text-decoration: none;
+  display: inline-block;
+}
+form.filtros button:hover, .btn:hover { background: var(--v2-roxo-esc) !important; }
+
+.btn.secundario,
+a.btn.secundario {
+  background: #f1f4fa !important;
+  color: #334155 !important;
+  border: 1px solid var(--v2-borda) !important;
+}
+.btn.secundario:hover { background: #e8ecf7 !important; }
+.btn.pequeno { padding: 5px 10px !important; font-size: 12px !important; border-radius: 8px !important; }
+.btn.perigo, .acoes-linha button.perigo, form.acoes button.perigo {
+  background: var(--v2-erro) !important;
+}
+
+form.busca { margin: 0 0 12px; display: flex; gap: 8px; }
+form.busca input { flex: 1; padding: 10px 12px; border: 1px solid var(--v2-borda); border-radius: 10px; background: #f8fafc; }
+form.busca button { background: var(--v2-roxo); color: #fff; border: 0; border-radius: 10px; padding: 10px 16px; }
+
+.pager { display: flex; gap: 16px; align-items: center; font-size: 13px; margin: 14px 0 6px; color: var(--v2-muted); }
+.pager a { color: var(--v2-roxo); text-decoration: none; font-weight: 600; }
+
+/* ---------- Ações do detalhe / caixas ---------- */
+.acoes-linha {
+  display: flex !important;
+  gap: 14px !important;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  background: var(--v2-card) !important;
+  border: 1px solid var(--v2-borda) !important;
+  border-radius: 16px !important;
+  padding: 16px 18px !important;
+  margin: 0 0 20px !important;
+  box-shadow: var(--v2-sombra);
+}
+.acoes-linha form { display: flex; gap: 10px; align-items: flex-end; margin: 0; }
+.acoes-linha label { font-size: 12px; color: var(--v2-muted); display: flex; flex-direction: column; gap: 5px; }
+.acoes-linha button { background: var(--v2-roxo) !important; color: #fff !important; border: 0 !important; border-radius: 10px !important; padding: 9px 14px !important; font-size: 13px !important; font-weight: 600; }
+
+.grid-cards { display: flex; gap: 12px; flex-wrap: wrap; margin: 0 0 18px; }
+.grid-cards .card { flex: 1 1 160px; }
+.card .n.pequeno { font-size: 20px; }
+
+.seg-box, .aviso-box {
+  background: var(--v2-card) !important;
+  border: 1px solid var(--v2-borda) !important;
+  border-radius: 16px !important;
+  padding: 16px 18px !important;
+  box-shadow: var(--v2-sombra);
+}
+.seg-box h3 { margin: 0 0 8px; font-size: 14px; color: var(--v2-texto); }
+.seg-box p { margin: 0 0 10px; font-size: 13px; color: var(--v2-muted); }
+.segredo { font-family: ui-monospace, Menlo, monospace; font-size: 14px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 9px 11px; display: inline-block; word-break: break-all; }
+.codigos { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+.codigos code { background: #f3e8ff; border: 1px solid #d8b4fe; border-radius: 8px; padding: 7px 11px; font-size: 14px; }
+
+/* ---------- Login / 2FA (telas de autenticação) ---------- */
+form.login {
+  max-width: 400px !important;
+  margin: 8vh auto !important;
+  background: var(--v2-card) !important;
+  border: 1px solid var(--v2-borda) !important;
+  border-radius: 20px !important;
+  padding: 30px 28px !important;
+  box-shadow: 0 24px 60px rgba(76, 29, 149, 0.14) !important;
+}
+form.login h2 { font-size: 21px !important; text-transform: none !important; letter-spacing: 0 !important; color: var(--v2-texto) !important; margin: 0 0 4px !important; }
+form.login label { display: block; font-size: 12.5px; color: var(--v2-muted); margin: 14px 0 6px; }
+form.login input {
+  width: 100%;
+  padding: 11px 12px !important;
+  border: 1px solid var(--v2-borda) !important;
+  border-radius: 11px !important;
+  background: #f8fafc;
+  font-size: 14px;
+  margin: 0 0 4px !important;
+}
+form.login input:focus { outline: 2px solid rgba(124, 58, 237, 0.25); background: #fff; }
+form.login button {
+  width: 100%;
+  margin-top: 16px;
+  background: var(--v2-roxo) !important;
+  color: #fff !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  padding: 12px !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+}
+form.login .dica { margin-top: 14px; text-align: center; }
+
+.tela-2fa {
+  max-width: 420px !important;
+  margin: 8vh auto !important;
+  background: var(--v2-card) !important;
+  border: 1px solid var(--v2-borda) !important;
+  border-radius: 20px !important;
+  padding: 28px !important;
+  box-shadow: 0 24px 60px rgba(76, 29, 149, 0.14) !important;
+}
+.tela-2fa h2 { font-size: 19px !important; text-transform: none !important; letter-spacing: 0 !important; color: var(--v2-texto) !important; }
+.tela-2fa input {
+  width: 100%;
+  padding: 12px !important;
+  margin: 10px 0 14px !important;
+  border: 1px solid var(--v2-borda) !important;
+  border-radius: 12px !important;
+  font-size: 20px !important;
+  letter-spacing: 6px;
+  text-align: center;
+  background: #f8fafc;
+}
+.tela-2fa button {
+  width: 100%;
+  background: var(--v2-roxo) !important;
+  color: #fff !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  padding: 12px !important;
+  font-size: 15px !important;
+  font-weight: 700;
+}
+
+/* ---------- Utilitários ---------- */
+.rolagem { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 0 12px; }
+.voltar { font-size: 13px; color: var(--v2-roxo) !important; text-decoration: none; font-weight: 600; }
+.aviso-box { border-left: 4px solid var(--v2-warn) !important; color: #78350f; }
+
+/* ---------- Responsivo ---------- */
+@media (max-width: 1024px) {
+  .graficos { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 760px) {
+  .layout { flex-direction: column; }
+  .sidebar {
+    position: static;
+    width: auto;
+    flex: 0 0 auto;
+    height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+  }
+  .sidebar .marca { border: 0; padding: 0 8px 0 0; }
+  .sidebar .marca div { display: none; }
+  .sidebar .marca .logo { width: 34px; height: 34px; font-size: 16px; border-radius: 10px; }
+  .sidebar-nav { flex-direction: row; flex-wrap: wrap; gap: 4px; }
+  .sidebar-nav a.item, .sidebar-nav a { padding: 8px 10px; font-size: 12.5px; }
+  .sidebar .sair { margin: 0 0 0 auto; width: auto; }
+  .sidebar .sair button { width: auto; padding: 8px 10px; }
+  .topbar, header.topbar { flex-wrap: wrap; gap: 10px; padding: 10px 14px; }
+  .busca-topo { order: 3; flex: 1 1 100%; max-width: none; }
+  .top-acoes { margin-left: auto; }
+  .usuario-topo .dados { display: none; }
+  main { padding: 16px 14px 80px !important; }
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+  .cards { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .card, .kpi { padding: 13px 14px !important; }
+  .card .n, .kpi .n { font-size: 22px !important; }
+  .aneis { grid-template-columns: 1fr; }
+  .anel-card { padding: 14px; gap: 12px; }
+  table { font-size: 12px; }
+  thead th { padding: 9px 10px !important; }
+  tbody td { padding: 9px 10px !important; }
+  form.filtros { padding: 10px !important; }
+  form.filtros input, form.filtros select, form.filtros button, .btn.secundario { width: 100%; }
+  .acoes-linha { flex-direction: column; align-items: stretch; }
+  .acoes-linha form { flex-wrap: wrap; }
+  .grid-cards .card { flex: 1 1 45%; }
+  .segredo { font-size: 12.5px; }
+  .tela-2fa { margin: 24px auto !important; padding: 20px !important; }
+  form.login { margin: 24px auto !important; padding: 24px 20px !important; }
+}
+"""
