@@ -2322,6 +2322,7 @@ def _filtros_admin(request: Request) -> dict:
         "online": (parametros.get("online") or "").strip()[:1],
         "versao": (parametros.get("versao") or "").strip()[:30],
         "ordenar": (parametros.get("ordenar") or "criado_desc").strip().lower()[:20],
+        "tipo": (parametros.get("tipo") or "psicologos").strip().lower()[:20],
     }
 
 
@@ -2449,7 +2450,7 @@ def admin_usuarios_csv(request: Request):
     buffer.write("\ufeff")  # BOM para o Excel abrir UTF-8 corretamente
     escritor = csv.writer(buffer, delimiter=";")
     escritor.writerow([
-        "email", "nome", "plano", "papel", "status", "criado_em", "ultimo_acesso_em",
+        "email", "nome", "plano", "papel", "psicologo", "status", "criado_em", "ultimo_acesso_em",
         "plataforma", "versao_app", "ultimo_heartbeat_em",
     ])
     for linha in linhas:
@@ -2458,6 +2459,7 @@ def admin_usuarios_csv(request: Request):
             linha.get("nome") or "",
             linha.get("plano") or "",
             linha.get("role") or "",
+            "1" if linha.get("eh_psicologo") else "0",
             linha.get("status") or "",
             linha.get("criado_em") or "",
             linha.get("ultimo_acesso_em") or "",
@@ -2544,6 +2546,21 @@ async def admin_usuario_acao(request: Request, usuario_id: str):
                 ator, "usuario.plano", alvo, f"plano {anterior} -> {novo_plano}", ip
             )
             return redirecionar(msg=f"Plano de {alvo}: {novo_plano}.")
+
+        if acao == "tipo":
+            eh_psicologo = (form.get("eh_psicologo") or "").strip() in ("1", "sim", "true")
+            if not admin_service.definir_eh_psicologo(usuario_id, eh_psicologo):
+                raise ValueError("Usuário não encontrado.")
+            admin_service.registrar_auditoria(
+                ator,
+                "usuario.tipo",
+                alvo,
+                f"psicologo {int(bool(detalhe['usuario'].get('eh_psicologo')))} -> {int(eh_psicologo)}",
+                ip,
+            )
+            if eh_psicologo:
+                return redirecionar(msg=f"Conta {alvo} marcada como psicóloga (usa o app).")
+            return redirecionar(msg=f"Conta {alvo} marcada como equipe (não psicólogo).")
 
         if acao == "reenviar_confirmacao":
             from services.usuarios import renovar_token_confirmacao

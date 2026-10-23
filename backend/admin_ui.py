@@ -119,6 +119,7 @@ def _linha_usuario(u: dict) -> str:
         f"<td>{_esc(u.get('nome'))}</td>"
         f"<td>{_esc(u.get('plano'))}</td>"
         f"<td>{_esc(u.get('role'))}</td>"
+        f"<td>{'sim' if u.get('eh_psicologo') else 'não'}</td>"
         f"<td>{_esc(u.get('status'))}</td>"
         f"<td>{aparelho or '-'}</td>"
         f"<td>{estado}</td>"
@@ -196,6 +197,9 @@ def _secao_operacao(extras: dict | None) -> str:
 
 def _querystring(filtros: dict, pagina: int | None = None) -> str:
     pares = []
+    tipo = (filtros or {}).get("tipo") or "psicologos"
+    if tipo != "psicologos":
+        pares.append(f"tipo={_esc(tipo)}")
     for chave in ("busca", "status", "plano", "online", "versao", "ordenar"):
         valor = (filtros or {}).get(chave) or ""
         if valor and not (chave == "ordenar" and valor == "criado_desc"):
@@ -215,6 +219,15 @@ def _opcoes_select(nome: str, opcoes: list, valor_atual: str, rotulo_todos: str)
 
 def _form_filtros(filtros: dict, opcoes: dict | None) -> str:
     opcoes = opcoes or {}
+    tipo_atual = (filtros or {}).get("tipo") or "psicologos"
+    opcoes_tipo = "".join(
+        f'<option value="{valor}"{" selected" if valor == tipo_atual else ""}>{rotulo}</option>'
+        for valor, rotulo in (
+            ("psicologos", "Psicólogos"),
+            ("equipe", "Equipe do painel"),
+            ("todos", "Todos"),
+        )
+    )
     ordenacoes = [
         ("criado_desc", "Mais recentes"), ("criado_asc", "Mais antigos"),
         ("acesso_desc", "Último acesso"), ("email_asc", "E-mail (A-Z)"),
@@ -234,6 +247,7 @@ def _form_filtros(filtros: dict, opcoes: dict | None) -> str:
     return f"""
   <form class="filtros" method="get" action="/admin">
     <input type="text" name="busca" placeholder="Buscar por e-mail ou nome" value="{_esc(filtros.get('busca'))}">
+    <select name="tipo">{opcoes_tipo}</select>
     {_opcoes_select("status", opcoes.get("status") or [], filtros.get("status"), "Status (todos)")}
     {_opcoes_select("plano", opcoes.get("planos") or [], filtros.get("plano"), "Plano (todos)")}
     {_opcoes_select("versao", opcoes.get("versoes") or [], filtros.get("versao"), "Versão (todas)")}
@@ -287,7 +301,7 @@ def pagina_dashboard(
     ) or '<span class="off">nenhum</span>'
 
     linhas = "".join(_linha_usuario(u) for u in pagina["usuarios"]) or (
-        '<tr><td colspan="9" class="off">Nenhum psicólogo encontrado com esses filtros.</td></tr>'
+        '<tr><td colspan="10" class="off">Nenhuma pessoa encontrada com esses filtros.</td></tr>'
     )
 
     total = pagina["total"]
@@ -318,7 +332,8 @@ def pagina_dashboard(
 {_cabecalho_painel(pode_email=pode_email)}
 <main>
   <div class="cards">
-    <div class="card"><div class="n">{int(kpis["total_usuarios"])}</div><div class="l">Psicólogos</div></div>
+    <div class="card"><div class="n">{int(kpis["psicologos"])}</div><div class="l">Psicólogos</div></div>
+    <div class="card"><div class="n">{int(kpis["equipe"])}</div><div class="l">Equipe do painel</div></div>
     <div class="card"><div class="n">{int(kpis["online_agora"])}</div><div class="l">Online agora</div></div>
     {card_novos}
     {card_pendentes}
@@ -331,11 +346,11 @@ def pagina_dashboard(
   <h2>Uso por tipo de evento</h2>
   <div>{eventos}</div>
 
-  <h2>Psicólogos ({total})</h2>
+  <h2>Pessoas ({total})</h2>
   {_form_filtros(filtros, opcoes)}
   <table>
     <thead><tr>
-      <th>E-mail</th><th>Nome</th><th>Plano</th><th>Papel</th><th>Status</th>
+      <th>E-mail</th><th>Nome</th><th>Plano</th><th>Papel</th><th>Psicólogo</th><th>Status</th>
       <th>Aparelho</th><th>Presença</th><th>Visto</th><th>Último acesso</th>
     </tr></thead>
     <tbody>{linhas}</tbody>
@@ -707,6 +722,7 @@ def pagina_usuario(
             _cartao("Status", status, destaque=status != "ativo"),
             _cartao("Plano", usuario.get("plano")),
             _cartao("Papel", usuario.get("role")),
+            _cartao("Psicólogo do app", "sim" if usuario.get("eh_psicologo") else "não"),
             _cartao("Sessões do app revogadas", int(usuario.get("token_version") or 0)),
             _cartao("Criado em", _quando(usuario.get("criado_em"))),
             _cartao("Último acesso", _quando(usuario.get("ultimo_acesso_em"))),
@@ -763,6 +779,16 @@ def pagina_usuario(
         <input type="text" name="plano" maxlength="30" value="{_esc(usuario.get('plano'))}" autocomplete="off">
       </label>
       <button type="submit">Salvar plano</button>
+    </form>
+    <form method="post" action="/admin/usuarios/{ident}/acao">
+      <input type="hidden" name="acao" value="tipo">
+      <label>Tipo de conta
+        <select name="eh_psicologo">
+          <option value="1"{' selected' if usuario.get('eh_psicologo') else ''}>Psicólogo (usa o app)</option>
+          <option value="0"{' selected' if not usuario.get('eh_psicologo') else ''}>Equipe (não psicólogo)</option>
+        </select>
+      </label>
+      <button type="submit">Salvar tipo</button>
     </form>
     <form method="post" action="/admin/usuarios/{ident}/acao">
       <input type="hidden" name="acao" value="papel">

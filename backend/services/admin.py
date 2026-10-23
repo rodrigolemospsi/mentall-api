@@ -25,9 +25,17 @@ def _limite_online_iso() -> str:
 
 def kpis() -> dict:
     total = executar("SELECT COUNT(*) AS c FROM usuarios").fetchone()["c"]
+    psicologos = executar(
+        "SELECT COUNT(*) AS c FROM usuarios WHERE COALESCE(eh_psicologo, 1) = 1"
+    ).fetchone()["c"]
+    equipe = executar(
+        "SELECT COUNT(*) AS c FROM usuarios WHERE role IN ('admin', 'financeiro', 'suporte')"
+    ).fetchone()["c"]
     limite = _limite_online_iso()
     online = executar(
-        "SELECT COUNT(DISTINCT owner_id) AS c FROM dispositivos WHERE ultimo_heartbeat_em >= ?",
+        "SELECT COUNT(DISTINCT d.owner_id) AS c FROM dispositivos d "
+        "JOIN usuarios u ON u.id = d.owner_id "
+        "WHERE d.ultimo_heartbeat_em >= ? AND COALESCE(u.eh_psicologo, 1) = 1",
         (limite,),
     ).fetchone()["c"]
     aparelhos = [
@@ -45,6 +53,8 @@ def kpis() -> dict:
     ]
     return {
         "total_usuarios": total,
+        "psicologos": psicologos,
+        "equipe": equipe,
         "online_agora": online,
         "aparelhos": aparelhos,
         "eventos_por_tipo": eventos,
@@ -59,10 +69,20 @@ ORDENACOES_USUARIOS = {
 }
 
 
-def _where_usuarios(busca="", status="", plano="", online="", versao=""):
-    """Monta WHERE/params dos filtros do painel (Fase 5A.2)."""
+def _where_usuarios(busca="", status="", plano="", online="", versao="", tipo="psicologos"):
+    """Monta WHERE/params dos filtros do painel (Fase 5A.2 / 5I).
+
+    `tipo`: psicologos (padrão), equipe do painel (papéis admin/financeiro/
+    suporte) ou todos. O papel do painel e o fato de ser psicólogo são eixos
+    diferentes — uma pessoa pode ser admin E psicóloga.
+    """
     condicoes = ["(u.email LIKE ? OR u.nome LIKE ?)"]
     params = [f"%{(busca or '').strip()}%", f"%{(busca or '').strip()}%"]
+    tipo = (tipo or "psicologos").strip().lower()
+    if tipo == "psicologos":
+        condicoes.append("COALESCE(u.eh_psicologo, 1) = 1")
+    elif tipo == "equipe":
+        condicoes.append("u.role IN ('admin', 'financeiro', 'suporte')")
     if status:
         condicoes.append("u.status = ?")
         params.append(status)
@@ -103,12 +123,13 @@ def listar_usuarios(
     online: str = "",
     versao: str = "",
     ordenar: str = "criado_desc",
+    tipo: str = "psicologos",
 ) -> dict:
-    """Lista paginada de psicólogos com filtros, em UMA consulta (sem N+1)."""
+    """Lista paginada com filtros, em UMA consulta (sem N+1)."""
     pagina = max(1, int(pagina))
     limite = max(1, min(100, int(limite)))
     offset = (pagina - 1) * limite
-    where, params = _where_usuarios(busca, status, plano, online, versao)
+    where, params = _where_usuarios(busca, status, plano, online, versao, tipo)
 
     total = executar(
         f"SELECT COUNT(*) AS c FROM usuarios u WHERE {where}", tuple(params)
@@ -116,7 +137,8 @@ def listar_usuarios(
 
     linhas = executar(
         "SELECT u.id, u.email, u.nome, u.plano, u.role, u.status, u.criado_em, "
-        "u.ultimo_acesso_em, d.plataforma, d.versao_app, d.ultimo_heartbeat_em "
+        "u.ultimo_acesso_em, COALESCE(u.eh_psicologo, 1) AS eh_psicologo, "
+        "d.plataforma, d.versao_app, d.ultimo_heartbeat_em "
         "FROM usuarios u LEFT JOIN dispositivos d ON d.device_id = ("
         "  SELECT device_id FROM dispositivos WHERE owner_id = u.id "
         "  ORDER BY ultimo_heartbeat_em DESC LIMIT 1) "
@@ -135,6 +157,7 @@ def listar_usuarios(
             "plano": row["plano"],
             "role": row["role"],
             "status": row["status"],
+            "eh_psicologo": int(row["eh_psicologo"] or 0),
             "criado_em": row["criado_em"],
             "ultimo_acesso_em": row["ultimo_acesso_em"],
             "online": bool(ultimo_hb and ultimo_hb >= limite_online),
@@ -153,12 +176,14 @@ def exportar_usuarios(
     online: str = "",
     versao: str = "",
     ordenar: str = "criado_desc",
+    tipo: str = "psicologos",
     limite_maximo: int = 5000,
 ) -> list[dict]:
     """Linhas da listagem (sem paginação) para exportação CSV."""
-    where, params = _where_usuarios(busca, status, plano, online, versao)
+    where, params = _where_usuarios(busca, status, plano, online, versao, tipo)
     linhas = executar(
-        "SELECT u.email, u.nome, u.plano, u.role, u.status, u.criado_em, u.ultimo_acesso_em, "
+        "SELECT u.email, u.nome, u.plano, u.role, u.status, "
+        "COALESCE(u.eh_psicologo, 1) AS eh_psicologo, u.criado_em, u.ultimo_acesso_em, "
         "d.plataforma, d.versao_app, d.ultimo_heartbeat_em "
         "FROM usuarios u LEFT JOIN dispositivos d ON d.device_id = ("
         "  SELECT device_id FROM dispositivos WHERE owner_id = u.id "
@@ -167,6 +192,16 @@ def exportar_usuarios(
         tuple(params) + (max(1, int(limite_maximo)),),
     ).fetchall()
     return [dict(linha) for linha in linhas]
+
+
+def definir_eh_psicologo(usuario_id: str, valor: bool) -> bool:
+    """Marca/desmarca a conta como psicóloga do app (eixo separado do papel)."""
+    cur = executar(
+        "UPDATE usuarios SET eh_psicologo = ? WHERE id = ?",
+        (1 if valor else 0, usuario_id),
+    )
+    cur.commit()
+    return (cur.rowcount or 0) == 1
 
 
 def _contar_n(sql: str, params=()) -> int:
@@ -277,7 +312,9 @@ def listar_auditoria(limite: int = 10, alvo: str = "") -> list[dict]:
 def detalhar_usuario(usuario_id: str) -> dict | None:
     """Metadados operacionais do usuário — sem conteúdo clínico (LGPD)."""
     usuario = executar(
-        "SELECT id, email, nome, plano, role, status, criado_em, ultimo_acesso_em "
+        "SELECT id, email, nome, plano, role, status, criado_em, ultimo_acesso_em, "
+        "COALESCE(token_version, 0) AS token_version, "
+        "COALESCE(eh_psicologo, 1) AS eh_psicologo "
         "FROM usuarios WHERE id = ?",
         (usuario_id,),
     ).fetchone()

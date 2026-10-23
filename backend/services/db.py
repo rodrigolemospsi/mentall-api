@@ -275,7 +275,8 @@ _tabelas = [
         ultimo_acesso_em TEXT,
         email_verificacao_token_hash TEXT,
         email_verificacao_expiracao TEXT,
-        token_version INTEGER NOT NULL DEFAULT 0
+        token_version INTEGER NOT NULL DEFAULT 0,
+        eh_psicologo INTEGER NOT NULL DEFAULT 1
     )""",
     """CREATE TABLE IF NOT EXISTS wuzapi_instancias (
         owner_id TEXT PRIMARY KEY,
@@ -371,3 +372,4 @@ _garantir_coluna("lembretes", "mensagem_id", "TEXT")
 _garantir_coluna("lembretes", "entregue_em", "TEXT")
 _garantir_coluna("lembretes", "lido_em", "TEXT")
 _garantir_coluna("usuarios", "token_version", "INTEGER NOT NULL DEFAULT 0")
+_garantir_coluna("usuarios", "eh_psicologo", "INTEGER NOT NULL DEFAULT 1")

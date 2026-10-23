@@ -82,6 +82,38 @@ Suspender bloqueia **novos logins**, mas um JWT de app já emitido continua vál
 não existe registro de tokens por usuário. Revogação global por usuário (token_version) fica para o
 P1 de segurança.
 
+## Psicólogo × equipe do painel — Fase 5I (24/10/2026)
+
+### Contexto
+O painel contava **todos os usuários** como "Psicólogos" e listava administradores junto. Na prática:
+- o dono (Rodrigo) é **psicólogo E admin** do painel;
+- Anderson é **admin**, não psicólogo;
+- a conta `helena.demo@` era apenas teste.
+
+Papel do painel (`role`: admin/financeiro/suporte/user) não é a mesma coisa que "usa o app como
+psicólogo". Foi criado um eixo separado.
+
+### O que mudou (arquivos)
+1. **`backend/services/db.py`** — coluna `usuarios.eh_psicologo` (migração automática, padrão 1).
+2. **`backend/services/admin.py`**
+   - `kpis()`: novos campos **`psicologos`** (eh_psicologo=1) e **`equipe`** (role do painel);
+     `online_agora` passa a contar psicólogos online.
+   - `listar_usuarios/exportar_usuarios`: filtro **`tipo`** (`psicologos` padrão, `equipe`, `todos`);
+     coluna `eh_psicologo` no retorno/CSV.
+   - `detalhar_usuario`: devolve `eh_psicologo`.
+   - **`definir_eh_psicologo(usuario_id, valor)`**.
+3. **`backend/main.py`** — filtro `tipo` no painel/CSV; ação `tipo` no detalhe do usuário (auditada como
+   `usuario.tipo`).
+4. **`backend/admin_ui.py`** — cards "Psicólogos" e "Equipe do painel", select de tipo na listagem,
+   coluna "Psicólogo" na tabela, card e formulário "Tipo de conta" no detalhe.
+5. **`backend/tests/test_admin_equipe.py`** (novo) — 10 testes.
+
+### Limpeza de dados (executada em produção)
+- `helena.demo@mentallpro.com.br` **excluída** via `services/exclusao_conta.excluir_conta` (registro em
+  `auditoria_exclusoes`; tinha 2 dispositivos e nenhum dado clínico).
+- `anderson.lemos@icloud.com` → `eh_psicologo = 0` (equipe/admin).
+- Dono permanece com `eh_psicologo = 1` (psicólogo + admin).
+
 ## Lembretes no painel + teto de retry — Fase 5H (24/10/2026)
 
 ### Diagnóstico
