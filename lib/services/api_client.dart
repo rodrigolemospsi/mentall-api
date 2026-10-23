@@ -433,4 +433,75 @@ class ApiClient {
       return {'sucesso': false, 'erro': 'Erro de conexao. Verifique a internet.'};
     }
   }
+
+  /// Exclusão da conta do psicólogo (backend `DELETE /conta`).
+  ///
+  /// Devolve `{sucesso: true, recibo: {...}}` ou
+  /// `{sucesso: false, status: int?, erro: String}`. Não lança: a tela decide
+  /// como apresentar a falha. O recibo traz data, contagens eliminadas e o
+  /// que foi retido (ver ESPECIFICACAO_exclusao_de_conta.md).
+  static Future<Map<String, dynamic>> excluirConta({
+    required String confirmacao,
+    http.Client? client,
+  }) async {
+    try {
+      if (!await ensureAuthenticated()) {
+        return {
+          'sucesso': false,
+          'status': 401,
+          'erro': 'Sessão expirada. Entre novamente na sua conta.',
+        };
+      }
+      final request = http.Request('DELETE', Uri.parse('$baseUrl/conta'))
+        ..headers.addAll(defaultHeaders())
+        ..body = jsonEncode({'confirmacao': confirmacao});
+      final streamed = await (client ?? httpClient)
+          .send(request)
+          .timeout(const Duration(seconds: 60));
+      final resposta = await http.Response.fromStream(streamed);
+      final texto = resposta.body;
+      Map<String, dynamic> dados = const <String, dynamic>{};
+      try {
+        dados = jsonDecode(texto) as Map<String, dynamic>;
+      } catch (_) {
+        dados = const <String, dynamic>{};
+      }
+      if (resposta.statusCode == 200) {
+        return {'sucesso': true, 'recibo': dados};
+      }
+      return {
+        'sucesso': false,
+        'status': resposta.statusCode,
+        'erro': _extrairDetalhe(dados) ??
+            'Não foi possível excluir a conta. Tente novamente.',
+      };
+    } catch (_) {
+      return {
+        'sucesso': false,
+        'erro': 'Erro de conexão. Verifique a internet e tente novamente.',
+      };
+    }
+  }
+
+  /// Limpa a sessão local depois da exclusão (token, conta e credenciais).
+  ///
+  /// Os dados clínicos cifrados do aparelho NÃO são apagados: o prontuário é
+  /// do profissional e permanece no aparelho (ver a tela de exclusão).
+  static Future<void> limparSessaoLocal() async {
+    authToken = null;
+    resetarCredenciaisEmMemoria();
+    try {
+      final auth = Hive.box<String>('auth_meta');
+      await auth.delete('jwt_token');
+      await auth.delete(_accountEmailKey);
+    } catch (_) {}
+    try {
+      final config = Hive.box<String>('app_config');
+      await config.delete(_usernameKey);
+      await config.delete(_passwordKey);
+    } catch (_) {}
+    try {
+      await credenciaisStore.limpar();
+    } catch (_) {}
+  }
 }

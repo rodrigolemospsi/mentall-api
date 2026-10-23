@@ -9,6 +9,7 @@ import '../services/api_client.dart';
 import '../services/configuracoes_service.dart';
 import '../utils/mentall_colors.dart';
 import '../utils/raio.dart';
+import 'exclusao_conta_page.dart';
 import 'google_calendar_page.dart';
 import 'lembretes_page.dart';
 import 'login_page.dart';
@@ -348,6 +349,38 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
               ),
             ],
           ),
+          if (ApiClient.possuiConta) ...[
+            const SizedBox(height: 16),
+            _secao(
+              context,
+              titulo: 'Conta',
+              children: [
+                ListTile(
+                  leading: Icon(
+                    Icons.no_accounts_outlined,
+                    color: context.corError,
+                  ),
+                  title: Text(
+                    'Excluir minha conta',
+                    style: TextStyle(
+                      color: context.corError,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: const Text(
+                    'Apaga a conta e os dados do servidor. O prontuário cifrado permanece neste aparelho.',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ExclusaoContaPage(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 16),
         ],
       ),

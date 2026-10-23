@@ -42,6 +42,43 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Exclusão de conta dentro do app — Fase 5P (23/10/2026)
+
+### Contexto
+Item 2.4a do checklist de publicação: Google Play e Apple 5.1.1(v) exigem exclusão de conta iniciada e
+concluída dentro do app. O backend já tinha `DELETE /conta` (caminho B, item 2.4); faltava o fluxo
+in-app e a limpeza da sessão local. O prontuário clínico é cifrado no aparelho e NÃO é apagado pelo
+servidor — a tela diz isso com todas as letras e não promete "exclusão total".
+
+### O que mudou (arquivos)
+1. **`lib/screens/exclusao_conta_page.dart` (novo)** — 3 passos: aviso (apagado no servidor × mantido
+   no aparelho × backup), confirmação digitada (`EXCLUIR`, comparação sem caixa como no backend) e
+   recibo (data, contagens por tabela, retido, como apagar os dados do aparelho). O voltar fica
+   bloqueado no recibo; "Concluir" navega para a tela de login/cadastro (`ContaPage`).
+2. **`lib/services/api_client.dart`** — `excluirConta()` (DELETE /conta com corpo JSON e Bearer;
+   devolve `{sucesso, recibo|erro, status}`; não lança) e `limparSessaoLocal()` (token JWT, conta,
+   `app_config` e cofre `CredenciaisStore`; NÃO apaga prontuário/backups locais).
+3. **`lib/screens/configuracoes_page.dart`** — seção "Conta" → "Excluir minha conta", oferecida só
+   quando `ApiClient.possuiConta` (conta registrada); o login admin legado não vê a opção (spec §2).
+4. **`test/services/api_client_exclusao_test.dart` (novo)** — 6 testes: método/corpo/Bearer, 403 da
+   conta admin, 400 de confirmação, 401 sem sessão, falha de conexão e limpeza da sessão local.
+5. **`test/widgets/exclusao_conta_page_test.dart` (novo)** — 7 testes: aviso, confirmação digitada,
+   recibo/limpeza, 403, nova tentativa, conta já excluída e conclusão.
+6. **`pubspec.yaml`** — `1.0.55+56` (APK de teste).
+7. **`AGENTS.md`** — esta seção.
+
+### Verificação
+- `flutter analyze --no-pub`: **No issues found** (MEDI, 23/10).
+- `flutter test --no-pub`: **337/337 OK** (MEDI, 23/10).
+- `flutter build apk --release`: APK `MentAllPRO-v1.0.55.apk` com assinatura debug (MEDI).
+- Pendente NO APARELHO: Configurações → Conta → Excluir minha conta, os 3 passos, cancelar o voltar
+  no recibo e o retorno à tela de login.
+
+### Pendências
+- Página web de exclusão (item 2.5) continua pendente — requisito do Play.
+- Retenção: a tela remete o prazo à Política de Privacidade (sem cravar 20 anos) — o prazo do doc 10
+  ainda está em validação jurídica (item 1.9).
+
 ## Ações administrativas e detalhe do usuário — Fase 5A.2 (22/10/2026)
 
 ### Contexto
