@@ -35,7 +35,7 @@ ENDERECOS = tuple(
     if e.strip()
 )
 
-SLAS_PADRAO = {"suporte@": 4.0, "financeiro@": 24.0}
+SLAS_PADRAO = {"contato@": 24.0, "suporte@": 4.0, "financeiro@": 24.0}
 
 
 def _slas() -> dict:

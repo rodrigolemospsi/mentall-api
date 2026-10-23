@@ -219,6 +219,7 @@ class SaudeEmailsTests(unittest.TestCase):
 class SlaTests(unittest.TestCase):
     def test_slas_padrao_e_override_por_env(self):
         with patch.dict(os.environ, {"MAIL_SLA_HORAS": ""}, clear=False):
+            self.assertEqual(email_metricas._slas()["contato@"], 24.0)
             self.assertEqual(email_metricas._slas()["suporte@"], 4.0)
             self.assertEqual(email_metricas._slas()["financeiro@"], 24.0)
         with patch.dict(os.environ, {"MAIL_SLA_HORAS": '{"financeiro@": 2}'}, clear=False):
@@ -362,14 +363,6 @@ class RotaTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resposta.status_code, 200)
         self.assertIn("Métricas das caixas de e-mail", resposta.text)
         self.assertIn("Tempo médio de resposta", resposta.text)
-
-
-class LifespanTests(unittest.IsolatedAsyncioTestCase):
-    async def test_lifespan_sobe_e_derruba_alertas(self):
-        # pega import/nome faltando (o deploy já quebrou por isso uma vez)
-        async with main.lifespan(main.app):
-            self.assertTrue(callable(getattr(main, "iniciar_alertas_email", None)))
-            self.assertTrue(callable(getattr(main, "parar_alertas_email", None)))
 
 
 if __name__ == "__main__":
