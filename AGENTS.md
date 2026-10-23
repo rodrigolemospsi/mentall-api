@@ -123,6 +123,22 @@ card da Saúde do painel e o alerta do app concordam entre si.
    **“Entradas por dia (14 dias)”** (barras, reutilizando `_grafico_barras`).
 4. **`backend/tests/test_email_metricas.py`** — +4 testes da Saúde e marcador do gráfico.
 
+## SLA por endereço + alerta no WhatsApp — Fase 5O (24/10/2026)
+
+### O que mudou
+1. **SLA por endereço** (`email_metricas`): `suporte@` = **4h** e `financeiro@` = **24h**
+   (configurável no secret `MAIL_SLA_HORAS`). Cada endereço passa a ter: respondidas 30d,
+   tempo médio de resposta, **pendentes fora do SLA**, **violações** e SLA configurado.
+2. **Painel → E-mail**: novos cartões/colunas de SLA ("Fora do SLA", "Pendentes fora do SLA",
+   "Violações") e botão **“Testar alerta no WhatsApp”**.
+3. **Alerta por WhatsApp** (`backend/services/email_alertas.py`):
+   - loop em background a cada **30 min** (env `EMAIL_ALERTAS_INTERVALO_MINUTOS`);
+   - envia resumo via Wuzapi para o número do secret `EMAIL_ALERTA_WHATSAPP`;
+   - **anti-spam**: no máximo 1 envio a cada **6h** (`EMAIL_ALERTAS_COOLDOWN_HORAS`);
+   - estado em `email_alertas_estado` (tabela nova).
+4. **Saúde do painel**: check “E-mail (caixas)” fica **atenção** quando há e-mails fora do SLA.
+5. **Testes**: SLA (violação/pendente/dentro), alertas (cooldown, mensagem, envio) e rota de teste.
+
 ## Métricas das caixas de e-mail — Fase 5M (24/10/2026)
 
 ### Contexto

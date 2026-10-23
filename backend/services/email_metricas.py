@@ -35,6 +35,27 @@ ENDERECOS = tuple(
     if e.strip()
 )
 
+SLAS_PADRAO = {"suporte@": 4.0, "financeiro@": 24.0}
+
+
+def _slas() -> dict:
+    """SLA (horas de primeira resposta) por endereço; configurável by env."""
+    bruto = (os.getenv("MAIL_SLA_HORAS") or "").strip()
+    slas = dict(SLAS_PADRAO)
+    if bruto:
+        try:
+            dados = json.loads(bruto)
+        except ValueError:
+            dados = {}
+        if isinstance(dados, dict):
+            for chave, valor in dados.items():
+                try:
+                    slas[str(chave).strip().lower()] = float(valor)
+                except (TypeError, ValueError):
+                    continue
+    return {chave: valor for chave, valor in slas.items() if chave in ENDERECOS}
+
+
 _CAMPOS = (
     "(BODY.PEEK[HEADER.FIELDS (FROM TO CC DATE MESSAGE-ID IN-REPLY-TO REFERENCES)])"
 )
@@ -148,24 +169,51 @@ def _cabecalhos(conexao, ids: list) -> list[dict]:
     return resultado
 
 
-def _metricas_por_endereco(inicio_7d: datetime, headers_in: list[dict]) -> dict:
+def _metricas_por_endereco(
+    inicio_7d: datetime,
+    headers_in: list[dict],
+    resposta_por_mid: dict,
+    agora: datetime,
+    slas: dict,
+) -> dict:
+    """Métricas por endereço de destino, incluindo SLA de primeira resposta."""
     contagem = {}
     for endereco in ENDERECOS:
+        sla = slas.get(endereco)
         com_7d = [
             h for h in headers_in
-            if h["data"] and h["data"] >= inicio_7d and endereco in h["para"]
+            if h.get("data") and h["data"] >= inicio_7d and endereco in (h.get("para") or "")
         ]
-        com_30d = [h for h in headers_in if endereco in h["para"]]
+        com_30d = [h for h in headers_in if endereco in (h.get("para") or "")]
+        respondidas = 0
+        tempos = []
+        violacoes = 0
+        pendentes_sla = 0
+        for h in com_30d:
+            if not h.get("data"):
+                continue
+            resposta = resposta_por_mid.get(h.get("message_id"))
+            if resposta is not None:
+                respondidas += 1
+                tempos.append(resposta)
+                if sla is not None and resposta > sla * 60:
+                    violacoes += 1
+            else:
+                idade_horas = (agora - h["data"]).total_seconds() / 3600
+                if sla is not None and idade_horas > sla:
+                    violacoes += 1
+                    pendentes_sla += 1
         contagem[endereco] = {
             "recebidas_7d": len(com_7d),
             "recebidas_30d": len(com_30d),
+            "respondidas_30d": respondidas,
+            "tempo_medio_resposta_min": round(sum(tempos) / len(tempos), 1) if tempos else None,
+            "sla_horas": sla,
+            "violacoes_sla": violacoes,
+            "pendentes_sla": pendentes_sla,
         }
     return contagem
 
-
-# ---------------------------------------------------------------------------
-# Coleta
-# ---------------------------------------------------------------------------
 
 def _coletar_caixa(caixa: dict, agora: datetime) -> dict:
     inicio_30d = agora - timedelta(days=DIAS)
@@ -184,6 +232,8 @@ def _coletar_caixa(caixa: dict, agora: datetime) -> dict:
         "respondidas_30d": 0,
         "tempo_medio_resposta_min": None,
         "sem_resposta_24h": 0,
+        "violacoes_sla": 0,
+        "pendentes_sla": 0,
         "ultima_entrada": "",
         "por_endereco": {},
         "serie_dias": {},
@@ -211,7 +261,6 @@ def _coletar_caixa(caixa: dict, agora: datetime) -> dict:
         datas = [h["data"] for h in headers_in if h["data"]]
         if datas:
             resultado["ultima_entrada"] = _iso(max(datas))
-        resultado["por_endereco"] = _metricas_por_endereco(inicio_7d, headers_in)
         serie = {}
         for h in headers_in:
             if h["data"]:
@@ -236,6 +285,7 @@ def _coletar_caixa(caixa: dict, agora: datetime) -> dict:
         }
         tempos = []
         respondidas = set()
+        resposta_por_mid = {}
         for h in headers_out:
             if not h["data"]:
                 continue
@@ -243,12 +293,29 @@ def _coletar_caixa(caixa: dict, agora: datetime) -> dict:
                 if ref in mapa_entrada:
                     delta = (h["data"] - mapa_entrada[ref]).total_seconds()
                     if 0 <= delta <= DIAS * 86400:
-                        tempos.append(delta / 60)
+                        minutos = delta / 60
+                        tempos.append(minutos)
                         respondidas.add(ref)
+                        anterior = resposta_por_mid.get(ref)
+                        if anterior is None or minutos < anterior:
+                            resposta_por_mid[ref] = minutos
                     break
         resultado["respondidas_30d"] = len(respondidas)
         resultado["tempo_medio_resposta_min"] = (
             round(sum(tempos) / len(tempos), 1) if tempos else None
+        )
+
+        slas = _slas()
+        resultado["por_endereco"] = _metricas_por_endereco(
+            inicio_7d, headers_in, resposta_por_mid, agora, slas
+        )
+        resultado["violacoes_sla"] = sum(
+            int(item.get("violacoes_sla") or 0)
+            for item in resultado["por_endereco"].values()
+        )
+        resultado["pendentes_sla"] = sum(
+            int(item.get("pendentes_sla") or 0)
+            for item in resultado["por_endereco"].values()
         )
 
         limite_24h = agora - timedelta(hours=24)
@@ -291,6 +358,8 @@ def _agregar(caixas: list[dict]) -> dict:
         "recebidas_30d": total_30d,
         "nao_lidas": nao_lidas,
         "sem_resposta_24h": pendentes,
+        "violacoes_sla": sum(int(c.get("violacoes_sla") or 0) for c in caixas),
+        "pendentes_sla": sum(int(c.get("pendentes_sla") or 0) for c in caixas),
         "tempo_medio_resposta_min": tempo_medio,
         "caixas": len(caixas),
     }
@@ -320,13 +389,32 @@ def coletar(force: bool = False) -> dict:
     agora = datetime.now(timezone.utc)
     resultados = [_coletar_caixa(caixa, agora) for caixa in caixas]
 
+    slas = _slas()
     por_endereco = []
     for endereco in ENDERECOS:
-        item = {"endereco": endereco, "recebidas_7d": 0, "recebidas_30d": 0}
+        item = {
+            "endereco": endereco,
+            "sla_horas": slas.get(endereco),
+            "recebidas_7d": 0,
+            "recebidas_30d": 0,
+            "respondidas_30d": 0,
+            "tempo_medio_resposta_min": None,
+            "violacoes_sla": 0,
+            "pendentes_sla": 0,
+        }
+        somatempo = 0.0
         for caixa in resultados:
             dados = (caixa.get("por_endereco") or {}).get(endereco) or {}
             item["recebidas_7d"] += int(dados.get("recebidas_7d") or 0)
             item["recebidas_30d"] += int(dados.get("recebidas_30d") or 0)
+            item["respondidas_30d"] += int(dados.get("respondidas_30d") or 0)
+            item["violacoes_sla"] += int(dados.get("violacoes_sla") or 0)
+            item["pendentes_sla"] += int(dados.get("pendentes_sla") or 0)
+            tempo = dados.get("tempo_medio_resposta_min")
+            if tempo is not None and int(dados.get("respondidas_30d") or 0):
+                somatempo += float(tempo) * int(dados["respondidas_30d"])
+        if item["respondidas_30d"]:
+            item["tempo_medio_resposta_min"] = round(somatempo / item["respondidas_30d"], 1)
         por_endereco.append(item)
 
     serie_dias = []

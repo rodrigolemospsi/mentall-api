@@ -2161,7 +2161,7 @@ _ESTILO += """
 
 
 def _secao_metricas_email(metricas: dict | None) -> str:
-    """Métricas de entrada/resposta das caixas (Fase 5M) — só contadores (LGPD)."""
+    """Métricas de entrada/resposta/SLA das caixas (Fases 5M/5N) — só contadores."""
     if not metricas:
         return ""
     if not metricas.get("configurado"):
@@ -2169,12 +2169,13 @@ def _secao_metricas_email(metricas: dict | None) -> str:
             '<h2>Métricas das caixas de e-mail</h2>'
             '<p class="dica">Monitoramento ainda não configurado. '
             "Defina o secret MAIL_METRICAS_CAIXAS para acompanhar entradas, "
-            "não lidas e tempo de resposta.</p>"
+            "não lidas, SLA e tempo de resposta.</p>"
         )
 
     totais = metricas.get("totais") or {}
     tempo = totais.get("tempo_medio_resposta_min")
     tempo_txt = f"{tempo:.0f} min" if tempo is not None else "—"
+    violacoes = int(totais.get("violacoes_sla") or 0)
     cards = (
         '<div class="kpis">'
         f'<div class="kpi"><div class="n">{int(totais.get("recebidas_30d") or 0)}</div>'
@@ -2183,6 +2184,8 @@ def _secao_metricas_email(metricas: dict | None) -> str:
         '<div class="l">Não lidos agora</div></div>'
         f'<div class="kpi"><div class="n">{_esc(tempo_txt)}</div>'
         '<div class="l">Tempo médio de resposta</div></div>'
+        f'<div class="kpi{" destaque" if violacoes else ""}"><div class="n">{violacoes}</div>'
+        '<div class="l">Fora do SLA</div></div>'
         f'<div class="kpi{" destaque" if int(totais.get("sem_resposta_24h") or 0) else ""}">'
         f'<div class="n">{int(totais.get("sem_resposta_24h") or 0)}</div>'
         '<div class="l">Sem resposta há +24h</div></div>'
@@ -2216,22 +2219,36 @@ def _secao_metricas_email(metricas: dict | None) -> str:
             f"<td>{int(caixa.get('nao_lidas') or 0)}</td>"
             f"<td>{int(caixa.get('enviadas_30d') or 0)}</td>"
             f"<td>{_esc(tempo_caixa_txt)}</td>"
+            f"<td>{int(caixa.get('violacoes_sla') or 0)}</td>"
             f"<td>{pendente if not erro else '?'}</td>"
             f"<td>{_esc(ultima)}</td>"
             f"<td>{estado}</td>"
             "</tr>"
         )
     if not linhas_caixas:
-        linhas_caixas.append('<tr><td colspan="8" class="off">Nenhuma caixa configurada.</td></tr>')
+        linhas_caixas.append('<tr><td colspan="9" class="off">Nenhuma caixa configurada.</td></tr>')
 
-    linhas_enderecos = "".join(
-        "<tr>"
-        f"<td>{_esc(item.get('endereco'))}</td>"
-        f"<td>{int(item.get('recebidas_7d') or 0)}</td>"
-        f"<td>{int(item.get('recebidas_30d') or 0)}</td>"
-        "</tr>"
-        for item in metricas.get("por_endereco") or []
-    ) or '<tr><td colspan="3" class="off">Sem dados ainda.</td></tr>'
+    linhas_enderecos = []
+    for item in metricas.get("por_endereco") or []:
+        sla = item.get("sla_horas")
+        sla_txt = f"SLA {int(float(sla))}h" if sla else "sem SLA"
+        tempo_item = item.get("tempo_medio_resposta_min")
+        tempo_item_txt = f"{int(tempo_item)} min" if tempo_item is not None else "—"
+        linhas_enderecos.append(
+            "<tr>"
+            f"<td>{_esc(item.get('endereco'))}</td>"
+            f"<td>{_esc(sla_txt)}</td>"
+            f"<td>{int(item.get('recebidas_7d') or 0)}</td>"
+            f"<td>{int(item.get('recebidas_30d') or 0)}</td>"
+            f"<td>{int(item.get('respondidas_30d') or 0)}</td>"
+            f"<td>{_esc(tempo_item_txt)}</td>"
+            f"<td>{int(item.get('pendentes_sla') or 0)}</td>"
+            f"<td>{int(item.get('violacoes_sla') or 0)}</td>"
+            "</tr>"
+        )
+    linhas_enderecos = "".join(linhas_enderecos) or (
+        '<tr><td colspan="8" class="off">Sem dados ainda.</td></tr>'
+    )
 
     gerado = _quando(metricas.get("gerado_em")) if metricas.get("gerado_em") else "—"
 
@@ -2239,20 +2256,25 @@ def _secao_metricas_email(metricas: dict | None) -> str:
       <h2>Métricas das caixas de e-mail</h2>
       <p class="dica">Coleta via IMAP somente leitura · só contadores (nenhum conteúdo é exposto)
         · cache de 5 min · atualizado em {_esc(gerado)}
-        · <a class="voltar" href="/admin/email?atualizar=1">Atualizar agora</a></p>
+        · <a class="voltar" href="/admin/email?atualizar=1">Atualizar agora</a>
+        · <form method="post" action="/admin/email/alertar-agora" style="display:inline">
+            <button type="submit" class="btn pequeno">Testar alerta no WhatsApp</button>
+          </form></p>
       {cards}
       {grafico_dias}
       <div class="tabela-card">
       <table>
         <thead><tr><th>Caixa</th><th>Recebidas 7d / 30d</th><th>Não lidas</th>
-          <th>Enviadas 30d</th><th>Tempo médio resp.</th><th>Sem resposta +24h</th>
-          <th>Última entrada</th><th>Status</th></tr></thead>
+          <th>Enviadas 30d</th><th>Tempo médio resp.</th><th>Fora do SLA</th>
+          <th>Sem resposta +24h</th><th>Última entrada</th><th>Status</th></tr></thead>
         <tbody>{''.join(linhas_caixas)}</tbody>
       </table>
       </div>
       <div class="tabela-card">
       <table>
-        <thead><tr><th>Endereço</th><th>Recebidas (7 dias)</th><th>Recebidas (30 dias)</th></tr></thead>
+        <thead><tr><th>Endereço</th><th>SLA</th><th>Recebidas 7d</th><th>Recebidas 30d</th>
+          <th>Respondidas 30d</th><th>Tempo médio resp.</th><th>Pendentes fora do SLA</th>
+          <th>Violações</th></tr></thead>
         <tbody>{linhas_enderecos}</tbody>
       </table>
       </div>

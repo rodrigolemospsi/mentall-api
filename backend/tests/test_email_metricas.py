@@ -27,6 +27,8 @@ def _fake_metricas():
             "recebidas_30d": 12,
             "nao_lidas": 3,
             "sem_resposta_24h": 1,
+            "violacoes_sla": 1,
+            "pendentes_sla": 1,
             "tempo_medio_resposta_min": 42.0,
             "caixas": 2,
         },
@@ -36,7 +38,8 @@ def _fake_metricas():
                 "rotulo": "Contato",
                 "recebidas_7d": 4, "recebidas_30d": 8, "nao_lidas": 2,
                 "enviadas_30d": 5, "tempo_medio_resposta_min": 30.0,
-                "sem_resposta_24h": 1, "ultima_entrada": _iso(dias=1),
+                "sem_resposta_24h": 1, "violacoes_sla": 1, "pendentes_sla": 1,
+                "ultima_entrada": _iso(dias=1),
                 "por_endereco": {}, "erro": "",
             },
             {
@@ -44,13 +47,18 @@ def _fake_metricas():
                 "rotulo": "Suporte",
                 "recebidas_7d": 2, "recebidas_30d": 4, "nao_lidas": 1,
                 "enviadas_30d": 2, "tempo_medio_resposta_min": 60.0,
-                "sem_resposta_24h": 0, "ultima_entrada": _iso(dias=2),
+                "sem_resposta_24h": 0, "violacoes_sla": 0, "pendentes_sla": 0,
+                "ultima_entrada": _iso(dias=2),
                 "por_endereco": {}, "erro": "",
             },
         ],
         "por_endereco": [
-            {"endereco": "contato@", "recebidas_7d": 4, "recebidas_30d": 8},
-            {"endereco": "suporte@", "recebidas_7d": 2, "recebidas_30d": 4},
+            {"endereco": "contato@", "recebidas_7d": 4, "recebidas_30d": 8,
+             "respondidas_30d": 3, "tempo_medio_resposta_min": 20.0,
+             "sla_horas": None, "pendentes_sla": 0, "violacoes_sla": 0},
+            {"endereco": "suporte@", "recebidas_7d": 2, "recebidas_30d": 4,
+             "respondidas_30d": 2, "tempo_medio_resposta_min": 60.0,
+             "sla_horas": 4.0, "pendentes_sla": 1, "violacoes_sla": 1},
         ],
         "serie_dias": [("18/10", 1), ("24/10", 2)],
     }
@@ -82,7 +90,9 @@ class ParsingTests(unittest.TestCase):
             {"data": agora - timedelta(days=20), "para": "to: contato@mentallpro.com.br"},
         ]
         with patch.object(email_metricas, "ENDERECOS", ("contato@", "suporte@")):
-            contagem = email_metricas._metricas_por_endereco(agora - timedelta(days=7), headers)
+            contagem = email_metricas._metricas_por_endereco(
+                agora - timedelta(days=7), headers, {}, agora,
+                {"contato@": 4.0, "suporte@": 4.0})
         self.assertEqual(contagem["contato@"]["recebidas_7d"], 1)
         self.assertEqual(contagem["contato@"]["recebidas_30d"], 2)
         self.assertEqual(contagem["suporte@"]["recebidas_7d"], 1)
@@ -146,7 +156,8 @@ class PaginaTests(unittest.TestCase):
         )
         for marcador in ("Métricas das caixas de e-mail", "Tempo médio de resposta",
                          "Sem resposta há +24h", "Atualizar agora", "Recebidas 7d / 30d",
-                         "Entradas por dia"):
+                         "Entradas por dia", "Fora do SLA",
+                         "Testar alerta no WhatsApp", "SLA 4h"):
             self.assertIn(marcador, html, marcador)
 
     def test_pagina_mostra_aviso_quando_nao_configurado(self):
@@ -183,6 +194,17 @@ class SaudeEmailsTests(unittest.TestCase):
         self.assertEqual(estado, "atencao")
         self.assertIn("erro", detalhe)
 
+    def test_atencao_quando_fora_do_sla(self):
+        from services import saude
+        dados = {"configurado": True, "caixas": [],
+                 "totais": {"sem_resposta_24h": 0, "violacoes_sla": 3,
+                            "recebidas_30d": 9}}
+        with patch.object(email_metricas, "configurado", return_value=True), \
+                patch.object(email_metricas, "coletar", return_value=dados):
+            estado, detalhe = saude._emails()
+        self.assertEqual(estado, "atencao")
+        self.assertIn("fora do SLA", detalhe)
+
     def test_ok_quando_sem_pendencias(self):
         from services import saude
         dados = {"configurado": True, "caixas": [],
@@ -192,6 +214,110 @@ class SaudeEmailsTests(unittest.TestCase):
             estado, detalhe = saude._emails()
         self.assertEqual(estado, "ok")
         self.assertIn("7 recebidos", detalhe)
+
+
+class SlaTests(unittest.TestCase):
+    def test_slas_padrao_e_override_por_env(self):
+        with patch.dict(os.environ, {"MAIL_SLA_HORAS": ""}, clear=False):
+            self.assertEqual(email_metricas._slas()["suporte@"], 4.0)
+            self.assertEqual(email_metricas._slas()["financeiro@"], 24.0)
+        with patch.dict(os.environ, {"MAIL_SLA_HORAS": '{"financeiro@": 2}'}, clear=False):
+            slas = email_metricas._slas()
+        self.assertEqual(slas["financeiro@"], 2.0)
+        self.assertEqual(slas["suporte@"], 4.0)
+
+    def test_violacao_quando_resposta_demora_mais_que_sla(self):
+        agora = datetime.now(timezone.utc)
+        headers = [{"data": agora - timedelta(hours=10),
+                    "message_id": "<a@x>", "para": "to: suporte@mentallpro.com.br"}]
+        with patch.object(email_metricas, "ENDERECOS", ("suporte@",)):
+            res = email_metricas._metricas_por_endereco(
+                agora - timedelta(days=7), headers, {"<a@x>": 300.0}, agora,
+                {"suporte@": 4.0})
+        self.assertEqual(res["suporte@"]["violacoes_sla"], 1)
+        self.assertEqual(res["suporte@"]["respondidas_30d"], 1)
+
+    def test_pendente_fora_do_sla_sem_resposta(self):
+        agora = datetime.now(timezone.utc)
+        headers = [{"data": agora - timedelta(hours=30),
+                    "message_id": "<b@x>", "para": "to: financeiro@mentallpro.com.br"}]
+        with patch.object(email_metricas, "ENDERECOS", ("financeiro@",)):
+            res = email_metricas._metricas_por_endereco(
+                agora - timedelta(days=7), headers, {}, agora,
+                {"financeiro@": 24.0})
+        self.assertEqual(res["financeiro@"]["violacoes_sla"], 1)
+        self.assertEqual(res["financeiro@"]["pendentes_sla"], 1)
+
+    def test_dentro_do_sla_nao_viola(self):
+        agora = datetime.now(timezone.utc)
+        headers = [{"data": agora - timedelta(hours=2),
+                    "message_id": "<c@x>", "para": "to: suporte@mentallpro.com.br"}]
+        with patch.object(email_metricas, "ENDERECOS", ("suporte@",)):
+            res = email_metricas._metricas_por_endereco(
+                agora - timedelta(days=7), headers, {"<c@x>": 60.0}, agora,
+                {"suporte@": 4.0})
+        self.assertEqual(res["suporte@"]["violacoes_sla"], 0)
+
+
+class AlertasTests(unittest.TestCase):
+    def setUp(self):
+        from services import email_alertas
+        self.alertas = email_alertas
+
+    def test_cooldown(self):
+        agora = datetime.now(timezone.utc)
+        self.assertTrue(self.alertas._cooldown_ok(agora, ""))
+        self.assertFalse(self.alertas._cooldown_ok(
+            agora, (agora - timedelta(hours=1)).isoformat()))
+        self.assertTrue(self.alertas._cooldown_ok(
+            agora, (agora - timedelta(hours=7)).isoformat()))
+
+    def test_pendencias_so_com_violacao(self):
+        metricas = {"por_endereco": [
+            {"endereco": "suporte@", "violacoes_sla": 2, "pendentes_sla": 1,
+             "sla_horas": 4.0},
+            {"endereco": "contato@", "violacoes_sla": 0, "pendentes_sla": 0,
+             "sla_horas": None},
+        ]}
+        itens = self.alertas.pendencias(metricas)
+        self.assertEqual(len(itens), 1)
+        self.assertEqual(itens[0]["endereco"], "suporte@")
+
+    def test_mensagem_tem_endereco_e_sla(self):
+        texto = self.alertas.formatar_mensagem([
+            {"endereco": "suporte@", "violacoes_sla": 2, "pendentes_sla": 1,
+             "sla_horas": 4.0},
+        ])
+        self.assertIn("suporte@", texto)
+        self.assertIn("SLA 4h", texto)
+        self.assertIn("Painel", texto)
+
+    def test_notificar_envia_e_respeita_cooldown(self):
+        from services import email_alertas as alertas
+        metricas = {"por_endereco": [
+            {"endereco": "suporte@", "violacoes_sla": 1, "pendentes_sla": 1,
+             "sla_horas": 4.0},
+        ]}
+        enviados = []
+        with patch.object(alertas, "pendencias", return_value=alertas.pendencias(metricas)), \
+                patch.object(alertas, "_destino", return_value="5511999999999"), \
+                patch.object(alertas, "_owner_id", return_value="owner-1"), \
+                patch.object(alertas, "_ultimo_envio_iso", return_value=""), \
+                patch.object(alertas, "_registrar_envio") as registrar, \
+                patch.object(alertas, "_enviar_whatsapp_via_wuzapi",
+                             side_effect=lambda o, d, m: (enviados.append(m), (True, "id"))[1]):
+            resultado = alertas.notificar()
+        self.assertTrue(resultado["enviado"])
+        self.assertEqual(len(enviados), 1)
+        registrar.assert_called_once()
+        # agora com cooldown ativo (último envio recente) não reenvia
+        with patch.object(alertas, "pendencias", return_value=alertas.pendencias(metricas)), \
+                patch.object(alertas, "_ultimo_envio_iso",
+                             return_value=datetime.now(timezone.utc).isoformat()), \
+                patch.object(alertas, "_enviar_whatsapp_via_wuzapi") as enviar:
+            resultado = alertas.notificar()
+        self.assertFalse(resultado["enviado"])
+        enviar.assert_not_called()
 
 
 class RotaTests(unittest.IsolatedAsyncioTestCase):
@@ -210,6 +336,19 @@ class RotaTests(unittest.IsolatedAsyncioTestCase):
             follow_redirects=False,
         )
         self.addAsyncCleanup(self.client.aclose)
+
+    async def test_admin_email_alertar_agora(self):
+        login = await self.client.post(
+            "/admin/login", data={"email": "dono@ex.com", "senha": SENHA}
+        )
+        cookie = login.headers["set-cookie"].split(";")[0]
+        with patch.object(main.email_alertas, "notificar",
+                          return_value={"enviado": True, "itens": 1}) as mock:
+            resposta = await self.client.post(
+                "/admin/email/alertar-agora", headers={"Cookie": cookie}
+            )
+        self.assertEqual(resposta.status_code, 303)
+        mock.assert_called_once_with(force=True)
 
     async def test_admin_email_exibe_metricas(self):
         login = await self.client.post(

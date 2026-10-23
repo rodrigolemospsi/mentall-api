@@ -322,6 +322,11 @@ _tabelas_exclusao = [
         exp TEXT NOT NULL DEFAULT '',
         criado_em TEXT NOT NULL
     )""",
+    """CREATE TABLE IF NOT EXISTS email_alertas_estado (
+        chave TEXT PRIMARY KEY,
+        valor TEXT NOT NULL DEFAULT '',
+        atualizado_em TEXT NOT NULL
+    )""",
 ]
 
 _indices = [

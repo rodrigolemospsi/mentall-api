@@ -23,6 +23,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 
 import admin_ui
 from services import admin as admin_service
+from services import email_alertas
 from services import email_metricas
 from services import email_admin
 from services import saude as saude_service
@@ -720,8 +721,10 @@ async def lifespan(app: FastAPI):
     print(f"Modelo de IA: {provider}/{model}")
 
     iniciar_scheduler()
+    iniciar_alertas_email()
     yield
     await parar_scheduler()
+    await parar_alertas_email()
 
 
 app = FastAPI(
@@ -3013,6 +3016,25 @@ def admin_email(request: Request, msg: str = "", erro: str = "", atualizar: str 
     except Exception:
         log.exception("Falha ao coletar métricas de e-mail")
     return _pagina_email(msg=msg, erro=erro, metricas=metricas)
+
+
+@app.post("/admin/email/alertar-agora", tags=["Admin"])
+def admin_email_alertar_agora(request: Request):
+    _rate_limit_check(request, max_requests=10, chave_extra="admin-email-alerta")
+    bloqueio = _exigir_sessao_admin(request)
+    if bloqueio:
+        return bloqueio
+    try:
+        resultado = email_alertas.notificar(force=True)
+    except Exception:
+        log.exception("Falha ao testar alerta de e-mail")
+        return _redirect_email(erro="Falha ao testar o alerta no WhatsApp.")
+    if resultado.get("enviado"):
+        return _redirect_email(
+            msg=f"Alerta enviado no WhatsApp ({resultado.get('itens', 0)} endereço(s) fora do SLA)."
+        )
+    motivo = resultado.get("motivo") or "sem pendências"
+    return _redirect_email(msg=f"Alerta não enviado: {motivo}.")
 
 
 @app.post("/admin/email/criar", tags=["Admin"])

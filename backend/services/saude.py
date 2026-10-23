@@ -175,7 +175,7 @@ def _lembretes():
 
 
 def _emails():
-    """Métricas das caixas (IMAP read-only, cache 5 min): pendências/erros."""
+    """Métricas das caixas (IMAP read-only, cache 5 min): SLA/erros/pendências."""
     from services import email_metricas
 
     if not email_metricas.configurado():
@@ -184,13 +184,17 @@ def _emails():
     if not dados.get("configurado"):
         return "info", "monitoramento não configurado"
     caixas = dados.get("caixas") or []
+    totais = dados.get("totais") or {}
     com_erro = [c for c in caixas if c.get("erro")]
-    pendentes = int((dados.get("totais") or {}).get("sem_resposta_24h") or 0)
+    violacoes = int(totais.get("violacoes_sla") or 0)
+    pendentes = int(totais.get("sem_resposta_24h") or 0)
     if com_erro:
         return "atencao", f"{len(com_erro)} caixa(s) com erro de leitura"
+    if violacoes:
+        return "atencao", f"{violacoes} e-mail(s) fora do SLA (suporte 4h · financeiro 24h)"
     if pendentes:
         return "atencao", f"{pendentes} e-mail(s) sem resposta há +24h"
-    recebidas = int((dados.get("totais") or {}).get("recebidas_30d") or 0)
+    recebidas = int(totais.get("recebidas_30d") or 0)
     return "ok", f"sem pendências · {recebidas} recebidos (30d)"
 
 
