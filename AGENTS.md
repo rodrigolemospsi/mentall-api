@@ -82,6 +82,48 @@ Suspender bloqueia **novos logins**, mas um JWT de app já emitido continua vál
 não existe registro de tokens por usuário. Revogação global por usuário (token_version) fica para o
 P1 de segurança.
 
+## Banco local no volume do Fly — Fase 5C (22/10/2026)
+
+### Contexto
+O Turso de produção estava em **`aws-us-west-2` (Oregon, EUA)** enquanto o backend roda em **`gru`
+(São Paulo)**: cada consulta custava **1,2–2 s** e o dashboard do painel levava **~54 s** (o navegador
+desistia e mostrava erro). O banco tem apenas **0,5 MB / 150 linhas** — não justifica dependência
+remota. Decisão: **SQLite persistente no volume do Fly**, sem Turso.
+
+### O que mudou (arquivos)
+1. **`backend/services/db.py`** — `SQLITE_PATH` (env) define o arquivo SQLite persistente; helper
+   `_sqlite_path()`; `_conectar_local()` respeita o caminho; novo branch em `_obter_conexao()`:
+   se `SQLITE_PATH` existe e **não** há Turso configurado, usa o arquivo local como banco oficial
+   (sem log de "fallback efêmero").
+2. **`backend/services/saude.py`** — com `SQLITE_PATH` o card "Banco de dados" mostra
+   **`ok · SQLite local (volume — persistente)`**.
+3. **`fly.toml`** — `[mounts] source = "mentall_data" destination = "/data"` e
+   `[env] SQLITE_PATH = "/data/mentall.db"`.
+4. **`backend/scripts/migrar_turso_para_sqlite.py`** (novo) — migra schema + dados do Turso para o
+   arquivo no volume, com verificação de contagens; seguro para reexecutar.
+5. **`backend/tests/test_db_local_path.py`** (novo) — cobre `SQLITE_PATH` e conexão local.
+6. **`.env.example`** — documenta `SQLITE_PATH`.
+
+### Passos da migração (executados uma vez)
+1. `fly volumes create mentall_data --region gru --size 1`
+2. deploy (o volume é montado em `/data`; Turso ainda configurado → app continua no Turso)
+3. `fly ssh console -C "python /app/scripts/migrar_turso_para_sqlite.py"`
+4. `fly secrets unset TURSO_DATABASE_URL TURSO_AUTH_TOKEN` → app reinicia no SQLite do volume
+5. validação: health, login, painel rápido, contagens, e-mail
+6. **Rollback:** `fly secrets set TURSO_DATABASE_URL=... TURSO_AUTH_TOKEN=...` (banco Turso permanece
+   intacto como backup por 30 dias)
+
+### Backup / durabilidade
+- Snapshots automáticos diários do volume do Fly (`fly volumes snapshots list`).
+- O banco Turso **não é apagado** — vira backup congelado da migração.
+- Próximo passo recomendado: rotina diária de `VACUUM INTO /data/backups/...` + cópia para R2
+  (Litestream) quando definirmos o bucket.
+
+### Trade-offs
+- **1 máquina só** (já era o caso; `min_machines_running = 1`).
+- Latência deixa de existir: queries em ~1 ms, painel instantâneo, app mais rápido.
+- Sem replicação geográfica: se a máquina/volume cair, restaura-se pelo snapshot.
+
 ## Papéis e revogação de sessão do app — Fase 5B.2 (22/10/2026)
 
 ### Contexto

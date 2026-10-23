@@ -48,6 +48,8 @@ def _banco():
 
     if _usa_turso:
         return "ok", "Turso (nuvem)"
+    if os.getenv("SQLITE_PATH", "").strip():
+        return "ok", "SQLite local (volume — persistente)"
     return "atencao", "SQLite local (fallback — persistência não garantida em produção)"
 
 

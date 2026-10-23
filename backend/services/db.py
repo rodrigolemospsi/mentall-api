@@ -23,14 +23,24 @@ _turso_ultima_tentativa = 0.0
 TURSO_RECONNECT_INTERVAL = 60.0
 
 
+def _sqlite_path() -> str:
+    """Caminho do SQLite persistente (volume do Fly). Vazio = padrão de dev."""
+    return os.getenv("SQLITE_PATH", "").strip()
+
+
 def _conectar_local():
-    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
-    os.makedirs(data_dir, exist_ok=True)
-    db_path = os.path.join(data_dir, "mentall.db")
-    conn = sqlite3.connect(db_path, check_same_thread=False)
+    caminho = _sqlite_path()
+    if caminho:
+        os.makedirs(os.path.dirname(os.path.abspath(caminho)), exist_ok=True)
+    else:
+        data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
+        os.makedirs(data_dir, exist_ok=True)
+        caminho = os.path.join(data_dir, "mentall.db")
+    conn = sqlite3.connect(caminho, check_same_thread=False)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA busy_timeout=5000")
     conn.row_factory = sqlite3.Row
+    log.info("SQLite local: %s", caminho)
     return conn
 
 
@@ -102,6 +112,14 @@ def _obter_conexao():
             return _conexao
 
         _turso_ultima_tentativa = time.time()
+        if _sqlite_path() and not (TURSO_URL and TURSO_TOKEN):
+            # Opção A (Fase 5C): banco no disco da própria máquina (volume do
+            # Fly). Sem Turso configurado, este é o modo persistente oficial.
+            log.info("Banco local persistente configurado em %s", _sqlite_path())
+            _conexao = _conectar_local()
+            _usa_turso = False
+            _criar_tabelas(_conexao)
+            return _conexao
         if TURSO_URL and TURSO_TOKEN:
             log.info("Conectando ao Turso: %s", TURSO_URL[:60])
             nova = _tentar_conectar_turso()

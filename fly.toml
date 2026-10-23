@@ -14,3 +14,10 @@ primary_region = "gru"
   memory = "512mb"
   cpu_kind = "shared"
   cpus = 1
+
+[mounts]
+  source = "mentall_data"
+  destination = "/data"
+
+[env]
+  SQLITE_PATH = "/data/mentall.db"
