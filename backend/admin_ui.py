@@ -2247,3 +2247,18 @@ def _secao_metricas_email(metricas: dict | None) -> str:
       </table>
       </div>
 """
+
+# Fase 5M fix: botões de ação e tabelas roláveis
+_ESTILO += """
+/* ---------- Fase 5M fix: botões de ação legíveis e tabelas roláveis ---------- */
+.tabela-card { overflow-x: auto !important; }
+.tabela-card table { min-width: 640px; }
+form.acoes button.perigo,
+.acoes-linha button.perigo,
+button.perigo {
+  background: var(--v2-erro) !important;
+  color: #ffffff !important;
+  border-color: var(--v2-erro) !important;
+}
+form.acoes button { white-space: nowrap; }
+"""
