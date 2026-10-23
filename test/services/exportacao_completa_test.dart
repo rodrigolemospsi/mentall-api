@@ -99,6 +99,10 @@ ExportacaoPaciente _itemCompleto() {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  setUpAll(() async {
+    await PdfExportService.carregarAssets();
+  });
+
   test('gera o PDF consolidado com contrato, anamnese e sessões', () async {
     final bytes = await PdfExportService().gerarPdfTudoConsolidado(
       perfil: _perfil(),
@@ -108,6 +112,30 @@ void main() {
 
     expect(bytes.length, greaterThan(2000));
     expect(String.fromCharCodes(bytes.take(4)), '%PDF');
+  });
+
+
+  test('PDF embute a fonte Unicode (travessão não vira quadrado)', () async {
+    final bytes = await PdfExportService().gerarPdfTudoConsolidado(
+      perfil: _perfil(),
+      pacientes: [
+        ExportacaoPaciente(
+          paciente: _paciente(),
+          sessoes: [
+            _sessao(
+              id: 'sessao-travessao',
+              data: DateTime(2026, 10, 1),
+              statusPagamento: 'pago',
+            )..temaPrincipal =
+                'Ansiedade — relato com “aspas” e … reticências',
+          ],
+        ),
+      ],
+    );
+
+    // TTF embutido no PDF: garante que o texto usa a fonte Unicode, e não a
+    // Helvetica sem glifos (que transformava o travessão em quadrado).
+    expect(String.fromCharCodes(bytes).contains('/FontFile2'), isTrue);
   });
 
   test('gera o PDF consolidado mesmo sem pacientes', () async {

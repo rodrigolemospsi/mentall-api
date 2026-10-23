@@ -25,6 +25,7 @@ import 'services/demo_lojas_service.dart';
 import 'services/encryption_service.dart';
 import 'services/hive_migration_service.dart';
 import 'services/logger.dart';
+import 'services/pdf_export_service.dart';
 import 'utils/mentall_colors.dart';
 import 'utils/raio.dart';
 import 'utils/tipografia.dart';
@@ -107,6 +108,8 @@ SentryEvent? _removerDadosSensiveis(SentryEvent event, Hint hint) {
 Future<void> _iniciarApp() async {
   WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = _SecureHttpOverrides();
+  // Fontes Unicode dos PDFs (sem elas, travessão/aspas saem como quadrados).
+  await PdfExportService.carregarAssets();
 
   final sw = Stopwatch()..start();
 

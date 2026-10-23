@@ -2,6 +2,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../../utils/tipografia.dart';
+import '../pdf_export_service.dart';
 
 class PdfArquiteturaLgpdService {
   static const _azul = PdfColor.fromInt(0xFF8806CE);
@@ -20,6 +21,7 @@ class PdfArquiteturaLgpdService {
 
   Future<void> exportar() async {
     final pdf = pw.Document(
+      theme: PdfExportService.temaPdf(),
       title: 'Arquitetura LGPD - MentAll PRO',
       author: 'MentAll PRO',
     );
@@ -283,7 +285,7 @@ class PdfArquiteturaLgpdService {
       _check('Edição da síntese ou apontamentos', true),
       pw.SizedBox(height: 12),
       _subTitulo('Fluxo de status'),
-      _paragrafo('manual → áudio_gravado → transcrevendo → transcrito → ia_processando → ia_processada → revisado'),
+      _paragrafo('manual -> audio_gravado -> transcrevendo -> transcrito -> ia_processando -> ia_processada -> revisado'),
       pw.SizedBox(height: 10),
       _status('Dashboard de pendências na Home', true),
     ]);
@@ -412,7 +414,7 @@ class PdfArquiteturaLgpdService {
                 color: ok ? _sucesso : _futuro,
                 shape: pw.BoxShape.circle),
             child: pw.Center(
-                child: pw.Text(ok ? '✓' : '→',
+                child: pw.Text(ok ? 'OK' : '>',
                     style: const pw.TextStyle(
                         fontSize: 8,
                         color: PdfColors.white,
@@ -462,7 +464,7 @@ class PdfArquiteturaLgpdService {
                 color: ok ? _sucesso : _pendente,
                 shape: pw.BoxShape.circle),
             child: pw.Center(
-                child: pw.Text(ok ? '✓' : '!',
+                child: pw.Text(ok ? 'OK' : '!',
                     style: const pw.TextStyle(
                         fontSize: 8,
                         color: PdfColors.white,

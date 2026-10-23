@@ -41,8 +41,41 @@ class PdfExportService {
     } catch (_) {}
   }
 
+  static pw.Font? _fonteRegular;
+  static pw.Font? _fonteBold;
+
+  /// Carrega logo e fontes Unicode usadas nos PDFs.
+  ///
+  /// Sem a fonte embutida o pacote `pdf` usa Helvetica (sem Unicode) e
+  /// caracteres como travessão (—), aspas curvas e ✓ saem como quadrados.
+  /// Chamado no boot do app; idempotente.
+  static Future<void> carregarAssets() async {
+    await _carregarLogo();
+    if (_fonteRegular != null) return;
+    try {
+      final regular = await rootBundle.load('assets/fonts/Lato-Regular.ttf');
+      final bold = await rootBundle.load('assets/fonts/Lato-Bold.ttf');
+      _fonteRegular = pw.Font.ttf(regular);
+      _fonteBold = pw.Font.ttf(bold);
+    } catch (e) {
+      Log.erro(e, contexto: 'PdfExportService.carregarAssets');
+    }
+  }
+
+  /// Tema com a fonte Unicode embutida (null enquanto não carregada).
+  static pw.ThemeData? temaPdf() {
+    final regular = _fonteRegular;
+    if (regular == null) return null;
+    return pw.ThemeData.withFont(base: regular, bold: _fonteBold ?? regular);
+  }
+
+  pw.Document _novoDocumento() {
+    final tema = temaPdf();
+    return tema == null ? pw.Document() : pw.Document(theme: tema);
+  }
+
   PdfExportService() {
-    _carregarLogo();
+    carregarAssets();
   }
 
   Future<void> exportarSessao({
@@ -184,7 +217,7 @@ class PdfExportService {
       perfil.abordagemClinica,
     );
 
-    final doc = pw.Document();
+    final doc = _novoDocumento();
     doc.addPage(
       _paginaSessao(
         sessao: sessao,
@@ -206,7 +239,7 @@ class PdfExportService {
       perfil.abordagemClinica,
     );
 
-    final doc = pw.Document();
+    final doc = _novoDocumento();
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
@@ -268,7 +301,7 @@ class PdfExportService {
       final registroLimpo = perfil.registroProfissional
           .replaceFirst(RegExp(r'^CRP\s*', caseSensitive: false), '');
       final textoCrp = perfil.crpVerificado
-          ? 'CRP $registroLimpo \u2713 Verificado'
+          ? 'CRP $registroLimpo - Verificado'
           : 'CRP $registroLimpo';
       infoProfissional.add(
         pw.Text(
@@ -756,7 +789,7 @@ class PdfExportService {
         sessoes.where((s) => s.estaAtiva).toList()
           ..sort((a, b) => b.data.compareTo(a.data));
 
-    final doc = pw.Document();
+    final doc = _novoDocumento();
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
@@ -792,7 +825,7 @@ class PdfExportService {
       perfil.abordagemClinica,
     );
 
-    final doc = pw.Document();
+    final doc = _novoDocumento();
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
@@ -877,7 +910,7 @@ class PdfExportService {
         sessoes.where((s) => s.estaAtiva).toList()
           ..sort((a, b) => b.data.compareTo(a.data));
 
-    final doc = pw.Document();
+    final doc = _novoDocumento();
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
@@ -932,7 +965,7 @@ class PdfExportService {
     required PerfilProfissional perfil,
     required String templateJson,
   }) async {
-    final doc = pw.Document();
+    final doc = _novoDocumento();
     final respostas = anamnese.respostas;
 
     doc.addPage(
@@ -1266,7 +1299,7 @@ class PdfExportService {
     required Map<String, String> nomesPacientes,
     bool temaEscuro = false,
   }) async {
-    final doc = pw.Document();
+    final doc = _novoDocumento();
     await _carregarLogo();
 
     final meses = [
@@ -1567,7 +1600,7 @@ class PdfExportService {
       0,
       (total, item) => total + item.sessoes.where((s) => s.estaAtiva).length,
     );
-    final doc = pw.Document();
+    final doc = _novoDocumento();
 
     doc.addPage(
       pw.Page(
@@ -1793,7 +1826,7 @@ class PdfExportService {
       _moedaPdf(pacote),
     ]);
 
-    final doc = pw.Document();
+    final doc = _novoDocumento();
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
