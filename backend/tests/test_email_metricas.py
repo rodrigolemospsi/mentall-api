@@ -364,5 +364,13 @@ class RotaTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Tempo médio de resposta", resposta.text)
 
 
+class LifespanTests(unittest.IsolatedAsyncioTestCase):
+    async def test_lifespan_sobe_e_derruba_alertas(self):
+        # pega import/nome faltando (o deploy já quebrou por isso uma vez)
+        async with main.lifespan(main.app):
+            self.assertTrue(callable(getattr(main, "iniciar_alertas_email", None)))
+            self.assertTrue(callable(getattr(main, "parar_alertas_email", None)))
+
+
 if __name__ == "__main__":
     unittest.main()

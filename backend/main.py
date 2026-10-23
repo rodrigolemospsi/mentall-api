@@ -24,6 +24,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 import admin_ui
 from services import admin as admin_service
 from services import email_alertas
+from services.email_alertas import iniciar_alertas_email, parar_alertas_email
 from services import email_metricas
 from services import email_admin
 from services import saude as saude_service
