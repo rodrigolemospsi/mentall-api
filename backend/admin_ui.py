@@ -318,22 +318,26 @@ def _grafico_barras(serie: list) -> str:
 
 
 def _grafico_barras_duplas(serie: list, legenda: tuple) -> str:
-    """Barras agrupadas: série [(rótulo, total, parte)] + legenda (total, parte)."""
+    """Barras agrupadas: série [(rótulo, total, parte)] + legenda (total, parte).
+
+    Alturas em px (não %) para não estourar o card quando o rótulo do mês
+    está dentro do flex-column (bug visto no preview de produção)."""
     if not serie:
         return '<p class="off">Sem dados ainda.</p>'
     maximo = max((int(total or 0) for _, total, _ in serie), default=0) or 1
+    altura_base = 132
     colunas = []
     for rotulo, total, parte in serie:
         total = int(total or 0)
         parte = int(parte or 0)
-        altura_total = 6 + int(88 * total / maximo)
-        altura_parte = 6 + int(88 * parte / maximo)
+        altura_total = max(3, int(altura_base * total / maximo)) if total else 3
+        altura_parte = max(3, int(altura_base * parte / maximo)) if parte else 0
         colunas.append(
             '<div class="barra" title="'
-            + _esc(str(rotulo)) + f": {total} ({parte})" + '>'
+            + _esc(str(rotulo)) + f": {total} ({parte})" + '">'
             '<div class="colunas">'
-            f'<div class="col total" style="height:{altura_total}%"></div>'
-            f'<div class="col parte" style="height:{altura_parte}%"></div>'
+            f'<div class="col total" style="height:{altura_total}px"></div>'
+            f'<div class="col parte" style="height:{altura_parte}px"></div>'
             "</div>"
             f'<span class="rotulo">{_esc(str(rotulo))}</span>'
             "</div>"
@@ -2077,4 +2081,78 @@ form.login .dica { margin-top: 14px; text-align: center; }
   .tela-2fa { margin: 24px auto !important; padding: 20px !important; }
   form.login { margin: 24px auto !important; padding: 24px 20px !important; }
 }
+"""
+
+# CSS da Fase 5L (gráficos duplos, mini-KPIs e correção do overflow)
+_ESTILO += """
+/* ---------- Fase 5L: gráficos duplos e mini-KPIs ---------- */
+.kpis.mini { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin-top: -4px; }
+.kpis.mini .kpi .n { font-size: 22px; }
+.barras.duplas .barra .colunas {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  height: 100%;
+  width: 100%;
+}
+.barras.duplas .barra .col { width: 11px; max-width: 13px; }
+.barras.duplas .barra .col.total {
+  background: #ddd6fe;
+  border: 1px solid #c4b5fd;
+  border-bottom: 0;
+}
+.barras.duplas .barra .col.parte {
+  background: linear-gradient(180deg, #a78bfa 0%, var(--v2-roxo) 60%, var(--v2-roxo-esc) 100%);
+}
+.legenda-chart {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--v2-muted);
+}
+.legenda-chart span { display: inline-flex; align-items: center; gap: 6px; }
+.legenda-chart i.cor { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.legenda-chart i.cor.total { background: #ddd6fe; border: 1px solid #c4b5fd; }
+.legenda-chart i.cor.parte { background: var(--v2-roxo); }
+@media (max-width: 760px) {
+  .barras.duplas .barra .col { width: 7px; }
+}
+
+/* ---------- Fase 5L fix: correção do gráfico de barras agrupadas ---------- */
+.barras.duplas {
+  height: auto !important;
+  align-items: flex-end;
+  padding-top: 8px;
+}
+.barras.duplas .barra {
+  height: auto !important;
+  justify-content: flex-end;
+}
+.barras.duplas .barra .colunas {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  width: 100%;
+  height: auto;
+}
+.barras.duplas .barra .col {
+  width: 11px !important;
+  max-width: 13px !important;
+  border-radius: 6px 6px 3px 3px;
+  flex: 0 0 auto;
+}
+.barras.duplas .barra .col.total {
+  background: #ddd6fe;
+  border: 1px solid #c4b5fd;
+  border-bottom: 0;
+}
+.barras.duplas .barra .col.parte {
+  background: linear-gradient(180deg, #a78bfa 0%, var(--v2-roxo) 60%, var(--v2-roxo-esc) 100%);
+  border: 0;
+}
+.barras.duplas .barra .rotulo { margin-top: 2px; }
 """
