@@ -81,7 +81,10 @@ Para funcionar, o aplicativo utiliza serviços de terceiros, entre eles:
 | E-mails transacionais | provedor de e-mail | Estados Unidos |
 | Sugestão de artigos | OpenAlex | Internacional |
 | Lembretes por mensagem | gateway de WhatsApp | a confirmar |
+| Agenda (opcional) | Google Calendar | Internacional |
 
+- A integração com o **Google Calendar** é opcional: o profissional conecta a própria conta e o app
+  envia resumo do evento, data/hora e sala, **sem nome de paciente nem conteúdo clínico** por padrão.
 - A **lista vigente e completa**, com o que cada terceiro recebe, está na Política de Privacidade, que
   prevalece em caso de divergência.
 - O profissional pode **usar o aplicativo sem os recursos de IA**: eles são acionados manualmente.

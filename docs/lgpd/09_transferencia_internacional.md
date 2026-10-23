@@ -67,6 +67,7 @@ necessário**. É exatamente aqui que o desenho atual do produto falha — ver �
 | **T15** | Telefone, nome, mensagem; **token de sessão do profissional** | **wuzapi** (gateway **não oficial** de WhatsApp) | **A CONFIRMAR** ⚖️ | Enviar lembretes | Consentimento específico (art. 7º, I / art. 11, I) | Cláusulas específicas ⚖️ | `lembrete_service.py:92-114`; `compromisso.dart:159-171`; `db.py:261-267` (`wuzapi_instancias.wuzapi_token`) |
 | **T16** | Trânsito de todos os dados da API | **Fly.io** (backend) | **Brasil** (`gru`, São Paulo) — matriz EUA conforme contrato | Hospedar a API | — | Não é transferência se o tratamento ocorre em `gru`; **mas o contrato precisa confirmar** onde há acesso ⚖️ | `fly.toml:2-3` |
 | **T17** | CRP informado; devolve nome oficial | **CFP** (`cn-api.cfp.org.br`) | **Brasil** | Verificar registro profissional | Cumprimento de obrigação regulatória (art. 7º, II) | Não há transferência internacional | `crp_service.py:10,30-34` |
+| **T18** | Resumo do evento ("Sessão" ou título), data/hora e sala; **sem nome de paciente por padrão** | **Google Calendar** | **Internacional** | Sincronizar agenda (opcional) | Consentimento do profissional (art. 7º, I); não trata dado clínico do paciente por padrão | Cláusulas-padrão contratuais ⚖️ | `google_calendar_google_api.dart`; `google_calendar_service.dart` |
 
 ### 2.2 Onde estão os números que importam
 
@@ -74,6 +75,7 @@ necessário**. É exatamente aqui que o desenho atual do produto falha — ver �
 |---|---|
 | Com **decisão de adequação** da ANPD reconhecida | **Nenhum** destino do produto. A Resolução CD/ANPD nº 32/2026 reconhece a **União Europeia** (Estados-membros, países do EEE — Islândia, Liechtenstein e Noruega — e instituições da UE) ⚖️ |
 | **Sem** decisão de adequação e com dado **sensível de saúde** | **EUA** (T1–T6, T8, T10–T14) e **China** (T7, T8) |
+| **Sem** decisão de adequação, apenas dado do profissional (agenda) | **Internacional** (T18 Google Calendar) |
 | **Sem** país sequer identificado | **wuzapi** (T15) |
 
 **Consequência prática:** como nenhum destino é adequado, **toda** transferência do mapa depende de

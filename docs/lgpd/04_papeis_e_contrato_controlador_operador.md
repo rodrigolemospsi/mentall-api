@@ -163,11 +163,17 @@ consumidor, a cláusula de foro do fornecedor pode ser considerada abusiva; ver 
 | OpenAI | Síntese/progresso por IA | Nome + relato clínico | EUA |
 | DeepSeek | Síntese por IA (fallback) | Nome + relato clínico | China |
 | Google (Gemini) | Síntese por IA (inativo no padrão) | Nome + relato clínico | EUA |
+| Google Calendar (opcional) | Sincronização de agenda | Resumo do evento, data/hora e sala; **sem nome de paciente por padrão** | Internacional (Google) |
 | OpenAlex | Literatura científica | Descritores clínicos | Internacional |
 | Sentry (desativado por padrão) | Relatório de erros do app | Dados técnicos do erro, sem PII nem conteúdo clínico | EUA |
 | Conselho Federal de Psicologia (API de CRP) | Verificação de registro profissional | CRP informado | Brasil |
 | `[wuzapi]` | Lembretes por WhatsApp | Telefone, nome, mensagem | `[definir]` |
 | `[provedor SMTP]` | E-mails transacionais | E-mail, tokens | `[definir]` |
+
+> A integração com o Google Calendar é **opcional**, ativada pelo profissional via OAuth no
+> aparelho. Por padrão o app envia apenas resumo genérico ("Sessão" ou título do evento), data/hora e
+> sala; **não envia nome de paciente nem conteúdo clínico**. O profissional pode desconectar a
+> qualquer momento; os eventos já criados permanecem no Google até serem removidos por ele.
 
 ---
 

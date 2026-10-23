@@ -91,12 +91,17 @@ e segurança.
 | **OpenAI** | Síntese e evolução com IA | **Relato clínico** e primeiro nome da pessoa atendida | **Estados Unidos** |
 | **DeepSeek** | Síntese com IA (usado quando o provedor principal falha) | **Relato clínico** e primeiro nome da pessoa atendida | **China** |
 | **Google (Gemini)** | Síntese com IA (presente no código, **fora da cascata de produção**) | Relato clínico, somente se reativado | Estados Unidos |
+| **Google Calendar** (opcional) | Sincronização da agenda | Resumo do evento ("Sessão" ou título), data/hora e sala; **sem nome de paciente** por padrão | Internacional (Google) |
 | **Sentry** | Relatório de erros (desativado por padrão) | Dados técnicos do erro, sem conteúdo clínico e sem identificação de usuário | Estados Unidos |
 | **Provedor de e-mail** | Envio de verificação de conta e redefinição de senha | E-mail do profissional | Estados Unidos |
 | **OpenAlex** | Sugestão de artigos científicos | Descritores clínicos do tema e e-mail do profissional | Internacional |
 | **Conselho Federal de Psicologia / API de CRP** | Verificação do registro profissional | Número de CRP informado | Brasil |
 | **Gateway de WhatsApp** | Envio de lembretes | Nome, telefone e texto do lembrete | A confirmar ⚖️ |
 | **Google Play / Apple App Store** | Distribuição do app | Dados da conta de desenvolvedor e relatórios de falha da loja | Estados Unidos |
+
+> A integração com o **Google Calendar** é opcional e só ocorre se o profissional conectar a própria
+> conta. O app envia resumo genérico, data/hora e sala; não envia nome de paciente nem conteúdo
+> clínico por padrão. A desconexão não apaga os eventos já criados no Google.
 
 **Não vendemos, alugamos nem cedemos dados pessoais.** Fora dos casos acima, só há compartilhamento
 por obrigação legal, ordem judicial ou autoridade competente.

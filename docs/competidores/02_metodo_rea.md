@@ -83,6 +83,8 @@ rea inspect-web-page http://127.0.0.1:9222 <TARGET_ID> \
 
 - Uso **público e local**: páginas públicas + demo público; **sem** login, **sem** capturar área
   autenticada, **sem** descompilar APK — isso exige **aval jurídico** (ToS/EULA + Lei 9.609/98).
+- **Exceção autorizada (19/10/2026):** a conta **trial do PsicoManager** é do próprio dono, com dados
+  sintéticos e captura passiva — ver `00_LEIA-ME.md` §2. APK continua fora.
 - **Nunca** copiar código/assets de concorrente; objetivo é entender **comportamento**.
 
 ## 7. Desinstalar (se necessário)
@@ -92,3 +94,30 @@ npm uninstall -g rea-agents
 # remover a entrada "rea" de ~/.config/opencode/opencode.jsonc
 # (Node em ~/.local/node-v22.23.3-darwin-arm64 e symlinks em ~/.local/bin)
 ```
+
+## 8. REA × RES (saas-reverse) — quando usar cada um
+
+O **RES** ([`veyralabsgroup/saas-reverse`](https://github.com/veyralabsgroup/saas-reverse), MIT) foi
+avaliado em 19/10/2026. Ele **não** substitui o REA: é uma ferramenta de **OSINT + LLM** para
+**produto/negócio**.
+
+| Dimensão | REA | RES |
+|---|---|---|
+| O que faz | Anexa via **CDP**, lê bundle/rede/runtime, extrai rotas, endpoints, SDKs e fingerprints; evidência com ID | Raspa páginas públicas, busca reviews/HN/Reddit/vagas e pede ao LLM um **blueprint** |
+| Prova técnica | **Sim** (observação) | **Não** (inferência do LLM) |
+| Preço/planos/features | Manual | **Sim** (bom ponto de partida) |
+| Moat/churn/posicionamento | Não | **Sim** (é o foco) |
+| Área autenticada | Só com captura autorizada | Não |
+| APK/binário | Sim (com engine + aval) | Não |
+
+**Como foi usado nesta rodada:** clone local em `/tmp/saas-reverse`, venv Python 3.12
+(`uv venv --python 3.12`), scripts `saas_scraper.py` e `saas_intel.py`; **sem** chave Groq — a
+síntese foi feita pelo próprio agente. Limitações medidas:
+- o scraper **não renderiza SPA** (o site do PsicoManager é React/Vite) e o `strip_html` quebra com
+  `<` dentro de `<script>`; o resultado útil veio do **bundle público** e do **REA**;
+- o `saas_intel.py` devolveu **0 reviews / 0 HN / 0 Reddit** nesta execução (DDGS) e **5** sinais de
+  vagas — não é fonte suficiente para afirmar churn ou stack;
+- toda saída do RES deve ser tratada como **hipótese** e cruzada com a observação do REA.
+
+**Regra prática:** começar pelo **RES** para o mapa de produto; provar o **como** com o **REA**;
+registrar as duas camadas separadamente no documento do concorrente.

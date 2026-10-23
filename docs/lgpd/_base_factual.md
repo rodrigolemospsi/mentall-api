@@ -20,6 +20,7 @@
 | Backend | FastAPI (Python 3.12) | `backend/main.py`, `render.yaml` |
 | Versão em análise | APK `1.0.49` | `MentAllPRO-v1.0.49.apk` |
 | Deploy backend | Fly.io, `primary_region = "gru"` (São Paulo) | `fly.toml:2-3` |
+| Integração opcional | Google Calendar (OAuth no aparelho; sem backend) | `lib/services/google_calendar_*.dart` |
 | Banco | libSQL/Turso (`libsql.connect`) com fallback SQLite local | `backend/services/db.py:37-38`, `:58-107` |
 
 ## 2. Papéis (LGPD art. 5º, VI e VII)

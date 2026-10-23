@@ -242,6 +242,7 @@ jurídica** antes de serem tratadas como definitivas.
 |---|---|---|---|---|
 | Turso (libSQL) / AWS | Banco de dados | Contrato, anamnese, telefone, lembrete, conta, telemetria | **EUA (us-west-2)** | Contrato + salvaguarda de transferência ⚖️ |
 | Fly.io | Hospedagem do backend | Trânsito de todos os dados da API | Brasil (`gru`) / matriz EUA conforme contrato | Contrato de operador |
+| **Google Calendar** (opcional) | Agenda | Resumo do evento, data/hora, sala; **sem nome de paciente por padrão** | Internacional (Google) | Contrato + salvaguarda ⚖️ |
 | Groq | Transcrição | **Áudio clínico** | EUA | Contrato + salvaguarda ⚖️ |
 | OpenAI | Síntese/progresso | **Nome + relato clínico** | EUA | Contrato + salvaguarda + verificação de retenção ⚖️ |
 | DeepSeek | Síntese (fallback) | **Nome + relato clínico** | **China** | Contrato + salvaguarda + decisão de risco ⚖️ |
