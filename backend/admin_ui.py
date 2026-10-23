@@ -390,6 +390,7 @@ def _nav(ativo: str = "psicologos", pode_email: bool = True) -> str:
     itens = [("Psicólogos", "/admin", "psicologos")]
     if pode_email:
         itens.append(("E-mail", "/admin/email", "email"))
+        itens.append(("Lembretes", "/admin/lembretes", "lembretes"))
     itens.append(("Segurança", "/admin/seguranca", "seguranca"))
     partes = []
     for rotulo, href, chave in itens:
@@ -1037,3 +1038,112 @@ _ESTILO += """
     .tela-2fa{margin:30px auto;padding:20px}
   }
 """
+
+
+_ESTILO += """
+  .btn.pequeno{padding:5px 10px;font-size:12px;border-radius:6px;background:#8806CE;color:#fff;border:0;cursor:pointer}
+  .btn.secundario.pequeno{background:#F1F5F9;color:#334155;border:1px solid #CBD5E1}
+"""
+
+
+def _linha_lembrete(item: dict) -> str:
+    status = (item.get("status") or "").strip()
+    classes = {
+        "falha": "saude-erro",
+        "pendente": "saude-atencao",
+        "enviado": "saude-ok",
+        "cancelado": "saude-info",
+    }
+    pill = f'<span class="pill {classes.get(status, "saude-info")}">{_esc(status)}</span>'
+    acoes = ""
+    if status in ("falha", "cancelado"):
+        acoes += (
+            f'<form method="post" action="/admin/lembretes/{_esc(item.get("id"))}/acao" '
+            'style="display:inline"><input type="hidden" name="acao" value="reenviar">'
+            '<button type="submit" class="btn pequeno">Reenviar</button></form> '
+        )
+    if status in ("falha", "pendente"):
+        acoes += (
+            f'<form method="post" action="/admin/lembretes/{_esc(item.get("id"))}/acao" '
+            'style="display:inline"><input type="hidden" name="acao" value="arquivar">'
+            '<button type="submit" class="btn pequeno secundario">Arquivar</button></form>'
+        )
+    return (
+        "<tr>"
+        f"<td>{_quando(item.get('horario_envio'))}</td>"
+        f"<td>{_esc(item.get('dono_email')) or '-'}</td>"
+        f"<td>{pill}</td>"
+        f"<td>{_esc(item.get('tentativas') or 0)}</td>"
+        f"<td>{_quando(item.get('ultima_tentativa_em'))}</td>"
+        f"<td>{_esc(item.get('telefone'))}</td>"
+        f"<td>{acoes or '-'}</td>"
+        "</tr>"
+    )
+
+
+def pagina_lembretes(
+    resumo: dict,
+    lembretes: list,
+    filtro_status: str = "",
+    msg: str = "",
+    erro: str = "",
+) -> str:
+    """Lembretes do WhatsApp no painel — só metadados (LGPD)."""
+    cards = "".join(
+        [
+            _cartao("Total", resumo.get("total", 0)),
+            _cartao("Pendentes", resumo.get("pendentes", 0)),
+            _cartao("Enviados", resumo.get("enviados", 0)),
+            _cartao("Falhas", resumo.get("falhas", 0), destaque=bool(resumo.get("falhas"))),
+            _cartao("Falhas (7 dias)", resumo.get("falhas_recentes", 0), destaque=bool(resumo.get("falhas_recentes"))),
+            _cartao("Falhas antigas", resumo.get("falhas_antigas", 0)),
+            _cartao("Atrasados", resumo.get("atrasados", 0), destaque=bool(resumo.get("atrasados"))),
+            _cartao("Cancelados", resumo.get("cancelados", 0)),
+        ]
+    )
+
+    opcoes = [("", "Todos")] + [
+        ("pendente", "Pendentes"),
+        ("enviado", "Enviados"),
+        ("falha", "Falhas"),
+        ("cancelado", "Cancelados"),
+    ]
+    opcoes_html = "".join(
+        f'<option value="{valor}"{" selected" if valor == filtro_status else ""}>{_esc(rotulo)}</option>'
+        for valor, rotulo in opcoes
+    )
+
+    linhas = "".join(_linha_lembrete(item) for item in lembretes) or (
+        '<tr><td colspan="7" class="off">Nenhum lembrete com esse filtro.</td></tr>'
+    )
+    pode_arquivar = resumo.get("falhas_antigas", 0) > 0
+
+    return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MentAll PRO — Lembretes</title><style>{_ESTILO}</style>{_PWA_HEAD}</head>
+<body>
+{_cabecalho_painel("lembretes")}
+<main>
+  <h2 style="font-size:18px;color:#1E293B;margin-top:0">Lembretes do WhatsApp</h2>
+  <p class="nota-lgpd">Metadados apenas — o conteúdo da mensagem não aparece no painel (LGPD).
+  Telefones aparecem mascarados.</p>
+  {_alertas(msg, erro)}
+  <div class="grid-cards">{cards}</div>
+
+  <form class="filtros" method="get" action="/admin/lembretes">
+    <select name="status">{opcoes_html}</select>
+    <button type="submit">Filtrar</button>
+    <a class="btn secundario" href="/admin/lembretes">Limpar</a>
+  </form>
+
+  {'<form method="post" action="/admin/lembretes/arquivar-antigas" style="margin:0 0 14px"><button type="submit" class="btn secundario">Arquivar falhas antigas (' + str(resumo.get("falhas_antigas", 0)) + ')</button></form>' if pode_arquivar else ''}
+
+  <table>
+    <thead><tr>
+      <th>Horário</th><th>Dono</th><th>Status</th><th>Tentativas</th>
+      <th>Última tentativa</th><th>Telefone</th><th>Ações</th>
+    </tr></thead>
+    <tbody>{linhas}</tbody>
+  </table>
+</main>
+</body></html>"""

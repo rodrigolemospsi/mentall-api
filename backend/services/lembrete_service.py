@@ -17,6 +17,12 @@ _TAREFA: asyncio.Task | None = None
 
 JANELA_RETRY_MINUTOS = int(os.getenv("JANELA_RETRY_LEMBRETES_MINUTOS", "60"))
 
+# Teto de tentativas por lembrete. O scheduler roda a cada 30 s e a janela de
+# retry é de 60 min: sem teto, um lembrete quebrado tentava ~120x por hora
+# (produção registrou 180 tentativas). Ao atingir o teto, marca falha e o
+# reenvio passa a ser manual pelo painel (aba Lembretes).
+MAX_TENTATIVAS_LEMBRETE = int(os.getenv("MAX_TENTATIVAS_LEMBRETE", "12"))
+
 # Watchdog de reconexao do wuzapi: intervalo minimo entre tentativas
 # de reconexao (segundos) para nao martelar o wuzapi/WhatsApp se ficar fora.
 _WUZAPI_RECONNECT_COOLDOWN_SECONDS = int(
@@ -247,7 +253,10 @@ def _processar_pendentes(agora: datetime) -> bool:
                 )
             else:
                 tentativas = (r.get("tentativas") or 0) + 1
-                if _deve_continuar_tentando(r["horario_envio"], agora):
+                if (
+                    tentativas < MAX_TENTATIVAS_LEMBRETE
+                    and _deve_continuar_tentando(r["horario_envio"], agora)
+                ):
                     executar(
                         "UPDATE lembretes SET tentativas = ?, ultima_tentativa_em = ? "
                         "WHERE id = ? AND status = 'pendente'",

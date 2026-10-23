@@ -82,6 +82,37 @@ Suspender bloqueia **novos logins**, mas um JWT de app já emitido continua vál
 não existe registro de tokens por usuário. Revogação global por usuário (token_version) fica para o
 P1 de segurança.
 
+## Lembretes no painel + teto de retry — Fase 5H (24/10/2026)
+
+### Diagnóstico
+A Saúde mostrava **"Lembretes: 4 com falha"** permanentemente. Investigação no banco de produção
+(SQLite do volume, via `fly ssh`):
+- **4 falhas históricas**: 29/09, 02/10, 09/10 e 16/10 (período em que o WhatsApp estava desconectado);
+- **0 atrasados** e 11 pendentes futuros (nov/2026 a jan/2027);
+- tentativas de **103, 104 e 180** por lembrete.
+
+Bug encontrado: o scheduler roda a cada **30 s** e a janela de retry é de **60 min** — sem teto de
+tentativas, um lembrete quebrado martelava o WhatsApp ~120x/hora.
+
+### O que mudou (arquivos)
+1. **`backend/services/lembrete_service.py`** — `MAX_TENTATIVAS_LEMBRETE` (env, padrão **12**): ao
+   atingir o teto dentro da janela, marca `falha` e o reenvio passa a ser manual.
+2. **`backend/services/admin.py`** — `resumo_lembretes()` (contagens em 1 consulta),
+   `listar_lembretes_painel()` (**LGPD: não seleciona `mensagem`; telefone mascarado**),
+   `reenviar_lembrete()`, `arquivar_lembrete()`, `arquivar_falhas_antigas(dias=7)`.
+3. **`backend/services/saude.py`** — card separa **atrasados**, **falhas recentes (7 dias)** e
+   **falhas antigas**: só as duas primeiras geram "atenção"; antigas aparecem como "arquiváveis".
+4. **`backend/admin_ui.py`** — nav **Lembretes** (admin) + página com cards, filtro por status e ações
+   (Reenviar / Arquivar / Arquivar falhas antigas).
+5. **`backend/main.py`** — `GET /admin/lembretes`, `POST /admin/lembretes/{id}/acao`,
+   `POST /admin/lembretes/arquivar-antigas` (papel admin; tudo auditado em `admin_auditoria`).
+6. **`backend/tests/test_admin_lembretes.py`** (novo) — 17 testes (resumo, listagem LGPD, ações,
+   saúde, teto de retry e HTTP).
+
+### Uso
+Painel → **Lembretes**: filtrar por status, **Reenviar** falhas pontuais, **Arquivar** falhas
+antigas em lote. O card da Saúde fica limpo quando não há atrasados nem falhas nos últimos 7 dias.
+
 ## Backup portátil com senha + chave de recuperação — Fase 5G (24/10/2026)
 
 ### Contexto

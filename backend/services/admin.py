@@ -389,3 +389,93 @@ def revogar_sessoes_app(usuario_id: str) -> int:
     from services.usuarios import incrementar_token_version
 
     return incrementar_token_version(usuario_id)
+
+
+STATUS_LEMBRETE_VALIDOS = ("pendente", "enviado", "falha", "cancelado")
+DIAS_FALHA_ANTIGA = 7
+
+
+def _mascarar_telefone(valor: str) -> str:
+    """Mascara o telefone (PII): mantém só os 4 últimos dígitos."""
+    texto = str(valor or "").strip()
+    if len(texto) <= 4:
+        return "****"
+    return "*" * (len(texto) - 4) + texto[-4:]
+
+
+def resumo_lembretes() -> dict:
+    """Contagens de lembretes para o painel (uma única consulta)."""
+    agora = datetime.now(timezone.utc).isoformat()
+    limite_7d = (datetime.now(timezone.utc) - timedelta(days=DIAS_FALHA_ANTIGA)).isoformat()
+    linha = executar(
+        "SELECT "
+        "(SELECT COUNT(*) FROM lembretes) AS total, "
+        "(SELECT COUNT(*) FROM lembretes WHERE status = 'pendente') AS pendentes, "
+        "(SELECT COUNT(*) FROM lembretes WHERE status = 'enviado') AS enviados, "
+        "(SELECT COUNT(*) FROM lembretes WHERE status = 'falha') AS falhas, "
+        "(SELECT COUNT(*) FROM lembretes WHERE status = 'cancelado') AS cancelados, "
+        "(SELECT COUNT(*) FROM lembretes WHERE status = 'pendente' AND horario_envio < ?) AS atrasados, "
+        "(SELECT COUNT(*) FROM lembretes WHERE status = 'falha' AND horario_envio >= ?) AS falhas_recentes, "
+        "(SELECT COUNT(*) FROM lembretes WHERE status = 'falha' AND horario_envio < ?) AS falhas_antigas",
+        (agora, limite_7d, limite_7d),
+    ).fetchone()
+    return {chave: int(linha[chave] or 0) for chave in linha.keys()}
+
+
+def listar_lembretes_painel(status: str = "", limite: int = 50) -> list[dict]:
+    """Lembretes para o painel — só metadados (LGPD: nunca seleciona `mensagem`)."""
+    status = (status or "").strip().lower()
+    if status not in STATUS_LEMBRETE_VALIDOS:
+        status = ""
+    limite = max(1, min(200, int(limite)))
+    linhas = executar(
+        "SELECT l.id, l.compromisso_id, l.telefone, l.horario_envio, l.canal, l.status, "
+        "l.tentativas, l.ultima_tentativa_em, l.enviado_em, l.entregue_em, l.lido_em, "
+        "COALESCE(u.email, '') AS dono_email "
+        "FROM lembretes l LEFT JOIN usuarios u ON u.id = l.owner_id "
+        "WHERE (? = '' OR l.status = ?) "
+        "ORDER BY l.horario_envio DESC LIMIT ?",
+        (status, status, limite),
+    ).fetchall()
+    itens = []
+    for linha in linhas:
+        item = dict(linha)
+        item["telefone"] = _mascarar_telefone(item.get("telefone"))
+        itens.append(item)
+    return itens
+
+
+def reenviar_lembrete(lembrete_id: str) -> bool:
+    """Recoloca um lembrete falho/cancelado na fila, para envio imediato."""
+    agora = datetime.now(timezone.utc).isoformat()
+    cur = executar(
+        "UPDATE lembretes SET status = 'pendente', horario_envio = ?, tentativas = 0, "
+        "ultima_tentativa_em = NULL "
+        "WHERE id = ? AND status IN ('falha', 'cancelado')",
+        (agora, lembrete_id),
+    )
+    cur.commit()
+    return (cur.rowcount or 0) == 1
+
+
+def arquivar_lembrete(lembrete_id: str) -> bool:
+    """Arquiva (soft-cancel) um lembrete falho/pendente."""
+    cur = executar(
+        "UPDATE lembretes SET status = 'cancelado' "
+        "WHERE id = ? AND status IN ('falha', 'pendente')",
+        (lembrete_id,),
+    )
+    cur.commit()
+    return (cur.rowcount or 0) == 1
+
+
+def arquivar_falhas_antigas(dias: int = DIAS_FALHA_ANTIGA) -> int:
+    """Arquiva falhas com horário anterior à janela indicada. Retorna o total."""
+    limite = (datetime.now(timezone.utc) - timedelta(days=max(1, int(dias)))).isoformat()
+    cur = executar(
+        "UPDATE lembretes SET status = 'cancelado' "
+        "WHERE status = 'falha' AND horario_envio < ?",
+        (limite,),
+    )
+    cur.commit()
+    return cur.rowcount or 0

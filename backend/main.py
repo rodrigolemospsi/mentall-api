@@ -2866,6 +2866,76 @@ def admin_apple_touch_icon():
 
 
 # ---------------------------------------------------------------------------
+# Lembretes no painel — Fase 5H (24/10/2026)
+#
+# Diagnóstico/limpeza operacional dos lembretes do WhatsApp: o painel mostra
+# metadados (nunca a mensagem — LGPD), permite reenviar falhos e arquivar
+# falhas antigas. Toda ação é auditada em admin_auditoria.
+# ---------------------------------------------------------------------------
+
+def _redirect_lembretes(msg: str = "", erro: str = "") -> RedirectResponse:
+    parametros = {chave: valor for chave, valor in (("msg", msg), ("erro", erro)) if valor}
+    destino = "/admin/lembretes" + (("?" + urlencode(parametros)) if parametros else "")
+    return RedirectResponse(destino, status_code=303)
+
+
+@app.get("/admin/lembretes", response_class=HTMLResponse, tags=["Admin"])
+def admin_lembretes(request: Request, status: str = "", msg: str = "", erro: str = ""):
+    _rate_limit_check(request, max_requests=60)
+    bloqueio = _exigir_papel(request, ("admin",))
+    if bloqueio:
+        return bloqueio
+    resumo = admin_service.resumo_lembretes()
+    lembretes = admin_service.listar_lembretes_painel(status=status, limite=100)
+    return HTMLResponse(
+        admin_ui.pagina_lembretes(resumo, lembretes, status, msg, erro)
+    )
+
+
+@app.post("/admin/lembretes/arquivar-antigas", tags=["Admin"])
+def admin_lembretes_arquivar_antigas(request: Request):
+    _rate_limit_check(request, max_requests=20, chave_extra="admin-lembretes")
+    bloqueio = _exigir_papel(request, ("admin",))
+    if bloqueio:
+        return bloqueio
+    total = admin_service.arquivar_falhas_antigas()
+    admin_service.registrar_auditoria(
+        _identidade_admin(request),
+        "lembretes.arquivar_antigas",
+        "",
+        f"{total} arquivada(s)",
+        _cliente_ip(request),
+    )
+    return _redirect_lembretes(msg=f"{total} falha(s) antiga(s) arquivada(s).")
+
+
+@app.post("/admin/lembretes/{lembrete_id}/acao", tags=["Admin"])
+async def admin_lembrete_acao(request: Request, lembrete_id: str):
+    _rate_limit_check(request, max_requests=20, chave_extra="admin-lembretes")
+    bloqueio = _exigir_papel(request, ("admin",))
+    if bloqueio:
+        return bloqueio
+    form = await request.form()
+    acao = (form.get("acao") or "").strip()
+    ator = _identidade_admin(request) or "desconhecido"
+    ip = _cliente_ip(request)
+
+    if acao == "reenviar":
+        if not admin_service.reenviar_lembrete(lembrete_id):
+            return _redirect_lembretes(erro="Lembrete não está em falha/cancelado.")
+        admin_service.registrar_auditoria(ator, "lembretes.reenviar", lembrete_id, "", ip)
+        return _redirect_lembretes(msg="Lembrete reenviado — sai no próximo ciclo do scheduler.")
+
+    if acao == "arquivar":
+        if not admin_service.arquivar_lembrete(lembrete_id):
+            return _redirect_lembretes(erro="Lembrete não encontrado ou já arquivado.")
+        admin_service.registrar_auditoria(ator, "lembretes.arquivar", lembrete_id, "", ip)
+        return _redirect_lembretes(msg="Lembrete arquivado (cancelado).")
+
+    return _redirect_lembretes(erro="Ação desconhecida.")
+
+
+# ---------------------------------------------------------------------------
 # E-mail (Mailu) no painel do dono — Fase 4 (22/10/2026)
 #
 # O painel fala com a API do Mailu pelo backend (token em MAILU_API_TOKEN).

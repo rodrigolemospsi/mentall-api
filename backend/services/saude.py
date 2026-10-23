@@ -152,21 +152,25 @@ def _smtp():
 
 
 def _lembretes():
+    """Atrasados e falhas recentes (7 dias); falhas antigas não poluem a Saúde."""
     agora = datetime.now(timezone.utc).isoformat()
-    atrasados = executar(
-        "SELECT COUNT(*) AS n FROM lembretes WHERE status = 'pendente' AND horario_envio < ?",
-        (agora,),
-    ).fetchone()["n"]
-    falhas = executar(
-        "SELECT COUNT(*) AS n FROM lembretes WHERE status = 'falha'"
-    ).fetchone()["n"]
-    if atrasados or falhas:
-        partes = []
-        if atrasados:
-            partes.append(f"{atrasados} atrasado(s)")
-        if falhas:
-            partes.append(f"{falhas} com falha")
-        return "atencao", " · ".join(partes)
+    limite_7d = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    linha = executar(
+        "SELECT "
+        "(SELECT COUNT(*) FROM lembretes WHERE status = 'pendente' AND horario_envio < ?) AS atrasados, "
+        "(SELECT COUNT(*) FROM lembretes WHERE status = 'falha' AND horario_envio >= ?) AS falhas_recentes, "
+        "(SELECT COUNT(*) FROM lembretes WHERE status = 'falha' AND horario_envio < ?) AS falhas_antigas",
+        (agora, limite_7d, limite_7d),
+    ).fetchone()
+    atrasados = int(linha["atrasados"] or 0)
+    falhas_recentes = int(linha["falhas_recentes"] or 0)
+    falhas_antigas = int(linha["falhas_antigas"] or 0)
+    if atrasados:
+        return "atencao", f"{atrasados} atrasado(s)"
+    if falhas_recentes:
+        return "atencao", f"{falhas_recentes} falha(s) nos últimos 7 dias"
+    if falhas_antigas:
+        return "ok", f"{falhas_antigas} falha(s) antigas (arquiváveis no painel)"
     return "ok", "sem atrasos nem falhas"
 
 
