@@ -2782,6 +2782,90 @@ def admin_logout_todos(request: Request):
 
 
 # ---------------------------------------------------------------------------
+# PWA do painel — Fase 5E (23/10/2026)
+#
+# Manifest, service worker e ícones para "instalar" o painel no celular.
+# Política: sem cache de dados — o service worker sempre busca da rede.
+# ---------------------------------------------------------------------------
+
+_STATIC_ADMIN = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "admin")
+
+
+def _static_admin(nome: str, media_type: str, cache: str = "public, max-age=86400"):
+    caminho = os.path.join(_STATIC_ADMIN, nome)
+    try:
+        with open(caminho, "rb") as arquivo:
+            conteudo = arquivo.read()
+    except FileNotFoundError:
+        return Response(status_code=404)
+    return Response(
+        content=conteudo, media_type=media_type, headers={"Cache-Control": cache}
+    )
+
+
+@app.get("/admin/manifest.webmanifest", tags=["Admin"])
+def admin_manifest():
+    return JSONResponse(
+        {
+            "name": "MentAll PRO — Painel do dono",
+            "short_name": "Painel MentAll",
+            "description": "Painel operacional do MentAll PRO",
+            "lang": "pt-BR",
+            "start_url": "/admin",
+            "scope": "/admin",
+            "display": "standalone",
+            "orientation": "portrait-primary",
+            "background_color": "#F7F9FA",
+            "theme_color": "#8806CE",
+            "icons": [
+                {
+                    "src": "/admin/icon-192.png",
+                    "sizes": "192x192",
+                    "type": "image/png",
+                    "purpose": "any",
+                },
+                {
+                    "src": "/admin/icon-512.png",
+                    "sizes": "512x512",
+                    "type": "image/png",
+                    "purpose": "any maskable",
+                },
+            ],
+        },
+        media_type="application/manifest+json",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
+
+
+@app.get("/admin/sw.js", tags=["Admin"])
+def admin_service_worker():
+    resposta = _static_admin("sw.js", "application/javascript", "no-cache")
+    if resposta.status_code == 200:
+        resposta.headers["Service-Worker-Allowed"] = "/admin"
+    return resposta
+
+
+@app.get("/admin/painel.js", tags=["Admin"])
+def admin_painel_js():
+    return _static_admin("painel.js", "application/javascript", "no-cache")
+
+
+@app.get("/admin/icon-192.png", tags=["Admin"])
+def admin_icon_192():
+    return _static_admin("icon-192.png", "image/png")
+
+
+@app.get("/admin/icon-512.png", tags=["Admin"])
+def admin_icon_512():
+    return _static_admin("icon-512.png", "image/png")
+
+
+@app.get("/admin/apple-touch-icon.png", tags=["Admin"])
+def admin_apple_touch_icon():
+    return _static_admin("apple-touch-icon.png", "image/png")
+
+
+# ---------------------------------------------------------------------------
 # E-mail (Mailu) no painel do dono — Fase 4 (22/10/2026)
 #
 # O painel fala com a API do Mailu pelo backend (token em MAILU_API_TOKEN).

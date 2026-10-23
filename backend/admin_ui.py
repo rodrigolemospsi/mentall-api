@@ -53,6 +53,14 @@ def _visto_ha(iso) -> str:
     return f"há {horas // 24} d"
 
 
+_PWA_HEAD = (
+    '<meta name="theme-color" content="#8806CE">'
+    '<link rel="manifest" href="/admin/manifest.webmanifest">'
+    '<link rel="apple-touch-icon" href="/admin/apple-touch-icon.png">'
+    '<link rel="icon" type="image/png" href="/admin/icon-192.png">'
+    '<script src="/admin/painel.js" defer></script>'
+)
+
 _ESTILO = """
   *{box-sizing:border-box}
   body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#F7F9FA;color:#1E293B}
@@ -87,7 +95,7 @@ def pagina_login(erro: str = "") -> str:
     bloco_erro = f'<p class="erro">{_esc(erro)}</p>' if erro else ""
     return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MentAll PRO — Painel</title><style>{_ESTILO}</style></head>
+<title>MentAll PRO — Painel</title><style>{_ESTILO}</style>{_PWA_HEAD}</head>
 <body>
 <form class="login" method="post" action="/admin/login">
   <h2 style="margin-top:0;color:#8806CE;font-size:20px">Painel do dono</h2>
@@ -305,7 +313,7 @@ def pagina_dashboard(
 
     return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MentAll PRO — Painel</title><style>{_ESTILO}</style></head>
+<title>MentAll PRO — Painel</title><style>{_ESTILO}</style>{_PWA_HEAD}</head>
 <body>
 {_cabecalho_painel(pode_email=pode_email)}
 <main>
@@ -519,7 +527,7 @@ def pagina_email(
 
     return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MentAll PRO — E-mail</title><style>{_ESTILO}</style></head>
+<title>MentAll PRO — E-mail</title><style>{_ESTILO}</style>{_PWA_HEAD}</head>
 <body>
 {_cabecalho_email()}
 <main>
@@ -585,7 +593,7 @@ def pagina_confirmar_exclusao(caixa: dict) -> str:
     nome = _esc(caixa.get("nome")) or "-"
     return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MentAll PRO — Excluir caixa</title><style>{_ESTILO}</style></head>
+<title>MentAll PRO — Excluir caixa</title><style>{_ESTILO}</style>{_PWA_HEAD}</head>
 <body>
 {_cabecalho_email()}
 <main>
@@ -808,7 +816,7 @@ def pagina_usuario(
 
     return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MentAll PRO — {email}</title><style>{_ESTILO}</style></head>
+<title>MentAll PRO — {email}</title><style>{_ESTILO}</style>{_PWA_HEAD}</head>
 <body>
 {_cabecalho_painel(pode_email=pode_email)}
 <main>
@@ -854,7 +862,7 @@ def pagina_2fa_login(erro: str = "") -> str:
     bloco_erro = f'<p class="erro">{_esc(erro)}</p>' if erro else ""
     return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MentAll PRO — Verificação em 2 etapas</title><style>{_ESTILO}</style></head>
+<title>MentAll PRO — Verificação em 2 etapas</title><style>{_ESTILO}</style>{_PWA_HEAD}</head>
 <body>
 <form class="tela-2fa" method="post" action="/admin/2fa">
   <h2>Verificação em 2 etapas</h2>
@@ -906,7 +914,7 @@ def pagina_seguranca(
 
     return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MentAll PRO — Segurança</title><style>{_ESTILO}</style></head>
+<title>MentAll PRO — Segurança</title><style>{_ESTILO}</style>{_PWA_HEAD}</head>
 <body>
 {_cabecalho_painel("seguranca")}
 <main>
@@ -939,7 +947,7 @@ def pagina_2fa_ativar(ator: str, segredo: str, uri: str, erro: str = "") -> str:
     bloco_erro = f'<p class="erro">{_esc(erro)}</p>' if erro else ""
     return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MentAll PRO — Ativar 2FA</title><style>{_ESTILO}</style></head>
+<title>MentAll PRO — Ativar 2FA</title><style>{_ESTILO}</style>{_PWA_HEAD}</head>
 <body>
 {_cabecalho_painel("seguranca")}
 <main>
@@ -974,7 +982,7 @@ def pagina_2fa_backup(codigos: list[str]) -> str:
     itens = "".join(f"<code>{_esc(c)}</code>" for c in codigos)
     return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MentAll PRO — Códigos de recuperação</title><style>{_ESTILO}</style></head>
+<title>MentAll PRO — Códigos de recuperação</title><style>{_ESTILO}</style>{_PWA_HEAD}</head>
 <body>
 {_cabecalho_painel("seguranca")}
 <main>
@@ -993,7 +1001,7 @@ def pagina_sem_permissao(recurso: str = "") -> str:
     detalhe = f" ({_esc(recurso)})" if recurso else ""
     return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MentAll PRO — Sem permissão</title><style>{_ESTILO}</style></head>
+<title>MentAll PRO — Sem permissão</title><style>{_ESTILO}</style>{_PWA_HEAD}</head>
 <body>
 {_cabecalho_painel()}
 <main>
@@ -1002,3 +1010,30 @@ def pagina_sem_permissao(recurso: str = "") -> str:
   <p><a class="btn" href="/admin">Voltar ao painel</a></p>
 </main>
 </body></html>"""
+
+
+# CSS responsivo (Fase 5E): celular/tablet + rolagem horizontal de tabelas.
+_ESTILO += """
+  .rolagem{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 0 12px}
+  @media (max-width: 760px){
+    header{flex-wrap:wrap;gap:10px;padding:12px 14px}
+    header h1{font-size:16px}
+    nav{margin:0;gap:10px;flex-wrap:wrap}
+    header form{margin-left:auto}
+    main{padding:14px}
+    .cards{gap:10px}
+    .card{min-width:140px;padding:12px 14px}
+    .card .n{font-size:22px}
+    h2{margin:18px 0 6px}
+    table{font-size:12px}
+    th,td{padding:7px 8px}
+    form.filtros{gap:6px;padding:10px}
+    form.filtros input,form.filtros select,form.filtros button,.btn.secundario{width:100%}
+    .acoes-linha{flex-direction:column;align-items:stretch}
+    .acoes-linha form{flex-wrap:wrap}
+    .pager{flex-wrap:wrap;gap:8px}
+    .grid-cards .card{flex:1 1 45%}
+    .segredo{font-size:13px}
+    .tela-2fa{margin:30px auto;padding:20px}
+  }
+"""

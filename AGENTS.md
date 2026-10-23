@@ -82,6 +82,35 @@ Suspender bloqueia **novos logins**, mas um JWT de app já emitido continua vál
 não existe registro de tokens por usuário. Revogação global por usuário (token_version) fica para o
 P1 de segurança.
 
+## Painel instalável (PWA) e responsivo no celular — Fase 5E (23/10/2026)
+
+### Contexto
+O painel é web server-rendered e funciona bem no desktop, mas no celular as tabelas ficavam apertadas e
+não dava para "instalar" como app. Em vez de um app nativo (custo alto para 1–3 admins), foi feito um
+**PWA** — instalável na tela inicial, sem loja e sem build — e o layout ganhou **responsividade**.
+
+### O que mudou (arquivos)
+1. **`backend/static/admin/`** (novo) — `sw.js` (service worker mínimo: sempre busca na rede, **nunca
+   cacheia dados do painel**), `painel.js` (registra o SW, adapta tabelas no celular e mostra o botão
+   "Instalar app" quando o navegador permite) e ícones PNG 192/512/180 (roxo com "M").
+2. **`backend/main.py`** — rotas públicas (sem login, só assets estáticos):
+   `GET /admin/manifest.webmanifest`, `/admin/sw.js` (com `Service-Worker-Allowed: /admin`),
+   `/admin/painel.js`, `/admin/icon-192.png`, `/admin/icon-512.png`, `/admin/apple-touch-icon.png`.
+3. **`backend/admin_ui.py`** — `_PWA_HEAD` injetado no `<head>` de **todas as páginas do painel**
+   (manifest, theme-color, ícone, apple-touch-icon, script) e bloco de **CSS responsivo**
+   (`@media max-width:760px`: header/nav quebrando, cards menores, tabelas em rolagem horizontal,
+   formulários 100% largura, ações empilhadas).
+4. **`backend/tests/test_admin_pwa.py`** (novo) — 6 testes.
+
+### Como instalar no celular
+Abra `https://admin.mentallpro.com.br/admin` no Chrome/Safari e use **"Adicionar à tela inicial"**
+(ou o botão "Instalar app" quando aparecer). Abre em tela cheia, ícone próprio, e sempre com dados frescos.
+
+### Segurança
+- PWA **não** cacheia páginas/dados (service worker é passthrough) — nada sensível fica no aparelho.
+- Assets do manifest/ícones são públicos (não expõem nada além do nome do painel).
+- 2FA, sessão com inatividade e logout global continuam valendo normalmente no app instalado.
+
 ## IA de síntese e transcrição separadas no painel — Fase 5D (23/10/2026)
 
 ### Contexto
