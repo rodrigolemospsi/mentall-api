@@ -12,7 +12,7 @@ Estados possíveis:
 import logging
 import os
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from services.db import executar
 
@@ -53,7 +53,8 @@ def _banco():
     return "atencao", "SQLite local (fallback — persistência não garantida em produção)"
 
 
-def _ia():
+def _ia_sintese():
+    """Cadeia de IA de texto (síntese, progresso, artigos)."""
     from services import ia_clinica
 
     provedor = os.getenv("IA_MODEL_PROVIDER", "openai").strip().lower()
@@ -64,6 +65,36 @@ def _ia():
     if not ordem:
         return "erro", "nenhum provedor de IA configurado"
     return "ok", f"provedor base {provedor} · disponíveis: {', '.join(ordem)}"
+
+
+# Compatibilidade: nome antigo (usado em versões anteriores do painel/testes).
+_ia = _ia_sintese
+
+
+def _transcricao():
+    """Configuração e última falha da IA de transcrição (Groq/OpenAI Whisper)."""
+    from services import transcricao
+
+    provider = os.getenv("TRANSCRICAO_PROVIDER", "groq").strip().lower()
+    modelo = transcricao._get_transcricao_model()
+    chave = "GROQ_API_KEY" if provider == "groq" else "OPENAI_API_KEY"
+    if not os.getenv(chave, "").strip():
+        return "erro", f"{provider}/{modelo} · {chave} não configurada"
+    falha = transcricao.ultima_falha()
+    if falha:
+        try:
+            quando = datetime.fromisoformat(falha["quando"])
+        except (TypeError, ValueError):
+            quando = None
+        if quando is not None:
+            idade = datetime.now(timezone.utc) - quando
+            if idade < timedelta(hours=24):
+                horas = max(1, int(idade.total_seconds() // 3600))
+                return "atencao", (
+                    f"{provider}/{modelo} · última falha há {horas}h: "
+                    f"{str(falha.get('mensagem') or '')[:80]}"
+                )
+    return "ok", f"{provider}/{modelo} · chave configurada"
 
 
 def _wuzapi():
@@ -122,7 +153,8 @@ def _lembretes():
 
 _VERIFICACOES = (
     ("Banco de dados", _banco),
-    ("IA clínica", _ia),
+    ("IA de síntese", _ia_sintese),
+    ("Transcrição", _transcricao),
     ("WhatsApp (Wuzapi)", _wuzapi),
     ("E-mail (Mailu)", _mailu),
     ("SMTP de cadastro", _smtp),

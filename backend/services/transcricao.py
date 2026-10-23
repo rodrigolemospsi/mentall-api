@@ -2,12 +2,37 @@ import base64
 import io
 import logging
 import os
+from datetime import datetime, timezone
 
 from groq import Groq
 from openai import OpenAI
 
 log = logging.getLogger("mentall.transcricao")
 MAX_AUDIO_BYTES = 25 * 1024 * 1024
+
+# Última falha de transcrição nesta instância (some em restart/deploy).
+# Guiada por clareza operacional: só provider + mensagem curta, nunca o áudio.
+_ULTIMA_FALHA: dict | None = None
+
+
+def _registrar_falha(provider: str, erro: Exception) -> None:
+    global _ULTIMA_FALHA
+    mensagem = str(erro).strip().replace("\n", " ")[:160]
+    _ULTIMA_FALHA = {
+        "quando": datetime.now(timezone.utc).isoformat(),
+        "provider": provider,
+        "mensagem": mensagem,
+    }
+
+
+def ultima_falha() -> dict | None:
+    """Última falha registrada desde o último start do backend (ou None)."""
+    return dict(_ULTIMA_FALHA) if _ULTIMA_FALHA else None
+
+
+def limpar_ultima_falha() -> None:
+    global _ULTIMA_FALHA
+    _ULTIMA_FALHA = None
 
 
 def _get_transcricao_provider():
@@ -74,6 +99,7 @@ def transcrever_audio(audio_base64: str, formato: str = "wav") -> dict:
         }
 
     except Exception as e:
+        _registrar_falha(provider, e)
         log.exception("Erro ao transcrever audio (provider=%s): %s", provider, e)
         return {
             "sucesso": False,

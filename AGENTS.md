@@ -82,6 +82,35 @@ Suspender bloqueia **novos logins**, mas um JWT de app já emitido continua vál
 não existe registro de tokens por usuário. Revogação global por usuário (token_version) fica para o
 P1 de segurança.
 
+## IA de síntese e transcrição separadas no painel — Fase 5D (23/10/2026)
+
+### Contexto
+O painel mostrava apenas um card **"IA clínica"**, que na verdade cobria só a cadeia de **texto/síntese**
+(`IA_MODEL_PROVIDER`/`IA_PROVIDER_ORDER`, cascata openai→deepseek com circuit breaker). A **transcrição**
+de áudio usa outro provedor/modelo (`TRANSCRICAO_PROVIDER`/`TRANSCRICAO_MODEL`, hoje Groq
+`whisper-large-v3-turbo`) e **não aparecia em lugar nenhum** — se quebrasse, o painel continuava "ok".
+
+### O que mudou (arquivos)
+1. **`backend/services/transcricao.py`** — registro em memória da **última falha** (`_registrar_falha`,
+   `ultima_falha`, `limpar_ultima_falha`): provider + mensagem curta (160 chars), sem áudio/conteúdo.
+   Some no restart/deploy (é estado operacional da instância).
+2. **`backend/services/saude.py`** — `_ia` renomeada para **`_ia_sintese`** (card "IA de síntese";
+   alias `_ia` mantido por compatibilidade) e novo check **`_transcricao`**:
+   - provedor/modelo atuais (ex.: `groq/whisper-large-v3-turbo`);
+   - chave da API presente (`GROQ_API_KEY` ou `OPENAI_API_KEY`);
+   - **atenção** se houve falha nas últimas 24 h, com horário e motivo curto.
+3. **`backend/tests/test_saude_transcricao.py`** (novo) — 8 testes.
+
+### Verificação
+```bash
+cd backend && ./.venv/bin/python -B tests/run_isolated.py test_saude_transcricao
+./.venv/bin/python -B tests/run_isolated.py
+```
+
+### Observação
+A síntese **consome** o texto da transcrição no fluxo (`/transcrever` → app → `/gerar-sintese`), mas são
+duas chamadas e dois monitoramentos independentes — agora visíveis separadamente na Saúde do painel.
+
 ## Banco local no volume do Fly — Fase 5C (22/10/2026)
 
 ### Contexto
