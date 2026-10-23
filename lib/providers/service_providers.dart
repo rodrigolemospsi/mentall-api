@@ -21,6 +21,9 @@ import '../services/configuracoes_service.dart';
 import '../services/contrato_service.dart';
 import '../services/crp_service.dart';
 import '../services/encryption_service.dart';
+import '../services/google_calendar_api.dart';
+import '../services/google_calendar_google_api.dart';
+import '../services/google_calendar_service.dart';
 import '../services/escala_service.dart';
 import '../services/ia_clinica_service.dart';
 import '../services/lembrete_service.dart';
@@ -45,7 +48,9 @@ final authServiceProvider = Provider<AuthService>((ref) {
 });
 
 /// Telemetria (Fase 2): presença (heartbeat) e eventos de uso, sem PII.
-final telemetriaServiceProvider = Provider<TelemetriaService>((ref) => TelemetriaService());
+final telemetriaServiceProvider = Provider<TelemetriaService>(
+  (ref) => TelemetriaService(),
+);
 
 /// Sinal para o [AppLockGate] re-armar o timer de inatividade (incrementado
 /// quando o usuário desbloqueia o app ou voltas a interagir).
@@ -67,7 +72,9 @@ final pacienteServiceProvider = Provider<PacienteService>((ref) {
   return PacienteService(encryption: encryption);
 });
 
-final perfilProfissionalServiceProvider = Provider<PerfilProfissionalService>((ref) {
+final perfilProfissionalServiceProvider = Provider<PerfilProfissionalService>((
+  ref,
+) {
   final encryption = ref.watch(encryptionServiceProvider);
   return PerfilProfissionalService(encryption: encryption);
 });
@@ -102,7 +109,9 @@ final pacientesAtivosProvider = StreamProvider<List<Paciente>>((ref) async* {
   }
 });
 
-final pacientesArquivadosProvider = StreamProvider<List<Paciente>>((ref) async* {
+final pacientesArquivadosProvider = StreamProvider<List<Paciente>>((
+  ref,
+) async* {
   final service = ref.watch(pacienteServiceProvider);
   yield service.listarPacientesArquivados();
   await for (final _ in service.observarPacientes()) {
@@ -121,7 +130,9 @@ final audioPlayerProvider = Provider.autoDispose<AudioPlayer>((ref) {
   return player;
 });
 
-final transcricaoRelatoServiceProvider = Provider<TranscricaoRelatoService>((ref) {
+final transcricaoRelatoServiceProvider = Provider<TranscricaoRelatoService>((
+  ref,
+) {
   return TranscricaoRelatoService();
 });
 
@@ -134,7 +145,9 @@ final backupServiceProvider = Provider<BackupService>((ref) {
   return BackupService(encryption: encryption);
 });
 
-final backupAgendamentoServiceProvider = Provider<BackupAgendamentoService>((ref) {
+final backupAgendamentoServiceProvider = Provider<BackupAgendamentoService>((
+  ref,
+) {
   final configuracoes = ref.watch(configuracoesServiceProvider);
   final backup = ref.watch(backupServiceProvider);
   return BackupAgendamentoService(
@@ -162,6 +175,18 @@ final configuracoesServiceProvider = Provider<ConfiguracoesService>((ref) {
   return ConfiguracoesService(encryption: encryption);
 });
 
+final googleCalendarApiProvider = Provider<GoogleCalendarApi>((ref) {
+  return GoogleCalendarGoogleApi();
+});
+
+final googleCalendarServiceProvider = Provider<GoogleCalendarService>((ref) {
+  return GoogleCalendarService(
+    api: ref.watch(googleCalendarApiProvider),
+    compromissoService: ref.watch(compromissoServiceProvider),
+    configuracoes: ref.watch(configuracoesServiceProvider),
+  );
+});
+
 final configuracoesRevisaoProvider = StreamProvider<int>((ref) async* {
   final service = ref.watch(configuracoesServiceProvider);
   var revisao = 0;
@@ -171,7 +196,9 @@ final configuracoesRevisaoProvider = StreamProvider<int>((ref) async* {
   }
 });
 
-final compromissosHojeProvider = StreamProvider<List<Compromisso>>((ref) async* {
+final compromissosHojeProvider = StreamProvider<List<Compromisso>>((
+  ref,
+) async* {
   final service = ref.watch(compromissoServiceProvider);
   yield service.listarHoje();
   await for (final _ in service.observar()) {
@@ -179,15 +206,18 @@ final compromissosHojeProvider = StreamProvider<List<Compromisso>>((ref) async* 
   }
 });
 
-final compromissosPorDataProvider = StreamProvider.autoDispose.family<List<Compromisso>, DateTime>((ref, date) async* {
-  final service = ref.watch(compromissoServiceProvider);
-  yield service.listarPorData(date);
-  await for (final _ in service.observar()) {
-    yield service.listarPorData(date);
-  }
-});
+final compromissosPorDataProvider = StreamProvider.autoDispose
+    .family<List<Compromisso>, DateTime>((ref, date) async* {
+      final service = ref.watch(compromissoServiceProvider);
+      yield service.listarPorData(date);
+      await for (final _ in service.observar()) {
+        yield service.listarPorData(date);
+      }
+    });
 
-final atividadeRecenteProvider = StreamProvider<List<RegistroAuditoria>>((ref) async* {
+final atividadeRecenteProvider = StreamProvider<List<RegistroAuditoria>>((
+  ref,
+) async* {
   final service = ref.watch(auditoriaServiceProvider);
   yield service.listar(limite: 5);
   await for (final _ in service.observar()) {
@@ -209,8 +239,9 @@ class DashboardKpisSessoes {
   });
 }
 
-final dashboardKpisSessoesProvider =
-    StreamProvider<DashboardKpisSessoes>((ref) async* {
+final dashboardKpisSessoesProvider = StreamProvider<DashboardKpisSessoes>((
+  ref,
+) async* {
   final service = ref.watch(sessaoServiceProvider);
 
   DashboardKpisSessoes calcular() {
@@ -226,109 +257,112 @@ final dashboardKpisSessoesProvider =
   }
 });
 
-final sessoesRealizadasPorPacienteProvider =
-    StreamProvider.family<int, String>((ref, pacienteId) async* {
-  final service = ref.watch(sessaoServiceProvider);
+final sessoesRealizadasPorPacienteProvider = StreamProvider.family<int, String>(
+  (ref, pacienteId) async* {
+    final service = ref.watch(sessaoServiceProvider);
 
-  int calcular() =>
-      service.contarSessoesDoPaciente(pacienteId) +
-      service.contarSessoesArquivadasDoPaciente(pacienteId);
+    int calcular() =>
+        service.contarSessoesDoPaciente(pacienteId) +
+        service.contarSessoesArquivadasDoPaciente(pacienteId);
 
-  yield calcular();
-  await for (final _ in service.observarSessoes()) {
     yield calcular();
-  }
-});
+    await for (final _ in service.observarSessoes()) {
+      yield calcular();
+    }
+  },
+);
 
 final contratoServiceProvider = Provider<ContratoService>((ref) {
   final encryption = ref.watch(encryptionServiceProvider);
   return ContratoService(encryption: encryption);
 });
 
-final contratoPorPacienteProvider =
-    StreamProvider.autoDispose.family<ContratoTerapeutico?, String>((ref, pacienteId) async* {
-  final service = ref.watch(contratoServiceProvider);
-  yield service.obterPorPaciente(pacienteId);
-  await for (final _ in service.observar()) {
-    yield service.obterPorPaciente(pacienteId);
-  }
-});
+final contratoPorPacienteProvider = StreamProvider.autoDispose
+    .family<ContratoTerapeutico?, String>((ref, pacienteId) async* {
+      final service = ref.watch(contratoServiceProvider);
+      yield service.obterPorPaciente(pacienteId);
+      await for (final _ in service.observar()) {
+        yield service.obterPorPaciente(pacienteId);
+      }
+    });
 
-final contratoArquivadoPorPacienteProvider =
-    StreamProvider.autoDispose.family<ContratoTerapeutico?, String>((ref, pacienteId) async* {
-  final service = ref.watch(contratoServiceProvider);
-  yield service.obterArquivadoPorPaciente(pacienteId);
-  await for (final _ in service.observar()) {
-    yield service.obterArquivadoPorPaciente(pacienteId);
-  }
-});
+final contratoArquivadoPorPacienteProvider = StreamProvider.autoDispose
+    .family<ContratoTerapeutico?, String>((ref, pacienteId) async* {
+      final service = ref.watch(contratoServiceProvider);
+      yield service.obterArquivadoPorPaciente(pacienteId);
+      await for (final _ in service.observar()) {
+        yield service.obterArquivadoPorPaciente(pacienteId);
+      }
+    });
 
-final avaliacaoInicialServiceProvider = Provider<AvaliacaoInicialService>((ref) {
+final avaliacaoInicialServiceProvider = Provider<AvaliacaoInicialService>((
+  ref,
+) {
   final encryption = ref.watch(encryptionServiceProvider);
   return AvaliacaoInicialService(encryption: encryption);
 });
 
-final avaliacaoInicialPorPacienteProvider =
-    StreamProvider.autoDispose.family<AvaliacaoInicial?, String>((ref, pacienteId) async* {
-  final service = ref.watch(avaliacaoInicialServiceProvider);
-  yield service.obterPorPaciente(pacienteId);
-  await for (final _ in service.observar()) {
-    yield service.obterPorPaciente(pacienteId);
-  }
-});
+final avaliacaoInicialPorPacienteProvider = StreamProvider.autoDispose
+    .family<AvaliacaoInicial?, String>((ref, pacienteId) async* {
+      final service = ref.watch(avaliacaoInicialServiceProvider);
+      yield service.obterPorPaciente(pacienteId);
+      await for (final _ in service.observar()) {
+        yield service.obterPorPaciente(pacienteId);
+      }
+    });
 
 final escalaServiceProvider = Provider<EscalaService>((ref) {
   final encryption = ref.watch(encryptionServiceProvider);
   return EscalaService(encryption: encryption);
 });
 
-final respostasEscalasPorPacienteProvider =
-    StreamProvider.autoDispose.family<List<RespostaEscala>, String>((ref, pacienteId) async* {
-  final service = ref.watch(escalaServiceProvider);
-  yield service.listarPorPaciente(pacienteId);
-  await for (final _ in service.observar()) {
-    yield service.listarPorPaciente(pacienteId);
-  }
-});
+final respostasEscalasPorPacienteProvider = StreamProvider.autoDispose
+    .family<List<RespostaEscala>, String>((ref, pacienteId) async* {
+      final service = ref.watch(escalaServiceProvider);
+      yield service.listarPorPaciente(pacienteId);
+      await for (final _ in service.observar()) {
+        yield service.listarPorPaciente(pacienteId);
+      }
+    });
 
 final anamneseEnviadaServiceProvider = Provider<AnamneseEnviadaService>((ref) {
   final encryption = ref.watch(encryptionServiceProvider);
   return AnamneseEnviadaService(encryption: encryption);
 });
 
-final anamnesePorPacienteProvider =
-    StreamProvider.autoDispose.family<AnamneseEnviada?, String>((ref, pacienteId) async* {
-  final service = ref.watch(anamneseEnviadaServiceProvider);
-  yield service.obterPorPaciente(pacienteId);
-  await for (final _ in service.observar()) {
-    yield service.obterPorPaciente(pacienteId);
-  }
-});
+final anamnesePorPacienteProvider = StreamProvider.autoDispose
+    .family<AnamneseEnviada?, String>((ref, pacienteId) async* {
+      final service = ref.watch(anamneseEnviadaServiceProvider);
+      yield service.obterPorPaciente(pacienteId);
+      await for (final _ in service.observar()) {
+        yield service.obterPorPaciente(pacienteId);
+      }
+    });
 
 final pacoteServiceProvider = Provider<PacoteService>((ref) {
   final encryption = ref.watch(encryptionServiceProvider);
   return PacoteService(encryption: encryption);
 });
 
-final pacotesAtivosPorPacienteProvider =
-    StreamProvider.autoDispose.family<List<Pacote>, String>((ref, pacienteId) async* {
-  final service = ref.watch(pacoteServiceProvider);
-  yield service.obterPacotesAtivos(pacienteId);
-  await for (final _ in service.observar()) {
-    yield service.obterPacotesAtivos(pacienteId);
-  }
-});
+final pacotesAtivosPorPacienteProvider = StreamProvider.autoDispose
+    .family<List<Pacote>, String>((ref, pacienteId) async* {
+      final service = ref.watch(pacoteServiceProvider);
+      yield service.obterPacotesAtivos(pacienteId);
+      await for (final _ in service.observar()) {
+        yield service.obterPacotesAtivos(pacienteId);
+      }
+    });
 
 final progressoServiceProvider = Provider<ProgressoService>((ref) {
   final encryption = ref.watch(encryptionServiceProvider);
   return ProgressoService(encryption: encryption);
 });
 
-final progressoPorPacienteProvider =
-    StreamProvider.autoDispose.family<List<ProgressoSessao>, String>((ref, pacienteId) async* {
-  final service = ref.watch(progressoServiceProvider);
-  yield service.obterPorPaciente(pacienteId);
-  await for (final _ in service.observar()) {
-    yield service.obterPorPaciente(pacienteId);
-  }
-});
+final progressoPorPacienteProvider = StreamProvider.autoDispose
+    .family<List<ProgressoSessao>, String>((ref, pacienteId) async* {
+      final service = ref.watch(progressoServiceProvider);
+      yield service.obterPorPaciente(pacienteId);
+      await for (final _ in service.observar()) {
+        yield service.obterPorPaciente(pacienteId);
+      }
+    });

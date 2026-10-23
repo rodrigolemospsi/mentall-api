@@ -68,11 +68,14 @@ class PoliticaPrivacidadePage extends StatelessWidget {
           _Secao(
             titulo: '5. Compartilhamento de Dados',
             texto:
-                'O MentAll PRO não compartilha dados com terceiros, exceto:\n\n'
-                '• Serviços de IA (OpenAI ou Google Gemini) exclusivamente para '
-                'processamento de transcrição e síntese, mediante ação do profissional.\n'
-                '• Futuros serviços de nuvem e sincronização, apenas com consentimento '
-                'explícito do profissional e mediante contrato de tratamento de dados.\n\n'
+                'O MentAll PRO compartilha dados apenas com os operadores necessários:\n\n'
+                '• Serviços de IA (Groq/OpenAI para transcrição; OpenAI e DeepSeek para '
+                'síntese), mediante ação do profissional.\n'
+                '• Hospedagem, banco de dados e envio de e-mails/lembretes, conforme a '
+                'Política de Privacidade completa.\n'
+                '• Google Calendar, somente se o profissional conectar a própria conta. '
+                'Nesse caso, o app envia o resumo do evento (“Sessão” ou título), data/hora '
+                'e sala; não envia nome de paciente nem conteúdo clínico por padrão.\n\n'
                 'O profissional é o controlador dos dados clínicos. O MentAll PRO atua '
                 'como operador tecnológico.',
           ),

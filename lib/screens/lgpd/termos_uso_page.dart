@@ -32,11 +32,12 @@ class TermosUsoPage extends StatelessWidget {
                 '• Cadastro e gestão de pessoas atendidas.\n'
                 '• Registro de sessões clínicas.\n'
                 '• Gravação de relato pós-sessão em áudio (limite de 5 minutos).\n'
-                '• Transcrição automática de áudio (via OpenAI Whisper).\n'
-                '• Síntese clínica com inteligência artificial (via OpenAI GPT-4.1).\n'
+                '• Transcrição automática de áudio (Groq/OpenAI).\n'
+                '• Síntese clínica com inteligência artificial (OpenAI; DeepSeek como fallback).\n'
                 '• Apontamentos clínicos auxiliares gerados por IA.\n'
                 '• Exportação de documentos em PDF.\n'
-                '• Backup e restauração de dados.',
+                '• Backup e restauração de dados.\n'
+                '• Integração opcional com Google Calendar para sincronizar a agenda.',
           ),
           _Termo(
             titulo: '3. Responsabilidade Profissional',

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../services/wuzapi_service.dart';
 import '../utils/mentall_colors.dart';
 import '../utils/raio.dart';
+import '../utils/telefone_whatsapp.dart';
 import '../utils/tipografia.dart';
 
 /// Conecta o WhatsApp do profissional (via wuzapi) e mostra se está funcionando.
@@ -28,6 +29,7 @@ class _WhatsappConexaoPageState extends State<WhatsappConexaoPage> {
   String? _codigo;
   String? _qrCode;
   String? _erro;
+  String? _numeroAutoPreenchido;
 
   bool get _logado => _status['logado'] == true;
 
@@ -58,10 +60,30 @@ class _WhatsappConexaoPageState extends State<WhatsappConexaoPage> {
       if (r['sucesso'] == true) {
         _status = r;
         _erro = null;
+        _sincronizarCampoNumero();
       } else {
         _erro = (r['erro'] ?? '').toString();
       }
     });
+  }
+
+  /// Preenche o campo com o número já conectado (e limpa ao desconectar),
+  /// sem sobrescrever um número que o usuário tenha digitado manualmente.
+  void _sincronizarCampoNumero() {
+    final numeroConectado =
+        formatarNumeroWhatsapp((_status['numero'] ?? '').toString());
+    final digitado = _numeroController.text.trim();
+    if (_logado && numeroConectado.isNotEmpty && digitado.isEmpty) {
+      _numeroController.text = numeroConectado;
+      _numeroAutoPreenchido = numeroConectado;
+      return;
+    }
+    if (!_logado &&
+        _numeroAutoPreenchido != null &&
+        digitado == _numeroAutoPreenchido) {
+      _numeroController.clear();
+      _numeroAutoPreenchido = null;
+    }
   }
 
   Future<void> _gerarCodigo() async {
@@ -258,7 +280,7 @@ class _WhatsappConexaoPageState extends State<WhatsappConexaoPage> {
 
   Widget _cardStatus(BuildContext context) {
     final cor = _logado ? context.corSuccess : context.corWarning;
-    final numero = (_status['numero'] ?? '').toString();
+    final numero = formatarNumeroWhatsapp((_status['numero'] ?? '').toString());
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(

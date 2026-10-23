@@ -6,6 +6,16 @@ import 'encrypted_service_mixin.dart';
 import 'encryption_service.dart';
 import 'lembrete_service.dart';
 
+class ConflitoDeHorarioException implements Exception {
+  final List<Compromisso> conflitos;
+
+  const ConflitoDeHorarioException(this.conflitos);
+
+  @override
+  String toString() =>
+      'Conflito de horário em ${conflitos.length} compromisso(s).';
+}
+
 class CompromissoService with EncryptedServiceMixin {
   @override
   final EncryptionService? encryption;
@@ -42,9 +52,13 @@ class CompromissoService with EncryptedServiceMixin {
     final fimDia = inicioDia.add(const Duration(days: 1));
 
     final compromissos = _box.values
-        .where((c) =>
-            c.dataHoraInicio.isAfter(inicioDia.subtract(const Duration(seconds: 1))) &&
-            c.dataHoraInicio.isBefore(fimDia))
+        .where(
+          (c) =>
+              c.dataHoraInicio.isAfter(
+                inicioDia.subtract(const Duration(seconds: 1)),
+              ) &&
+              c.dataHoraInicio.isBefore(fimDia),
+        )
         .map(_decryptCompromisso)
         .toList();
     compromissos.sort((a, b) => a.dataHoraInicio.compareTo(b.dataHoraInicio));
@@ -66,10 +80,13 @@ class CompromissoService with EncryptedServiceMixin {
     final fim = inicio.add(const Duration(days: 7));
 
     final compromissos = _box.values
-        .where((c) =>
-            c.dataHoraInicio.isAfter(
-                inicio.subtract(const Duration(seconds: 1))) &&
-            c.dataHoraInicio.isBefore(fim))
+        .where(
+          (c) =>
+              c.dataHoraInicio.isAfter(
+                inicio.subtract(const Duration(seconds: 1)),
+              ) &&
+              c.dataHoraInicio.isBefore(fim),
+        )
         .map(_decryptCompromisso)
         .toList();
     compromissos.sort((a, b) => a.dataHoraInicio.compareTo(b.dataHoraInicio));
@@ -80,9 +97,13 @@ class CompromissoService with EncryptedServiceMixin {
     final inicioMes = DateTime(data.year, data.month, 1);
     final fimMes = DateTime(data.year, data.month + 1, 0, 23, 59, 59);
     return _box.values
-        .where((c) =>
-            c.dataHoraInicio.isAfter(inicioMes.subtract(const Duration(seconds: 1))) &&
-            c.dataHoraInicio.isBefore(fimMes.add(const Duration(seconds: 1))))
+        .where(
+          (c) =>
+              c.dataHoraInicio.isAfter(
+                inicioMes.subtract(const Duration(seconds: 1)),
+              ) &&
+              c.dataHoraInicio.isBefore(fimMes.add(const Duration(seconds: 1))),
+        )
         .map(_decryptCompromisso)
         .toList();
   }
@@ -97,9 +118,13 @@ class CompromissoService with EncryptedServiceMixin {
     final fimHoje = inicioHoje.add(const Duration(days: 1));
 
     final compromissos = _box.values
-        .where((c) =>
-            c.dataHoraInicio.isAfter(fimHoje.subtract(const Duration(seconds: 1))) &&
-            c.statusEnum == StatusCompromisso.agendado)
+        .where(
+          (c) =>
+              c.dataHoraInicio.isAfter(
+                fimHoje.subtract(const Duration(seconds: 1)),
+              ) &&
+              c.statusEnum == StatusCompromisso.agendado,
+        )
         .map(_decryptCompromisso)
         .toList();
     compromissos.sort((a, b) => a.dataHoraInicio.compareTo(b.dataHoraInicio));
@@ -132,92 +157,124 @@ class CompromissoService with EncryptedServiceMixin {
     DateTime fim, {
     String? ignorarId,
   }) {
-    return _box.values.where((c) {
-      if (c.status == 'cancelado') return false;
-      if (ignorarId != null && c.id == ignorarId) return false;
-      return c.dataHoraInicio.isBefore(fim) &&
-          c.dataHoraFim.isAfter(inicio);
-    }).map(_decryptCompromisso).toList();
+    return _box.values
+        .where((c) {
+          if (c.status == 'cancelado') return false;
+          if (ignorarId != null && c.id == ignorarId) return false;
+          return c.dataHoraInicio.isBefore(fim) &&
+              c.dataHoraFim.isAfter(inicio);
+        })
+        .map(_decryptCompromisso)
+        .toList();
   }
 
   Future<void> adicionar(Compromisso compromisso) async {
-    await _box.add(Compromisso(
-      id: compromisso.id,
-      pacienteId: compromisso.pacienteId,
-      dataHoraInicio: compromisso.dataHoraInicio,
-      dataHoraFim: compromisso.dataHoraFim,
-      titulo: _encrypt(compromisso.titulo),
-      observacoes: _encrypt(compromisso.observacoes),
-      status: compromisso.status,
-      sessaoId: compromisso.sessaoId,
-      dataCriacao: compromisso.dataCriacao,
-      dataAtualizacao: compromisso.dataAtualizacao,
-      lembreteAtivado: compromisso.lembreteAtivado,
-      minutosAntecedencia: compromisso.minutosAntecedencia,
-      mensagemLembrete: _encrypt(compromisso.mensagemLembrete),
-      recorrencia: compromisso.recorrencia,
-      dataLimiteRecorrencia: compromisso.dataLimiteRecorrencia,
-      compromissoPaiId: compromisso.compromissoPaiId,
-      canalLembrete: compromisso.canalLembrete,
-    ));
+    await _box.add(
+      Compromisso(
+        id: compromisso.id,
+        pacienteId: compromisso.pacienteId,
+        dataHoraInicio: compromisso.dataHoraInicio,
+        dataHoraFim: compromisso.dataHoraFim,
+        titulo: _encrypt(compromisso.titulo),
+        observacoes: _encrypt(compromisso.observacoes),
+        status: compromisso.status,
+        sessaoId: compromisso.sessaoId,
+        dataCriacao: compromisso.dataCriacao,
+        dataAtualizacao: compromisso.dataAtualizacao,
+        lembreteAtivado: compromisso.lembreteAtivado,
+        minutosAntecedencia: compromisso.minutosAntecedencia,
+        mensagemLembrete: _encrypt(compromisso.mensagemLembrete),
+        recorrencia: compromisso.recorrencia,
+        dataLimiteRecorrencia: compromisso.dataLimiteRecorrencia,
+        compromissoPaiId: compromisso.compromissoPaiId,
+        canalLembrete: compromisso.canalLembrete,
+        tipoEvento: compromisso.tipoEvento,
+        modalidade: compromisso.modalidade,
+        sala: compromisso.sala,
+        servico: compromisso.servico,
+        linkOnline: compromisso.linkOnline,
+        googleEventId: compromisso.googleEventId,
+        googleCalendarId: compromisso.googleCalendarId,
+        googleSyncedAt: compromisso.googleSyncedAt,
+      ),
+    );
   }
 
   Future<List<Compromisso>> adicionarComRecorrencia(
-    Compromisso compromisso,
-  ) async {
+    Compromisso compromisso, {
+    bool permitirConflito = false,
+  }) async {
+    final duracao = compromisso.dataHoraFim.difference(
+      compromisso.dataHoraInicio,
+    );
+    final freq = compromisso.recorrenciaEnum;
+    final datas = <DateTime>[compromisso.dataHoraInicio];
+
+    if (freq.temRecorrencia) {
+      final limite =
+          compromisso.dataLimiteRecorrencia ??
+          compromisso.dataHoraInicio.add(const Duration(days: 180));
+
+      var index = 1;
+      while (true) {
+        final proxima = _proximaData(compromisso.dataHoraInicio, freq, index);
+        if (proxima.isAfter(limite)) break;
+        if (index > 52) break;
+        datas.add(proxima);
+        index++;
+      }
+
+      if (!permitirConflito) {
+        final conflitos = <Compromisso>[];
+        for (var i = 0; i < datas.length; i++) {
+          if (compromisso.permitirConflito && i == 0) continue;
+          conflitos.addAll(verificarConflitos(datas[i], datas[i].add(duracao)));
+        }
+        if (conflitos.isNotEmpty) {
+          throw ConflitoDeHorarioException(conflitos);
+        }
+      }
+    }
+
     final gerados = <Compromisso>[];
     await adicionar(compromisso);
     gerados.add(compromisso);
 
-    final freq = compromisso.recorrenciaEnum;
-    if (!freq.temRecorrencia) return gerados;
-
-    final limite = compromisso.dataLimiteRecorrencia ??
-        compromisso.dataHoraInicio
-            .add(const Duration(days: 180));
-
-    var index = 1;
-    while (true) {
-      final proxima = _proximaData(
-        compromisso.dataHoraInicio,
-        freq,
-        index,
-      );
-      if (proxima.isAfter(limite)) break;
-      if (index > 52) break;
-
+    for (var i = 1; i < datas.length; i++) {
+      final inicio = datas[i];
       final copia = Compromisso(
-        id: '${compromisso.id}_$index',
+        id: '${compromisso.id}_$i',
         pacienteId: compromisso.pacienteId,
-        dataHoraInicio: proxima,
-        dataHoraFim: proxima.add(
-          compromisso.dataHoraFim.difference(compromisso.dataHoraInicio),
-        ),
-        titulo: _encrypt(compromisso.titulo),
-        observacoes: _encrypt(compromisso.observacoes),
+        dataHoraInicio: inicio,
+        dataHoraFim: inicio.add(duracao),
+        titulo: compromisso.titulo,
+        observacoes: compromisso.observacoes,
         status: compromisso.status,
         sessaoId: compromisso.sessaoId,
         dataCriacao: DateTime.now(),
         lembreteAtivado: compromisso.lembreteAtivado,
         minutosAntecedencia: compromisso.minutosAntecedencia,
-        mensagemLembrete: _encrypt(compromisso.mensagemLembrete),
+        mensagemLembrete: compromisso.mensagemLembrete,
         recorrencia: '',
         compromissoPaiId: compromisso.id,
         canalLembrete: compromisso.canalLembrete,
+        tipoEvento: compromisso.tipoEvento,
+        modalidade: compromisso.modalidade,
+        sala: compromisso.sala,
+        servico: compromisso.servico,
+        linkOnline: compromisso.linkOnline,
+        googleEventId: '',
+        googleCalendarId: compromisso.googleCalendarId,
+        googleSyncedAt: null,
       );
-      await _box.add(copia);
+      await adicionar(copia);
       gerados.add(copia);
-      index++;
     }
 
     return gerados;
   }
 
-  DateTime _proximaData(
-    DateTime base,
-    FrequenciaRecorrencia freq,
-    int indice,
-  ) {
+  DateTime _proximaData(DateTime base, FrequenciaRecorrencia freq, int indice) {
     switch (freq) {
       case FrequenciaRecorrencia.semanal:
         return base.add(Duration(days: 7 * indice));
@@ -260,6 +317,31 @@ class CompromissoService with EncryptedServiceMixin {
         dataLimiteRecorrencia: compromisso.dataLimiteRecorrencia,
         compromissoPaiId: compromisso.compromissoPaiId,
         canalLembrete: compromisso.canalLembrete,
+        tipoEvento: compromisso.tipoEvento,
+        modalidade: compromisso.modalidade,
+        sala: compromisso.sala,
+        servico: compromisso.servico,
+        linkOnline: compromisso.linkOnline,
+        googleEventId: compromisso.googleEventId,
+        googleCalendarId: compromisso.googleCalendarId,
+        googleSyncedAt: compromisso.googleSyncedAt,
+      ),
+    );
+  }
+
+  Future<void> atualizarGoogleSync(
+    Compromisso compromisso, {
+    String? eventId,
+    String? calendarId,
+    bool limparEvento = false,
+  }) async {
+    await atualizar(
+      compromisso.copyWith(
+        googleEventId: limparEvento
+            ? ''
+            : (eventId ?? compromisso.googleEventId),
+        googleCalendarId: calendarId ?? compromisso.googleCalendarId,
+        googleSyncedAt: DateTime.now(),
       ),
     );
   }
@@ -328,8 +410,10 @@ class CompromissoService with EncryptedServiceMixin {
     if (encryption == null || !encryption!.configurado) return;
     final todos = _box.values.toList();
     for (final c in todos) {
-      if (c.titulo.startsWith('2:') || c.titulo.startsWith('3:') ||
-          c.observacoes.startsWith('2:') || c.observacoes.startsWith('3:')) {
+      if (c.titulo.startsWith('2:') ||
+          c.titulo.startsWith('3:') ||
+          c.observacoes.startsWith('2:') ||
+          c.observacoes.startsWith('3:')) {
         await _box.put(
           c.key,
           Compromisso(
@@ -350,6 +434,14 @@ class CompromissoService with EncryptedServiceMixin {
             dataLimiteRecorrencia: c.dataLimiteRecorrencia,
             compromissoPaiId: c.compromissoPaiId,
             canalLembrete: c.canalLembrete,
+            tipoEvento: c.tipoEvento,
+            modalidade: c.modalidade,
+            sala: c.sala,
+            servico: c.servico,
+            linkOnline: c.linkOnline,
+            googleEventId: c.googleEventId,
+            googleCalendarId: c.googleCalendarId,
+            googleSyncedAt: c.googleSyncedAt,
           ),
         );
       }

@@ -124,4 +124,149 @@ void main() {
     expect(relido.observacoes, 'Novas observações');
     expect(relido.minutosAntecedencia, 120);
   });
+
+  Compromisso recorrente(String id, {DateTime? inicio}) {
+    final base = inicio ?? DateTime(2026, 9, 1, 12);
+    return Compromisso(
+      id: id,
+      pacienteId: 'paciente-1',
+      dataHoraInicio: base,
+      dataHoraFim: base.add(const Duration(minutes: 50)),
+      titulo: 'Sessão recorrente',
+      observacoes: 'Observação recorrente',
+      lembreteAtivado: true,
+      minutosAntecedencia: 60,
+      mensagemLembrete: 'Mensagem personalizada',
+      recorrencia: FrequenciaRecorrencia.semanal.value,
+      dataLimiteRecorrencia: base.add(const Duration(days: 21)),
+      canalLembrete: 'whatsapp',
+      modalidade: 'online',
+      sala: 'Sala 2',
+      servico: 'Psicoterapia',
+      linkOnline: 'https://meet.example/x',
+    );
+  }
+
+  test(
+    'recorrência devolve todas as ocorrências com conteúdo em texto claro',
+    () async {
+      final gerados = await service.adicionarComRecorrencia(recorrente('pai'));
+
+      expect(gerados.length, greaterThan(1));
+      for (final c in gerados) {
+        expect(c.titulo, 'Sessão recorrente');
+        expect(c.observacoes, 'Observação recorrente');
+        expect(c.mensagemLembrete, 'Mensagem personalizada');
+      }
+
+      for (final c in service.listarTodos()) {
+        expect(c.titulo, 'Sessão recorrente');
+        expect(c.mensagemLembrete, 'Mensagem personalizada');
+      }
+    },
+  );
+
+  test('recorrência não grava nada se uma ocorrência conflitar', () async {
+    final inicioConflito = DateTime(2026, 9, 8, 12);
+    await service.adicionar(
+      Compromisso(
+        id: 'existente',
+        pacienteId: 'paciente-2',
+        dataHoraInicio: inicioConflito,
+        dataHoraFim: inicioConflito.add(const Duration(minutes: 50)),
+      ),
+    );
+
+    expect(
+      () => service.adicionarComRecorrencia(recorrente('pai')),
+      throwsA(isA<ConflitoDeHorarioException>()),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(Hive.box<Compromisso>('compromissos').length, 1);
+    expect(service.obterPorId('pai'), isNull);
+  });
+
+  test(
+    'recorrência com permitirConflito grava mesmo com sobreposição',
+    () async {
+      final inicioConflito = DateTime(2026, 9, 8, 12);
+      await service.adicionar(
+        Compromisso(
+          id: 'existente',
+          pacienteId: 'paciente-2',
+          dataHoraInicio: inicioConflito,
+          dataHoraFim: inicioConflito.add(const Duration(minutes: 50)),
+        ),
+      );
+
+      final gerados = await service.adicionarComRecorrencia(
+        recorrente('pai'),
+        permitirConflito: true,
+      );
+
+      expect(gerados.length, greaterThan(1));
+      expect(service.obterPorId('pai'), isNotNull);
+    },
+  );
+
+  test(
+    'flag permitirConflito no próprio compromisso libera só a primeira ocorrência',
+    () async {
+      final inicioConflito = DateTime(2026, 9, 1, 12);
+      await service.adicionar(
+        Compromisso(
+          id: 'existente',
+          pacienteId: 'paciente-2',
+          dataHoraInicio: inicioConflito,
+          dataHoraFim: inicioConflito.add(const Duration(minutes: 50)),
+        ),
+      );
+
+      final compromisso = recorrente('pai')..permitirConflito = true;
+      final gerados = await service.adicionarComRecorrencia(compromisso);
+
+      expect(gerados.length, greaterThan(1));
+      expect(service.obterPorId('pai'), isNotNull);
+    },
+  );
+
+  test(
+    'flag permitirConflito não libera conflito em ocorrência futura',
+    () async {
+      final inicioConflito = DateTime(2026, 9, 8, 12);
+      await service.adicionar(
+        Compromisso(
+          id: 'existente',
+          pacienteId: 'paciente-2',
+          dataHoraInicio: inicioConflito,
+          dataHoraFim: inicioConflito.add(const Duration(minutes: 50)),
+        ),
+      );
+
+      final compromisso = recorrente('pai')..permitirConflito = true;
+
+      expect(
+        () => service.adicionarComRecorrencia(compromisso),
+        throwsA(isA<ConflitoDeHorarioException>()),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(Hive.box<Compromisso>('compromissos').length, 1);
+      expect(service.obterPorId('pai'), isNull);
+    },
+  );
+
+  test('ocorrências recorrentes não herdam o googleEventId do pai', () async {
+    final pai = recorrente('pai')..googleEventId = 'evt-pai';
+    final gerados = await service.adicionarComRecorrencia(
+      pai,
+      permitirConflito: true,
+    );
+
+    expect(gerados.length, greaterThan(1));
+    expect(gerados.first.googleEventId, 'evt-pai');
+    for (final filho in gerados.skip(1)) {
+      expect(filho.googleEventId, '');
+    }
+  });
 }

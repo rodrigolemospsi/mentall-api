@@ -70,10 +70,15 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
   late TextEditingController _tituloController;
   late TextEditingController _observacoesController;
   late TextEditingController _mensagemLembreteController;
+  late TextEditingController _salaController;
+  late TextEditingController _servicoController;
+  late TextEditingController _linkOnlineController;
   late bool _lembreteAtivado;
   late int _minutosAntecedencia;
   late FrequenciaRecorrencia _recorrencia;
   late DateTime? _dataLimiteRecorrencia;
+  late String _tipoEvento;
+  late String _modalidade;
   String? _snapshotInicial;
 
   bool get _editando => widget.compromissoExistente != null;
@@ -94,19 +99,32 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
       _horaInicio = TimeOfDay.fromDateTime(existente.dataHoraInicio);
       _horaFim = TimeOfDay.fromDateTime(existente.dataHoraFim);
       _tituloController = TextEditingController(text: existente.titulo);
-      _observacoesController = TextEditingController(text: existente.observacoes);
-      _mensagemLembreteController = TextEditingController(text: existente.mensagemLembrete);
+      _observacoesController = TextEditingController(
+        text: existente.observacoes,
+      );
+      _mensagemLembreteController = TextEditingController(
+        text: existente.mensagemLembrete,
+      );
+      _salaController = TextEditingController(text: existente.sala);
+      _servicoController = TextEditingController(text: existente.servico);
+      _linkOnlineController = TextEditingController(text: existente.linkOnline);
       _lembreteAtivado = existente.lembreteAtivado;
       _minutosAntecedencia = existente.minutosAntecedencia;
-      _recorrencia = FrequenciaRecorrencia.nenhuma;
-      _dataLimiteRecorrencia = null;
+      _recorrencia = existente.recorrenciaEnum;
+      _dataLimiteRecorrencia = existente.dataLimiteRecorrencia;
+      _tipoEvento = existente.ehEventoGeral ? 'evento_geral' : 'sessao';
+      _modalidade = existente.modalidade;
 
-      final pacienteEncontrado = widget.pacientes
-          .where((p) => p.id == existente.pacienteId)
-          .toList();
-      _pacienteSelecionado = pacienteEncontrado.isNotEmpty
-          ? pacienteEncontrado.first
-          : widget.pacientes.first;
+      if (_tipoEvento == 'evento_geral') {
+        _pacienteSelecionado = null;
+      } else {
+        final pacienteEncontrado = widget.pacientes
+            .where((p) => p.id == existente.pacienteId)
+            .toList();
+        _pacienteSelecionado = pacienteEncontrado.isNotEmpty
+            ? pacienteEncontrado.first
+            : widget.pacientes.first;
+      }
     } else {
       _data = DateTime(
         widget.dataSugerida.year,
@@ -119,28 +137,38 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
       _tituloController = TextEditingController();
       _observacoesController = TextEditingController();
       _mensagemLembreteController = TextEditingController();
+      _salaController = TextEditingController();
+      _servicoController = TextEditingController();
+      _linkOnlineController = TextEditingController();
       _lembreteAtivado = widget.lembretePadraoAtivado;
       _minutosAntecedencia = widget.antecedenciaPadraoMinutos;
       _recorrencia = FrequenciaRecorrencia.nenhuma;
       _dataLimiteRecorrencia = null;
+      _tipoEvento = 'sessao';
+      _modalidade = 'presencial';
       _pacienteSelecionado = null;
     }
     _snapshotInicial = jsonEncode(_estadoAtual());
   }
 
   Map<String, dynamic> _estadoAtual() => {
-        'paciente': _pacienteSelecionado?.id,
-        'data': _data.toIso8601String(),
-        'horaInicio': '${_horaInicio.hour}:${_horaInicio.minute}',
-        'horaFim': '${_horaFim.hour}:${_horaFim.minute}',
-        'titulo': _tituloController.text,
-        'observacoes': _observacoesController.text,
-        'mensagemLembrete': _mensagemLembreteController.text,
-        'lembreteAtivado': _lembreteAtivado,
-        'minutosAntecedencia': _minutosAntecedencia,
-        'recorrencia': _recorrencia.value,
-        'dataLimiteRecorrencia': _dataLimiteRecorrencia?.toIso8601String(),
-      };
+    'paciente': _pacienteSelecionado?.id,
+    'data': _data.toIso8601String(),
+    'horaInicio': '${_horaInicio.hour}:${_horaInicio.minute}',
+    'horaFim': '${_horaFim.hour}:${_horaFim.minute}',
+    'titulo': _tituloController.text,
+    'observacoes': _observacoesController.text,
+    'mensagemLembrete': _mensagemLembreteController.text,
+    'lembreteAtivado': _lembreteAtivado,
+    'minutosAntecedencia': _minutosAntecedencia,
+    'recorrencia': _recorrencia.value,
+    'dataLimiteRecorrencia': _dataLimiteRecorrencia?.toIso8601String(),
+    'tipoEvento': _tipoEvento,
+    'modalidade': _modalidade,
+    'sala': _salaController.text,
+    'servico': _servicoController.text,
+    'linkOnline': _linkOnlineController.text,
+  };
 
   bool get _temAlteracoes =>
       _snapshotInicial != null &&
@@ -155,8 +183,9 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Descartar alterações?'),
-        content:
-            const Text('Há alterações não salvas. Seus dados serão perdidos.'),
+        content: const Text(
+          'Há alterações não salvas. Seus dados serão perdidos.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -188,6 +217,9 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
     _tituloController.dispose();
     _observacoesController.dispose();
     _mensagemLembreteController.dispose();
+    _salaController.dispose();
+    _servicoController.dispose();
+    _linkOnlineController.dispose();
     super.dispose();
   }
 
@@ -248,7 +280,9 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
         dataHoraFim.isAtSameMomentAs(dataHoraInicio)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('O horário de término deve ser posterior ao de início.'),
+          content: Text(
+            'O horário de término deve ser posterior ao de início.',
+          ),
         ),
       );
       return;
@@ -261,12 +295,16 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
     );
 
     if (conflitos.isNotEmpty) {
-      final nomes = conflitos.map((c) => c.titulo.isEmpty ? 'Compromisso' : c.titulo).join(', ');
+      final nomes = conflitos
+          .map((c) => c.titulo.isEmpty ? 'Compromisso' : c.titulo)
+          .join(', ');
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Conflito de horário'),
-          content: Text('Já existe(m) compromisso(s) neste horário: $nomes.\n\nDeseja agendar mesmo assim?'),
+          content: Text(
+            'Já existe(m) compromisso(s) neste horário: $nomes.\n\nDeseja agendar mesmo assim?',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
@@ -275,7 +313,11 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
             FilledButton(
               onPressed: () {
                 Navigator.pop(ctx);
-                _confirmarSalvar(dataHoraInicio, dataHoraFim);
+                _confirmarSalvar(
+                  dataHoraInicio,
+                  dataHoraFim,
+                  permitirConflito: true,
+                );
               },
               child: const Text('Agendar assim mesmo'),
             ),
@@ -288,11 +330,15 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
     _confirmarSalvar(dataHoraInicio, dataHoraFim);
   }
 
-  void _confirmarSalvar(DateTime dataHoraInicio, DateTime dataHoraFim) {
+  void _confirmarSalvar(
+    DateTime dataHoraInicio,
+    DateTime dataHoraFim, {
+    bool permitirConflito = false,
+  }) {
     final existente = widget.compromissoExistente;
     final compromisso = Compromisso(
       id: existente?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
-      pacienteId: _pacienteSelecionado!.id,
+      pacienteId: _pacienteSelecionado?.id ?? '',
       dataHoraInicio: dataHoraInicio,
       dataHoraFim: dataHoraFim,
       titulo: _tituloController.text.trim(),
@@ -300,12 +346,19 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
       status: existente?.status ?? 'agendado',
       sessaoId: existente?.sessaoId,
       dataCriacao: existente?.dataCriacao,
-      lembreteAtivado: _lembreteAtivado,
+      lembreteAtivado: _tipoEvento == 'sessao' ? _lembreteAtivado : false,
       minutosAntecedencia: _minutosAntecedencia,
       mensagemLembrete: _mensagemLembreteController.text.trim(),
       canalLembrete: 'whatsapp',
       recorrencia: _recorrencia.value,
       dataLimiteRecorrencia: _dataLimiteRecorrencia,
+      compromissoPaiId: existente?.compromissoPaiId,
+      tipoEvento: _tipoEvento,
+      modalidade: _modalidade,
+      sala: _salaController.text.trim(),
+      servico: _servicoController.text.trim(),
+      linkOnline: _linkOnlineController.text.trim(),
+      permitirConflito: permitirConflito,
     );
 
     Navigator.pop(context, compromisso);
@@ -330,7 +383,7 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
     final controller = TextEditingController(
       text: _mensagemLembreteController.text.isEmpty
           ? 'Olá {nome}, lembrete da sua sessão com {profissional} '
-              'em {data} às {hora}. Até lá!'
+                'em {data} às {hora}. Até lá!'
           : _mensagemLembreteController.text,
     );
     final salva = await showDialog<bool>(
@@ -342,7 +395,8 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
           maxLines: 4,
           textCapitalization: TextCapitalization.sentences,
           decoration: const InputDecoration(
-            hintText: 'Use {nome}, {data}, {hora} e {profissional} '
+            hintText:
+                'Use {nome}, {data}, {hora} e {profissional} '
                 'como placeholders',
             border: OutlineInputBorder(),
           ),
@@ -376,263 +430,377 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
         _confirmarDescarte();
       },
       child: AlertDialog(
-      title: Text(_editando ? 'Editar compromisso' : 'Novo compromisso'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 24),
-              DropdownButtonFormField<Paciente?>(
-                initialValue: _pacienteSelecionado,
-                isExpanded: true,
-                decoration: InputDecoration(
-                  labelText: widget.termoPessoa,
-                  prefixIcon: Icon(Icons.person_outline),
-                  border: OutlineInputBorder(),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 16,
+        title: Text(_editando ? 'Editar compromisso' : 'Novo compromisso'),
+        content: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 24),
+                DropdownButtonFormField<String>(
+                  initialValue: _tipoEvento,
+                  decoration: const InputDecoration(
+                    labelText: 'Tipo',
+                    prefixIcon: Icon(Icons.category_outlined),
+                    border: OutlineInputBorder(),
                   ),
+                  items: const [
+                    DropdownMenuItem(value: 'sessao', child: Text('Sessão')),
+                    DropdownMenuItem(
+                      value: 'evento_geral',
+                      child: Text('Evento geral'),
+                    ),
+                  ],
+                  onChanged: (v) {
+                    if (v == null) return;
+                    setState(() {
+                      _tipoEvento = v;
+                      if (v == 'evento_geral') {
+                        _pacienteSelecionado = null;
+                      }
+                    });
+                  },
                 ),
-                items: [
-                  DropdownMenuItem<Paciente?>(
-                    value: null,
-                    child: Text(
-                      'Escolher ${widget.termoPessoa.toLowerCase()}',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                const SizedBox(height: 16),
+                DropdownButtonFormField<Paciente?>(
+                  key: ValueKey(
+                    'paciente_${_tipoEvento}_${_pacienteSelecionado?.id}',
+                  ),
+                  initialValue: _pacienteSelecionado,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: _tipoEvento == 'evento_geral'
+                        ? '${widget.termoPessoa} (opcional)'
+                        : widget.termoPessoa,
+                    prefixIcon: const Icon(Icons.person_outline),
+                    border: const OutlineInputBorder(),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 16,
                     ),
                   ),
-                  ...widget.pacientes.map((p) {
-                    return DropdownMenuItem<Paciente?>(
-                      value: p,
+                  items: [
+                    DropdownMenuItem<Paciente?>(
+                      value: null,
                       child: Text(
-                        p.nome,
+                        _tipoEvento == 'evento_geral'
+                            ? 'Sem ${widget.termoPessoa.toLowerCase()}'
+                            : 'Escolher ${widget.termoPessoa.toLowerCase()}',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    );
-                  }),
-                ],
-                onChanged: (v) {
-                  setState(() => _pacienteSelecionado = v);
-                },
-                validator: (v) =>
-                    v == null ? 'Selecione uma pessoa' : null,
-              ),
-              const SizedBox(height: 16),
-              InkWell(
-                onTap: _selecionarData,
-                borderRadius: BorderRadius.circular(Raio.md),
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Data',
-                    prefixIcon: Icon(Icons.calendar_today),
-                    border: OutlineInputBorder(),
-                  ),
-                  child: Text(_formatarData(_data)),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: _selecionarHoraInicio,
-                      borderRadius: BorderRadius.circular(Raio.md),
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: 'Início',
-                          prefixIcon: Icon(Icons.access_time),
-                          border: OutlineInputBorder(),
-                        ),
-                        child: Text(_horaInicio.format(context)),
-                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: InkWell(
-                      onTap: _selecionarHoraFim,
-                      borderRadius: BorderRadius.circular(Raio.md),
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: 'Término',
-                          prefixIcon: Icon(Icons.access_time),
-                          border: OutlineInputBorder(),
+                    ...widget.pacientes.map((p) {
+                      return DropdownMenuItem<Paciente?>(
+                        value: p,
+                        child: Text(
+                          p.nome,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        child: Text(_horaFim.format(context)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _tituloController,
-                decoration: const InputDecoration(
-                  labelText: 'Título (opcional)',
-                  hintText: 'Ex: Sessão de acompanhamento',
-                  prefixIcon: Icon(Icons.label_outline),
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _observacoesController,
-                decoration: const InputDecoration(
-                  labelText: 'Observações (opcional)',
-                  hintText: 'Ex: Levar material específico',
-                  prefixIcon: Icon(Icons.notes),
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 16),
-              if (!_editando) ...[
-                DropdownButtonFormField<FrequenciaRecorrencia>(
-                  initialValue: _recorrencia,
-                  decoration: const InputDecoration(
-                    labelText: 'Repetir',
-                    prefixIcon: Icon(Icons.repeat),
-                    border: OutlineInputBorder(),
-                  ),
-                  items: FrequenciaRecorrencia.values.map((f) {
-                    return DropdownMenuItem(
-                      value: f,
-                      child: Text(f.value.isEmpty ? 'Não repete' : f.value),
-                    );
-                  }).toList(),
+                      );
+                    }),
+                  ],
                   onChanged: (v) {
-                    if (v != null) setState(() => _recorrencia = v);
+                    setState(() => _pacienteSelecionado = v);
+                  },
+                  validator: (v) {
+                    if (_tipoEvento == 'evento_geral') return null;
+                    return v == null ? 'Selecione uma pessoa' : null;
                   },
                 ),
-                if (_recorrencia.temRecorrencia) ...[
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: _selecionarData,
+                  borderRadius: BorderRadius.circular(Raio.md),
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Data',
+                      prefixIcon: Icon(Icons.calendar_today),
+                      border: OutlineInputBorder(),
+                    ),
+                    child: Text(_formatarData(_data)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: _selecionarHoraInicio,
+                        borderRadius: BorderRadius.circular(Raio.md),
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Início',
+                            prefixIcon: Icon(Icons.access_time),
+                            border: OutlineInputBorder(),
+                          ),
+                          child: Text(_horaInicio.format(context)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: InkWell(
+                        onTap: _selecionarHoraFim,
+                        borderRadius: BorderRadius.circular(Raio.md),
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Término',
+                            prefixIcon: Icon(Icons.access_time),
+                            border: OutlineInputBorder(),
+                          ),
+                          child: Text(_horaFim.format(context)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  initialValue: _modalidade,
+                  decoration: const InputDecoration(
+                    labelText: 'Modalidade',
+                    prefixIcon: Icon(Icons.videocam_outlined),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'presencial',
+                      child: Text('Presencial'),
+                    ),
+                    DropdownMenuItem(value: 'online', child: Text('Online')),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) setState(() => _modalidade = v);
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _salaController,
+                  decoration: const InputDecoration(
+                    labelText: 'Sala / local (opcional)',
+                    hintText: 'Ex: Sala 2 ou Consultório',
+                    prefixIcon: Icon(Icons.meeting_room_outlined),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _servicoController,
+                  decoration: const InputDecoration(
+                    labelText: 'Serviço (opcional)',
+                    hintText: 'Ex: Psicoterapia individual',
+                    prefixIcon: Icon(Icons.work_outline),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                if (_modalidade == 'online') ...[
                   const SizedBox(height: 16),
-                  InkWell(
-                    onTap: () async {
-                      final limite = await showDatePicker(
-                        context: context,
-                        initialDate: _dataLimiteRecorrencia ??
-                            _data.add(const Duration(days: 90)),
-                        firstDate: _data.add(const Duration(days: 1)),
-                        lastDate: DateTime.now().add(const Duration(days: 730)),
-                        helpText: 'Data limite da recorrência',
+                  TextFormField(
+                    controller: _linkOnlineController,
+                    decoration: const InputDecoration(
+                      labelText: 'Link online (opcional)',
+                      hintText: 'Ex: link do Google Meet',
+                      prefixIcon: Icon(Icons.link),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _tituloController,
+                  decoration: const InputDecoration(
+                    labelText: 'Título (opcional)',
+                    hintText: 'Ex: Sessão de acompanhamento',
+                    prefixIcon: Icon(Icons.label_outline),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _observacoesController,
+                  decoration: const InputDecoration(
+                    labelText: 'Observações (opcional)',
+                    hintText: 'Ex: Levar material específico',
+                    prefixIcon: Icon(Icons.notes),
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 16),
+                if (!_editando) ...[
+                  DropdownButtonFormField<FrequenciaRecorrencia>(
+                    initialValue: _recorrencia,
+                    decoration: const InputDecoration(
+                      labelText: 'Repetir',
+                      prefixIcon: Icon(Icons.repeat),
+                      border: OutlineInputBorder(),
+                    ),
+                    items: FrequenciaRecorrencia.values.map((f) {
+                      return DropdownMenuItem(
+                        value: f,
+                        child: Text(f.value.isEmpty ? 'Não repete' : f.value),
                       );
-                      if (limite != null) {
-                        setState(() => _dataLimiteRecorrencia = limite);
-                      }
+                    }).toList(),
+                    onChanged: (v) {
+                      if (v != null) setState(() => _recorrencia = v);
                     },
-                    borderRadius: BorderRadius.circular(Raio.md),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Até (opcional)',
-                        prefixIcon: Icon(Icons.event_repeat),
-                        border: OutlineInputBorder(),
-                        hintText: 'Padrão: 6 meses',
+                  ),
+                  if (_recorrencia.temRecorrencia) ...[
+                    const SizedBox(height: 16),
+                    InkWell(
+                      onTap: () async {
+                        final limite = await showDatePicker(
+                          context: context,
+                          initialDate:
+                              _dataLimiteRecorrencia ??
+                              _data.add(const Duration(days: 90)),
+                          firstDate: _data.add(const Duration(days: 1)),
+                          lastDate: DateTime.now().add(
+                            const Duration(days: 730),
+                          ),
+                          helpText: 'Data limite da recorrência',
+                        );
+                        if (limite != null) {
+                          setState(() => _dataLimiteRecorrencia = limite);
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(Raio.md),
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Até (opcional)',
+                          prefixIcon: Icon(Icons.event_repeat),
+                          border: OutlineInputBorder(),
+                          hintText: 'Padrão: 6 meses',
+                        ),
+                        child: Text(
+                          _dataLimiteRecorrencia != null
+                              ? _formatarData(_dataLimiteRecorrencia!)
+                              : 'Sem data limite',
+                        ),
                       ),
-                      child: Text(
-                        _dataLimiteRecorrencia != null
-                            ? _formatarData(_dataLimiteRecorrencia!)
-                            : 'Sem data limite',
+                    ),
+                  ],
+                ],
+                if (_editandoRecorrente)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Esta é uma ocorrência de uma série recorrente.',
+                      style: TextStyle(
+                        fontSize: Tipografia.sm,
+                        color: context.corTextoMuted,
+                        fontStyle: FontStyle.italic,
                       ),
+                    ),
+                  ),
+                if (_tipoEvento == 'sessao') ...[
+                  const SizedBox(height: 20),
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: context.corDivider),
+                      borderRadius: BorderRadius.circular(Raio.md),
+                    ),
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text(
+                            'Lembrete',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: Text(
+                            _lembreteAtivado
+                                ? 'Enviar ${_formatarAntecedencia()} antes da sessão'
+                                : 'Notificar o paciente automaticamente',
+                          ),
+                          value: _lembreteAtivado,
+                          onChanged: (v) =>
+                              setState(() => _lembreteAtivado = v),
+                          activeThumbColor: context.corPrimaria,
+                        ),
+                        if (_lembreteAtivado) ...[
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<int>(
+                            initialValue: _minutosAntecedencia,
+                            decoration: const InputDecoration(
+                              labelText: 'Antecedência do lembrete',
+                              prefixIcon: Icon(Icons.timer_outlined),
+                              border: OutlineInputBorder(),
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 30,
+                                child: Text('30 minutos'),
+                              ),
+                              DropdownMenuItem(
+                                value: 60,
+                                child: Text('1 hora'),
+                              ),
+                              DropdownMenuItem(
+                                value: 120,
+                                child: Text('2 horas'),
+                              ),
+                              DropdownMenuItem(
+                                value: 180,
+                                child: Text('3 horas'),
+                              ),
+                              DropdownMenuItem(
+                                value: 360,
+                                child: Text('6 horas'),
+                              ),
+                              DropdownMenuItem(
+                                value: 720,
+                                child: Text('12 horas'),
+                              ),
+                              DropdownMenuItem(
+                                value: 1440,
+                                child: Text('24 horas'),
+                              ),
+                              DropdownMenuItem(
+                                value: 2880,
+                                child: Text('48 horas'),
+                              ),
+                            ],
+                            onChanged: (v) {
+                              if (v != null) {
+                                setState(() => _minutosAntecedencia = v);
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton.icon(
+                              onPressed: _editarMensagemLembrete,
+                              icon: const Icon(Icons.edit_outlined, size: 18),
+                              label: const Text('Editar mensagem'),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],
               ],
-              if (_editandoRecorrente)
-              Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                'Este é um compromisso recorrente.',
-                style: TextStyle(
-                  fontSize: Tipografia.sm,
-                  color: context.corTextoMuted,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-                ),
-              const SizedBox(height: 20),
-              Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: context.corDivider),
-                  borderRadius: BorderRadius.circular(Raio.md),
-                ),
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text(
-                        'Lembrete',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      subtitle: Text(
-                        _lembreteAtivado
-                            ? 'Enviar ${_formatarAntecedencia()} antes da sessão'
-                            : 'Notificar o paciente automaticamente',
-                      ),
-                      value: _lembreteAtivado,
-                      onChanged: (v) =>
-                          setState(() => _lembreteAtivado = v),
-                      activeThumbColor: context.corPrimaria,
-                    ),
-                    if (_lembreteAtivado) ...[
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<int>(
-                        initialValue: _minutosAntecedencia,
-                        decoration: const InputDecoration(
-                          labelText: 'Antecedência do lembrete',
-                          prefixIcon: Icon(Icons.timer_outlined),
-                          border: OutlineInputBorder(),
-                        ),
-                        items: const [
-                          DropdownMenuItem(value: 30, child: Text('30 minutos')),
-                          DropdownMenuItem(value: 60, child: Text('1 hora')),
-                          DropdownMenuItem(value: 120, child: Text('2 horas')),
-                          DropdownMenuItem(value: 180, child: Text('3 horas')),
-                          DropdownMenuItem(value: 360, child: Text('6 horas')),
-                          DropdownMenuItem(value: 720, child: Text('12 horas')),
-                          DropdownMenuItem(value: 1440, child: Text('24 horas')),
-                          DropdownMenuItem(value: 2880, child: Text('48 horas')),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) {
-                            setState(() => _minutosAntecedencia = v);
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: TextButton.icon(
-                          onPressed: _editarMensagemLembrete,
-                          icon: const Icon(Icons.edit_outlined, size: 18),
-                          label: const Text('Editar mensagem'),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _confirmarDescarte,
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: _salvar,
-          child: Text(_editando ? 'Salvar' : 'Criar'),
-        ),
-      ],
+        actions: [
+          TextButton(
+            onPressed: _confirmarDescarte,
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: _salvar,
+            child: Text(_editando ? 'Salvar' : 'Criar'),
+          ),
+        ],
       ),
     );
   }

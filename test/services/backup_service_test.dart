@@ -11,6 +11,7 @@ import 'package:prontuario_tcc/models/perfil_profissional.dart';
 import 'package:prontuario_tcc/models/progresso_sessao.dart';
 import 'package:prontuario_tcc/models/sessao.dart';
 import 'package:prontuario_tcc/services/backup_service.dart';
+import 'package:prontuario_tcc/services/compromisso_service.dart';
 import 'package:prontuario_tcc/services/encryption_service.dart';
 import 'package:prontuario_tcc/services/paciente_service.dart';
 import 'package:prontuario_tcc/services/sessao_service.dart';
@@ -50,6 +51,7 @@ void main() {
     await Hive.box<Paciente>('pacientes').clear();
     await Hive.box<Sessao>('sessoes').clear();
     await Hive.box<PerfilProfissional>('perfil_profissional').clear();
+    await Hive.box<Compromisso>('compromissos').clear();
     encryption = EncryptionService();
     await encryption.inicializar();
     await encryption.gerarChave();
@@ -59,24 +61,24 @@ void main() {
   });
 
   Paciente novoPaciente() => Paciente(
-        id: 'p1',
-        nome: 'Original',
-        contato: '11999999999',
-        email: 'a@b.com',
-        tipoAtendimento: 'Particular',
-        observacoes: 'Obs',
-        ativo: true,
-        dataCadastro: DateTime(2026, 7, 1),
-      );
+    id: 'p1',
+    nome: 'Original',
+    contato: '11999999999',
+    email: 'a@b.com',
+    tipoAtendimento: 'Particular',
+    observacoes: 'Obs',
+    ativo: true,
+    dataCadastro: DateTime(2026, 7, 1),
+  );
 
   Sessao novaSessao() => Sessao(
-        id: 's1',
-        pacienteId: 'p1',
-        numeroSessao: 1,
-        data: DateTime(2026, 7, 15),
-        relatoPosSessao: 'Relato',
-        artigosSugeridos: 'Artigos',
-      );
+    id: 's1',
+    pacienteId: 'p1',
+    numeroSessao: 1,
+    data: DateTime(2026, 7, 15),
+    relatoPosSessao: 'Relato',
+    artigosSugeridos: 'Artigos',
+  );
 
   test('export com PIN gera envelope cifrado (nao texto claro)', () async {
     await pacienteService.adicionarPaciente(novoPaciente());
@@ -153,11 +155,62 @@ void main() {
   test('import legado sem chave e rejeitado sem sobrescrever dados', () async {
     final backupSemPin = BackupService();
     await pacienteService.adicionarPaciente(novoPaciente());
-    final resultado = await backupSemPin.importarDeJson(jsonEncode({
-      'versao': '2.0',
-      'pacientes': [{'id': 'p1', 'nome': 'Alterado'}],
-    }));
+    final resultado = await backupSemPin.importarDeJson(
+      jsonEncode({
+        'versao': '2.0',
+        'pacientes': [
+          {'id': 'p1', 'nome': 'Alterado'},
+        ],
+      }),
+    );
     expect(resultado, contains('desbloqueie'));
     expect(pacienteService.buscarPacientePorId('p1')!.nome, 'Original');
+  });
+
+  test('backup inclui e restaura compromissos da agenda', () async {
+    await pacienteService.adicionarPaciente(novoPaciente());
+    final compromissoService = CompromissoService(encryption: encryption);
+    await compromissoService.adicionar(
+      Compromisso(
+        id: 'c1',
+        pacienteId: 'p1',
+        dataHoraInicio: DateTime(2026, 7, 20, 10),
+        dataHoraFim: DateTime(2026, 7, 20, 11),
+        titulo: 'Sessão de acompanhamento',
+        observacoes: 'Levar material',
+        lembreteAtivado: true,
+        minutosAntecedencia: 30,
+        mensagemLembrete: 'Mensagem personalizada',
+        tipoEvento: 'evento_geral',
+        modalidade: 'online',
+        sala: 'Sala 2',
+        servico: 'Supervisão',
+        linkOnline: 'https://meet.example/x',
+        googleEventId: 'evt-1',
+        googleCalendarId: 'primary',
+        googleSyncedAt: DateTime(2026, 10, 20, 12),
+      ),
+    );
+
+    final snapshot = backup.exportarParaJson();
+    await Hive.box<Compromisso>('compromissos').clear();
+
+    final resultado = await backup.importarDeJson(snapshot);
+    expect(resultado, contains('1 compromisso(s)'));
+
+    final restaurado = compromissoService.obterPorId('c1');
+    expect(restaurado, isNotNull);
+    expect(restaurado!.titulo, 'Sessão de acompanhamento');
+    expect(restaurado.observacoes, 'Levar material');
+    expect(restaurado.mensagemLembrete, 'Mensagem personalizada');
+    expect(restaurado.minutosAntecedencia, 30);
+    expect(restaurado.tipoEvento, 'evento_geral');
+    expect(restaurado.modalidade, 'online');
+    expect(restaurado.sala, 'Sala 2');
+    expect(restaurado.servico, 'Supervisão');
+    expect(restaurado.linkOnline, 'https://meet.example/x');
+    expect(restaurado.googleEventId, 'evt-1');
+    expect(restaurado.googleCalendarId, 'primary');
+    expect(restaurado.googleSyncedAt, DateTime(2026, 10, 20, 12));
   });
 }

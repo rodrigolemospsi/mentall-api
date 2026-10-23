@@ -8,6 +8,7 @@ import 'package:http/testing.dart';
 import 'package:prontuario_tcc/hive_registrar.g.dart';
 import 'package:prontuario_tcc/screens/whatsapp_conexao_page.dart';
 import 'package:prontuario_tcc/services/api_client.dart';
+import 'package:prontuario_tcc/utils/telefone_whatsapp.dart';
 
 String _tokenValido() {
   final payload = base64Encode(utf8.encode(jsonEncode({'exp': 9999999999})));
@@ -36,6 +37,14 @@ void main() {
   tearDownAll(() async {
     await Hive.deleteBoxFromDisk('app_config');
     await Hive.deleteBoxFromDisk('auth_meta');
+  });
+
+  test('formata número/JID do WhatsApp para exibição', () {
+    expect(formatarNumeroWhatsapp('557592298347@s.whatsapp.net'),
+        '(75) 9229-8347');
+    expect(formatarNumeroWhatsapp('557592298347:10@s.whatsapp.net'),
+        '(75) 9229-8347');
+    expect(formatarNumeroWhatsapp(''), '');
   });
 
   setUp(() async {
@@ -80,6 +89,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Conectado'), findsOneWidget);
+    // Campo "Número do WhatsApp" preenchido com o número conectado formatado.
+    expect(find.text('(75) 9229-8347'), findsWidgets);
 
     await tester.tap(find.text('Enviar mensagem de teste'));
     await tester.pumpAndSettle();

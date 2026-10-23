@@ -26,8 +26,14 @@ class ConfiguracoesService with EncryptedServiceMixin {
   static const String _kBackupFrequencia = 'backup_frequencia';
   static const String _kBackupLocal = 'backup_local';
   static const String _kUltimoBackupEm = 'backup_ultimo_em';
+  static const String _kGoogleCalendarAtivo = 'google_calendar_ativo';
+  static const String _kGoogleCalendarId = 'google_calendar_id';
+  static const String _kGoogleCalendarAutoSync = 'google_calendar_auto_sync';
+  static const String _kGoogleCalendarUltimoSync =
+      'google_calendar_ultimo_sync';
 
-  static const String contratoPadrao = '''Este \u00e9 um espa\u00e7o de cuidado, escuta e respeito.
+  static const String contratoPadrao =
+      '''Este \u00e9 um espa\u00e7o de cuidado, escuta e respeito.
 
 Compromissos
 Psic\u00f3logo(a): ofere\u00e7o um atendimento \u00e9tico, acolhedor e sigiloso, respeitando sua singularidade e autonomia.
@@ -48,7 +54,14 @@ Ao preencher e aceitar este formul\u00e1rio, declaro estar ciente e de acordo co
 
   static const List<int> opcoesDuracaoMinutos = [30, 45, 50, 60, 90, 120];
   static const List<int> opcoesAntecedenciaMinutos = [
-    30, 60, 120, 180, 360, 720, 1440, 2880,
+    30,
+    60,
+    120,
+    180,
+    360,
+    720,
+    1440,
+    2880,
   ];
 
   Box<String> get _box => Hive.box<String>(_boxName);
@@ -65,8 +78,7 @@ Ao preencher e aceitar este formul\u00e1rio, declaro estar ciente e de acordo co
     await _box.put(_kDuracaoSessaoMin, '$minutos');
   }
 
-  bool get lembretePadraoAtivado =>
-      _box.get(_kLembretePadraoAtivado) == 'true';
+  bool get lembretePadraoAtivado => _box.get(_kLembretePadraoAtivado) == 'true';
 
   Future<void> setLembretePadraoAtivado(bool ativado) async {
     await _box.put(_kLembretePadraoAtivado, '$ativado');
@@ -126,7 +138,8 @@ Ao preencher e aceitar este formul\u00e1rio, declaro estar ciente e de acordo co
     await _box.put(_kControleFinanceiroAtivo, '$ativado');
   }
 
-  bool get demoCriado => _box.get(_kDemoCriado, defaultValue: 'false') == 'true';
+  bool get demoCriado =>
+      _box.get(_kDemoCriado, defaultValue: 'false') == 'true';
 
   Future<void> setDemoCriado(bool v) => _box.put(_kDemoCriado, '$v');
 
@@ -135,6 +148,38 @@ Ao preencher e aceitar este formul\u00e1rio, declaro estar ciente e de acordo co
 
   Future<void> setBiometriaAtivada(bool ativado) async {
     await _box.put(_kBiometriaAtivada, '$ativado');
+  }
+
+  bool get googleCalendarAtivo => _box.get(_kGoogleCalendarAtivo) == 'true';
+
+  Future<void> setGoogleCalendarAtivo(bool ativo) async {
+    await _box.put(_kGoogleCalendarAtivo, '$ativo');
+  }
+
+  String get googleCalendarId => _box.get(_kGoogleCalendarId) ?? 'primary';
+
+  Future<void> setGoogleCalendarId(String calendarId) async {
+    await _box.put(_kGoogleCalendarId, calendarId);
+  }
+
+  bool get googleCalendarAutoSync =>
+      _box.get(_kGoogleCalendarAutoSync) != 'false';
+
+  Future<void> setGoogleCalendarAutoSync(bool ativo) async {
+    await _box.put(_kGoogleCalendarAutoSync, '$ativo');
+  }
+
+  DateTime? get googleCalendarUltimoSync {
+    final valor = _box.get(_kGoogleCalendarUltimoSync);
+    return valor == null ? null : DateTime.tryParse(valor);
+  }
+
+  Future<void> setGoogleCalendarUltimoSync(DateTime? data) async {
+    if (data == null) {
+      await _box.delete(_kGoogleCalendarUltimoSync);
+    } else {
+      await _box.put(_kGoogleCalendarUltimoSync, data.toIso8601String());
+    }
   }
 
   bool get onboardingConcluido =>

@@ -1,3 +1,4 @@
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,7 @@ import '../services/paciente_service.dart';
 import '../services/compromisso_service.dart';
 import '../screens/paciente_detail_page.dart';
 import '../widgets/compromisso_form_dialog.dart';
+import '../utils/agenda_helpers.dart';
 import '../utils/imagem_cache.dart';
 import '../utils/mentall_colors.dart';
 import '../utils/raio.dart';
@@ -24,6 +26,10 @@ final _modoAgendaProvider = StateProvider<String>((ref) => 'dia');
 
 final _refreshAgendaProvider = StateProvider<int>((ref) => 0);
 
+final _filtroTipoProvider = StateProvider<String>((ref) => 'todos');
+
+final _filtroModalidadeProvider = StateProvider<String>((ref) => 'todas');
+
 class AgendaPage extends ConsumerStatefulWidget {
   const AgendaPage({super.key});
 
@@ -33,21 +39,56 @@ class AgendaPage extends ConsumerStatefulWidget {
 
 class _AgendaPageState extends ConsumerState<AgendaPage> {
   static const _diasSemana = [
-    'Segunda-feira', 'Terça-feira', 'Quarta-feira',
-    'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo',
+    'Segunda-feira',
+    'Terça-feira',
+    'Quarta-feira',
+    'Quinta-feira',
+    'Sexta-feira',
+    'Sábado',
+    'Domingo',
   ];
   static const _diasSemanaAbrev = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
   static const _meses = [
-    'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
-    'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+    'janeiro',
+    'fevereiro',
+    'março',
+    'abril',
+    'maio',
+    'junho',
+    'julho',
+    'agosto',
+    'setembro',
+    'outubro',
+    'novembro',
+    'dezembro',
   ];
   static const _mesesAbrev = [
-    'jan', 'fev', 'mar', 'abr', 'mai', 'jun',
-    'jul', 'ago', 'set', 'out', 'nov', 'dez',
+    'jan',
+    'fev',
+    'mar',
+    'abr',
+    'mai',
+    'jun',
+    'jul',
+    'ago',
+    'set',
+    'out',
+    'nov',
+    'dez',
   ];
   static const _mesesLongos = [
-    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+    'Janeiro',
+    'Fevereiro',
+    'Março',
+    'Abril',
+    'Maio',
+    'Junho',
+    'Julho',
+    'Agosto',
+    'Setembro',
+    'Outubro',
+    'Novembro',
+    'Dezembro',
   ];
 
   List<Compromisso> _compromissosDoModo(
@@ -57,6 +98,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
   ) {
     switch (modo) {
       case 'semana':
+      case 'salas':
         return service.listarPorSemana(data);
       case 'mes':
         return service.listarPorMes(data);
@@ -79,49 +121,48 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
   void _navegarAnterior() {
     final modo = ref.read(_modoAgendaProvider);
     if (modo == 'mes') {
-      ref.read(_dataSelecionadaProvider.notifier).update(
-        (d) {
-          final novoMes = d.month - 1;
-          if (novoMes < 1) return DateTime(d.year - 1, 12, 1);
-          return DateTime(d.year, novoMes, 1);
-        },
-      );
-    } else if (modo == 'semana') {
-      ref.read(_dataSelecionadaProvider.notifier).update(
-            (state) => state.subtract(const Duration(days: 7)),
-          );
+      ref.read(_dataSelecionadaProvider.notifier).update((d) {
+        final novoMes = d.month - 1;
+        if (novoMes < 1) return DateTime(d.year - 1, 12, 1);
+        return DateTime(d.year, novoMes, 1);
+      });
+    } else if (modo == 'semana' || modo == 'salas') {
+      ref
+          .read(_dataSelecionadaProvider.notifier)
+          .update((state) => state.subtract(const Duration(days: 7)));
     } else {
-      ref.read(_dataSelecionadaProvider.notifier).update(
-            (state) => state.subtract(const Duration(days: 1)),
-          );
+      ref
+          .read(_dataSelecionadaProvider.notifier)
+          .update((state) => state.subtract(const Duration(days: 1)));
     }
   }
 
   void _navegarProximo() {
     final modo = ref.read(_modoAgendaProvider);
     if (modo == 'mes') {
-      ref.read(_dataSelecionadaProvider.notifier).update(
-        (d) {
-          final novoMes = d.month + 1;
-          if (novoMes > 12) return DateTime(d.year + 1, 1, 1);
-          return DateTime(d.year, novoMes, 1);
-        },
-      );
-    } else if (modo == 'semana') {
-      ref.read(_dataSelecionadaProvider.notifier).update(
-            (state) => state.add(const Duration(days: 7)),
-          );
+      ref.read(_dataSelecionadaProvider.notifier).update((d) {
+        final novoMes = d.month + 1;
+        if (novoMes > 12) return DateTime(d.year + 1, 1, 1);
+        return DateTime(d.year, novoMes, 1);
+      });
+    } else if (modo == 'semana' || modo == 'salas') {
+      ref
+          .read(_dataSelecionadaProvider.notifier)
+          .update((state) => state.add(const Duration(days: 7)));
     } else {
-      ref.read(_dataSelecionadaProvider.notifier).update(
-            (state) => state.add(const Duration(days: 1)),
-          );
+      ref
+          .read(_dataSelecionadaProvider.notifier)
+          .update((state) => state.add(const Duration(days: 1)));
     }
   }
 
   void _irParaHoje() {
     final agora = DateTime.now();
-    ref.read(_dataSelecionadaProvider.notifier).state =
-        DateTime(agora.year, agora.month, agora.day);
+    ref.read(_dataSelecionadaProvider.notifier).state = DateTime(
+      agora.year,
+      agora.month,
+      agora.day,
+    );
     ref.read(_modoAgendaProvider.notifier).state = 'dia';
   }
 
@@ -134,7 +175,9 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
       final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
       final termo = perfil?.termoPlural ?? 'pacientes';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Cadastre $termo primeiro para agendar sessões.')),
+        SnackBar(
+          content: Text('Cadastre $termo primeiro para agendar sessões.'),
+        ),
       );
       return;
     }
@@ -155,11 +198,31 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
 
     if (compromisso == null) return;
 
-    final gerados = await service.adicionarComRecorrencia(compromisso);
+    late final List<Compromisso> gerados;
+    try {
+      gerados = await service.adicionarComRecorrencia(compromisso);
+    } on ConflitoDeHorarioException catch (e) {
+      if (!mounted) return;
+      final nomes = e.conflitos
+          .map((c) => c.titulo.isEmpty ? 'Compromisso' : c.titulo)
+          .toSet()
+          .join(', ');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Conflito em uma das ocorrências: $nomes. '
+            'Ajuste o horário ou o limite da recorrência.',
+          ),
+        ),
+      );
+      return;
+    }
     final pacienteAgendado = pacientes
         .where((p) => p.id == compromisso.pacienteId)
         .toList();
-    await ref.read(auditoriaServiceProvider).registrar(
+    await ref
+        .read(auditoriaServiceProvider)
+        .registrar(
           tipoEvento: 'Sessão agendada',
           descricao: pacienteAgendado.isNotEmpty
               ? pacienteAgendado.first.nome
@@ -169,6 +232,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
     for (final c in gerados) {
       await _agendarLembrete(ref, c);
     }
+    unawaited(_sincronizarGoogle(gerados));
     ref.read(_refreshAgendaProvider.notifier).update((n) => n + 1);
   }
 
@@ -179,7 +243,12 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
     final editado = await mostrarCompromissoFormDialog(
       context: context,
       pacientes: pacientes,
-      termoPessoa: ref.read(perfilProfissionalServiceProvider).obterPerfil()?.termoSingularCapitalizado ?? 'Pessoa atendida',
+      termoPessoa:
+          ref
+              .read(perfilProfissionalServiceProvider)
+              .obterPerfil()
+              ?.termoSingularCapitalizado ??
+          'Pessoa atendida',
       compromissoExistente: compromisso,
       compromissoService: service,
     );
@@ -187,6 +256,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
     if (editado == null) return;
     await service.atualizar(editado);
     await _agendarLembrete(ref, editado);
+    unawaited(_sincronizarGoogle([editado]));
     ref.read(_refreshAgendaProvider.notifier).update((n) => n + 1);
   }
 
@@ -194,7 +264,9 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
     if (!compromisso.lembreteAtivado || !compromisso.isAgendado) return;
     final pacienteService = ref.read(pacienteServiceProvider);
     final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
-    final paciente = pacienteService.buscarPacientePorId(compromisso.pacienteId);
+    final paciente = pacienteService.buscarPacientePorId(
+      compromisso.pacienteId,
+    );
     if (paciente == null) return;
     final lembreteService = ref.read(lembreteServiceProvider);
     await lembreteService.agendarLembrete(
@@ -203,6 +275,21 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
       nomeProfissional: perfil?.nome ?? 'Profissional',
       telefonePaciente: paciente.contato,
     );
+  }
+
+  Future<void> _sincronizarGoogle(Iterable<Compromisso> compromissos) async {
+    final service = ref.read(googleCalendarServiceProvider);
+    for (final compromisso in compromissos) {
+      try {
+        await service.syncCompromisso(compromisso);
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _removerDoGoogle(Compromisso compromisso) async {
+    try {
+      await ref.read(googleCalendarServiceProvider).removeEvento(compromisso);
+    } catch (_) {}
   }
 
   Future<void> _confirmarRemocao(Compromisso compromisso) async {
@@ -218,9 +305,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: context.corDanger,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: context.corDanger),
             child: const Text('Remover'),
           ),
         ],
@@ -229,6 +314,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
 
     if (confirmar != true) return;
     await ref.read(compromissoServiceProvider).remover(compromisso);
+    unawaited(_removerDoGoogle(compromisso));
     ref.read(_refreshAgendaProvider.notifier).update((n) => n + 1);
   }
 
@@ -239,6 +325,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
 
   Future<void> _marcarCancelado(Compromisso compromisso) async {
     await ref.read(compromissoServiceProvider).marcarComoCancelado(compromisso);
+    unawaited(_removerDoGoogle(compromisso));
     ref.read(_refreshAgendaProvider.notifier).update((n) => n + 1);
   }
 
@@ -249,15 +336,15 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
 
   Future<void> _marcarAgendado(Compromisso compromisso) async {
     await ref.read(compromissoServiceProvider).marcarComoAgendado(compromisso);
+    await _agendarLembrete(ref, compromisso);
+    unawaited(_sincronizarGoogle([compromisso]));
     ref.read(_refreshAgendaProvider.notifier).update((n) => n + 1);
   }
 
   void _abrirPaciente(Paciente paciente) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => PacienteDetailPage(paciente: paciente),
-      ),
+      MaterialPageRoute(builder: (_) => PacienteDetailPage(paciente: paciente)),
     );
   }
 
@@ -266,6 +353,8 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
     ref.watch(_refreshAgendaProvider);
     final dataSelecionada = ref.watch(_dataSelecionadaProvider);
     final modo = ref.watch(_modoAgendaProvider);
+    final filtroTipo = ref.watch(_filtroTipoProvider);
+    final filtroModalidade = ref.watch(_filtroModalidadeProvider);
     final compService = ref.watch(compromissoServiceProvider);
     final pacienteService = ref.watch(pacienteServiceProvider);
     final theme = Theme.of(context);
@@ -274,8 +363,11 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
     final corOnPrimaria = theme.colorScheme.onPrimary;
     final corMuted = theme.colorScheme.onSurface.withValues(alpha: 0.6);
 
-    final compromissosDoPeriodo =
-        _compromissosDoModo(dataSelecionada, modo, compService);
+    final compromissosDoPeriodo = filtrarCompromissos(
+      _compromissosDoModo(dataSelecionada, modo, compService),
+      tipo: filtroTipo,
+      modalidade: filtroModalidade,
+    );
 
     final hoje = DateTime.now();
     final hojeInicio = DateTime(hoje.year, hoje.month, hoje.day);
@@ -292,10 +384,11 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
     if (modo == 'mes') {
       titulo =
           '${_mesesLongos[dataSelecionada.month - 1]} ${dataSelecionada.year}';
-    } else if (modo == 'semana') {
+    } else if (modo == 'semana' || modo == 'salas') {
       final dias = _diasDaSemana(dataSelecionada);
-      titulo =
+      final periodo =
           '${dias.first.day} ${_mesesAbrev[dias.first.month - 1]} - ${dias.last.day} ${_mesesAbrev[dias.last.month - 1]}';
+      titulo = modo == 'salas' ? 'Salas · $periodo' : periodo;
     } else if (isHoje) {
       titulo = 'Hoje';
     } else if (isOntem) {
@@ -315,10 +408,7 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
             TextButton.icon(
               onPressed: _irParaHoje,
               icon: Icon(Icons.today, color: corOnPrimaria, size: 20),
-              label: Text(
-                'Hoje',
-                style: TextStyle(color: corOnPrimaria),
-              ),
+              label: Text('Hoje', style: TextStyle(color: corOnPrimaria)),
             ),
         ],
       ),
@@ -326,16 +416,22 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
         children: [
           const SizedBox(height: 8),
           _buildModoSelector(modo, corPrimaria, corMuted),
+          _buildFiltros(filtroTipo, filtroModalidade),
           _SeletorData(
             data: dataSelecionada,
             onAnterior: _navegarAnterior,
             onProximo: _navegarProximo,
             titulo: titulo,
           ),
-          if (modo == 'semana')
-            _buildWeekStrip(dataSelecionada, hojeInicio),
+          if (modo == 'semana') _buildWeekStrip(dataSelecionada, hojeInicio),
           if (modo == 'mes')
-            _buildMonthGrid(dataSelecionada, hojeInicio, compService),
+            _buildMonthGrid(
+              dataSelecionada,
+              hojeInicio,
+              compService,
+              filtroTipo,
+              filtroModalidade,
+            ),
           Expanded(
             child: compromissosDoPeriodo.isEmpty
                 ? _EstadoVazioAgenda(
@@ -376,11 +472,84 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
         _modoTab('Semana', 'semana', modo, corPrimaria, corMuted),
         const SizedBox(width: 4),
         _modoTab('Mês', 'mes', modo, corPrimaria, corMuted),
+        const SizedBox(width: 4),
+        _modoTab('Salas', 'salas', modo, corPrimaria, corMuted),
       ],
     );
   }
 
-  Widget _modoTab(String label, String valor, String atual, Color corPrimaria, Color corMuted) {
+  Widget _buildFiltros(String tipo, String modalidade) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      child: Row(
+        children: [
+          Expanded(
+            child: DropdownButtonFormField<String>(
+              key: ValueKey('filtro_tipo_$tipo'),
+              initialValue: tipo,
+              decoration: const InputDecoration(
+                labelText: 'Tipo',
+                isDense: true,
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+              ),
+              items: const [
+                DropdownMenuItem(value: 'todos', child: Text('Todos')),
+                DropdownMenuItem(value: 'sessao', child: Text('Sessões')),
+                DropdownMenuItem(
+                  value: 'evento_geral',
+                  child: Text('Eventos gerais'),
+                ),
+              ],
+              onChanged: (v) {
+                if (v != null) ref.read(_filtroTipoProvider.notifier).state = v;
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: DropdownButtonFormField<String>(
+              key: ValueKey('filtro_modalidade_$modalidade'),
+              initialValue: modalidade,
+              decoration: const InputDecoration(
+                labelText: 'Modalidade',
+                isDense: true,
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+              ),
+              items: const [
+                DropdownMenuItem(value: 'todas', child: Text('Todas')),
+                DropdownMenuItem(
+                  value: 'presencial',
+                  child: Text('Presencial'),
+                ),
+                DropdownMenuItem(value: 'online', child: Text('Online')),
+              ],
+              onChanged: (v) {
+                if (v != null) {
+                  ref.read(_filtroModalidadeProvider.notifier).state = v;
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _modoTab(
+    String label,
+    String valor,
+    String atual,
+    Color corPrimaria,
+    Color corMuted,
+  ) {
     final selecionado = atual == valor;
     return GestureDetector(
       onTap: () => ref.read(_modoAgendaProvider.notifier).state = valor,
@@ -422,8 +591,8 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
                   color: isSelected
                       ? context.corPrimaria
                       : isToday
-                          ? context.cs.primaryContainer
-                          : Colors.transparent,
+                      ? context.cs.primaryContainer
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(Raio.sm),
                   border: isToday && !isSelected
                       ? Border.all(color: context.corPrimaria, width: 1)
@@ -440,8 +609,8 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
                         color: isSelected
                             ? context.corOnPrimaria
                             : isToday
-                                ? context.corPrimaria
-                                : context.corTextoMuted,
+                            ? context.corPrimaria
+                            : context.corTextoMuted,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -453,8 +622,8 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
                         color: isSelected
                             ? context.corOnPrimaria
                             : isToday
-                                ? context.corPrimaria
-                                : context.corTextoHeading,
+                            ? context.corPrimaria
+                            : context.corTextoHeading,
                       ),
                     ),
                   ],
@@ -471,13 +640,19 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
     DateTime data,
     DateTime hoje,
     CompromissoService compService,
+    String filtroTipo,
+    String filtroModalidade,
   ) {
     final inicioMes = DateTime(data.year, data.month, 1);
     final fimMes = DateTime(data.year, data.month + 1, 0);
     final totalDias = fimMes.day;
     final primeiroDiaSemana = inicioMes.weekday;
 
-    final compromissosMes = compService.listarPorMes(data);
+    final compromissosMes = filtrarCompromissos(
+      compService.listarPorMes(data),
+      tipo: filtroTipo,
+      modalidade: filtroModalidade,
+    );
     final diasComCompromissos = <int>{
       for (final c in compromissosMes) c.dataHoraInicio.day,
     };
@@ -486,10 +661,16 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
 
     final diasMesAnterior = DateTime(data.year, data.month, 0).day;
     for (int i = primeiroDiaSemana - 1; i > 0; i--) {
-      celulas.add(_buildDiaCelula(
-        diasMesAnterior - i + 1, data, hoje, diasComCompromissos,
-        foraLimite: true, mesAnterior: true,
-      ));
+      celulas.add(
+        _buildDiaCelula(
+          diasMesAnterior - i + 1,
+          data,
+          hoje,
+          diasComCompromissos,
+          foraLimite: true,
+          mesAnterior: true,
+        ),
+      );
     }
 
     for (int dia = 1; dia <= totalDias; dia++) {
@@ -499,21 +680,29 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
     final resto = celulas.length % 7;
     if (resto != 0) {
       for (int d = 1; d <= 7 - resto; d++) {
-        celulas.add(_buildDiaCelula(
-          d, data, hoje, diasComCompromissos,
-          foraLimite: true, mesAnterior: false,
-        ));
+        celulas.add(
+          _buildDiaCelula(
+            d,
+            data,
+            hoje,
+            diasComCompromissos,
+            foraLimite: true,
+            mesAnterior: false,
+          ),
+        );
       }
     }
 
     final linhas = <Widget>[];
     for (int i = 0; i < celulas.length; i += 7) {
-      linhas.add(Row(
-        children: celulas
-            .sublist(i, i + 7)
-            .map((c) => Expanded(child: Center(child: c)))
-            .toList(),
-      ));
+      linhas.add(
+        Row(
+          children: celulas
+              .sublist(i, i + 7)
+              .map((c) => Expanded(child: Center(child: c)))
+              .toList(),
+        ),
+      );
     }
 
     return Padding(
@@ -522,18 +711,20 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
         children: [
           Row(
             children: _diasSemanaAbrev
-                .map((d) => Expanded(
-                      child: Center(
-                        child: Text(
-                          d,
-                          style: TextStyle(
-                            fontSize: Tipografia.xxs,
-                            fontWeight: FontWeight.w700,
-                            color: context.corTextoMuted,
-                          ),
+                .map(
+                  (d) => Expanded(
+                    child: Center(
+                      child: Text(
+                        d,
+                        style: TextStyle(
+                          fontSize: Tipografia.xxs,
+                          fontWeight: FontWeight.w700,
+                          color: context.corTextoMuted,
                         ),
                       ),
-                    ))
+                    ),
+                  ),
+                )
                 .toList(),
           ),
           const SizedBox(height: 4),
@@ -562,7 +753,8 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
       dataDia = DateTime(mesAtual.year, mesAtual.month, dia);
     }
 
-    final isSelected = !foraLimite && dataDia == ref.read(_dataSelecionadaProvider);
+    final isSelected =
+        !foraLimite && dataDia == ref.read(_dataSelecionadaProvider);
     final isToday = dataDia == hoje;
     final temCompromisso = !foraLimite && diasComCompromissos.contains(dia);
 
@@ -580,8 +772,8 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
           color: isSelected
               ? context.corPrimaria
               : isToday
-                  ? context.cs.primaryContainer
-                  : null,
+              ? context.cs.primaryContainer
+              : null,
           borderRadius: BorderRadius.circular(Raio.xs),
           border: isToday && !isSelected
               ? Border.all(color: context.corPrimaria, width: 1)
@@ -598,10 +790,10 @@ class _AgendaPageState extends ConsumerState<AgendaPage> {
                 color: isSelected
                     ? context.corOnPrimaria
                     : foraLimite
-                        ? context.corTextoDisabled
-                        : isToday
-                            ? context.corPrimaria
-                            : context.corTextoHeading,
+                    ? context.corTextoDisabled
+                    : isToday
+                    ? context.corPrimaria
+                    : context.corTextoHeading,
               ),
             ),
             if (temCompromisso && !isSelected)
@@ -643,8 +835,7 @@ class _SeletorData extends StatelessWidget {
         children: [
           IconButton(
             onPressed: onAnterior,
-            icon: Icon(Icons.chevron_left,
-                color: context.corPrimaria),
+            icon: Icon(Icons.chevron_left, color: context.corPrimaria),
             tooltip: 'Dia anterior',
           ),
           Text(
@@ -658,8 +849,7 @@ class _SeletorData extends StatelessWidget {
           IconButton(
             onPressed: onProximo,
             icon: onProximo != null
-                ? Icon(Icons.chevron_right,
-                    color: context.corPrimaria)
+                ? Icon(Icons.chevron_right, color: context.corPrimaria)
                 : const SizedBox(width: 24),
             tooltip: onProximo != null ? 'Próximo dia' : null,
           ),
@@ -684,7 +874,9 @@ class _EstadoVazioAgenda extends StatelessWidget {
 
   String get _mensagem {
     if (modo == 'mes') return 'Nenhum compromisso neste mês';
-    if (modo == 'semana') return 'Nenhum compromisso nesta semana';
+    if (modo == 'semana' || modo == 'salas') {
+      return 'Nenhum compromisso nesta semana';
+    }
     return isHoje
         ? 'Nenhum compromisso hoje'
         : 'Nenhum compromisso para esta data';
@@ -715,7 +907,10 @@ class _EstadoVazioAgenda extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               'Adicione sessões para organizar sua agenda.',
-              style: TextStyle(fontSize: Tipografia.base, color: context.corTextoMuted),
+              style: TextStyle(
+                fontSize: Tipografia.base,
+                color: context.corTextoMuted,
+              ),
             ),
             const SizedBox(height: 24),
             OutlinedButton.icon(
@@ -761,6 +956,10 @@ class _ListaCompromissos extends StatelessWidget {
       for (final p in pacienteService.listarPacientes()) p.id: p,
     };
 
+    if (modo == 'salas') {
+      return _buildAgrupadoPorSala(pacientesPorId);
+    }
+
     if (modo == 'semana' || modo == 'mes') {
       return _buildAgrupadoPorData(pacientesPorId);
     }
@@ -788,10 +987,75 @@ class _ListaCompromissos extends StatelessWidget {
     );
   }
 
+  Widget _buildAgrupadoPorSala(Map<String, Paciente> pacientesPorId) {
+    final grupos = agruparPorSala(compromissos);
+    final chaves = grupos.keys.toList()..sort();
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: chaves.length,
+      itemBuilder: (context, index) {
+        final sala = chaves[index];
+        final comps = grupos[sala]!;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 16, bottom: 8, left: 4),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.meeting_room_outlined,
+                    size: 18,
+                    color: context.corTextoMuted,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    sala,
+                    style: TextStyle(
+                      fontSize: Tipografia.smMd,
+                      fontWeight: FontWeight.w700,
+                      color: context.corTextoMuted,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '(${comps.length})',
+                    style: TextStyle(
+                      fontSize: Tipografia.xs,
+                      color: context.corTextoMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ...comps.map((c) {
+              final paciente = pacientesPorId[c.pacienteId];
+              return _CompromissoCard(
+                compromisso: c,
+                paciente: paciente,
+                onEditar: () => onEditar(c),
+                onRemover: () => onRemover(c),
+                onMarcarRealizado: () => onMarcarRealizado(c),
+                onMarcarCancelado: () => onMarcarCancelado(c),
+                onMarcarFaltou: () => onMarcarFaltou(c),
+                onMarcarAgendado: () => onMarcarAgendado(c),
+                onAbrirPaciente: paciente != null
+                    ? () => onAbrirPaciente(paciente)
+                    : null,
+              );
+            }),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildAgrupadoPorData(Map<String, Paciente> pacientesPorId) {
     final Map<String, List<Compromisso>> agrupados = {};
     for (final c in compromissos) {
-      final chave = '${c.dataHoraInicio.year}-'
+      final chave =
+          '${c.dataHoraInicio.year}-'
           '${c.dataHoraInicio.month.toString().padLeft(2, '0')}-'
           '${c.dataHoraInicio.day.toString().padLeft(2, '0')}';
       agrupados.putIfAbsent(chave, () => []).add(c);
@@ -811,7 +1075,14 @@ class _ListaCompromissos extends StatelessWidget {
             '${data.month.toString().padLeft(2, '0')}';
 
         final diaSemana = [
-          '', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom',
+          '',
+          'Seg',
+          'Ter',
+          'Qua',
+          'Qui',
+          'Sex',
+          'Sab',
+          'Dom',
         ][data.weekday];
 
         return Column(
@@ -917,17 +1188,24 @@ class _CompromissoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = compromisso.statusEnum;
     final corStatus = _corStatus(status, context);
+    final ehEventoGeral = compromisso.ehEventoGeral;
     final nomePaciente = paciente?.nome ?? 'Pessoa não encontrada';
     final titulo = compromisso.titulo.trim().isNotEmpty
         ? compromisso.titulo.trim()
         : null;
+    final nomePrincipal = ehEventoGeral
+        ? (titulo ?? 'Evento geral')
+        : nomePaciente;
+    final subtitulo = ehEventoGeral ? null : titulo;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(Raio.xl),
         side: BorderSide(
-          color: compromisso.isAgendado ? corStatus.withValues(alpha: 0.3) : Colors.transparent,
+          color: compromisso.isAgendado
+              ? corStatus.withValues(alpha: 0.3)
+              : Colors.transparent,
           width: compromisso.isAgendado ? 1.5 : 0,
         ),
       ),
@@ -958,7 +1236,13 @@ class _CompromissoCard extends StatelessWidget {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.access_time, size: 16, color: context.corOnSurface.withValues(alpha: 0.6)),
+                              Icon(
+                                Icons.access_time,
+                                size: 16,
+                                color: context.corOnSurface.withValues(
+                                  alpha: 0.6,
+                                ),
+                              ),
                               const SizedBox(width: 6),
                               Text(
                                 '${compromisso.horarioInicioFormatado} - ${compromisso.horarioFimFormatado}',
@@ -980,7 +1264,8 @@ class _CompromissoCard extends StatelessWidget {
                           ),
                         ),
                         const Spacer(),
-                        if (compromisso.temRecorrencia || compromisso.ehFilhoDeRecorrencia)
+                        if (compromisso.temRecorrencia ||
+                            compromisso.ehFilhoDeRecorrencia)
                           Padding(
                             padding: const EdgeInsets.only(right: 8),
                             child: Icon(
@@ -989,7 +1274,8 @@ class _CompromissoCard extends StatelessWidget {
                               color: corStatus.withValues(alpha: 0.7),
                             ),
                           ),
-                        if (compromisso.lembreteAtivado && compromisso.isAgendado)
+                        if (compromisso.lembreteAtivado &&
+                            compromisso.isAgendado)
                           Padding(
                             padding: const EdgeInsets.only(right: 8),
                             child: Icon(
@@ -1011,10 +1297,17 @@ class _CompromissoCard extends StatelessWidget {
                         CircleAvatar(
                           radius: 18,
                           backgroundColor: corStatus.withValues(alpha: 0.15),
-                          backgroundImage: paciente?.possuiFoto == true
+                          backgroundImage:
+                              !ehEventoGeral && paciente?.possuiFoto == true
                               ? fotoMemoria(paciente!.fotoBase64)
                               : null,
-                          child: paciente?.possuiFoto != true
+                          child: ehEventoGeral
+                              ? Icon(
+                                  Icons.event_note_outlined,
+                                  size: 20,
+                                  color: corStatus,
+                                )
+                              : paciente?.possuiFoto != true
                               ? Text(
                                   nomePaciente.isNotEmpty
                                       ? nomePaciente[0].toUpperCase()
@@ -1033,18 +1326,20 @@ class _CompromissoCard extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                nomePaciente,
+                                nomePrincipal,
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: Tipografia.baseMd,
                                 ),
                               ),
-                              if (titulo != null)
+                              if (subtitulo != null)
                                 Text(
-                                  titulo,
+                                  subtitulo,
                                   style: TextStyle(
                                     fontSize: Tipografia.smMd,
-                                    color: context.corOnSurface.withValues(alpha: 0.5),
+                                    color: context.corOnSurface.withValues(
+                                      alpha: 0.5,
+                                    ),
                                   ),
                                 ),
                             ],
@@ -1061,6 +1356,38 @@ class _CompromissoCard extends StatelessWidget {
                           ),
                       ],
                     ),
+                    if (compromisso.ehOnline ||
+                        compromisso.sala.isNotEmpty ||
+                        compromisso.servico.isNotEmpty ||
+                        compromisso.linkOnline.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          if (compromisso.ehOnline)
+                            const _InfoChip(
+                              icon: Icons.videocam_outlined,
+                              label: 'Online',
+                            ),
+                          if (compromisso.sala.isNotEmpty)
+                            _InfoChip(
+                              icon: Icons.meeting_room_outlined,
+                              label: compromisso.sala,
+                            ),
+                          if (compromisso.servico.isNotEmpty)
+                            _InfoChip(
+                              icon: Icons.work_outline,
+                              label: compromisso.servico,
+                            ),
+                          if (compromisso.linkOnline.isNotEmpty)
+                            const _InfoChip(
+                              icon: Icons.link,
+                              label: 'Link online',
+                            ),
+                        ],
+                      ),
+                    ],
                     if (compromisso.observacoes.trim().isNotEmpty) ...[
                       const SizedBox(height: 10),
                       Container(
@@ -1072,7 +1399,10 @@ class _CompromissoCard extends StatelessWidget {
                         ),
                         child: Text(
                           compromisso.observacoes.trim(),
-                          style: TextStyle(fontSize: Tipografia.smMd, color: context.corOnSurface.withValues(alpha: 0.6)),
+                          style: TextStyle(
+                            fontSize: Tipografia.smMd,
+                            color: context.corOnSurface.withValues(alpha: 0.6),
+                          ),
                         ),
                       ),
                     ],
@@ -1124,6 +1454,42 @@ class _CompromissoCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _InfoChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: context.corCard,
+        borderRadius: BorderRadius.circular(Raio.md),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: context.corOnSurface.withValues(alpha: 0.6),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: Tipografia.xs,
+              color: context.corOnSurface.withValues(alpha: 0.7),
+            ),
+          ),
+        ],
       ),
     );
   }

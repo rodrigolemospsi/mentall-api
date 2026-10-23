@@ -22,8 +22,31 @@ class LembreteService {
       FlutterLocalNotificationsPlugin();
 
   bool _inicializado = false;
+  bool _permissoesVerificadas = false;
 
   void Function(String compromissoId)? onNotificationTap;
+
+  @visibleForTesting
+  static tz.TZDateTime calcularDataNotificacao(DateTime horarioLocal) {
+    return tz.TZDateTime.from(horarioLocal.toUtc(), tz.UTC);
+  }
+
+  Future<void> _garantirPermissoesAndroid() async {
+    if (_permissoesVerificadas) return;
+    _permissoesVerificadas = true;
+    if (defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      final android = _notifications
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+      await android?.requestNotificationsPermission();
+      final podeExato = await android?.canScheduleExactNotifications();
+      if (podeExato == false) {
+        await android?.requestExactAlarmsPermission();
+      }
+    } catch (_) {}
+  }
 
   Future<void> inicializar() async {
     if (_inicializado) return;
@@ -31,8 +54,9 @@ class LembreteService {
     try {
       tz_data.initializeTimeZones();
 
-      const androidSettings =
-          AndroidInitializationSettings('@mipmap/ic_launcher');
+      const androidSettings = AndroidInitializationSettings(
+        '@mipmap/ic_launcher',
+      );
       const iosSettings = DarwinInitializationSettings(
         requestAlertPermission: true,
         requestBadgePermission: true,
@@ -49,21 +73,22 @@ class LembreteService {
       );
 
       if (defaultTargetPlatform == TargetPlatform.android) {
-      const androidChannel = AndroidNotificationChannel(
-        _canalLembretesId,
-        _canalLembretesNome,
-        description: 'Notificações de lembretes de sessões agendadas',
-        importance: Importance.high,
-        enableVibration: true,
-        playSound: true,
-      );
-      await _notifications
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(androidChannel);
-    }
+        const androidChannel = AndroidNotificationChannel(
+          _canalLembretesId,
+          _canalLembretesNome,
+          description: 'Notificações de lembretes de sessões agendadas',
+          importance: Importance.high,
+          enableVibration: true,
+          playSound: true,
+        );
+        await _notifications
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >()
+            ?.createNotificationChannel(androidChannel);
+      }
 
-    _inicializado = true;
+      _inicializado = true;
     } catch (_) {}
   }
 
@@ -76,6 +101,7 @@ class LembreteService {
     if (!_inicializado) await inicializar();
     if (!compromisso.lembreteAtivado) return;
 
+    await _garantirPermissoesAndroid();
     await _cancelarExistente(compromisso.id);
 
     final horario = compromisso.horarioLembrete;
@@ -96,13 +122,12 @@ class LembreteService {
       'Lembrete de sessão',
       'Sessao ${compromisso.horarioInicioFormatado}'
           ' (em ${compromisso.antecedenciaFormatada})',
-      tz.TZDateTime.from(horario, tz.local),
+      calcularDataNotificacao(horario),
       const NotificationDetails(
         android: AndroidNotificationDetails(
           _canalLembretesId,
           _canalLembretesNome,
-          channelDescription:
-              'Notificações de lembretes de sessões agendadas',
+          channelDescription: 'Notificações de lembretes de sessões agendadas',
           importance: Importance.high,
           priority: Priority.high,
           icon: '@mipmap/ic_launcher',
@@ -115,7 +140,6 @@ class LembreteService {
       ),
       payload: payload,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.time,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );
@@ -174,10 +198,14 @@ class LembreteService {
 
   /// Lista os lembretes agendados do profissional no backend (fonte de verdade
   /// dos envios por WhatsApp). `status` opcional (ex.: 'pendente').
-  static Future<List<Map<String, dynamic>>> listarLembretes({String? status}) async {
+  static Future<List<Map<String, dynamic>>> listarLembretes({
+    String? status,
+  }) async {
     try {
       await ApiClient.ensureAuthenticated();
-      final query = (status != null && status.isNotEmpty) ? '?status=$status' : '';
+      final query = (status != null && status.isNotEmpty)
+          ? '?status=$status'
+          : '';
       final response = await ApiClient.get('/lembretes$query');
       if (response.statusCode != 200) return const [];
       final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -220,7 +248,8 @@ class LembreteService {
 
     for (final c in compromissos) {
       if (!c.lembreteAtivado || !c.isAgendado) continue;
-      if (c.horarioLembrete.isBefore(agora) && c.dataHoraInicio.isBefore(agora)) {
+      if (c.horarioLembrete.isBefore(agora) &&
+          c.dataHoraInicio.isBefore(agora)) {
         continue;
       }
 
@@ -262,10 +291,7 @@ class LembreteService {
           .post(
             Uri.parse('${ApiClient.baseUrl}$endpoint'),
             headers: ApiClient.defaultHeaders(),
-            body: jsonEncode({
-              'telefone': telefone,
-              'mensagem': mensagem,
-            }),
+            body: jsonEncode({'telefone': telefone, 'mensagem': mensagem}),
           )
           .timeout(ApiClient.timeout);
 

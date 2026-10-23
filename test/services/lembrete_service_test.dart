@@ -49,7 +49,7 @@ void main() {
               'canal': 'whatsapp',
               'status': 'pendente',
               'tentativas': 0,
-            }
+            },
           ],
         }),
         200,
@@ -91,5 +91,11 @@ void main() {
   test('cancelarTodosLembretes devolve 0 em erro do backend', () async {
     ApiClient.httpClient = MockClient((_) async => http.Response('erro', 401));
     expect(await LembreteService.cancelarTodosLembretes(), 0);
+  });
+
+  test('calcularDataNotificacao preserva o instante do horário local', () {
+    final local = DateTime(2026, 10, 20, 20, 0);
+    final agendado = LembreteService.calcularDataNotificacao(local);
+    expect(agendado.toUtc(), local.toUtc());
   });
 }

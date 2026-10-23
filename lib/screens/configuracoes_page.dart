@@ -9,6 +9,7 @@ import '../services/api_client.dart';
 import '../services/configuracoes_service.dart';
 import '../utils/mentall_colors.dart';
 import '../utils/raio.dart';
+import 'google_calendar_page.dart';
 import 'lembretes_page.dart';
 import 'login_page.dart';
 import 'redefinir_senha_page.dart';
@@ -60,14 +61,12 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
 
     return Scaffold(
       backgroundColor: context.corFundo,
-      appBar: AppBar(
-        title: const Text('Configurações'),
-      ),
+      appBar: AppBar(title: const Text('Configurações')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           _secao(
-          context,
+            context,
             titulo: 'Aparência',
             children: [
               SwitchListTile(
@@ -84,22 +83,24 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
                   color: context.corPrimaria,
                 ),
                 onChanged: (value) {
-                  ref
-                      .read(configuracoesServiceProvider)
-                      .setTemaEscuro(value);
+                  ref.read(configuracoesServiceProvider).setTemaEscuro(value);
                 },
               ),
             ],
           ),
           const SizedBox(height: 16),
           _secao(
-          context,
+            context,
             titulo: 'Segurança',
             children: [
               ListTile(
                 leading: Icon(
-                  protecaoAtiva ? Icons.verified_user_outlined : Icons.warning_amber,
-                  color: protecaoAtiva ? context.corSuccess : context.corWarning,
+                  protecaoAtiva
+                      ? Icons.verified_user_outlined
+                      : Icons.warning_amber,
+                  color: protecaoAtiva
+                      ? context.corSuccess
+                      : context.corWarning,
                 ),
                 title: const Text('Proteção de dados'),
                 subtitle: Text(
@@ -111,7 +112,10 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
               const Divider(indent: 16),
               if (_biometriaDisponivel) ...[
                 SwitchListTile(
-                  secondary: Icon(Icons.fingerprint, color: context.corPrimaria),
+                  secondary: Icon(
+                    Icons.fingerprint,
+                    color: context.corPrimaria,
+                  ),
                   title: const Text('Desbloquear com digital / face'),
                   subtitle: Text(
                     config.biometriaAtivada
@@ -127,8 +131,9 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
               ListTile(
                 leading: Icon(Icons.lock_outlined, color: context.corPrimaria),
                 title: const Text('Bloquear agora'),
-                subtitle:
-                    const Text('Bloqueia o app e exige biometria para acessar.'),
+                subtitle: const Text(
+                  'Bloqueia o app e exige biometria para acessar.',
+                ),
                 onTap: () async {
                   await authService.bloquear();
                   if (context.mounted) {
@@ -144,7 +149,7 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
           ),
           const SizedBox(height: 16),
           _secao(
-          context,
+            context,
             titulo: 'Agenda e lembretes',
             children: [
               ListTile(
@@ -156,12 +161,17 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const WhatsappConexaoPage()),
+                  MaterialPageRoute(
+                    builder: (_) => const WhatsappConexaoPage(),
+                  ),
                 ),
               ),
               const Divider(indent: 16),
               ListTile(
-                leading: Icon(Icons.timelapse_outlined, color: context.corPrimaria),
+                leading: Icon(
+                  Icons.timelapse_outlined,
+                  color: context.corPrimaria,
+                ),
                 title: const Text('Duração padrão da sessão'),
                 subtitle: Text(
                   'Novos compromissos terminam ${_labelMinutos(config.duracaoPadraoSessaoMinutos)} após o início.',
@@ -170,10 +180,12 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
                   value: config.duracaoPadraoSessaoMinutos,
                   underline: const SizedBox.shrink(),
                   items: ConfiguracoesService.opcoesDuracaoMinutos
-                      .map((m) => DropdownMenuItem(
-                            value: m,
-                            child: Text(_labelMinutos(m)),
-                          ))
+                      .map(
+                        (m) => DropdownMenuItem(
+                          value: m,
+                          child: Text(_labelMinutos(m)),
+                        ),
+                      )
                       .toList(),
                   onChanged: (v) {
                     if (v != null) config.setDuracaoPadraoSessaoMinutos(v);
@@ -201,10 +213,12 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
                   value: config.antecedenciaPadraoMinutos,
                   underline: const SizedBox.shrink(),
                   items: ConfiguracoesService.opcoesAntecedenciaMinutos
-                      .map((m) => DropdownMenuItem(
-                            value: m,
-                            child: Text(_labelMinutos(m)),
-                          ))
+                      .map(
+                        (m) => DropdownMenuItem(
+                          value: m,
+                          child: Text(_labelMinutos(m)),
+                        ),
+                      )
                       .toList(),
                   onChanged: (v) {
                     if (v != null) config.setAntecedenciaPadraoMinutos(v);
@@ -213,8 +227,10 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
               ),
               const Divider(indent: 16),
               ListTile(
-                leading:
-                    Icon(Icons.notifications_active_outlined, color: context.corPrimaria),
+                leading: Icon(
+                  Icons.notifications_active_outlined,
+                  color: context.corPrimaria,
+                ),
                 title: const Text('Lembretes agendados'),
                 subtitle: const Text(
                   'Veja e cancele os lembretes de WhatsApp agendados na nuvem.',
@@ -229,7 +245,29 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
           ),
           const SizedBox(height: 16),
           _secao(
-          context,
+            context,
+            titulo: 'Integrações',
+            children: [
+              ListTile(
+                leading: Icon(
+                  Icons.calendar_month_outlined,
+                  color: context.corPrimaria,
+                ),
+                title: const Text('Google Calendar'),
+                subtitle: const Text(
+                  'Crie e atualize os eventos da agenda no seu calendário.',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const GoogleCalendarPage()),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _secao(
+            context,
             titulo: 'Inteligência Artificial',
             children: [
               SwitchListTile(
@@ -246,7 +284,7 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
           ),
           const SizedBox(height: 16),
           _secao(
-          context,
+            context,
             titulo: 'Avançado',
             children: [
               ListTile(
@@ -261,9 +299,14 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
                 onTap: () => _mostrarDialogServidor(context, ref),
               ),
               ListTile(
-                leading: Icon(Icons.lock_reset_outlined, color: context.corPrimaria),
+                leading: Icon(
+                  Icons.lock_reset_outlined,
+                  color: context.corPrimaria,
+                ),
                 title: const Text('Redefinir senha da conta'),
-                subtitle: const Text('Receba um código por e-mail e defina uma nova senha'),
+                subtitle: const Text(
+                  'Receba um código por e-mail e defina uma nova senha',
+                ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () async {
                   final ok = await Navigator.push<bool>(
@@ -292,7 +335,10 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
             titulo: 'Contrato',
             children: [
               ListTile(
-                leading: Icon(Icons.description_outlined, color: context.corPrimaria),
+                leading: Icon(
+                  Icons.description_outlined,
+                  color: context.corPrimaria,
+                ),
                 title: const Text('Modelo do Acordo Terap\u00eautico'),
                 subtitle: const Text(
                   'Personalize o texto do contrato enviado aos pacientes.',
@@ -308,11 +354,16 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
     );
   }
 
-  Widget _secao(BuildContext context,
-      {required String titulo, required List<Widget> children}) {
+  Widget _secao(
+    BuildContext context, {
+    required String titulo,
+    required List<Widget> children,
+  }) {
     return Card(
       elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Raio.xxl)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Raio.xxl),
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Column(
@@ -382,7 +433,10 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Credenciais s\u00e3o obrigat\u00f3rias para transcri\u00e7\u00e3o e s\u00edntese com IA.',
-                  style: TextStyle(fontSize: Tipografia.sm, color: context.corTextoMuted),
+                  style: TextStyle(
+                    fontSize: Tipografia.sm,
+                    color: context.corTextoMuted,
+                  ),
                 ),
               ),
               if (testando) ...[
@@ -390,7 +444,11 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
                 const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                    SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
                     SizedBox(width: 12),
                     Text('Testando conex\u00e3o...'),
                   ],
@@ -421,7 +479,9 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
                       if (url.isEmpty || !url.startsWith('http')) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Informe uma URL v\u00e1lida come\u00e7ando com http.'),
+                            content: Text(
+                              'Informe uma URL v\u00e1lida come\u00e7ando com http.',
+                            ),
                           ),
                         );
                         return;
@@ -431,7 +491,9 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
                       if (username.isEmpty || password.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Usu\u00e1rio e senha s\u00e3o obrigat\u00f3rios.'),
+                            content: Text(
+                              'Usu\u00e1rio e senha s\u00e3o obrigat\u00f3rios.',
+                            ),
                           ),
                         );
                         return;
@@ -440,7 +502,11 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
                       setState(() => testando = true);
 
                       // Testa conexão antes de salvar
-                      final ok = await _testarConexaoServidor(url, username, password);
+                      final ok = await _testarConexaoServidor(
+                        url,
+                        username,
+                        password,
+                      );
 
                       if (!ctx.mounted) return;
                       setState(() => testando = false);
@@ -448,7 +514,9 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
                       if (!ok) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Falha na conex\u00e3o. Verifique URL, usu\u00e1rio e senha.'),
+                            content: Text(
+                              'Falha na conex\u00e3o. Verifique URL, usu\u00e1rio e senha.',
+                            ),
                             backgroundColor: Colors.red,
                           ),
                         );
@@ -458,13 +526,17 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
                       // Salva no Hive (ApiClient) + SecureStorage (AuthService)
                       await ApiClient.setBaseUrl(url);
                       await ApiClient.setCredentials(username, password);
-                      await ref.read(authServiceProvider).salvarCredenciaisServidor(username, password);
+                      await ref
+                          .read(authServiceProvider)
+                          .salvarCredenciaisServidor(username, password);
 
                       if (ctx.mounted) Navigator.pop(ctx);
                       if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Servidor configurado e conex\u00e3o testada com sucesso!'),
+                          content: Text(
+                            'Servidor configurado e conex\u00e3o testada com sucesso!',
+                          ),
                           backgroundColor: Colors.green,
                         ),
                       );
@@ -482,16 +554,17 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
   }
 
   /// Testa a conexão com o servidor usando as credenciais fornecidas.
-  Future<bool> _testarConexaoServidor(String url, String username, String password) async {
+  Future<bool> _testarConexaoServidor(
+    String url,
+    String username,
+    String password,
+  ) async {
     try {
       final response = await http
           .post(
             Uri.parse('$url/auth/login'),
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'username': username,
-              'password': password,
-            }),
+            body: jsonEncode({'username': username, 'password': password}),
           )
           .timeout(const Duration(seconds: 15));
 
@@ -538,7 +611,9 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
               if (ctx.mounted) Navigator.pop(ctx);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Contrato atualizado com sucesso.')),
+                  const SnackBar(
+                    content: Text('Contrato atualizado com sucesso.'),
+                  ),
                 );
               }
             },

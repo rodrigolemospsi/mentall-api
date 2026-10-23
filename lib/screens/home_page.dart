@@ -5,9 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/service_providers.dart';
+import '../models/compromisso.dart';
 import '../models/paciente.dart';
+import '../services/compromisso_service.dart';
 import '../services/lembrete_service.dart';
 import '../widgets/compromisso_form_dialog.dart';
+import '../widgets/alerta_wuzapi.dart';
 import '../widgets/home_dashboard.dart';
 import '../widgets/novo_paciente_dialog.dart';
 import '../utils/imagem_cache.dart';
@@ -38,7 +41,6 @@ class HomePage extends ConsumerStatefulWidget {
 }
 
 class _HomePageState extends ConsumerState<HomePage> {
-
   String get _termoSingular {
     final perfil = ref.read(perfilProfissionalServiceProvider).obterPerfil();
     return perfil?.termoSingular ?? 'paciente';
@@ -78,7 +80,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     _saudacaoTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       final nova = _calcularSaudacao();
       if (ref.read(_saudacaoProvider) != nova) {
-      ref.read(_saudacaoProvider.notifier).state = nova;
+        ref.read(_saudacaoProvider.notifier).state = nova;
       }
     });
 
@@ -89,7 +91,9 @@ class _HomePageState extends ConsumerState<HomePage> {
       final pacienteService = ref.read(pacienteServiceProvider);
       final compromisso = compromissosService.obterPorId(compromissoId);
       if (compromisso == null) return;
-      final paciente = pacienteService.buscarPacientePorId(compromisso.pacienteId);
+      final paciente = pacienteService.buscarPacientePorId(
+        compromisso.pacienteId,
+      );
       if (paciente == null) return;
       final mensagem = compromisso.formatarMensagemLembrete(
         paciente.nome,
@@ -148,9 +152,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   void _abrirPerfil() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-      builder: (_) => const PerfilProfissionalFormPage(),
-      ),
+      MaterialPageRoute(builder: (_) => const PerfilProfissionalFormPage()),
     );
   }
 
@@ -171,15 +173,24 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
+  Future<void> _sincronizarGoogle(Iterable<Compromisso> compromissos) async {
+    final service = ref.read(googleCalendarServiceProvider);
+    for (final compromisso in compromissos) {
+      try {
+        await service.syncCompromisso(compromisso);
+      } catch (_) {}
+    }
+  }
+
   Future<void> _novoCompromissoRapido() async {
-    final pacientes =
-      ref.read(pacienteServiceProvider).listarPacientesAtivos();
+    final pacientes = ref.read(pacienteServiceProvider).listarPacientesAtivos();
     if (pacientes.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content:
-            Text('Cadastre $_termoPlural primeiro para agendar sessões.'),
-      ),
+        SnackBar(
+          content: Text(
+            'Cadastre $_termoPlural primeiro para agendar sessões.',
+          ),
+        ),
       );
       return;
     }
@@ -197,27 +208,54 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
 
     if (compromisso == null) return;
-    final gerados = await ref.read(compromissoServiceProvider).adicionarComRecorrencia(compromisso);
+    late final List<Compromisso> gerados;
+    try {
+      gerados = await ref
+          .read(compromissoServiceProvider)
+          .adicionarComRecorrencia(compromisso);
+    } on ConflitoDeHorarioException catch (e) {
+      if (!mounted) return;
+      final nomes = e.conflitos
+          .map((c) => c.titulo.isEmpty ? 'Compromisso' : c.titulo)
+          .toSet()
+          .join(', ');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Conflito em uma das ocorrências: $nomes. '
+            'Ajuste o horário ou o limite da recorrência.',
+          ),
+        ),
+      );
+      return;
+    }
 
     final paciente = ref
-      .read(pacienteServiceProvider)
-      .buscarPacientePorId(compromisso.pacienteId);
-    await ref.read(auditoriaServiceProvider).registrar(
-        tipoEvento: 'Sessão agendada',
-        descricao: paciente?.nome ?? 'Compromisso criado${gerados.length > 1 ? ' (${gerados.length}x)' : ''}',
-        pacienteId: compromisso.pacienteId,
-      );
+        .read(pacienteServiceProvider)
+        .buscarPacientePorId(compromisso.pacienteId);
+    await ref
+        .read(auditoriaServiceProvider)
+        .registrar(
+          tipoEvento: 'Sessão agendada',
+          descricao:
+              paciente?.nome ??
+              'Compromisso criado${gerados.length > 1 ? ' (${gerados.length}x)' : ''}',
+          pacienteId: compromisso.pacienteId,
+        );
 
     for (final c in gerados) {
       if (c.lembreteAtivado && c.isAgendado && paciente != null) {
-        await ref.read(lembreteServiceProvider).agendarLembrete(
-            compromisso: c,
-            nomePaciente: paciente.nome,
-            nomeProfissional: perfil?.nome ?? 'Profissional',
-            telefonePaciente: paciente.contato,
-          );
+        await ref
+            .read(lembreteServiceProvider)
+            .agendarLembrete(
+              compromisso: c,
+              nomePaciente: paciente.nome,
+              nomeProfissional: perfil?.nome ?? 'Profissional',
+              telefonePaciente: paciente.contato,
+            );
       }
     }
+    unawaited(_sincronizarGoogle(gerados));
   }
 
   Future<void> _abrirNovaSessao() async {
@@ -225,7 +263,9 @@ class _HomePageState extends ConsumerState<HomePage> {
     if (pacientes.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Cadastre $_termoPlural primeiro para registrar uma sessão.'),
+          content: Text(
+            'Cadastre $_termoPlural primeiro para registrar uma sessão.',
+          ),
         ),
       );
       return;
@@ -248,7 +288,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                 final p = pacientes[i];
                 return ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: context.corPrimaria.withValues(alpha: 0.12),
+                    backgroundColor: context.corPrimaria.withValues(
+                      alpha: 0.12,
+                    ),
                     backgroundImage: p.possuiFoto
                         ? fotoMemoria(p.fotoBase64)
                         : null,
@@ -281,9 +323,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     if (escolhido == null || !mounted) return;
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => SessaoFormPage(paciente: escolhido!),
-      ),
+      MaterialPageRoute(builder: (_) => SessaoFormPage(paciente: escolhido!)),
     );
   }
 
@@ -318,186 +358,185 @@ class _HomePageState extends ConsumerState<HomePage> {
         }
       },
       child: Scaffold(
-      backgroundColor: context.corFundo,
-      appBar: AppBar(
-        toolbarHeight: 80,
-        title: Image.asset(
-          Theme.of(context).brightness == Brightness.dark
-              ? 'assets/images/logo_mentallpro_fundoescuro_01.png'
-              : 'assets/images/logo_mentallpro_fundoclaro_01.png',
-          height: 78,
-        ),
-        centerTitle: false,
         backgroundColor: context.corFundo,
-        foregroundColor: context.corPrimaria,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.calendar_month_outlined),
-            tooltip: 'Agenda',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const AgendaPage(),
-                ),
-              );
-            },
+        appBar: AppBar(
+          toolbarHeight: 80,
+          title: Image.asset(
+            Theme.of(context).brightness == Brightness.dark
+                ? 'assets/images/logo_mentallpro_fundoescuro_01.png'
+                : 'assets/images/logo_mentallpro_fundoclaro_01.png',
+            height: 78,
           ),
-          PopupMenuButton<String>(
-            tooltip: 'Mais',
-            icon: const Icon(Icons.more_vert),
-            onSelected: (value) {
-              switch (value) {
-                case 'perfil':
-                  _abrirPerfil();
-                  break;
-                case 'configuracoes':
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const ConfiguracoesPage(),
-                    ),
-                  );
-                  break;
-                case 'backup':
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const BackupRestorePage(),
-                    ),
-                  );
-                  break;
-                case 'privacidade':
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const PrivacidadeSegurancaPage(),
-                    ),
-                  );
-                  break;
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(
-                value: 'perfil',
-                child: Row(
-                  children: [
-                    Icon(Icons.person_outline, size: 20),
-                    SizedBox(width: 10),
-                    Text('Perfil profissional'),
-                  ],
+          centerTitle: false,
+          backgroundColor: context.corFundo,
+          foregroundColor: context.corPrimaria,
+          elevation: 0,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.calendar_month_outlined),
+              tooltip: 'Agenda',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AgendaPage()),
+                );
+              },
+            ),
+            PopupMenuButton<String>(
+              tooltip: 'Mais',
+              icon: const Icon(Icons.more_vert),
+              onSelected: (value) {
+                switch (value) {
+                  case 'perfil':
+                    _abrirPerfil();
+                    break;
+                  case 'configuracoes':
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ConfiguracoesPage(),
+                      ),
+                    );
+                    break;
+                  case 'backup':
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const BackupRestorePage(),
+                      ),
+                    );
+                    break;
+                  case 'privacidade':
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const PrivacidadeSegurancaPage(),
+                      ),
+                    );
+                    break;
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: 'perfil',
+                  child: Row(
+                    children: [
+                      Icon(Icons.person_outline, size: 20),
+                      SizedBox(width: 10),
+                      Text('Perfil profissional'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'configuracoes',
+                  child: Row(
+                    children: [
+                      Icon(Icons.settings_outlined, size: 20),
+                      SizedBox(width: 10),
+                      Text('Configurações'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'backup',
+                  child: Row(
+                    children: [
+                      Icon(Icons.backup_outlined, size: 20),
+                      SizedBox(width: 10),
+                      Text('Backup e dados'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'privacidade',
+                  child: Row(
+                    children: [
+                      Icon(Icons.shield_outlined, size: 20),
+                      SizedBox(width: 10),
+                      Text('Privacidade e Segurança'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        body: CustomScrollView(
+          physics: const ClampingScrollPhysics(),
+          slivers: [
+            const SliverToBoxAdapter(child: AlertaWuzapi()),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: SaudacaoResumoHome(
+                  saudacao: ref.watch(_saudacaoProvider),
+                  nomeProfissional: nomeProf,
                 ),
               ),
-              PopupMenuItem(
-                value: 'configuracoes',
-                child: Row(
-                  children: [
-                    Icon(Icons.settings_outlined, size: 20),
-                    SizedBox(width: 10),
-                    Text('Configurações'),
-                  ],
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: const _IndicadorProtecao(),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 14)),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: AcoesRapidasHome(
+                  termoSingular: _termoSingular,
+                  termoFeminino: _termoFeminino,
+                  onAgendar: _novoCompromissoRapido,
+                  onNovoPaciente: _abrirDialogNovoPaciente,
+                  onAbrirAgenda: _abrirNovaSessao,
                 ),
               ),
-              PopupMenuItem(
-                value: 'backup',
-                child: Row(
-                  children: [
-                    Icon(Icons.backup_outlined, size: 20),
-                    SizedBox(width: 10),
-                    Text('Backup e dados'),
-                  ],
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 14)),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: KpiCardsHome(
+                  termoPlural: _termoPlural,
+                  onHojeTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AgendaPage()),
+                    );
+                  },
+                  onPacientesTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const PacientesPage()),
+                    );
+                  },
+                  onReceitaTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const FinanceiroPage()),
+                    );
+                  },
+                  onPendenteTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const FinanceiroPage()),
+                    );
+                  },
                 ),
               ),
-              PopupMenuItem(
-                value: 'privacidade',
-                child: Row(
-                  children: [
-                    Icon(Icons.shield_outlined, size: 20),
-                    SizedBox(width: 10),
-                    Text('Privacidade e Segurança'),
-                  ],
-                ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 14)),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: const AtividadeRecenteCard(),
               ),
-            ],
-          ),
-        ],
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 16)),
+          ],
+        ),
       ),
-      body: CustomScrollView(
-        physics: const ClampingScrollPhysics(),
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: SaudacaoResumoHome(
-                saudacao: ref.watch(_saudacaoProvider),
-                nomeProfissional: nomeProf,
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: const _IndicadorProtecao(),
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 14)),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: AcoesRapidasHome(
-                termoSingular: _termoSingular,
-                termoFeminino: _termoFeminino,
-                onAgendar: _novoCompromissoRapido,
-                onNovoPaciente: _abrirDialogNovoPaciente,
-                onAbrirAgenda: _abrirNovaSessao,
-              ),
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 14)),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: KpiCardsHome(
-                termoPlural: _termoPlural,
-                onHojeTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const AgendaPage()),
-                  );
-                },
-                onPacientesTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const PacientesPage()),
-                  );
-                },
-                onReceitaTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const FinanceiroPage()),
-                  );
-                },
-                onPendenteTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const FinanceiroPage()),
-                  );
-                },
-              ),
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 14)),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: const AtividadeRecenteCard(),
-            ),
-          ),
-          const SliverToBoxAdapter(child: SizedBox(height: 16)),
-        ],
-      ),
-    ),
     );
   }
 }
@@ -510,8 +549,9 @@ class _IndicadorProtecao extends ConsumerWidget {
     final ativa = ref.watch(protecaoDuravelProvider).valueOrNull ?? false;
     final cor = ativa ? context.corSuccess : context.corWarning;
     final icon = ativa ? Icons.lock_outline : Icons.warning_amber;
-    final texto =
-        ativa ? 'Proteção de dados ativa' : 'Proteção de dados inativa';
+    final texto = ativa
+        ? 'Proteção de dados ativa'
+        : 'Proteção de dados inativa';
 
     return InkWell(
       borderRadius: BorderRadius.circular(10),

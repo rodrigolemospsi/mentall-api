@@ -83,10 +83,7 @@ não existe registro de tokens por usuário. Revogação global por usuário (to
 P1 de segurança.
 
 ## Alerta de WhatsApp desconectado na Home — Fase 5J (24/10/2026)
-> **Nota de commit:** a ligação do alerta em `home_page.dart` está na working tree junto com o WIP
-> do app (ainda não commitado). O APK 1.0.54 já inclui o alerta; o wiring entra no commit quando o
-> WIP do app for consolidado.
-
+> **Nota:** o alerta está ligado em `home_page.dart` (commitado).
 
 
 ### Contexto

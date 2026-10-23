@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/service_providers.dart';
+import 'agenda_page.dart';
 import 'financeiro_page.dart';
 import 'home_page.dart';
 import 'pacientes_page.dart';
@@ -37,6 +38,9 @@ class _MainShellState extends ConsumerState<MainShell> {
           _tabsConstruidas.contains(2)
               ? const FinanceiroPage()
               : const SizedBox.shrink(),
+          _tabsConstruidas.contains(3)
+              ? const AgendaPage()
+              : const SizedBox.shrink(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -66,6 +70,14 @@ class _MainShellState extends ConsumerState<MainShell> {
               icon: Icon(Icons.payments_outlined),
               selectedIcon: Icon(Icons.payments),
               label: 'Financeiro',
+            ),
+          ),
+          Semantics(
+            label: 'Agenda',
+            child: const NavigationDestination(
+              icon: Icon(Icons.calendar_month_outlined),
+              selectedIcon: Icon(Icons.calendar_month),
+              label: 'Agenda',
             ),
           ),
         ],

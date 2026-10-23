@@ -104,7 +104,11 @@ class IaClinicaService {
       );
     }
 
-    final nomePseudonimizado = _pseudonimizarNome(nomePessoaAtendida.trim());
+    // O nome da pessoa atendida NAO e enviado ao provedor de IA. A sintese clinica
+    // nao depende dele e o campo era o unico ponto em que um quase-identificador
+    // (primeiro nome + iniciais) saia do aparelho. Teste de 16/10/2026 mostrou que
+    // o DeepSeek copiava "Paciente: Maria S. S." do prompt para dentro do prontuario.
+    // O `sessao_id` ja identifica a sessao para o backend.
 
     try {
       final resultado = await _fazerRequisicaoComRetry(
@@ -112,7 +116,7 @@ class IaClinicaService {
         body: {
           'sessao_id': sessaoId,
           'numero_sessao': numeroSessao,
-          'nome_pessoa_atendida': nomePseudonimizado,
+          'nome_pessoa_atendida': '',
           'termo_pessoa_atendida': termoLimpo.isNotEmpty ? termoLimpo : termoPessoaAtendida,
           'abordagem_clinica': abordagemLimpa.isNotEmpty ? abordagemLimpa : 'Integrativa',
           'transcricao_relato': transcricaoLimpa,
@@ -182,6 +186,10 @@ class IaClinicaService {
     }
   }
 
+  /// Mantida sem uso: o nome da pessoa atendida deixou de ser enviado ao provedor
+  /// de IA em 16/10/2026. Preservada para reuso caso volte a ser necessaria em
+  /// outro fluxo (ex.: exibicao local), sem disparar aviso do analyze.
+  // ignore: unused_element
   String _pseudonimizarNome(String nome) {
     if (nome.isEmpty) return 'Pessoa atendida';
     final partes = nome.split(' ');
