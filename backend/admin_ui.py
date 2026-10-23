@@ -650,6 +650,7 @@ def pagina_email(
     msg: str = "",
     erro: str = "",
     credenciais: tuple | None = None,
+    metricas: dict | None = None,
 ) -> str:
     """Página de administração das caixas de e-mail (Fase 4)."""
     bloco_credencial = ""
@@ -748,6 +749,7 @@ def pagina_email(
       <p class="dica">Contato@, financeiro@, dmarc@ etc. são encaminhados para uma caixa existente.</p>
     </div>
   </div>
+  {_secao_metricas_email(metricas)}
 </main>
   </div>
 </div>
@@ -2155,4 +2157,93 @@ _ESTILO += """
   border: 0;
 }
 .barras.duplas .barra .rotulo { margin-top: 2px; }
+"""
+
+
+def _secao_metricas_email(metricas: dict | None) -> str:
+    """Métricas de entrada/resposta das caixas (Fase 5M) — só contadores (LGPD)."""
+    if not metricas:
+        return ""
+    if not metricas.get("configurado"):
+        return (
+            '<h2>Métricas das caixas de e-mail</h2>'
+            '<p class="dica">Monitoramento ainda não configurado. '
+            "Defina o secret MAIL_METRICAS_CAIXAS para acompanhar entradas, "
+            "não lidas e tempo de resposta.</p>"
+        )
+
+    totais = metricas.get("totais") or {}
+    tempo = totais.get("tempo_medio_resposta_min")
+    tempo_txt = f"{tempo:.0f} min" if tempo is not None else "—"
+    cards = (
+        '<div class="kpis">'
+        f'<div class="kpi"><div class="n">{int(totais.get("recebidas_30d") or 0)}</div>'
+        '<div class="l">E-mails recebidos (30 dias)</div></div>'
+        f'<div class="kpi"><div class="n">{int(totais.get("nao_lidas") or 0)}</div>'
+        '<div class="l">Não lidos agora</div></div>'
+        f'<div class="kpi"><div class="n">{_esc(tempo_txt)}</div>'
+        '<div class="l">Tempo médio de resposta</div></div>'
+        f'<div class="kpi{" destaque" if int(totais.get("sem_resposta_24h") or 0) else ""}">'
+        f'<div class="n">{int(totais.get("sem_resposta_24h") or 0)}</div>'
+        '<div class="l">Sem resposta há +24h</div></div>'
+        '</div>'
+    )
+
+    linhas_caixas = []
+    for caixa in metricas.get("caixas") or []:
+        tempo_caixa = caixa.get("tempo_medio_resposta_min")
+        tempo_caixa_txt = f"{tempo_caixa:.0f} min" if tempo_caixa is not None else "—"
+        ultima = _quando(caixa.get("ultima_entrada")) if caixa.get("ultima_entrada") else "—"
+        pendente = int(caixa.get("sem_resposta_24h") or 0)
+        erro = caixa.get("erro") or ""
+        estado = (
+            f'<span class="pill saude-erro" title="{_esc(erro)}">erro</span>'
+            if erro else '<span class="pill saude-ok">ok</span>'
+        )
+        linhas_caixas.append(
+            "<tr>"
+            f"<td>{_esc(caixa.get('email'))}</td>"
+            f"<td>{int(caixa.get('recebidas_7d') or 0)} / {int(caixa.get('recebidas_30d') or 0)}</td>"
+            f"<td>{int(caixa.get('nao_lidas') or 0)}</td>"
+            f"<td>{int(caixa.get('enviadas_30d') or 0)}</td>"
+            f"<td>{_esc(tempo_caixa_txt)}</td>"
+            f"<td>{pendente if not erro else '?'}</td>"
+            f"<td>{_esc(ultima)}</td>"
+            f"<td>{estado}</td>"
+            "</tr>"
+        )
+    if not linhas_caixas:
+        linhas_caixas.append('<tr><td colspan="8" class="off">Nenhuma caixa configurada.</td></tr>')
+
+    linhas_enderecos = "".join(
+        "<tr>"
+        f"<td>{_esc(item.get('endereco'))}</td>"
+        f"<td>{int(item.get('recebidas_7d') or 0)}</td>"
+        f"<td>{int(item.get('recebidas_30d') or 0)}</td>"
+        "</tr>"
+        for item in metricas.get("por_endereco") or []
+    ) or '<tr><td colspan="3" class="off">Sem dados ainda.</td></tr>'
+
+    gerado = _quando(metricas.get("gerado_em")) if metricas.get("gerado_em") else "—"
+
+    return f"""
+      <h2>Métricas das caixas de e-mail</h2>
+      <p class="dica">Coleta via IMAP somente leitura · só contadores (nenhum conteúdo é exposto)
+        · cache de 5 min · atualizado em {_esc(gerado)}
+        · <a class="voltar" href="/admin/email?atualizar=1">Atualizar agora</a></p>
+      {cards}
+      <div class="tabela-card">
+      <table>
+        <thead><tr><th>Caixa</th><th>Recebidas 7d / 30d</th><th>Não lidas</th>
+          <th>Enviadas 30d</th><th>Tempo médio resp.</th><th>Sem resposta +24h</th>
+          <th>Última entrada</th><th>Status</th></tr></thead>
+        <tbody>{''.join(linhas_caixas)}</tbody>
+      </table>
+      </div>
+      <div class="tabela-card">
+      <table>
+        <thead><tr><th>Endereço</th><th>Recebidas (7 dias)</th><th>Recebidas (30 dias)</th></tr></thead>
+        <tbody>{linhas_enderecos}</tbody>
+      </table>
+      </div>
 """

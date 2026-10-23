@@ -23,6 +23,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 
 import admin_ui
 from services import admin as admin_service
+from services import email_metricas
 from services import email_admin
 from services import saude as saude_service
 from services import admin_seguranca as seguranca_admin
@@ -2966,7 +2967,7 @@ def _exigir_sessao_admin(request: Request):
     return _exigir_papel(request, ("admin",))
 
 
-def _pagina_email(msg: str = "", erro: str = "", credenciais=None) -> HTMLResponse:
+def _pagina_email(msg: str = "", erro: str = "", credenciais=None, metricas=None) -> HTMLResponse:
     try:
         caixas = email_admin.listar_caixas()
         aliases = email_admin.listar_aliases()
@@ -2982,6 +2983,7 @@ def _pagina_email(msg: str = "", erro: str = "", credenciais=None) -> HTMLRespon
             msg=msg,
             erro=erro,
             credenciais=credenciais,
+            metricas=metricas,
         )
     )
 
@@ -3000,10 +3002,17 @@ def _caixa_administrativa(email: str) -> bool:
 
 
 @app.get("/admin/email", response_class=HTMLResponse, tags=["Admin"])
-def admin_email(request: Request, msg: str = "", erro: str = ""):
+def admin_email(request: Request, msg: str = "", erro: str = "", atualizar: str = ""):
     _rate_limit_check(request, max_requests=120)
     bloqueio = _exigir_sessao_admin(request)
-    return bloqueio or _pagina_email(msg=msg, erro=erro)
+    if bloqueio:
+        return bloqueio
+    metricas = None
+    try:
+        metricas = email_metricas.coletar(force=atualizar in ("1", "sim", "true"))
+    except Exception:
+        log.exception("Falha ao coletar métricas de e-mail")
+    return _pagina_email(msg=msg, erro=erro, metricas=metricas)
 
 
 @app.post("/admin/email/criar", tags=["Admin"])

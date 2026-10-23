@@ -108,6 +108,34 @@ lembrete falhava. Requisito do dono: **mostrar na home um alerta para reconectar
 O status vem do backend (`/wuzapi/status`), que agora também **sincroniza o banco** (Fase 5F), então o
 card da Saúde do painel e o alerta do app concordam entre si.
 
+## Métricas das caixas de e-mail — Fase 5M (24/10/2026)
+
+### Contexto
+O dono pediu acompanhamento de **contato@, suporte@ e financeiro@** no painel: quantidade de
+entradas, tempo de resposta e outros indicadores úteis para os admins.
+
+### Como funciona
+- Novo serviço **`backend/services/email_metricas.py`** coleta via **IMAP read-only**
+  (`mail.mentallpro.com.br:993`) das caixas credenciadas no secret
+  `MAIL_METRICAS_CAIXAS` (JSON: `[{email, senha, rotulo}]`).
+- **Privacidade:** só contadores/tempos; nenhum assunto/corpo/remetente exposto; `SELECT readonly`
+  + `BODY.PEEK` (nunca marca como lida); cache de 5 min (`?atualizar=1` força).
+- Métricas por caixa: total, não lidas, recebidas hoje/7d/30d, enviadas 30d, **tempo médio de
+  resposta**, respondidas 30d, **sem resposta há +24h**, última entrada, status.
+- **Por endereço** (contato/suporte/financeiro): recebidas 7d/30d (varre To/Cc dos e-mails nas
+  caixas monitoradas — cobre aliases como financeiro@ → anderson@).
+- Pareamento de respostas por `In-Reply-To`/`References` × `Message-ID`.
+
+### Arquivos
+- `backend/services/email_metricas.py` (novo)
+- `backend/admin_ui.py` — `pagina_email(..., metricas=None)` + `_secao_metricas_email`
+- `backend/main.py` — import, `_pagina_email(metricas=...)` e rota `/admin/email` com cache
+- `backend/tests/test_email_metricas.py` (novo) — 10 testes
+
+### Operação
+Secret `MAIL_METRICAS_CAIXAS` com as 4 caixas (contato, rodrigo, suporte, anderson).
+A senha da `contato@` foi redefinida via API do Mailu e registrada em `CREDENCIAIS_EMAIL.txt`.
+
 ## Dashboard analítico — Fase 5L (24/10/2026)
 
 ### Contexto
