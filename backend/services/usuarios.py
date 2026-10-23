@@ -143,3 +143,35 @@ def registrar_acesso(usuario_id: str) -> None:
         "UPDATE usuarios SET ultimo_acesso_em = ? WHERE id = ?",
         (agora, usuario_id),
     ).commit()
+
+
+def renovar_token_confirmacao(email: str) -> str | None:
+    """Gera um novo token de confirmação para uma conta pendente.
+
+    Retorna None se o e-mail não existir ou a conta já estiver confirmada
+    (o painel não deve reenviar confirmação para quem já está ativo).
+    """
+    email = email.strip().lower()
+    token = _gerar_token()
+    expiracao = (datetime.now(timezone.utc) + timedelta(minutes=CODIGO_EXPIRACAO_MINUTOS)).isoformat()
+    cur = executar(
+        "UPDATE usuarios SET email_verificacao_token_hash = ?, email_verificacao_expiracao = ? "
+        "WHERE email = ? AND status = 'pendente'",
+        (_hash_token(token), expiracao, email),
+    )
+    cur.commit()
+    return token if cur.rowcount == 1 else None
+
+
+def incrementar_token_version(usuario_id: str) -> int:
+    """Invalida todos os JWT de app já emitidos para o usuário.
+
+    O token carrega a versão atual (claim "tv"); quando ela muda, o token antigo
+    deixa de valer — é o "sair de todos os dispositivos" do lado do app.
+    """
+    executar(
+        "UPDATE usuarios SET token_version = COALESCE(token_version, 0) + 1 WHERE id = ?",
+        (usuario_id,),
+    ).commit()
+    linha = executar("SELECT token_version FROM usuarios WHERE id = ?", (usuario_id,)).fetchone()
+    return int(linha["token_version"]) if linha else 0

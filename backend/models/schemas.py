@@ -18,6 +18,14 @@ def validar_senha(senha: str) -> str:
     return senha
 
 
+class ExcluirContaRequest(BaseModel):
+    confirmacao: str = Field(
+        min_length=1,
+        max_length=20,
+        description="Palavra de confirmação: EXCLUIR",
+    )
+
+
 class TranscricaoRequest(BaseModel):
     audio_base64: str = Field(
         min_length=1,
@@ -75,6 +83,10 @@ class SinteseResponse(BaseModel):
     temas_pesquisa: list = Field(default_factory=list)
     artigos_sugeridos: str = ""
     erro: str = ""
+    # Qual provedor de IA efetivamente processou esta sintese ("openai" ou
+    # "deepseek"). Exigencia de transparencia (Apple 5.1.2(i)): o profissional
+    # precisa saber para onde o relato foi enviado. Vazio quando a sintese falhou.
+    provedor: str = ""
 
 
 class ArtigosRequest(BaseModel):

@@ -68,7 +68,7 @@ def _tentar_conectar_turso():
 
 
 def _criar_tabelas(conn) -> None:
-    for sql in _tabelas + _indices:
+    for sql in _tabelas + _tabelas_exclusao + _indices:
         conn.execute(sql)
     conn.commit()
     log.info("Tabelas verificadas/criadas com sucesso.")
@@ -256,7 +256,8 @@ _tabelas = [
         criado_em TEXT NOT NULL,
         ultimo_acesso_em TEXT,
         email_verificacao_token_hash TEXT,
-        email_verificacao_expiracao TEXT
+        email_verificacao_expiracao TEXT,
+        token_version INTEGER NOT NULL DEFAULT 0
     )""",
     """CREATE TABLE IF NOT EXISTS wuzapi_instancias (
         owner_id TEXT PRIMARY KEY,
@@ -264,6 +265,43 @@ _tabelas = [
         wuzapi_user_id INTEGER DEFAULT 0,
         conectado INTEGER NOT NULL DEFAULT 0,
         atualizado_em TEXT NOT NULL
+    )""",
+    """CREATE TABLE IF NOT EXISTS admin_seguranca (
+        ator TEXT PRIMARY KEY,
+        totp_secret TEXT NOT NULL DEFAULT '',
+        totp_ativo INTEGER NOT NULL DEFAULT 0,
+        backup_hashes TEXT NOT NULL DEFAULT '',
+        atualizado_em TEXT NOT NULL
+    )""",
+    """CREATE TABLE IF NOT EXISTS admin_sessoes (
+        jti TEXT PRIMARY KEY,
+        ator TEXT NOT NULL DEFAULT '',
+        criado_em TEXT NOT NULL,
+        ultimo_visto_em TEXT NOT NULL
+    )""",
+    """CREATE TABLE IF NOT EXISTS admin_auditoria (
+        id TEXT PRIMARY KEY,
+        ator TEXT NOT NULL DEFAULT '',
+        acao TEXT NOT NULL DEFAULT '',
+        alvo TEXT NOT NULL DEFAULT '',
+        detalhe TEXT NOT NULL DEFAULT '',
+        ip TEXT NOT NULL DEFAULT '',
+        criado_em TEXT NOT NULL
+    )""",
+]
+
+_tabelas_exclusao = [
+    """CREATE TABLE IF NOT EXISTS auditoria_exclusoes (
+        id TEXT PRIMARY KEY,
+        email_hash TEXT NOT NULL DEFAULT '',
+        criado_em TEXT NOT NULL,
+        resumo TEXT NOT NULL DEFAULT '{}',
+        retido TEXT NOT NULL DEFAULT ''
+    )""",
+    """CREATE TABLE IF NOT EXISTS tokens_revogados (
+        jti TEXT PRIMARY KEY,
+        exp TEXT NOT NULL DEFAULT '',
+        criado_em TEXT NOT NULL
     )""",
 ]
 
@@ -276,6 +314,8 @@ _indices = [
     "CREATE INDEX IF NOT EXISTS idx_dispositivos_owner ON dispositivos(owner_id)",
     "CREATE INDEX IF NOT EXISTS idx_eventos_owner ON eventos(owner_id)",
     "CREATE INDEX IF NOT EXISTS idx_eventos_tipo ON eventos(tipo)",
+    "CREATE INDEX IF NOT EXISTS idx_admin_auditoria_criado ON admin_auditoria(criado_em)",
+    "CREATE INDEX IF NOT EXISTS idx_admin_sessoes_ator ON admin_sessoes(ator)",
 ]
 
 try:
@@ -312,3 +352,4 @@ _garantir_coluna("lembretes", "ultima_tentativa_em", "TEXT")
 _garantir_coluna("lembretes", "mensagem_id", "TEXT")
 _garantir_coluna("lembretes", "entregue_em", "TEXT")
 _garantir_coluna("lembretes", "lido_em", "TEXT")
+_garantir_coluna("usuarios", "token_version", "INTEGER NOT NULL DEFAULT 0")

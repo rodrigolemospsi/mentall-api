@@ -128,11 +128,19 @@ def status(owner_id: str) -> dict:
             timeout=15,
         )
         dados = (resp.json() or {}).get("data") or {}
+        # O wuzapi responde em camelCase (connected/loggedIn/jid). Mantemos o
+        # fallback em PascalCase para compatibilidade com respostas antigas.
+        conectado = dados.get("connected")
+        if conectado is None:
+            conectado = dados.get("Connected")
+        logado = dados.get("loggedIn")
+        if logado is None:
+            logado = dados.get("LoggedIn")
         return {
             "configurado": True,
-            "conectado": bool(dados.get("Connected")),
-            "logado": bool(dados.get("LoggedIn")),
-            "numero": dados.get("Jid") or "",
+            "conectado": bool(conectado),
+            "logado": bool(logado),
+            "numero": dados.get("jid") or dados.get("Jid") or "",
         }
     except Exception:
         log.exception("Erro ao consultar status do wuzapi")

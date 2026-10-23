@@ -35,6 +35,13 @@ class TestCircuitoProvedores(unittest.TestCase):
         mod._registrar_falha("openai", "403 model_not_found: does not have access to model")
         self.assertEqual(mod._provedores_a_tentar(), ["deepseek"])
 
+    def test_billing_inativo_e_falha_dura(self):
+        # OpenAI devolve billing_not_active quando o billing do projeto esta inativo.
+        # E falha permanente: abrir o circuito por 180s faria o app tentar duas vezes
+        # por sintese antes de cair no provedor que funciona (medido em 16/10/2026).
+        mod._registrar_falha("openai", "429 billing_not_active: Your account is not active")
+        self.assertEqual(mod._provedores_a_tentar(), ["deepseek"])
+
     def test_sucesso_limpa_o_circuito(self):
         mod._registrar_falha("openai", "429 insufficient_quota")
         mod._registrar_sucesso("openai")

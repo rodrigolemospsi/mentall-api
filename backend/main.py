@@ -1,4 +1,6 @@
 import asyncio
+import csv
+import io
 import hashlib
 import html
 import json
@@ -10,16 +12,20 @@ import smtplib
 import string
 import time
 import uuid
+from urllib.parse import urlencode
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request, status
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 import admin_ui
 from services import admin as admin_service
+from services import email_admin
+from services import saude as saude_service
+from services import admin_seguranca as seguranca_admin
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import jwt
@@ -108,6 +114,12 @@ from services.lembrete_service import (
     salvar_instancia_wuzapi,
 )
 from services.transcricao import transcrever_audio
+from services.exclusao_conta import (
+    excluir_conta as _excluir_conta_dados,
+    pode_excluir as _pode_excluir_conta,
+    token_revogado as _token_revogado,
+)
+from models.schemas import ExcluirContaRequest
 from services import wuzapi_admin
 
 _rate_limit_store: dict[str, list[float]] = {}
@@ -591,10 +603,65 @@ def _validar_registro_ou_raise(request) -> None:
             status_code=422,
             detail="A senha deve ter pelo menos 10 caracteres, com letras maiusculas, minusculas e numeros.",
         )
-def _criar_token_jwt(username: str, owner_id: str) -> str:
+def _criar_token_jwt(username: str, owner_id: str, token_version: int | None = None) -> str:
     expiracao = datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRATION)
-    payload = {"sub": username, "exp": expiracao, "owner": owner_id}
+    payload = {"sub": username, "exp": expiracao, "owner": owner_id, "jti": uuid.uuid4().hex}
+    if token_version is not None:
+        # "tv": versão da sessão do app. Sobe quando o admin encerra as sessões
+        # do usuário (ou suspende a conta); token com tv antigo deixa de valer.
+        payload["tv"] = int(token_version)
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def _revogar_token(jti: str, exp: str = "") -> None:
+    """Marca um jti como revogado (logout do painel / exclusão de conta).
+
+    O gate do painel consulta esta lista, então o cookie deixa de valer na hora —
+    antes o "Sair" só apagava o cookie e o JWT continuava válido até expirar.
+    """
+    if not jti:
+        return
+    try:
+        from services.db import executar as _executar
+
+        _executar(
+            "INSERT OR REPLACE INTO tokens_revogados (jti, exp, criado_em) VALUES (?, ?, ?)",
+            (str(jti), str(exp or ""), datetime.now(timezone.utc).isoformat()),
+        ).commit()
+    except Exception:
+        log.exception("Falha ao revogar token do painel")
+
+
+_ESTADO_TOKEN_CACHE: dict[str, tuple[int, str, float]] = {}
+_ESTADO_TOKEN_TTL_SEGUNDOS = 30.0
+
+
+def _invalidar_cache_token(usuario_id: str) -> None:
+    """Limpa o cache de estado do usuário (chamado pelas ações do painel)."""
+    _ESTADO_TOKEN_CACHE.pop(str(usuario_id), None)
+
+
+def _estado_token_usuario(usuario_id: str) -> tuple[int, str]:
+    """(token_version, status) do dono do token, com cache de 30 s.
+
+    O cache evita 1 leitura de banco por chamada autenticada do app; as ações do
+    painel invalidam a chave na hora. Com mais de uma instância do backend, a
+    revogação pode levar até 30 s para valer nas outras — trade-off documentado.
+    """
+    chave = str(usuario_id)
+    agora = time.time()
+    cache = _ESTADO_TOKEN_CACHE.get(chave)
+    if cache and agora - cache[2] < _ESTADO_TOKEN_TTL_SEGUNDOS:
+        return cache[0], cache[1]
+    from services.usuarios import obter_por_id
+
+    usuario = obter_por_id(chave)
+    if usuario is None:
+        estado = (-1, "inexistente")
+    else:
+        estado = (int(usuario.get("token_version") or 0), str(usuario.get("status") or ""))
+    _ESTADO_TOKEN_CACHE[chave] = (estado[0], estado[1], agora)
+    return estado
 
 
 def _verificar_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> tuple[str, str]:
@@ -608,6 +675,25 @@ def _verificar_token(credentials: HTTPAuthorizationCredentials = Depends(securit
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token invalido.",
             )
+        jti = payload.get("jti")
+        if jti and _token_revogado(str(jti)):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Sessão encerrada. Faça login novamente.",
+            )
+        tv = payload.get("tv")
+        if tv is not None and owner_id != APP_USER_ID:
+            versao_atual, status_conta = _estado_token_usuario(owner_id)
+            if status_conta != "ativo":
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Conta indisponível. Fale com o suporte.",
+                )
+            if int(tv) != versao_atual:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Sessão encerrada. Faça login novamente.",
+                )
         return username, owner_id
     except JWTError:
         raise HTTPException(
@@ -669,6 +755,11 @@ async def _security_headers(request: Request, call_next):
     # Nonce por resposta para o CSP: o <script> inline só executa com este nonce
     # (substitui o 'unsafe-inline' do script-src).
     request.state.csp_nonce = secrets.token_urlsafe(16)
+    if request.method in ("POST", "PUT", "PATCH", "DELETE") and request.url.path.startswith("/admin"):
+        if not _origem_permitida(request):
+            return JSONResponse(
+                {"detail": "Origem da requisição não permitida."}, status_code=403
+            )
     response = await call_next(request)
     if request.url.path.startswith("/anamneses/"):
         response.headers["Cache-Control"] = "no-store"
@@ -735,8 +826,19 @@ def login(request: LoginRequest, _req: Request):
             detail="Conta não confirmada. Verifique seu e-mail.",
         )
 
+
+    if usuario["status"] != "ativo":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Conta suspensa. Fale com o suporte.",
+        )
+
     registrar_acesso(usuario["id"])
-    token = _criar_token_jwt(usuario["email"], usuario["id"])
+    token = _criar_token_jwt(
+        usuario["email"],
+        usuario["id"],
+        token_version=int(usuario.get("token_version") or 0),
+    )
     log.info("Login bem-sucedido para usuário '%s' (IP: %s)", _mascarar_contato(usuario["email"]), _cliente_ip(_req))
     return LoginResponse(
         access_token=token,
@@ -914,6 +1016,7 @@ async def sintese(request: SinteseRequest, _req: Request):
         temas_pesquisa=resultado.get("temas_pesquisa", []),
         artigos_sugeridos=resultado.get("artigos_sugeridos", ""),
         erro="",
+        provedor=resultado.get("provedor", ""),
     )
 
 
@@ -1192,6 +1295,50 @@ async def webhook_wuzapi(request: Request):
         payload.get("type"), payload.get("state"), atualizados,
     )
     return JSONResponse(status_code=200, content={"success": True, "atualizados": atualizados})
+
+
+@app.delete("/conta", tags=["Conta"])
+def excluir_conta(request: ExcluirContaRequest, _req: Request,
+                  auth: tuple = Depends(_verificar_token)):
+    """Exclusão de conta do psicólogo (caminho B).
+
+    Apaga conta e dados do servidor; o prontuário cifrado permanece no aparelho.
+    Exige confirmação explícita e protege a conta administrativa legada.
+    """
+    _rate_limit_check(_req, max_requests=5)
+    if (request.confirmacao or "").strip().upper() != "EXCLUIR":
+        raise HTTPException(status_code=400, detail="Confirmação inválida. Envie 'EXCLUIR'.")
+
+    username, owner_id = auth
+    if not _pode_excluir_conta(owner_id):
+        raise HTTPException(
+            status_code=403,
+            detail="A conta administrativa não pode ser excluída pelo aplicativo.",
+        )
+
+    from services.usuarios import obter_por_id
+    usuario = obter_por_id(owner_id)
+    email = (usuario or {}).get("email") or (username or "")
+
+    jti, exp_token = "", ""
+    try:
+        raw = (_req.headers.get("authorization") or "").strip()
+        if raw.lower().startswith("bearer "):
+            payload = jwt.decode(raw[7:], JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            jti = str(payload.get("jti") or "")
+            exp_token = str(payload.get("exp") or "")
+    except Exception:
+        pass
+
+    try:
+        recibo = _excluir_conta_dados(owner_id, email, jti=jti, exp_token=exp_token)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+
+    if usuario is None:
+        recibo["ja_excluida"] = True
+    log.info("Exclusão de conta concluída: owner=%s", owner_id[:8])
+    return JSONResponse(status_code=200, content=recibo)
 
 
 @app.exception_handler(Exception)
@@ -2053,50 +2200,184 @@ def telemetria_evento(
 
 
 ADMIN_COOKIE = "mentall_admin"
+ADMIN_2FA_COOKIE = "mentall_admin_2fa"
 
 
-def _usuario_admin_autenticado(request: Request) -> bool:
-    """Valida a sessão do painel pelo cookie httpOnly (JWT) + papel admin."""
+PAPEIS_PAINEL = ("admin", "financeiro", "suporte")
+
+
+def _sessao_admin(request: Request) -> dict | None:
+    """Valida a sessão do painel e devolve o payload (ou None).
+
+    Checa assinatura/expiração do JWT, etapa "sessao", jti revogado, sessão
+    registrada dentro do limite de inatividade e conta ativa com papel do painel.
+    """
     token = request.cookies.get(ADMIN_COOKIE)
     if not token:
-        return False
+        return None
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
     except JWTError:
-        return False
+        return None
+    if (payload.get("etapa") or "sessao") != "sessao":
+        return None
     username = (payload.get("sub") or "").strip()
     if not username:
-        return False
+        return None
+    jti = str(payload.get("jti") or "")
+    if jti and _token_revogado(jti):
+        return None
+    if not seguranca_admin.sessao_valida(jti, username):
+        return None
     if username == APP_USERNAME:
-        return True
+        payload["papel"] = "admin"
+        return payload
     from services.usuarios import obter_por_email
 
     usuario = obter_por_email(username)
-    # Só conta confirmada (ativa) e com papel admin. Sem isso, um cookie emitido
-    # antes de uma suspensão continuaria abrindo o painel.
-    return bool(
-        usuario
-        and (usuario.get("role") or "") == "admin"
-        and (usuario.get("status") or "") == "ativo"
-    )
+    if (
+        usuario is None
+        or (usuario.get("status") or "") != "ativo"
+        or (usuario.get("role") or "") not in PAPEIS_PAINEL
+    ):
+        return None
+    payload["papel"] = usuario.get("role") or "admin"
+    return payload
 
+
+def _usuario_admin_autenticado(request: Request) -> bool:
+    return _sessao_admin(request) is not None
+
+
+def _papel_admin(request: Request) -> str:
+    sessao = _sessao_admin(request)
+    return (sessao.get("papel") or "") if sessao else ""
+
+
+def _exigir_papel(request: Request, papeis: tuple):
+    """Sessão válida + papel autorizado; devolve a resposta de bloqueio ou None."""
+    sessao = _sessao_admin(request)
+    if sessao is None:
+        return HTMLResponse(admin_ui.pagina_login())
+    if (sessao.get("papel") or "") not in papeis:
+        return HTMLResponse(admin_ui.pagina_sem_permissao(request.url.path), status_code=403)
+    return None
+
+
+def _origem_permitida(request: Request) -> bool:
+    """Anti-CSRF (defesa em profundidade) para POSTs do painel.
+
+    SameSite=Strict já impede o envio do cookie em requisições cross-site na
+    maioria dos navegadores; validar Origin/Referer cobre navegadores antigos.
+    Clientes não-browser (curl/testes) não enviam esses cabeçalhos e passam.
+    """
+    from urllib.parse import urlparse
+
+    def host_ok(valor: str) -> bool:
+        try:
+            host = (urlparse(valor).hostname or "").lower()
+        except ValueError:
+            return False
+        if not host:
+            return False
+        permitidos = {
+            (request.url.hostname or "").lower(),
+            "mentall-api.fly.dev",
+            "admin.mentallpro.com.br",
+            "localhost",
+            "127.0.0.1",
+        }
+        return host in permitidos
+
+    origem = request.headers.get("origin") or ""
+    if origem:
+        return host_ok(origem)
+    referer = request.headers.get("referer") or ""
+    if referer:
+        return host_ok(referer)
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Detalhe do usuário e ações administrativas — Fase 5A.2 (22/10/2026)
+#
+# Toda ação do painel é auditada em admin_auditoria (quem, o quê, alvo, IP).
+# LGPD: a tela de detalhe só mostra metadados (status/contagens/datas) — nunca
+# conteúdo clínico (anamnese/síntese/contrato).
+# ---------------------------------------------------------------------------
+
+def _identidade_admin(request: Request) -> str:
+    """E-mail do admin logado (para a auditoria das ações)."""
+    sessao = _sessao_admin(request)
+    return (sessao.get("sub") or "").strip() if sessao else ""
+
+
+def _filtros_admin(request: Request) -> dict:
+    """Filtros da listagem, normalizados (usados no painel e no CSV)."""
+    parametros = request.query_params
+    return {
+        "busca": (parametros.get("busca") or "").strip()[:120],
+        "status": (parametros.get("status") or "").strip().lower()[:20],
+        "plano": (parametros.get("plano") or "").strip().lower()[:30],
+        "online": (parametros.get("online") or "").strip()[:1],
+        "versao": (parametros.get("versao") or "").strip()[:30],
+        "ordenar": (parametros.get("ordenar") or "criado_desc").strip().lower()[:20],
+    }
+
+
+def _bloqueio_admin(request: Request):
+    """Login quando não há sessão; força 2FA obrigatório quando configurado."""
+    sessao = _sessao_admin(request)
+    if sessao is None:
+        return HTMLResponse(admin_ui.pagina_login())
+    if seguranca_admin.obrigatorio() and not seguranca_admin.totp_ativo(sessao["sub"]):
+        caminho = request.url.path
+        if not caminho.startswith("/admin/seguranca") and caminho not in (
+            "/admin/logout",
+            "/admin/logout-todos",
+        ):
+            return RedirectResponse("/admin/seguranca?msg=2FA+obrigatorio", status_code=303)
+    return None
 
 @app.get("/admin", response_class=HTMLResponse, tags=["Admin"])
-def admin_painel(request: Request, pagina: int = 1, busca: str = ""):
+def admin_painel(request: Request, pagina: int = 1):
     _rate_limit_check(request, max_requests=120)
-    if not _usuario_admin_autenticado(request):
-        return HTMLResponse(admin_ui.pagina_login())
+    bloqueio = _bloqueio_admin(request)
+    if bloqueio:
+        return bloqueio
+    filtros = _filtros_admin(request)
+    papel = _papel_admin(request)
     kpis = admin_service.kpis()
-    usuarios = admin_service.listar_usuarios(pagina=pagina, limite=25, busca=busca)
-    return HTMLResponse(admin_ui.pagina_dashboard(kpis, usuarios, busca))
+    usuarios = admin_service.listar_usuarios(pagina=pagina, **filtros)
+    extras = admin_service.kpis_operacionais()
+    saude = saude_service.coletar()
+    opcoes = admin_service.opcoes_filtros()
+    auditoria = admin_service.listar_auditoria(limite=8) if papel == "admin" else []
+    return HTMLResponse(
+        admin_ui.pagina_dashboard(
+            kpis,
+            usuarios,
+            filtros,
+            extras=extras,
+            saude=saude,
+            opcoes=opcoes,
+            auditoria=auditoria,
+            pode_email=(papel == "admin"),
+        )
+    )
 
 
 @app.post("/admin/login", tags=["Admin"])
 async def admin_login(request: Request):
-    _rate_limit_check(request, max_requests=10, chave_extra="admin")
+    # Fase 5A: antes o limite era um bucket GLOBAL (`chave_extra="admin"`): 10 erros
+    # de qualquer IP bloqueavam o login de TODOS os admins por 1 min. Agora há teto
+    # por IP (30/min) e teto por conta (5/min, válido entre IPs).
+    _rate_limit_check(request, max_requests=30)
     form = await request.form()
     email = (form.get("email") or "").strip()
     senha = form.get("senha") or ""
+    if email:
+        _rate_limit_check(request, max_requests=5, chave_extra=f"conta:{email.lower()}")
 
     if email.lower() == APP_USERNAME.lower() and _verificar_senha(senha):
         usuario = {
@@ -2114,7 +2395,7 @@ async def admin_login(request: Request):
     # que recusa 'pendente' com 403).
     if (
         usuario is None
-        or (usuario.get("role") or "user") != "admin"
+        or (usuario.get("role") or "user") not in PAPEIS_PAINEL
         or (usuario.get("status") or "") != "ativo"
     ):
         return HTMLResponse(
@@ -2122,9 +2403,228 @@ async def admin_login(request: Request):
             status_code=401,
         )
 
-    token = _criar_token_jwt(usuario["email"], usuario["id"])
+    if seguranca_admin.totp_ativo(usuario["email"]):
+        # Senha correta, mas falta a 2ª etapa (código do app autenticador).
+        resposta = RedirectResponse("/admin/2fa", status_code=303)
+        resposta.set_cookie(
+            ADMIN_2FA_COOKIE,
+            _criar_token_2fa(usuario["email"], usuario["id"]),
+            max_age=300,
+            httponly=True,
+            secure=True,
+            samesite="strict",
+            path="/admin",
+        )
+        return resposta
+    return _emitir_cookie_admin(usuario)
+
+
+@app.post("/admin/logout", tags=["Admin"])
+def admin_logout(request: Request):
+    token = request.cookies.get(ADMIN_COOKIE)
+    if token:
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            _revogar_token(str(payload.get("jti") or ""), str(payload.get("exp") or ""))
+        except JWTError:
+            pass
     resp = RedirectResponse("/admin", status_code=303)
-    resp.set_cookie(
+    resp.delete_cookie(ADMIN_COOKIE, path="/admin")
+    return resp
+
+
+@app.get("/admin/usuarios.csv", tags=["Admin"])
+def admin_usuarios_csv(request: Request):
+    _rate_limit_check(request, max_requests=20)
+    sessao = _sessao_admin(request)
+    if sessao is None:
+        return HTMLResponse(admin_ui.pagina_login(), status_code=401)
+    if (sessao.get("papel") or "") not in ("admin", "financeiro"):
+        return HTMLResponse(
+            admin_ui.pagina_sem_permissao(request.url.path), status_code=403
+        )
+    filtros = _filtros_admin(request)
+    linhas = admin_service.exportar_usuarios(**filtros)
+    buffer = io.StringIO()
+    buffer.write("\ufeff")  # BOM para o Excel abrir UTF-8 corretamente
+    escritor = csv.writer(buffer, delimiter=";")
+    escritor.writerow([
+        "email", "nome", "plano", "papel", "status", "criado_em", "ultimo_acesso_em",
+        "plataforma", "versao_app", "ultimo_heartbeat_em",
+    ])
+    for linha in linhas:
+        escritor.writerow([
+            linha.get("email") or "",
+            linha.get("nome") or "",
+            linha.get("plano") or "",
+            linha.get("role") or "",
+            linha.get("status") or "",
+            linha.get("criado_em") or "",
+            linha.get("ultimo_acesso_em") or "",
+            linha.get("plataforma") or "",
+            linha.get("versao_app") or "",
+            linha.get("ultimo_heartbeat_em") or "",
+        ])
+    resposta = Response(content=buffer.getvalue(), media_type="text/csv; charset=utf-8")
+    resposta.headers["Content-Disposition"] = 'attachment; filename="usuarios.csv"'
+    resposta.headers["Cache-Control"] = "no-store"
+    return resposta
+
+
+@app.get("/admin/usuarios/{usuario_id}", response_class=HTMLResponse, tags=["Admin"])
+def admin_usuario_detalhe(request: Request, usuario_id: str, msg: str = "", erro: str = ""):
+    _rate_limit_check(request, max_requests=120)
+    bloqueio = _bloqueio_admin(request)
+    if bloqueio:
+        return bloqueio
+    detalhe = admin_service.detalhar_usuario(usuario_id)
+    if detalhe is None:
+        return RedirectResponse("/admin", status_code=303)
+    papel = _papel_admin(request)
+    return HTMLResponse(
+        admin_ui.pagina_usuario(
+            detalhe,
+            msg=msg,
+            erro=erro,
+            pode_acoes=(papel == "admin"),
+            pode_email=(papel == "admin"),
+        )
+    )
+
+
+@app.post("/admin/usuarios/{usuario_id}/acao", tags=["Admin"])
+async def admin_usuario_acao(request: Request, usuario_id: str):
+    _rate_limit_check(request, max_requests=20, chave_extra="admin-acao")
+    bloqueio = _bloqueio_admin(request)
+    if bloqueio:
+        return bloqueio
+    if _papel_admin(request) != "admin":
+        return HTMLResponse(
+            admin_ui.pagina_sem_permissao("Ações de usuário"), status_code=403
+        )
+    detalhe = admin_service.detalhar_usuario(usuario_id)
+    if detalhe is None:
+        return RedirectResponse("/admin", status_code=303)
+
+    alvo = detalhe["usuario"]["email"]
+    ator = _identidade_admin(request) or "desconhecido"
+    ip = _cliente_ip(request)
+    form = await request.form()
+    acao = (form.get("acao") or "").strip()
+
+    def redirecionar(msg: str = "", erro: str = "") -> RedirectResponse:
+        parametros = {chave: valor for chave, valor in (("msg", msg), ("erro", erro)) if valor}
+        destino = f"/admin/usuarios/{usuario_id}"
+        if parametros:
+            destino += "?" + urlencode(parametros)
+        return RedirectResponse(destino, status_code=303)
+
+    try:
+        if acao in ("suspender", "reativar"):
+            novo_status = "suspenso" if acao == "suspender" else "ativo"
+            if not admin_service.definir_status_usuario(usuario_id, novo_status):
+                raise ValueError("Usuário não encontrado.")
+            versao = admin_service.revogar_sessoes_app(usuario_id)
+            _invalidar_cache_token(usuario_id)
+            admin_service.registrar_auditoria(
+                ator,
+                f"usuario.{acao}",
+                alvo,
+                f"status {detalhe['usuario']['status']} -> {novo_status}; sessões do app revogadas (v{versao})",
+                ip,
+            )
+            return redirecionar(msg=f"Conta {alvo}: {novo_status} (sessões do app encerradas).")
+
+        if acao == "plano":
+            novo_plano = (form.get("plano") or "").strip().lower()
+            anterior = detalhe["usuario"]["plano"]
+            if not admin_service.definir_plano_usuario(usuario_id, novo_plano):
+                raise ValueError("Usuário não encontrado.")
+            admin_service.registrar_auditoria(
+                ator, "usuario.plano", alvo, f"plano {anterior} -> {novo_plano}", ip
+            )
+            return redirecionar(msg=f"Plano de {alvo}: {novo_plano}.")
+
+        if acao == "reenviar_confirmacao":
+            from services.usuarios import renovar_token_confirmacao
+
+            token = renovar_token_confirmacao(alvo)
+            if token is None:
+                raise ValueError("Só é possível reenviar confirmação para conta pendente.")
+            base_url = os.getenv("API_BASE_URL", "https://mentall-api.fly.dev").strip().rstrip("/")
+            link = f"{base_url}/auth/confirmar-email?token={token}"
+            corpo = f"""<html><body style="font-family:sans-serif;padding:20px;">
+<h2>MentAll PRO - Confirme seu cadastro</h2>
+<p>Este é um novo link de confirmação para a sua conta.</p>
+<p><a href="{link}" style="display:inline-block;padding:12px 20px;background:#8806CE;color:#fff;
+text-decoration:none;border-radius:8px;">Confirmar meu cadastro</a></p>
+<p style="font-size:13px;color:#64748B;">Se você não reconhece este cadastro, ignore este e-mail.</p>
+</body></html>"""
+            enviado = await _enviar_email(alvo, "MentAll PRO - Confirme seu cadastro", corpo)
+            admin_service.registrar_auditoria(
+                ator, "usuario.reenviar_confirmacao", alvo, f"email_enviado={enviado}", ip
+            )
+            if not enviado:
+                return redirecionar(
+                    erro="Link renovado, mas o SMTP não enviou o e-mail. Verifique a saúde do sistema."
+                )
+            return redirecionar(msg=f"Novo link de confirmação enviado para {alvo}.")
+
+        if acao == "papel":
+            novo_papel = (form.get("papel") or "").strip().lower()
+            if alvo.casefold() == (ator or "").casefold() and novo_papel != "admin":
+                raise ValueError("Você não pode remover seu próprio papel de administrador.")
+            anterior = detalhe["usuario"]["role"] or "user"
+            if not admin_service.definir_papel_usuario(usuario_id, novo_papel):
+                raise ValueError("Usuário não encontrado.")
+            _invalidar_cache_token(usuario_id)
+            admin_service.registrar_auditoria(
+                ator, "usuario.papel", alvo, f"papel {anterior} -> {novo_papel}", ip
+            )
+            return redirecionar(msg=f"Papel de {alvo}: {novo_papel}.")
+
+        if acao == "encerrar_sessoes_app":
+            versao = admin_service.revogar_sessoes_app(usuario_id)
+            _invalidar_cache_token(usuario_id)
+            admin_service.registrar_auditoria(
+                ator,
+                "usuario.encerrar_sessoes_app",
+                alvo,
+                f"token_version -> {versao}",
+                ip,
+            )
+            return redirecionar(
+                msg=f"Sessões do app de {alvo} encerradas (versão {versao})."
+            )
+
+        raise ValueError("Ação desconhecida.")
+    except ValueError as exc:
+        return redirecionar(erro=str(exc))
+
+
+def _criar_token_2fa(username: str, owner_id: str) -> str:
+    """Token curto (5 min) da 1ª etapa do login; só serve para /admin/2fa."""
+    expiracao = datetime.now(timezone.utc) + timedelta(minutes=5)
+    payload = {
+        "sub": username,
+        "owner": owner_id,
+        "exp": expiracao,
+        "jti": uuid.uuid4().hex,
+        "etapa": "2fa",
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def _emitir_cookie_admin(usuario: dict) -> RedirectResponse:
+    """Cria a sessão (registrada para expiração ociosa) e redireciona ao painel."""
+    token = _criar_token_jwt(usuario["email"], usuario["id"])
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        seguranca_admin.registrar_sessao(str(payload.get("jti") or ""), usuario["email"])
+    except JWTError:
+        pass
+    resposta = RedirectResponse("/admin", status_code=303)
+    resposta.set_cookie(
         ADMIN_COOKIE,
         token,
         max_age=JWT_EXPIRATION * 60,
@@ -2133,14 +2633,326 @@ async def admin_login(request: Request):
         samesite="strict",
         path="/admin",
     )
-    return resp
+    return resposta
 
 
-@app.post("/admin/logout", tags=["Admin"])
-def admin_logout():
-    resp = RedirectResponse("/admin", status_code=303)
-    resp.delete_cookie(ADMIN_COOKIE, path="/admin")
-    return resp
+def _pagina_2fa_ou_login(request: Request):
+    """Valida o cookie de 2ª etapa; devolve (payload, None) ou (None, resposta)."""
+    token = request.cookies.get(ADMIN_2FA_COOKIE)
+    if not token:
+        return None, RedirectResponse("/admin", status_code=303)
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except JWTError:
+        return None, RedirectResponse("/admin", status_code=303)
+    if (payload.get("etapa") or "") != "2fa" or not (payload.get("sub") or "").strip():
+        return None, RedirectResponse("/admin", status_code=303)
+    jti = str(payload.get("jti") or "")
+    if jti and _token_revogado(jti):
+        return None, RedirectResponse("/admin", status_code=303)
+    return payload, None
+
+
+def _ator_logado(request: Request) -> dict | None:
+    sessao = _sessao_admin(request)
+    if sessao is None:
+        return None
+    return {"email": sessao["sub"], "papel": sessao.get("papel") or "admin"}
+
+
+# ---------------------------------------------------------------------------
+# Segunda etapa do login (2FA)
+# ---------------------------------------------------------------------------
+
+@app.get("/admin/2fa", response_class=HTMLResponse, tags=["Admin"])
+def admin_2fa_pagina(request: Request):
+    _rate_limit_check(request, max_requests=60)
+    payload, resposta = _pagina_2fa_ou_login(request)
+    if resposta:
+        return resposta
+    return HTMLResponse(admin_ui.pagina_2fa_login())
+
+
+@app.post("/admin/2fa", tags=["Admin"])
+async def admin_2fa_verificar(request: Request):
+    _rate_limit_check(request, max_requests=10)
+    payload, resposta = _pagina_2fa_ou_login(request)
+    if resposta:
+        return resposta
+    form = await request.form()
+    codigo = (form.get("codigo") or "").strip()
+    ator = (payload.get("sub") or "").strip()
+    if not seguranca_admin.validar_codigo(ator, codigo):
+        log.warning("Falha na 2ª etapa de login de admin '%s' (IP: %s)", ator, _cliente_ip(request))
+        return HTMLResponse(admin_ui.pagina_2fa_login("Código inválido. Tente novamente."))
+    from services.usuarios import obter_por_email
+
+    usuario = obter_por_email(ator)
+    if usuario is None:
+        # admin legado (APP_USERNAME) não tem linha em usuarios
+        if ator != APP_USERNAME:
+            return RedirectResponse("/admin", status_code=303)
+        usuario = {"email": ator, "id": APP_USER_ID}
+    resposta = _emitir_cookie_admin(usuario)
+    resposta.delete_cookie(ADMIN_2FA_COOKIE, path="/admin")
+    log.info("2FA concluído para admin '%s' (IP: %s)", ator, _cliente_ip(request))
+    return resposta
+
+
+# ---------------------------------------------------------------------------
+# Página de segurança (2FA + sessões)
+# ---------------------------------------------------------------------------
+
+def _render_seguranca(request: Request, msg: str = "", erro: str = ""):
+    ator = _ator_logado(request)
+    if ator is None:
+        return HTMLResponse(admin_ui.pagina_login())
+    seg_estado = seguranca_admin.estado(ator["email"])
+    return HTMLResponse(
+        admin_ui.pagina_seguranca(
+            ator["email"], ator["papel"], seg_estado, seguranca_admin.idle_minutos(),
+            msg=msg, erro=erro,
+        )
+    )
+
+
+@app.get("/admin/seguranca", response_class=HTMLResponse, tags=["Admin"])
+def admin_seguranca_pagina(request: Request, msg: str = "", erro: str = ""):
+    _rate_limit_check(request, max_requests=60)
+    return _render_seguranca(request, msg=msg, erro=erro)
+
+
+@app.post("/admin/seguranca/ativar", tags=["Admin"])
+def admin_seguranca_ativar(request: Request):
+    _rate_limit_check(request, max_requests=10)
+    ator = _ator_logado(request)
+    if ator is None:
+        return HTMLResponse(admin_ui.pagina_login())
+    dados = seguranca_admin.iniciar_ativacao(ator["email"])
+    return HTMLResponse(
+        admin_ui.pagina_2fa_ativar(ator["email"], dados["segredo"], dados["uri"])
+    )
+
+
+@app.post("/admin/seguranca/confirmar", tags=["Admin"])
+async def admin_seguranca_confirmar(request: Request):
+    _rate_limit_check(request, max_requests=10)
+    ator = _ator_logado(request)
+    if ator is None:
+        return HTMLResponse(admin_ui.pagina_login())
+    form = await request.form()
+    codigos = seguranca_admin.confirmar_ativacao(ator["email"], (form.get("codigo") or ""))
+    if codigos is None:
+        dados = seguranca_admin.iniciar_ativacao(ator["email"])
+        return HTMLResponse(
+            admin_ui.pagina_2fa_ativar(
+                ator["email"], dados["segredo"], dados["uri"],
+                erro="Código inválido. Confira o app autenticador e tente de novo.",
+            )
+        )
+    return HTMLResponse(admin_ui.pagina_2fa_backup(codigos))
+
+
+@app.post("/admin/seguranca/desativar", tags=["Admin"])
+async def admin_seguranca_desativar(request: Request):
+    _rate_limit_check(request, max_requests=10)
+    ator = _ator_logado(request)
+    if ator is None:
+        return HTMLResponse(admin_ui.pagina_login())
+    form = await request.form()
+    codigo = (form.get("codigo") or "").strip()
+    if not seguranca_admin.validar_codigo(ator["email"], codigo):
+        return _render_seguranca(request, erro="Código inválido — o 2FA continua ativo.")
+    seguranca_admin.desativar(ator["email"])
+    return _render_seguranca(request, msg="Verificação em 2 etapas desativada.")
+
+
+@app.post("/admin/logout-todos", tags=["Admin"])
+def admin_logout_todos(request: Request):
+    _rate_limit_check(request, max_requests=10)
+    ator = _ator_logado(request)
+    if ator is None:
+        return RedirectResponse("/admin", status_code=303)
+    revogadas = seguranca_admin.revogar_todas_sessoes(ator["email"])
+    log.info("Logout global do painel: %s sessão(ões) revogada(s).", revogadas)
+    resposta = RedirectResponse("/admin", status_code=303)
+    resposta.delete_cookie(ADMIN_COOKIE, path="/admin")
+    resposta.delete_cookie(ADMIN_2FA_COOKIE, path="/admin")
+    return resposta
+
+
+# ---------------------------------------------------------------------------
+# E-mail (Mailu) no painel do dono — Fase 4 (22/10/2026)
+#
+# O painel fala com a API do Mailu pelo backend (token em MAILU_API_TOKEN).
+# Nenhuma credencial do servidor de e-mail chega ao navegador.
+# ---------------------------------------------------------------------------
+
+def _exigir_sessao_admin(request: Request):
+    """E-mail (Fase 4): só papel admin gerencia caixas do Mailu."""
+    return _exigir_papel(request, ("admin",))
+
+
+def _pagina_email(msg: str = "", erro: str = "", credenciais=None) -> HTMLResponse:
+    try:
+        caixas = email_admin.listar_caixas()
+        aliases = email_admin.listar_aliases()
+    except email_admin.EmailAdminErro as exc:
+        caixas, aliases = [], []
+        erro = erro or str(exc)
+    return HTMLResponse(
+        admin_ui.pagina_email(
+            caixas,
+            aliases,
+            dominio=email_admin.dominio(),
+            configurado=email_admin.configurado(),
+            msg=msg,
+            erro=erro,
+            credenciais=credenciais,
+        )
+    )
+
+
+def _redirect_email(msg: str = "", erro: str = "") -> RedirectResponse:
+    parametros = {chave: valor for chave, valor in (("msg", msg), ("erro", erro)) if valor}
+    destino = "/admin/email" + (("?" + urlencode(parametros)) if parametros else "")
+    return RedirectResponse(destino, status_code=303)
+
+
+def _caixa_administrativa(email: str) -> bool:
+    try:
+        return any(c["email"] == email and c["admin"] for c in email_admin.listar_caixas())
+    except email_admin.EmailAdminErro:
+        return False
+
+
+@app.get("/admin/email", response_class=HTMLResponse, tags=["Admin"])
+def admin_email(request: Request, msg: str = "", erro: str = ""):
+    _rate_limit_check(request, max_requests=120)
+    bloqueio = _exigir_sessao_admin(request)
+    return bloqueio or _pagina_email(msg=msg, erro=erro)
+
+
+@app.post("/admin/email/criar", tags=["Admin"])
+async def admin_email_criar(request: Request):
+    _rate_limit_check(request, max_requests=20, chave_extra="admin-email")
+    bloqueio = _exigir_sessao_admin(request)
+    if bloqueio:
+        return bloqueio
+    form = await request.form()
+    try:
+        email, senha = email_admin.criar_caixa(
+            prefixo=str(form.get("prefixo") or ""),
+            nome=str(form.get("nome") or ""),
+            cota_gb=form.get("cota_gb") or 2,
+        )
+        return _pagina_email(msg=f"Caixa {email} criada.", credenciais=(email, senha))
+    except email_admin.EmailAdminErro as exc:
+        return _pagina_email(erro=str(exc))
+
+
+@app.post("/admin/email/senha", tags=["Admin"])
+async def admin_email_senha(request: Request):
+    _rate_limit_check(request, max_requests=20, chave_extra="admin-email")
+    bloqueio = _exigir_sessao_admin(request)
+    if bloqueio:
+        return bloqueio
+    form = await request.form()
+    try:
+        email = email_admin.validar_email(str(form.get("email") or ""))
+        senha = email_admin.gerar_senha_temporaria(email)
+        aviso = " (caixa administrativa: use esta senha na próxima entrada)" if _caixa_administrativa(email) else ""
+        return _pagina_email(msg=f"Nova senha gerada para {email}.{aviso}", credenciais=(email, senha))
+    except email_admin.EmailAdminErro as exc:
+        return _pagina_email(erro=str(exc))
+
+
+@app.post("/admin/email/status", tags=["Admin"])
+async def admin_email_status(request: Request):
+    _rate_limit_check(request, max_requests=20, chave_extra="admin-email")
+    bloqueio = _exigir_sessao_admin(request)
+    if bloqueio:
+        return bloqueio
+    form = await request.form()
+    try:
+        email = email_admin.validar_email(str(form.get("email") or ""))
+        ativo = str(form.get("ativo") or "") == "1"
+        if _caixa_administrativa(email):
+            return _pagina_email(erro="A caixa administrativa não pode ser desativada pelo painel.")
+        email_admin.definir_status(email, ativo)
+        return _redirect_email(msg=f"Caixa {email} {'ativada' if ativo else 'desativada'}.")
+    except email_admin.EmailAdminErro as exc:
+        return _pagina_email(erro=str(exc))
+
+
+@app.get("/admin/email/excluir", response_class=HTMLResponse, tags=["Admin"])
+def admin_email_confirmar_exclusao(request: Request, email: str = ""):
+    _rate_limit_check(request, max_requests=60)
+    bloqueio = _exigir_sessao_admin(request)
+    if bloqueio:
+        return bloqueio
+    try:
+        email = email_admin.validar_email(email)
+        caixas = email_admin.listar_caixas()
+    except email_admin.EmailAdminErro as exc:
+        return _pagina_email(erro=str(exc))
+    alvo = next((c for c in caixas if c["email"] == email), None)
+    if alvo is None:
+        return _pagina_email(erro="Caixa não encontrada.")
+    if alvo.get("admin"):
+        return _pagina_email(erro="A caixa administrativa não pode ser excluída pelo painel.")
+    return HTMLResponse(admin_ui.pagina_confirmar_exclusao(alvo))
+
+
+@app.post("/admin/email/excluir", tags=["Admin"])
+async def admin_email_excluir(request: Request):
+    _rate_limit_check(request, max_requests=20, chave_extra="admin-email")
+    bloqueio = _exigir_sessao_admin(request)
+    if bloqueio:
+        return bloqueio
+    form = await request.form()
+    try:
+        email = email_admin.validar_email(str(form.get("email") or ""))
+        if str(form.get("confirmar") or "") != "sim":
+            return _redirect_email(erro="Confirmação ausente — nada foi excluído.")
+        if _caixa_administrativa(email):
+            return _pagina_email(erro="A caixa administrativa não pode ser excluída pelo painel.")
+        email_admin.excluir_caixa(email)
+        return _redirect_email(msg=f"Caixa {email} excluída.")
+    except email_admin.EmailAdminErro as exc:
+        return _pagina_email(erro=str(exc))
+
+
+@app.post("/admin/email/alias/criar", tags=["Admin"])
+async def admin_email_alias_criar(request: Request):
+    _rate_limit_check(request, max_requests=20, chave_extra="admin-email")
+    bloqueio = _exigir_sessao_admin(request)
+    if bloqueio:
+        return bloqueio
+    form = await request.form()
+    try:
+        email = email_admin.criar_alias(
+            prefixo=str(form.get("prefixo") or ""),
+            destino_email=str(form.get("destino_email") or ""),
+        )
+        return _redirect_email(msg=f"Endereço {email} criado.")
+    except email_admin.EmailAdminErro as exc:
+        return _pagina_email(erro=str(exc))
+
+
+@app.post("/admin/email/alias/excluir", tags=["Admin"])
+async def admin_email_alias_excluir(request: Request):
+    _rate_limit_check(request, max_requests=20, chave_extra="admin-email")
+    bloqueio = _exigir_sessao_admin(request)
+    if bloqueio:
+        return bloqueio
+    form = await request.form()
+    try:
+        email = email_admin.validar_email(str(form.get("email") or ""))
+        email_admin.excluir_alias(email)
+        return _redirect_email(msg=f"Endereço {email} excluído.")
+    except email_admin.EmailAdminErro as exc:
+        return _pagina_email(erro=str(exc))
 
 
 if __name__ == "__main__":

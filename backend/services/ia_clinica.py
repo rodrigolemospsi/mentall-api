@@ -336,6 +336,11 @@ _lock_provedores = threading.Lock()
 
 _MARCADORES_FALHA_DURA = (
     "insufficient_quota", "credit_balance", "no credits",
+    # Billing inativo e limite de gasto atingido sao falhas PERMANENTES: repetir
+    # nao resolve e so gasta tempo. Sem estes marcadores o circuito abria por 180s
+    # em vez de 1200s, fazendo cada sintese tentar a OpenAI duas vezes antes de
+    # cair no provedor que funciona (medido em 16/10/2026, ver AGENTS.md).
+    "billing_not_active", "billing_hard_limit_reached",
     "invalid_api_key", "incorrect api key", "authentication",
     "model_not_found", "does not have access", "permission",
 )
@@ -771,6 +776,11 @@ def gerar_sintese(
             resultado = _chamar_provider_sintese(prov, prompt)
             if resultado.get("sucesso"):
                 _registrar_sucesso(prov)
+                # Informa QUAL provedor processou o dado clinico. Exigencia de
+                # transparencia (Apple 5.1.2(i)) e base da trilha de auditoria:
+                # sem isso, nem o profissional nem o sistema sabem para onde o
+                # relato foi enviado (ver ESPECIFICACAO_escolha_de_provedor.md).
+                resultado["provedor"] = prov
                 return resultado
             ultimo_erro = resultado.get("erro", "")
             _registrar_falha(prov, str(ultimo_erro))

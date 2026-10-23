@@ -176,6 +176,13 @@ def _checar_e_reconectar_wuzapi() -> bool:
     if not base_url:
         return False
 
+    # Modo multi-instancia (wuzapi por profissional, via ADMIN_TOKEN): nao
+    # existe token global para reconectar. O proprio wuzapi mantem a reconexao
+    # de socket (WUZAPI_SOCKET_RECOVERY); este watchdog so vale no modo legado
+    # de instancia unica (WUZAPI_TOKEN configurado).
+    if not os.getenv("WUZAPI_TOKEN", "").strip():
+        return False
+
     agora = time.time()
     if agora - _ultima_reconexao_wuzapi < _WUZAPI_RECONNECT_COOLDOWN_SECONDS:
         return False

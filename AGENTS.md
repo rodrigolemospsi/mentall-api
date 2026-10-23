@@ -42,6 +42,533 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Ações administrativas e detalhe do usuário — Fase 5A.2 (22/10/2026)
+
+### Contexto
+Continuação do lote P0 aprovado na análise do painel (P0.3 filtros/CSV, P0.4 detalhe do usuário,
+P0.5 ações administrativas com auditoria). Objetivo: o dono resolve o dia a dia pelo painel, sem SQL,
+e toda intervenção fica registrada.
+
+### O que mudou (arquivos)
+1. **`backend/services/db.py`** — nova tabela `admin_auditoria` (id, ator, ação, alvo, detalhe, IP,
+   criado_em) + índice por data. Criada automaticamente no boot (Turso e SQLite).
+2. **`backend/services/admin.py`** — `listar_usuarios()` reescrito em **uma única consulta** (fim do
+   N+1), com filtros (`busca`, `status`, `plano`, `online`, `versao`, `ordenar`); `exportar_usuarios()`
+   para CSV; `opcoes_filtros()`; `detalhar_usuario()` (só metadados: dispositivos, eventos,
+   contratos/anamneses/lembretes por status, WhatsApp conectado, auditoria da conta);
+   `registrar_auditoria()`/`listar_auditoria()`; `definir_status_usuario()` (ativo/suspenso) e
+   `definir_plano_usuario()`.
+3. **`backend/admin_ui.py`** — barra de filtros + botão **Exportar CSV**; link do e-mail para a página
+   de detalhe; seção **Últimas ações administrativas**; nova página `pagina_usuario()` com cards,
+   ações (suspender/reativar/plano/reenviar confirmação), dispositivos, eventos e auditoria da conta.
+4. **`backend/services/usuarios.py`** — `renovar_token_confirmacao(email)`: gera novo token só para
+   conta `pendente` (não mexe na senha).
+5. **`backend/main.py`** — rotas `GET /admin/usuarios.csv`, `GET /admin/usuarios/{id}`,
+   `POST /admin/usuarios/{id}/acao`; `/admin` aceita filtros e carrega opções/auditoria; login do app
+   agora bloqueia **conta suspensa** (antes só `pendente` era recusada); helpers
+   `_identidade_admin`/`_filtros_admin`.
+
+### Verificação
+```bash
+cd backend && ./.venv/bin/python -B tests/run_isolated.py
+./.venv/bin/python -B tests/run_isolated.py test_admin_acoes
+```
+Cobertura nova: filtros combinados, CSV (conteúdo/tipo), detalhe sem campo clínico, ações
+(suspender/reativar/plano), reenvio de confirmação com e-mail mockado, exigência de sessão de admin e
+login bloqueado para conta suspensa.
+
+### Limitação conhecida
+Suspender bloqueia **novos logins**, mas um JWT de app já emitido continua válido até expirar (8 h) —
+não existe registro de tokens por usuário. Revogação global por usuário (token_version) fica para o
+P1 de segurança.
+
+## Papéis e revogação de sessão do app — Fase 5B.2 (22/10/2026)
+
+### Contexto
+Complemento do P1 de segurança: o painel agora edita o papel (RBAC) de qualquer pessoa e consegue
+encerrar todas as sessões do **app** de um usuário — antes, suspender bloqueava só logins novos e um
+JWT já emitido continuava valendo até expirar (8 h).
+
+### O que mudou (arquivos)
+1. **`backend/services/db.py`** — migração incremental `usuarios.token_version` (usa o helper
+   `_garantir_coluna`, seguro para bancos existentes).
+2. **`backend/services/usuarios.py`** — `incrementar_token_version(usuario_id)`: sobe a versão e
+   invalida todos os JWT de app emitidos.
+3. **`backend/services/admin.py`** — `definir_papel_usuario()` (admin/financeiro/suporte/user) e
+   `revogar_sessoes_app()`; `detalhar_usuario()` passa a devolver `token_version`.
+4. **`backend/main.py`** — JWT de app agora carrega o claim **`tv`** (versão); `_verificar_token()`
+   confere `tv` e o **status** da conta com cache de 30 s (`_ESTADO_TOKEN_CACHE`, invalidado pelas
+   ações do painel); ações novas no detalhe do usuário: **trocar papel** (com trava para não remover o
+   próprio admin) e **encerrar sessões do app**; suspender/reativar também revoga as sessões do app.
+5. **`backend/admin_ui.py`** — formulários "Salvar papel" e "Encerrar sessões do app" no detalhe,
+   card "Sessões do app revogadas".
+6. **`backend/tests/test_painel_seguranca_app.py`** (novo).
+
+### Verificação
+```bash
+cd backend && ./.venv/bin/python -B tests/run_isolated.py test_painel_seguranca_app
+./.venv/bin/python -B tests/run_isolated.py
+```
+Cobre: token antigo rejeitado após revogação, token novo aceito, token legado (sem tv) preservado,
+conta suspensa derrubando token existente, troca de papel com auditoria, trava de self-demote,
+suspensão revogando sessões e login de app emitindo `tv`.
+
+### Trade-off documentado
+`_verificar_token` usa cache de 30 s do estado do usuário (1 leitura de banco por usuário a cada 30 s,
+em vez de 1 por chamada). As ações do painel invalidam a chave na mesma instância; com mais de uma
+instância do backend, a revogação pode levar até 30 s para valer nas outras. Hoje o Fly roda 1 máquina
+(`min_machines_running = 1`), então na prática é imediato.
+
+### Subdomínio do painel
+O kit inclui a parte de infra em `infra/` (Caddy + runbook + verificação + opção Cloudflare Access).
+O DNS `admin.mentallpro.com.br → 201.23.82.2` **já existe**; falta só adicionar o bloco no Caddyfile
+da VPS e recarregar o Caddy.
+
+## Segurança do painel — Fase 5B.1 (22/10/2026)
+
+### Contexto
+Primeiro lote do P1 de segurança aprovado na análise do painel: o painel guarda dados de todos os
+psicólogos, então precisa de 2FA, sessão que expira, papéis e defesa anti-CSRF.
+
+### O que mudou (arquivos)
+1. **`backend/services/admin_seguranca.py` (novo)** — implementação própria de **TOTP** (RFC 6238,
+   HMAC-SHA1, 6 dígitos, 30 s, janela ±1) sem dependências novas; **códigos de recuperação** (8,
+   hash SHA-256, uso único); **sessões administrativas** (`admin_sessoes`) com expiração por
+   inatividade (`ADMIN_IDLE_MINUTOS`, padrão 60); `revogar_todas_sessoes()` para "sair de todos os
+   dispositivos"; `ADMIN_2FA_OBRIGATORIO` (padrão desligado) obriga a ativação.
+2. **`backend/services/db.py`** — tabelas `admin_seguranca` (segredo TOTP ativo/pendente + hashes de
+   backup) e `admin_sessoes` (jti, ator, criado, último visto) + índice.
+3. **`backend/main.py`** — login em **duas etapas** (senha → cookie curto `/admin/2fa` → código);
+   helpers `_sessao_admin`/`_papel_admin`/`_exigir_papel`; gate passa a aceitar papéis
+   **admin / financeiro / suporte**; `/admin/seguranca` (ativar/desativar 2FA, ver status, sair de
+   todos os dispositivos), `/admin/2fa` (GET/POST), `/admin/logout-todos`; **anti-CSRF por
+   Origin/Referer** em todos os POSTs do painel (defesa em profundidade ao SameSite=Strict).
+4. **`backend/admin_ui.py`** — nav com "Segurança" (e "E-mail" só para admin); páginas
+   `pagina_2fa_login`, `pagina_2fa_ativar`, `pagina_2fa_backup`, `pagina_seguranca`,
+   `pagina_sem_permissao`; página de detalhe esconde ações para papéis não-admin.
+5. Papéis: **admin** = tudo; **financeiro** = painel + CSV (sem e-mail, sem ações, sem auditoria);
+   **suporte** = painel + detalhe somente leitura.
+
+### Verificação
+```bash
+cd backend && ./.venv/bin/python -B tests/run_isolated.py
+./.venv/bin/python -B tests/run_isolated.py test_admin_seguranca
+```
+Cobre: vetor oficial RFC 6238, ativação + códigos de backup (uso único), sessão expirando por
+inatividade, logout global derrubando cookies, login em duas etapas, papéis financeiro/suporte,
+bloqueio de POST cross-site por Origin e modo `ADMIN_2FA_OBRIGATORIO`.
+
+### Pendências (5B.2)
+- Painel em subdomínio dedicado `admin.mentallpro.com.br` (CNAME + TLS) e, se o DNS for para Cloudflare,
+  **Cloudflare Access** (e-mail OTP/Google) como camada extra antes do próprio login.
+- Tokens de formulário por sessão (o Origin/Referer + SameSite já cobrem o vetor prático de CSRF).
+- Revogação de JWT de **app** por usuário (token_version) — hoje suspender bloqueia login novo, mas
+  JWT já emitido vale até expirar.
+
+## Painel operacional — Fase 5A (22/10/2026)
+
+### Contexto
+Análise profunda do painel (`ANALISE_PAINEL_E_GITHUB_2026-10-22.md`, fora do repo) apontou 6 lacunas:
+painel read-only, "Receita do mês" vazio, sem saúde do sistema, sem auditoria, 3 falhas de segurança e
+dados coletados sem uso. O dono aprovou o primeiro lote (P0.1, P0.2, P0.6, P0.7).
+
+### O que mudou (arquivos)
+1. **`backend/services/saude.py` (novo)** — verificações isoladas de Banco (Turso/local), IA (circuito
+   por provedor), Wuzapi (instâncias conectadas/total), Mailu (API com timeout de 4 s), SMTP e
+   Lembretes (atrasados/falhas). Nenhuma verificação derruba o painel; nenhuma lê conteúdo clínico.
+2. **`backend/services/admin.py`** — `kpis_operacionais()`: novos cadastros 7/30 d, contas ativas e
+   pendentes, contratos (aceitos/pendentes), anamneses (respondidas/pendentes), lembretes
+   (enviados/entregues/lidos/falhas/pendentes) e top-3 versões do app. Só números.
+3. **`backend/admin_ui.py`** — dashboard ganhou a seção **Saúde do sistema** (pills ok/atenção/erro
+   com detalhe e latência) e **Operação** (contratos, anamneses, lembretes, versões), novos cards
+   "Novos (7 dias)" e "Contas pendentes" e **removido o placeholder "Receita do mês"** (volta quando
+   existir cobrança). Header compartilhado `_cabecalho_painel()`.
+4. **`backend/main.py`** — rota `/admin` passa saúde + KPIs; **rate limit do login** agora é por IP
+   (30/min) **e por conta** (5/min, vale entre IPs — antes era um bucket global: 10 erros de qualquer
+   IP bloqueavam todos os admins); **logout revoga o jti** em `tokens_revogados` e
+   `_usuario_admin_autenticado()` recusa jti revogado (antes o cookie continuava valendo até 8 h
+   após "Sair"); `_revogar_token()` novo.
+5. **`backend/services/email_admin.py`** — `listar_caixas/listar_aliases(..., timeout=)` opcional
+   (usado pela verificação de saúde com prazo curto).
+
+### Verificação
+```bash
+cd backend && ./.venv/bin/python -B tests/run_isolated.py          # suíte completa
+./.venv/bin/python -B tests/run_isolated.py test_painel_operacional # módulo novo
+```
+Novos testes: KPIs (contagens/janelas/versões), saúde (isolamento de falha e cada check), rate limit
+(por conta entre IPs e por IP) e logout (cookie revogado + registro em `tokens_revogados`).
+
+### Pendências
+- P1 (próximo lote): 2FA TOTP, CSRF, expiração ociosa, papéis, painel em `admin.mentallpro.com.br`
+  com Cloudflare Access.
+- Auditoria das ações administrativas (tabela `admin_auditoria`) ficou para o P0.5 — depende das
+  ações de conta (P0.4/P0.5), que não entraram neste lote.
+- "Receita/MRR" só com a frente de cobrança (Asaas/Pix) — prioridade de produto.
+
+## E-mail (Mailu) no painel do dono — Fase 4 (22/10/2026)
+
+### Contexto
+O domínio `mentallpro.com.br` passou a ter servidor de e-mail próprio (Mailu 2.0 na VPS Magalu, com
+relay de saída Resend — detalhes em `deploy-magalu/mail/RUNBOOK-MAILU.md`, fora deste repositório).
+O dono pediu para **administrar as caixas dos funcionários pelo painel do dono** (`/admin`), sem abrir
+outro painel. O token da API do Mailu fica só no backend; o navegador nunca vê credencial de e-mail.
+
+### O que mudou (arquivos)
+1. **`backend/services/email_admin.py` (novo)** — cliente da API do Mailu com httpx (timeout 15 s).
+   Config: `MAILU_API_URL`, `MAILU_API_TOKEN`, `MAILU_DOMINIO`. Operações: listar caixas/aliases,
+   criar caixa (senha temporária gerada no backend), redefinir senha, ativar/desativar, excluir e
+   gerenciar aliases. **Proteções:** toda operação valida que o endereço é do domínio configurado;
+   caixa com `global_admin` não pode ser desativada nem excluída pelo painel; erros da API viram
+   mensagens curtas (sem detalhe interno).
+2. **`backend/admin_ui.py`** — nav do painel (`Psicólogos | E-mail`), `pagina_email()` (cards, tabela
+   de caixas com ações, criação com senha exibida **uma única vez**, tabela de aliases e formulário)
+   e `pagina_confirmar_exclusao()` (exclusão só por POST com `confirmar=sim`). Todo valor dinâmico
+   continua passando por `_esc` (anti-XSS).
+3. **`backend/main.py`** — rotas `GET /admin/email`, `POST /admin/email/criar`,
+   `POST /admin/email/senha`, `POST /admin/email/status`, `GET|POST /admin/email/excluir`,
+   `POST /admin/email/alias/criar`, `POST /admin/email/alias/excluir`. Todas sob o gate
+   `_usuario_admin_autenticado` (cookie httpOnly do painel) + `_rate_limit_check`.
+4. **`backend/.env.example`** — `MAILU_API_URL`, `MAILU_API_TOKEN`, `MAILU_DOMINIO`.
+5. **`backend/tests/test_email_admin.py` (novo)** — serviço (payload, validação de prefixo/domínio,
+   cota limitada a 10 GB, proteções da caixa admin), UI (escape de HTML, senha exibida uma vez) e
+   rotas (login, listagem, criar, desativar, caixa admin protegida, alias externo recusado).
+
+### Verificação
+```bash
+cd backend && ./.venv/bin/python -B tests/run_isolated.py
+```
+Smoke real (com token): listar as caixas pela API do Mailu — comandos na seção "Integração com o
+painel" do runbook. A senha inicial aparece **uma vez** na tela; não é gravada em banco nem em log.
+
+### Pendências
+- Definir `MAILU_API_TOKEN` (e URL/domínio) nos secrets do Fly: `fly secrets set MAILU_API_TOKEN=...`
+  e reiniciar o backend local para o painel sair do modo "não configurado".
+- Criar as caixas restantes dos funcionários pelo painel (a do Anderson já foi criada).
+- (Opcional) trocar o SMTP de recuperação de PIN (hoje Gmail) pela submission do Mailu
+  (`mail.mentallpro.com.br:587` com uma caixa de serviço `naoresponder@`).
+
+## Google Calendar — Fase 2A (21/10/2026)
+
+### Contexto
+Integração **opcional** com o Google Calendar, **OAuth no aparelho** (sem backend de agenda). O
+profissional conecta a própria conta; o app cria/atualiza/exclui eventos ao salvar, editar, excluir
+ou cancelar. **Nenhum nome de paciente é enviado** por padrão: o resumo é “Sessão” (ou o título do
+evento geral), com data/hora e sala. Android primeiro; iOS fica para depois.
+
+### Estado atual (21/10/2026)
+- **OAuth funcionou no aparelho** em **Testing**, com o Gmail cadastrado como test user. O erro
+  “Acesso bloqueado: o app não concluiu a verificação” era o portão do Google (app em produção/sem
+  verificação ou conta fora dos test users), não bug do app.
+- **O calendário do paciente não muda:** o app não envia `attendees` e usa `sendUpdates: none`; ele
+  escreve apenas no calendário escolhido **pelo profissional**.
+- **Sair de Testing:** a verificação de sensitive scopes leva **3–5 dias úteis** após submissão
+  completa (oficial), com **1–3 semanas** de preparação realista; exige homepage e política públicas
+  no mesmo domínio, Search Console, branding, vídeo em inglês e justificativa dos scopes.
+  `mentallpro.com.br` ainda é “Em construção!” e bloqueia a verificação.
+- **Custo:** API gratuita dentro das cotas (10.000 req/min por projeto, 600/min por usuário,
+  1.000.000/dia); acima disso o Google planeja cobrar em 2026. A verificação é gratuita.
+- Detalhes, checklist de verificação e troubleshooting em `docs/google_calendar_2a.md`.
+
+### O que mudou (arquivos)
+- `pubspec.yaml`: `google_sign_in ^7.2.0`, `googleapis ^17.0.0`,
+  `extension_google_sign_in_as_googleapis_auth ^3.0.0`, `googleapis_auth ^2.3.5`.
+- `lib/config/google_calendar_config.dart`: client IDs (via `--dart-define`), scopes
+  `calendar.events.owned` + `calendar.calendarlist.readonly`.
+- `lib/models/compromisso.dart` (+ `.g.dart`): `googleEventId`, `googleCalendarId`, `googleSyncedAt`.
+- `lib/services/google_calendar_api.dart` (interface/fake-friendly), `google_calendar_google_api.dart`
+  (Google real), `google_calendar_service.dart` (sync).
+- `lib/screens/google_calendar_page.dart` + entrada em `configuracoes_page.dart` (Integrações).
+- `lib/providers/service_providers.dart`: providers do serviço/API.
+- `lib/screens/agenda_page.dart` e `home_page.dart`: sync em segundo plano após criar/editar/excluir/
+  cancelar/reagendar; `configuracoes_service.dart`: calendário, auto-sync e último sync.
+- `lib/services/backup_service.dart`: export/import dos campos Google.
+- LGPD: `docs/lgpd/03,04,05,06,09` e `_base_factual.md`; textos de privacidade/termos no app.
+- Testes: `google_calendar_service_test` (6), `google_calendar_page_test` (1), asserts em modelo/
+  backup/recorrência.
+
+### Verificação
+- `flutter analyze --no-pub`: **No issues found!**
+- `flutter test --no-pub`: **314/314**.
+- `flutter build apk --release`: OK (~48 s).
+- APK de teste: **`MentAllPRO-v1.0.52.apk`** (`1.0.52+53`, ~77 MB), sha256
+  `5c5736e35c3088f05e17a5f1d90d1b1e101d8d733de0c9a280eefbc2c11bec8d` (assinatura debug).
+
+### Pendências
+- **Testar no aparelho o fluxo completo:** a conexão já foi validada; faltam criar/editar/excluir,
+  evento geral e desconectar conferindo no Google Calendar. O client Android precisa do package
+  `com.mentall.app` + SHA-1 de debug `B6:38:…:21:F7`; se o login falhar com
+  `clientConfigurationError`, é SHA-1/package.
+- **Release/loja:** adicionar o SHA-1 do keystore de release (ou Play App Signing) e passar pela
+  **verificação do Google** para os scopes sensíveis (ver `docs/google_calendar_2a.md`).
+- **iOS:** adiar; o bundle atual ainda é `com.example.prontuarioTcc`.
+- **Limites:** sem sync com o app fechado; a recorrência acompanha as ocorrências geradas (até
+  52/180 dias) — limitar a 90 dias fica pendente; importar eventos ocupados do Google (conflitos) e
+  sync ao abrir a Agenda ficam para a etapa seguinte.
+- Nada foi commitado.
+
+## Release (20/10/2026) — APK 1.0.51+52
+
+### Contexto
+Rodrigo pediu o APK após as Fases 0/1 da agenda. A versão foi bumpada de `1.0.50+51` para
+**`1.0.51+52`** para não sobrescrever o APK anterior.
+
+### O que mudou (arquivos)
+- `pubspec.yaml`: `1.0.51+52`.
+- `MentAllPRO-v1.0.51.apk` (~76 MB), sha256
+  `91b30f75f15e29035e26e83cf4b2a40b1449f09e54a9d8afbb6c380deafe0c11`.
+
+### Verificação
+- `flutter analyze --no-pub`: **No issues found!**
+- `flutter test --no-pub`: **306/306**.
+- `flutter build apk --release`: OK (~63 s; aviso KGP já conhecido de `package_info_plus`,
+  `sentry_flutter`, `share_plus`, `wakelock_plus`).
+- Assinatura **debug** (`android/key.properties` ausente), como nos APKs anteriores.
+
+### Pendências
+- **Testar no aparelho**: agenda (evento geral, filtros, modo Salas, aba Agenda) e lembretes da Fase 0.
+- O APK usa a **árvore atual**, que já tinha alterações de outra sessão em
+  `whatsapp_conexao_page.dart`/`ia_clinica_service.dart`; elas compilam e passam nos testes, mas não
+  foram revisadas nesta rodada.
+- Falta o keystore de release para publicação nas lojas.
+
+## Agenda — Fase 1 (20/10/2026)
+
+### Contexto
+Fase 1 da agenda para **psicólogo individual**, local-first. Sem clínica, sem teleconsulta (plano
+separado) e mantendo o **wuzapi**. O objetivo foi fechar o gap de produto do PsicoManager sem
+backend novo.
+
+### O que mudou (arquivos)
+- `lib/models/compromisso.dart` (+ `compromisso.g.dart`): novos campos `tipoEvento`
+  (`sessao`/`evento_geral`), `modalidade` (`presencial`/`online`), `sala`, `servico` e `linkOnline`,
+  com **defaults no adapter** (registros antigos continuam legíveis).
+- `lib/widgets/compromisso_form_dialog.dart`: seletor de **Tipo**, modalidade, sala/local, serviço e
+  link online; **evento geral** salva sem paciente; lembrete do paciente fica oculto no evento geral.
+- `lib/screens/agenda_page.dart`: filtros de **Tipo** e **Modalidade**; novo modo **Salas** (agrupa a
+  semana por sala); card mostra Online/sala/serviço; grade do mês respeita os filtros.
+- `lib/utils/agenda_helpers.dart` (novo): `filtrarCompromissos` e `agruparPorSala` (lógica pura).
+- `lib/screens/main_shell.dart`: **aba Agenda** adicionada à navegação principal (Home, Pacientes,
+  Financeiro, Agenda).
+- `lib/services/compromisso_service.dart`: novas campos propagados em criar/editar/recorrência e na
+  remoção de criptografia.
+- `lib/services/backup_service.dart`: export/import dos novos campos (compatível com backup antigo).
+- Testes: `compromisso_test` (+2), `agenda_helpers_test` (+3), `compromisso_form_dialog_test` (+1),
+  `compromisso_service_test` (asserts extras) e `backup_service_test` (asserts extras).
+
+### Verificação
+- `flutter analyze --no-pub`: **No issues found!**
+- `flutter test --no-pub`: **306/306**.
+- `dart run build_runner build`: regenerou apenas `compromisso.g.dart`.
+
+### Pendências
+- **Testar no aparelho** os novos campos, o evento geral e o modo Salas.
+- **Aba Agenda** criada; falta validar a navegação e o carregamento lazy no aparelho.
+- **Sala** é texto livre; não há entidade sala, capacidade ou conflito por sala.
+- “Próximas sessões” na ficha do paciente ainda não foi implementado.
+- Google Calendar, confirmação e agendamento público continuam na **Fase 2**.
+- Conflito de evento único segue com override; editar o pai ainda não propaga para as ocorrências.
+- Nada foi commitado.
+
+## Agenda — Fase 0 (20/10/2026)
+
+### Contexto
+Rodrigo pediu para melhorar a agenda a partir do PsicoManager. Escopo decidido: **psicólogo
+individual**, **manter wuzapi**, **teleconsulta em plano separado**, **sem clínica agora**. Antes das
+features, foram corrigidos bugs de recorrência, conflito, lembrete e backup.
+
+### O que mudou (arquivos)
+- `lib/widgets/compromisso_form_dialog.dart`: ao editar, preserva `recorrencia`/
+  `dataLimiteRecorrencia` do pai e `compromissoPaiId` da ocorrência.
+- `lib/services/compromisso_service.dart`: nova `ConflitoDeHorarioException`; série recorrente
+  **verifica todas as datas antes de gravar** e aborta sem escrita parcial (override via
+  `permitirConflito`); ocorrências retornadas em **texto claro** (corrige lembrete com criptograma).
+- `lib/services/lembrete_service.dart`: removeu `matchDateTimeComponents: time` (não repete mais todo
+  dia); agenda no **instante UTC correto**; pede permissão de notificação/alarme exato no Android.
+- `lib/screens/agenda_page.dart`: rearma lembrete ao voltar para “agendado”; trata conflito de série.
+- `lib/screens/home_page.dart`: mesmo tratamento no atalho de criação.
+- `lib/services/backup_service.dart`: backup agora exporta/importa `compromissos` (compatível com
+  backup antigo sem a seção).
+- Testes: `compromisso_service_test` (+4), `backup_service_test` (+1),
+  `compromisso_form_dialog_test` (+2), `lembrete_service_test` (+1).
+
+### Verificação
+- `flutter analyze --no-pub`: **No issues found!**
+- `flutter test --no-pub`: **298/298**.
+
+### Pendências
+- **Testar no aparelho** o lembrete (permissão Android 13+, alarme exato, fuso) e o reagendamento.
+- **Fase 1** (não iniciada): evento geral sem paciente, modalidade presencial/online, sala/local,
+  serviço, filtros e “Agenda de salas”.
+- Conflito de **evento único** continua com override (“Agendar assim mesmo”); só a série é fail-closed.
+- Editar o pai **não propaga** ainda para as ocorrências futuras (só preserva os marcadores).
+- Nada foi commitado.
+
+## PsicoManager — documentos do paciente e LGPD (20/10/2026)
+
+### Contexto
+Rodrigo autorizou a captura autenticada na **conta trial** (criada por ele; sem PII) para ver
+**documentos do paciente** e **LGPD**. Foi criado um paciente sintético (“Paciente Teste MentAll”) e
+**um documento de teste** (Declaração). **Nenhum documento fiscal foi emitido.** Em 20/10/2026 também
+foi feita a **captura ativa**: sessão sintética às 21:00 com **LiveKit** e uma **cobrança de R$ 1,00
+gerada e não paga**.
+
+### O que mudou (arquivos)
+- `docs/competidores/08_psicomanager.md`: novas §10 (documentos: 16 tipos, 13 modelos, editor, upload,
+  assinatura paga, app do paciente, exportação/logs/permissões) e §11 (LGPD: Termos v1, política
+  ausente, FAQ, tensões de retenção/compartilhamento); pendências renumeradas.
+- `docs/competidores/07_sintese.md`: §6 documentos × LGPD (PsicoManager × MentAll).
+- `docs/competidores/00_LEIA-ME.md`: objetivo e índice do `08` atualizados.
+- **Nenhum código** do app/backend foi alterado.
+
+### Verificação
+- `MEDI`: `GET /api/publico/politicas` → 200 **só com `termos-de-uso`**;
+  `GET /api/publico/politicas/politica-de-privacidade` → **404**; `/termos-de-uso` → 200;
+  `/privacidade` e `/termos` → **404**.
+- REA (CLI): `ev_6110d02c…` (modelos/LGPD), `ev_258c6ac6…` (paciente/termos), `ev_b6d48bdc…`
+  (paciente sintético), `ev_71690812…` (docs do paciente), `ev_6424f1fc…` (16 tipos),
+  `ev_d9f0a38d…` (13 modelos), `ev_3ce41914…` (Declaração criada), `ev_d637d171…` (FAQ LGPD).
+- Captura ativa: `ev_4e0c042d…` (sala abre `/room/<uuid>`), `ev_4ae960df…` (**`POST
+  api-room.psicomanager.com/livekit/token`**), `ev_81b53206…` (modal “Nova cobrança”), `ev_92048851…`
+  (`gerar-cobranca` avulsa de R$ 1,00; **não paga**).
+- **Achados-chave:** **LiveKit confirmado** (`POST /livekit/token`); cobrança criada por
+  `/psico/financeiro/gerar-cobranca` (Asaas é server-side; Termos §5.5); Termos citam **Asaas**;
+  **Política de Privacidade não publicada** (mas Termos
+  §10.1 e FAQ a citam); FAQ diz “não compartilhamos com terceiros” mas a área logada carrega
+  **Smooch/Zendesk + GA/Ads/Meta/HubSpot/Clarity/VWO/LTRCK/Pipz**; retenção nos Termos é condicionada
+  a pagamento e exclui após 1 ano de inadimplência, enquanto a FAQ promete **5 anos** (Res. CFP
+  01/2009 — conferir frente à 09/2024).
+
+### Pendências
+- **WhatsApp/IA:** provedor segue **server-side** (não observado no cliente).
+- **Pagamento/sala:** cobrança de R$ 1,00 **gerada e não paga**; LiveKit confirmado pelo token.
+  Faltam split/repasse/webhook, mídia real e o paciente entrando na sala.
+- **Fiscal:** só UI de NFSe/Receita Saúde; sem emissão.
+- **Dados sintéticos:** paciente, documento, sessão 21:00 e cobrança R$ 1,00 não paga permanecem na
+  conta trial (remover manualmente).
+- **APK** do app do paciente: fora do escopo (aval jurídico).
+
+## PsicoManager + REA × RES (19/10/2026)
+
+### Contexto
+Rodrigo pediu para analisar o concorrente **PsicoManager** (`psicomanager.com.br`) e perguntou se o
+**REA** fazia isso ou se o repositório **RES** (`veyralabsgroup/saas-reverse`) era o caminho. A conta
+**trial** foi autorizada (dados sintéticos, captura passiva, sem APK). O RES foi clonado em `/tmp`
+(sem alterar o repo) e usado só como camada de **produto**; o **REA** provou a camada **técnica**.
+
+### O que mudou (arquivos)
+- `docs/competidores/08_psicomanager.md` (**novo**): financeiro (Asaas + PsicoBank + NFSe/Receita
+  Saúde + repasses), mensagens (WhatsApp/SMS/e-mail/push + app do paciente), teleconsulta (**LiveKit**
+  + Google Meet + sala Neft legada), IA, stack, LGPD/trackers, 160 rotas e evidências.
+- `docs/competidores/07_sintese.md`: linhas do PsicoManager nas 3 tabelas + prioridades.
+- `docs/competidores/00_LEIA-ME.md`: índice `08`, versão 1.1, exceção autorizada da conta trial e o
+  RES como ferramenta complementar.
+- `docs/competidores/02_metodo_rea.md`: §8 **REA × RES** (o que cada um prova) + limitações medidas.
+- **Nenhum código** do app/backend foi alterado nesta rodada.
+
+### Verificação
+- `rea 6.4.0` (CLI; MCP segue `enabled:false`): `analyze-web-bundle` + `capture-browser-scenario`.
+  Evidências: `ev_857621a0…` (www), `ev_90cb6e18…` (inspect), `ev_d0ca109b…` (www), `ev_8e471db7…`
+  (login), `ev_c1d02095…` (cadastro), `ev_8c61c76b…` (room), `ev_022138b4…` (salavirtual).
+- `MEDI`: `api-live-kit.psicomanager.com` → 200 `OK`; `api-room` e `transcrition-psi` → JSON 404/400
+  (NestJS). Bundles públicos: `_app` `7d1c16d6…`, `_buildManifest` `e9c80053…`, `room` `ec24c3d2…`.
+- **Achados-chave:** marketing **React/Vite/Lovable + Supabase**; app **Next.js**; API **Phalcon/PHP**
+  (`apip.psicomanager.com/v1/1003`); sala **LiveKit + NestJS**; transcrição **NestJS**; financeiro
+  **Asaas + PsicoBank** (cartão 3,09%/3,49%, Pix/boleto R$2,59, saque R$3,00); página de cadastro
+  carrega **GA/Ads/Meta/HubSpot/Clarity/VWO/LTRCK** antes do login.
+- `RES` local: scraper **não renderiza SPA** e o `saas_intel` veio vazio (0 reviews/HN/Reddit) — por
+  isso o valor veio do bundle + REA. Mudança só de documentação: `flutter analyze`/testes não foram
+  afetados (não rodados nesta rodada).
+
+### Pendências
+- **Fase 3 (conta trial)**: captura autenticada para confirmar (a) provedor do WhatsApp (oficial ×
+  não oficial), (b) modelo/provedor da IA, (c) Asaas em produção, (d) LiveKit × Neft na sala real,
+  (e) se dados da área logada vão para os trackers.
+- **APK do app do paciente**: fora do escopo (aval jurídico — ToS + Lei 9.609/98).
+- O `AGENTS.md` já estava modificado por outra sessão antes desta; esta seção é a única alteração
+  desta rodada.
+
+## Correções de IA e privacidade — 5 edições (16/10/2026)
+
+### Contexto
+A verificação do **ambiente de produção** (e não só do código) revelou que o billing da OpenAI estava
+inativo, o que fazia **toda a síntese clínica ser processada pelo DeepSeek, na China**. O billing foi
+ativado no mesmo dia. Cinco correções decorreram daí.
+
+### O que mudou (arquivos)
+
+1. **`backend/services/ia_clinica.py` — `_MARCADORES_FALHA_DURA`**
+   `billing_not_active` e `billing_hard_limit_reached` passaram a ser **falha dura**. Antes, o
+   circuito abria por 180 s em vez de 1200 s e cada síntese tentava a OpenAI **duas vezes** antes de
+   cair no provedor que funcionava.
+
+2. **`backend/main.py` + `backend/models/schemas.py` — campo `provedor`**
+   A síntese agora informa **qual provedor de IA processou o dado** (`resultado["provedor"] = prov`
+   em `ia_clinica.py`, campo novo em `SinteseResponse`, preenchido na rota `/gerar-sintese`).
+   **São três pontos:** o `response_model` do Pydantic descarta campos fora do esquema, então mexer
+   só na cascata não basta — o campo simplesmente não chegaria ao app.
+
+3. **`backend/tests/test_circuito_provedores.py` — `test_billing_inativo_e_falha_dura`**
+   Trava a regressão da edição 1.
+
+4. **`lib/services/ia_clinica_service.dart` — o nome da pessoa atendida não é mais enviado à IA**
+   O campo `nome_pessoa_atendida` passou a ir **vazio**. Motivo medido: no teste de síntese de
+   16/10/2026, com `Paciente: Maria S. S.` no prompt, o **DeepSeek copiou o pseudônimo para dentro do
+   `relato_clinico_organizado`** — o identificador sairia do trânsito e entraria no prontuário.
+   O modelo não precisa do nome: o material clínico identifica o sujeito.
+   `_pseudonimizarNome` ficou sem uso (marcada com `// ignore: unused_element`, preservada para reuso).
+
+5. **Verificação:** `dart analyze` limpo · **290 testes do app** · **290 testes do backend**, todos passando.
+
+### Como rodar os testes do backend (importante)
+
+`pytest` **não** está instalado no venv. Use o runner isolado, que troca o SQLite por memória:
+
+```bash
+cd backend && ./.venv/bin/python -B tests/run_isolated.py
+```
+
+Rodar `unittest discover` direto **falha com 65 erros** (`attempt to write a readonly database`),
+porque os testes tentariam escrever no banco **real** em `backend/data/mentall.db`.
+
+### Pendências
+- **O WhatsApp continua quebrado em produção:** faltam `WUZAPI_BASE_URL`, `WUZAPI_TOKEN` e
+  `WUZAPI_ADMIN_TOKEN` nos secrets do Fly. Nenhuma alteração de código resolve ausência de credencial.
+- **`IA_MODEL_PROVIDER` ainda é `gemini`** nos secrets do Fly — valor legado que a cascata ignora,
+  mas que mente para auditoria e gera alarme falso no boot.
+- **A cascata ainda troca de país sozinha:** com a OpenAI saudável o DeepSeek não é acionado, mas se
+  a OpenAI falhar a síntese vai para a China sem o profissional escolher.
+
+## Checklist de publicação em PDF (16/10/2026)
+
+### Contexto
+Rodrigo pediu um **checklist completo de publicação** (Google Play + App Store + LGPD + processo),
+**sem novas features**, em **PDF**. As fontes foram `tasks/lojas_app.md`, o checklist de conformidade
+(`docs/lgpd/16`) e os requisitos de loja (`docs/lgpd/15`) e o plano (`docs/lgpd/02`).
+
+**Decisão de escopo (do dono, 16/10/2026):** **não** acrescentar novas features (teleconsulta,
+Pix/financeiro, mensagens automáticas etc.). O foco é **publicar o que já existe** e **melhorar o
+processo**; a **LGPD é pré-requisito** inegociável. Pedidos anteriores de feature (ex.: o plano de
+teleconsulta) ficam **fora** até decisão em contrário.
+
+### O que mudou (arquivos)
+- `tools/gerar_checklist_publicacao_pdf.dart` (**novo**): gera `Checklist_Publicacao_MentAll_PRO.pdf`
+  na raiz. Checklist com **Parte A** (bloqueadores LGPD/loja), **B** (pendências de loja),
+  **C** (processo de release), **D** (submissão Play/Apple) e **E** (pós-publicação).
+- `Checklist_Publicacao_MentAll_PRO.pdf` (**novo**, ~14,5 KB).
+- O guia antigo `tools/gerar_guia_publicacao_pdf.dart` (ago/2026) **não** foi alterado.
+- **Correção de encoding:** travessão (`—`) e ponto médio (`·`) foram trocados por ASCII. O fonte
+  Helvetica padrão do pacote `pdf` só mapeia Latin-1; caracteres fora dele (ex.: `—`) saíam como
+  símbolo aleatório no PDF. Regra: nesses geradores, usar **apenas ASCII ou Latin-1**.
+
+### Verificação
+- `dart run tools/gerar_checklist_publicacao_pdf.dart` → PDF gerado (14,5 KB).
+- `flutter analyze --no-pub`: **No issues found!** (o CI cobre `tools/`).
+
+### Pendências
+- Os itens das Partes A e B **continuam abertos** — são o próprio conteúdo do checklist (nada foi
+  publicado). A Parte A (LGPD) é pré-requisito de qualquer envio às lojas.
+
 ## Infra REA + pesquisa de funcionalidades de concorrentes (14/10/2026)
 
 ### Contexto

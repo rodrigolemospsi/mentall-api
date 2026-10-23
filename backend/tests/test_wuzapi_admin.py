@@ -126,11 +126,21 @@ class TestStatus(BaseWuzapi):
         mod.salvar_instancia_wuzapi(OWNER, "token-u")
         with mock.patch("services.wuzapi_admin.requests.get",
                         return_value=_resposta(200, {"success": True, "data": {
-                            "Connected": True, "LoggedIn": True, "Jid": "557592298347@s.whatsapp.net"}})):
+                            "connected": True, "loggedIn": True, "jid": "557592298347@s.whatsapp.net"}})):
             st = mod.status(OWNER)
         self.assertTrue(st["configurado"])
         self.assertTrue(st["conectado"])
         self.assertTrue(st["logado"])
+        self.assertIn("557592298347", st["numero"])
+
+    def test_status_formato_antigo_pascalcase(self):
+        """Fallback: respostas antigas do wuzapi usavam chaves PascalCase."""
+        mod.salvar_instancia_wuzapi(OWNER, "token-u")
+        with mock.patch("services.wuzapi_admin.requests.get",
+                        return_value=_resposta(200, {"success": True, "data": {
+                            "Connected": True, "LoggedIn": True, "Jid": "557592298347@s.whatsapp.net"}})):
+            st = mod.status(OWNER)
+        self.assertTrue(st["conectado"])
         self.assertIn("557592298347", st["numero"])
 
     def test_status_sem_instancia(self):

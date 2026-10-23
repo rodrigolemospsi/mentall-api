@@ -77,3 +77,7 @@ test/temp_hive/
 # Gradle build dir (AGP 9)
 android/build/
 design_refs/*.jpeg
+
+# Backups locais de .env (contêm segredos — nunca versionar)
+.env.bak-*
+backend/.env.bak-*
