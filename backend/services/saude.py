@@ -191,7 +191,7 @@ def _emails():
     if com_erro:
         return "atencao", f"{len(com_erro)} caixa(s) com erro de leitura"
     if violacoes:
-        return "atencao", f"{violacoes} e-mail(s) fora do SLA (suporte 4h · financeiro 24h)"
+        return "atencao", f"{violacoes} e-mail(s) fora do SLA configurado"
     if pendentes:
         return "atencao", f"{pendentes} e-mail(s) sem resposta há +24h"
     recebidas = int(totais.get("recebidas_30d") or 0)
