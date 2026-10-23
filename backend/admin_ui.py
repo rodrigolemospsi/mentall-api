@@ -2189,6 +2189,15 @@ def _secao_metricas_email(metricas: dict | None) -> str:
         '</div>'
     )
 
+    serie_dias = metricas.get("serie_dias") or []
+    grafico_dias = (
+        '<div class="graficos" style="grid-template-columns:1fr">'
+        '<div class="painel-card">'
+        '<div class="titulo"><strong>Entradas por dia</strong><small>Últimos 14 dias</small></div>'
+        + _grafico_barras(serie_dias)
+        + "</div></div>"
+    )
+
     linhas_caixas = []
     for caixa in metricas.get("caixas") or []:
         tempo_caixa = caixa.get("tempo_medio_resposta_min")
@@ -2232,6 +2241,7 @@ def _secao_metricas_email(metricas: dict | None) -> str:
         · cache de 5 min · atualizado em {_esc(gerado)}
         · <a class="voltar" href="/admin/email?atualizar=1">Atualizar agora</a></p>
       {cards}
+      {grafico_dias}
       <div class="tabela-card">
       <table>
         <thead><tr><th>Caixa</th><th>Recebidas 7d / 30d</th><th>Não lidas</th>
@@ -2248,17 +2258,3 @@ def _secao_metricas_email(metricas: dict | None) -> str:
       </div>
 """
 
-# Fase 5M fix: botões de ação e tabelas roláveis
-_ESTILO += """
-/* ---------- Fase 5M fix: botões de ação legíveis e tabelas roláveis ---------- */
-.tabela-card { overflow-x: auto !important; }
-.tabela-card table { min-width: 640px; }
-form.acoes button.perigo,
-.acoes-linha button.perigo,
-button.perigo {
-  background: var(--v2-erro) !important;
-  color: #ffffff !important;
-  border-color: var(--v2-erro) !important;
-}
-form.acoes button { white-space: nowrap; }
-"""

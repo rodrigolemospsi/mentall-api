@@ -186,6 +186,7 @@ def _coletar_caixa(caixa: dict, agora: datetime) -> dict:
         "sem_resposta_24h": 0,
         "ultima_entrada": "",
         "por_endereco": {},
+        "serie_dias": {},
         "erro": "",
     }
     conexao = None
@@ -211,6 +212,12 @@ def _coletar_caixa(caixa: dict, agora: datetime) -> dict:
         if datas:
             resultado["ultima_entrada"] = _iso(max(datas))
         resultado["por_endereco"] = _metricas_por_endereco(inicio_7d, headers_in)
+        serie = {}
+        for h in headers_in:
+            if h["data"]:
+                dia = h["data"].date().isoformat()
+                serie[dia] = serie.get(dia, 0) + 1
+        resultado["serie_dias"] = serie
 
         # Respostas: pareia In-Reply-To/References do Sent com Message-ID do INBOX.
         ids_sent = []
@@ -322,12 +329,19 @@ def coletar(force: bool = False) -> dict:
             item["recebidas_30d"] += int(dados.get("recebidas_30d") or 0)
         por_endereco.append(item)
 
+    serie_dias = []
+    for i in range(13, -1, -1):
+        dia = (agora - timedelta(days=i)).date()
+        chave = dia.isoformat()
+        total = sum(int((c.get("serie_dias") or {}).get(chave, 0)) for c in resultados)
+        serie_dias.append((dia.strftime("%d/%m"), total))
     dados = {
         "configurado": True,
         "gerado_em": agora.isoformat(),
         "totais": _agregar(resultados),
         "caixas": resultados,
         "por_endereco": por_endereco,
+        "serie_dias": serie_dias,
     }
     with _cache_lock:
         _cache["dados"] = dados

@@ -52,6 +52,7 @@ def _fake_metricas():
             {"endereco": "contato@", "recebidas_7d": 4, "recebidas_30d": 8},
             {"endereco": "suporte@", "recebidas_7d": 2, "recebidas_30d": 4},
         ],
+        "serie_dias": [("18/10", 1), ("24/10", 2)],
     }
 
 
@@ -144,12 +145,53 @@ class PaginaTests(unittest.TestCase):
             metricas=_fake_metricas(),
         )
         for marcador in ("Métricas das caixas de e-mail", "Tempo médio de resposta",
-                         "Sem resposta há +24h", "Atualizar agora", "Recebidas 7d / 30d"):
+                         "Sem resposta há +24h", "Atualizar agora", "Recebidas 7d / 30d",
+                         "Entradas por dia"):
             self.assertIn(marcador, html, marcador)
 
     def test_pagina_mostra_aviso_quando_nao_configurado(self):
         html = pagina_email([], [], dominio="x.com", metricas={"configurado": False})
         self.assertIn("Monitoramento ainda não configurado", html)
+
+
+class SaudeEmailsTests(unittest.TestCase):
+    def test_info_quando_nao_configurado(self):
+        from services import saude
+        with patch.object(email_metricas, "configurado", return_value=False):
+            estado, detalhe = saude._emails()
+        self.assertEqual(estado, "info")
+        self.assertIn("não configurado", detalhe)
+
+    def test_atencao_com_pendencia_de_resposta(self):
+        from services import saude
+        dados = {"configurado": True, "caixas": [],
+                 "totais": {"sem_resposta_24h": 2, "recebidas_30d": 5}}
+        with patch.object(email_metricas, "configurado", return_value=True), \
+                patch.object(email_metricas, "coletar", return_value=dados):
+            estado, detalhe = saude._emails()
+        self.assertEqual(estado, "atencao")
+        self.assertIn("2 e-mail", detalhe)
+
+    def test_atencao_quando_caixa_com_erro(self):
+        from services import saude
+        dados = {"configurado": True,
+                 "caixas": [{"email": "x@x.com", "erro": "timeout"}],
+                 "totais": {"sem_resposta_24h": 0, "recebidas_30d": 0}}
+        with patch.object(email_metricas, "configurado", return_value=True), \
+                patch.object(email_metricas, "coletar", return_value=dados):
+            estado, detalhe = saude._emails()
+        self.assertEqual(estado, "atencao")
+        self.assertIn("erro", detalhe)
+
+    def test_ok_quando_sem_pendencias(self):
+        from services import saude
+        dados = {"configurado": True, "caixas": [],
+                 "totais": {"sem_resposta_24h": 0, "recebidas_30d": 7}}
+        with patch.object(email_metricas, "configurado", return_value=True), \
+                patch.object(email_metricas, "coletar", return_value=dados):
+            estado, detalhe = saude._emails()
+        self.assertEqual(estado, "ok")
+        self.assertIn("7 recebidos", detalhe)
 
 
 class RotaTests(unittest.IsolatedAsyncioTestCase):

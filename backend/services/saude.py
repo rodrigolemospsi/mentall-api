@@ -174,12 +174,33 @@ def _lembretes():
     return "ok", "sem atrasos nem falhas"
 
 
+def _emails():
+    """Métricas das caixas (IMAP read-only, cache 5 min): pendências/erros."""
+    from services import email_metricas
+
+    if not email_metricas.configurado():
+        return "info", "monitoramento não configurado"
+    dados = email_metricas.coletar()
+    if not dados.get("configurado"):
+        return "info", "monitoramento não configurado"
+    caixas = dados.get("caixas") or []
+    com_erro = [c for c in caixas if c.get("erro")]
+    pendentes = int((dados.get("totais") or {}).get("sem_resposta_24h") or 0)
+    if com_erro:
+        return "atencao", f"{len(com_erro)} caixa(s) com erro de leitura"
+    if pendentes:
+        return "atencao", f"{pendentes} e-mail(s) sem resposta há +24h"
+    recebidas = int((dados.get("totais") or {}).get("recebidas_30d") or 0)
+    return "ok", f"sem pendências · {recebidas} recebidos (30d)"
+
+
 _VERIFICACOES = (
     ("Banco de dados", _banco),
     ("IA de síntese", _ia_sintese),
     ("Transcrição", _transcricao),
     ("WhatsApp (Wuzapi)", _wuzapi),
     ("E-mail (Mailu)", _mailu),
+    ("E-mail (caixas)", _emails),
     ("SMTP de cadastro", _smtp),
     ("Lembretes", _lembretes),
 )

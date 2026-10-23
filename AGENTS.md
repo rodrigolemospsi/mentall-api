@@ -108,6 +108,21 @@ lembrete falhava. Requisito do dono: **mostrar na home um alerta para reconectar
 O status vem do backend (`/wuzapi/status`), que agora também **sincroniza o banco** (Fase 5F), então o
 card da Saúde do painel e o alerta do app concordam entre si.
 
+## Alertas de e-mail na Saúde + gráfico diário — Fase 5N (24/10/2026)
+
+### O que mudou
+1. **`backend/services/saude.py`** — novo check **“E-mail (caixas)”**:
+   - `info` quando o monitoramento não está configurado;
+   - `atencao` quando há caixa com erro de leitura IMAP;
+   - `atencao` quando existe e-mail **sem resposta há +24h**;
+   - `ok` caso contrário (mostra quantos recebidos nos últimos 30 dias).
+   Usa o cache de 5 min do `email_metricas` (não abre IMAP a cada carregamento).
+2. **`backend/services/email_metricas.py`** — cada caixa agora devolve `serie_dias`
+   (contagem por dia) e a agregação monta **`serie_dias`** com os últimos **14 dias**.
+3. **`backend/admin_ui.py`** — a seção de métricas da página **E-mail** ganhou o gráfico
+   **“Entradas por dia (14 dias)”** (barras, reutilizando `_grafico_barras`).
+4. **`backend/tests/test_email_metricas.py`** — +4 testes da Saúde e marcador do gráfico.
+
 ## Métricas das caixas de e-mail — Fase 5M (24/10/2026)
 
 ### Contexto
