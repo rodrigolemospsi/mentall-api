@@ -1154,7 +1154,7 @@ def wuzapi_status(_req: Request, auth: tuple = Depends(_verificar_token)):
     """Estado da conexao do WhatsApp do profissional (para a tela de configuracoes)."""
     _rate_limit_check(_req, max_requests=60)
     _, owner_id = auth
-    estado = wuzapi_admin.status(owner_id)
+    estado = wuzapi_admin.sincronizar_status(owner_id, timeout=10)
     return WuzapiStatusResponse(sucesso=True, **estado)
 
 

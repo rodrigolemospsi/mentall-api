@@ -82,6 +82,33 @@ Suspender bloqueia **novos logins**, mas um JWT de app já emitido continua vál
 não existe registro de tokens por usuário. Revogação global por usuário (token_version) fica para o
 P1 de segurança.
 
+## Card do WhatsApp com status ao vivo — Fase 5F (23/10/2026)
+
+### Contexto
+O card **"WhatsApp (Wuzapi)"** da Saúde lia apenas a coluna `conectado` de `wuzapi_instancias`, que só
+era atualizada em eventos de reconexão. Depois da migração do banco ela ficou defasada: o painel dizia
+**"0 de 1 conectado"** enquanto o Wuzapi estava **conectado e recebendo mensagens** (confirmado por
+`GET /wuzapi/status`).
+
+### O que mudou (arquivos)
+1. **`backend/services/wuzapi_admin.py`** — `status(owner_id, timeout=...)` ganhou timeout configurável;
+   interno `_consultar_status()` devolve `(estado, erro_de_consulta)`; novo
+   **`sincronizar_status()`**: consulta ao vivo e **grava `conectado` no banco** (só grava se a consulta
+   funcionou — falha de rede não derruba a flag).
+2. **`backend/services/saude.py`** — `_wuzapi()` agora consulta o **status ao vivo** (timeout de 3 s,
+   até 5 instâncias) e mostra a verdade: `ok · 1 de 1 WhatsApp conectados` ou `atenção · 0 de 1 ...`;
+   se a consulta ao vivo falhar, cai para o banco e informa "(consulta ao vivo falhou em N)".
+3. **`backend/main.py`** — `GET /wuzapi/status` (tela de WhatsApp do app) passa a usar
+   `sincronizar_status()`, mantendo o banco fresco sempre que o app consulta.
+4. **`backend/tests/test_saude_wuzapi.py`** (novo) + ajuste do teste antigo em
+   `test_painel_operacional.py` (mock da consulta ao vivo).
+
+### Verificação
+```bash
+cd backend && ./.venv/bin/python -B tests/run_isolated.py test_saude_wuzapi
+./.venv/bin/python -B tests/run_isolated.py
+```
+
 ## Painel instalável (PWA) e responsivo no celular — Fase 5E (23/10/2026)
 
 ### Contexto

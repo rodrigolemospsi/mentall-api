@@ -110,22 +110,22 @@ def garantir_instancia(owner_id: str) -> str:
     return token
 
 
-def status(owner_id: str) -> dict:
-    """Estado da instancia do owner para a tela de configuracoes."""
+def _consultar_status(owner_id: str, timeout: float = 15) -> tuple[dict, bool]:
+    """Consulta o status ao vivo do wuzapi. Devolve (estado, erro_de_consulta)."""
     vazio = {"configurado": False, "conectado": False, "logado": False, "numero": ""}
     token = _resolver_token_wuzapi(owner_id)
     if not token:
-        return vazio
+        return vazio, False
 
     base = _base_url()
     if not base:
-        return {**vazio, "configurado": True}
+        return {**vazio, "configurado": True}, False
 
     try:
         resp = requests.get(
             f"{base}/session/status",
             headers=_headers_usuario(token),
-            timeout=15,
+            timeout=timeout,
         )
         dados = (resp.json() or {}).get("data") or {}
         # O wuzapi responde em camelCase (connected/loggedIn/jid). Mantemos o
@@ -141,10 +141,44 @@ def status(owner_id: str) -> dict:
             "conectado": bool(conectado),
             "logado": bool(logado),
             "numero": dados.get("jid") or dados.get("Jid") or "",
-        }
+        }, False
     except Exception:
         log.exception("Erro ao consultar status do wuzapi")
-        return {**vazio, "configurado": True}
+        return {**vazio, "configurado": True}, True
+
+
+def status(owner_id: str, timeout: float = 15) -> dict:
+    """Estado da instancia do owner para a tela de configuracoes."""
+    estado, _ = _consultar_status(owner_id, timeout=timeout)
+    return estado
+
+
+def sincronizar_status(owner_id: str, timeout: float = 5.0) -> dict:
+    """Consulta ao vivo e grava `conectado` no banco (reconciliacao).
+
+    Evita painel defasado quando a sessao do WhatsApp cai ou volta sem passar
+    por evento de reconexao. So grava se a consulta ao vivo funcionou (falha de
+    rede nao derruba a flag no banco).
+    """
+    from datetime import datetime, timezone
+
+    from services.db import executar
+
+    estado, erro = _consultar_status(owner_id, timeout=timeout)
+    if not erro:
+        try:
+            executar(
+                "UPDATE wuzapi_instancias SET conectado = ?, atualizado_em = ? "
+                "WHERE owner_id = ?",
+                (
+                    1 if estado.get("conectado") else 0,
+                    datetime.now(timezone.utc).isoformat(),
+                    owner_id,
+                ),
+            ).commit()
+        except Exception:
+            log.exception("Falha ao sincronizar status do wuzapi no banco")
+    return estado
 
 
 def parear(owner_id: str, telefone: str) -> dict:

@@ -154,18 +154,15 @@ class SaudeTests(unittest.TestCase):
             "VALUES ('o1', 1, ?)",
             (_iso(),),
         ).commit()
-        db.executar(
-            "INSERT INTO wuzapi_instancias (owner_id, conectado, atualizado_em) "
-            "VALUES ('o2', 0, ?)",
-            (_iso(),),
-        ).commit()
         with patch.dict(
             os.environ, {"WUZAPI_BASE_URL": "https://wuzapi.exemplo", "WUZAPI_ADMIN_TOKEN": "x"},
             clear=True,
+        ), patch(
+            "services.wuzapi_admin.sincronizar_status", return_value={"conectado": True}
         ):
             estado, detalhe = saude._wuzapi()
         self.assertEqual(estado, "ok")
-        self.assertIn("1 de 2", detalhe)
+        self.assertIn("1 de 1", detalhe)
 
     def test_lembretes_atrasados_geram_atencao(self):
         estado, _ = saude._lembretes()

@@ -98,20 +98,39 @@ def _transcricao():
 
 
 def _wuzapi():
-    total = executar("SELECT COUNT(*) AS n FROM wuzapi_instancias").fetchone()["n"]
-    conectados = executar(
-        "SELECT COUNT(*) AS n FROM wuzapi_instancias WHERE conectado = 1"
-    ).fetchone()["n"]
+    """Estado real do WhatsApp: consulta o wuzapi ao vivo e sincroniza o banco."""
+    from services import wuzapi_admin
+
     configurado = bool(os.getenv("WUZAPI_BASE_URL", "").strip()) and bool(
         os.getenv("WUZAPI_ADMIN_TOKEN", "").strip()
     )
+    linhas = executar(
+        "SELECT owner_id, conectado FROM wuzapi_instancias ORDER BY atualizado_em DESC"
+    ).fetchall()
+    total = len(linhas)
+
     if not configurado:
         return ("atencao" if total else "info"), "serviço não configurado neste ambiente"
     if total == 0:
         return "ok", "configurado · nenhum WhatsApp conectado ainda"
-    if conectados == 0:
-        return "atencao", f"configurado · 0 de {total} WhatsApp conectados"
-    return "ok", f"configurado · {conectados} de {total} WhatsApp conectados"
+
+    conectados = 0
+    falhas_consulta = 0
+    for linha in linhas[:5]:  # limite: mantém a Saúde rápida
+        try:
+            estado = wuzapi_admin.sincronizar_status(linha["owner_id"], timeout=3.0)
+        except Exception:
+            falhas_consulta += 1
+            estado = {"conectado": bool(linha["conectado"])}
+        if estado.get("conectado"):
+            conectados += 1
+
+    detalhe = f"{conectados} de {total} WhatsApp conectados"
+    if conectados == total:
+        return "ok", detalhe
+    if falhas_consulta:
+        detalhe += f" (consulta ao vivo falhou em {falhas_consulta})"
+    return "atencao", detalhe
 
 
 def _mailu():
