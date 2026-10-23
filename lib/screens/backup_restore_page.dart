@@ -669,9 +669,9 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
             ),
           ),
           const SizedBox(height: 16),
-          _cardChaveRecuperacao(context),
-          const SizedBox(height: 16),
           _cardBackupAutomatico(context, config),
+          const SizedBox(height: 16),
+          _cardChaveRecuperacao(context),
           const SizedBox(height: 24),
           Card(
             elevation: 0,
