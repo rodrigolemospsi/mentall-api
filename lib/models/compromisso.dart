@@ -57,6 +57,32 @@ class Compromisso extends HiveObject {
   @HiveField(16)
   String canalLembrete;
 
+  @HiveField(17, defaultValue: 'sessao')
+  String tipoEvento;
+
+  @HiveField(18, defaultValue: 'presencial')
+  String modalidade;
+
+  @HiveField(19, defaultValue: '')
+  String sala;
+
+  @HiveField(20, defaultValue: '')
+  String servico;
+
+  @HiveField(21, defaultValue: '')
+  String linkOnline;
+
+  @HiveField(22, defaultValue: '')
+  String googleEventId;
+
+  @HiveField(23, defaultValue: '')
+  String googleCalendarId;
+
+  @HiveField(24)
+  DateTime? googleSyncedAt;
+
+  bool permitirConflito;
+
   Compromisso({
     required this.id,
     required this.pacienteId,
@@ -75,9 +101,18 @@ class Compromisso extends HiveObject {
     this.dataLimiteRecorrencia,
     this.compromissoPaiId,
     this.canalLembrete = 'whatsapp',
-  })  : dataHoraFim = dataHoraFim ??
-            dataHoraInicio.add(const Duration(minutes: 50)),
-        dataCriacao = dataCriacao ?? DateTime.now();
+    this.tipoEvento = 'sessao',
+    this.modalidade = 'presencial',
+    this.sala = '',
+    this.servico = '',
+    this.linkOnline = '',
+    this.googleEventId = '',
+    this.googleCalendarId = '',
+    this.googleSyncedAt,
+    this.permitirConflito = false,
+  }) : dataHoraFim =
+           dataHoraFim ?? dataHoraInicio.add(const Duration(minutes: 50)),
+       dataCriacao = dataCriacao ?? DateTime.now();
 
   StatusCompromisso get statusEnum => StatusCompromisso.fromString(status);
 
@@ -97,6 +132,10 @@ class Compromisso extends HiveObject {
   bool get temRecorrencia => recorrenciaEnum.temRecorrencia;
 
   bool get ehFilhoDeRecorrencia => compromissoPaiId != null;
+
+  bool get ehEventoGeral => tipoEvento == 'evento_geral';
+
+  bool get ehOnline => modalidade == 'online';
 
   String get horarioInicioFormatado {
     return '${dataHoraInicio.hour.toString().padLeft(2, '0')}:${dataHoraInicio.minute.toString().padLeft(2, '0')}';
@@ -133,6 +172,15 @@ class Compromisso extends HiveObject {
     DateTime? dataLimiteRecorrencia,
     String? compromissoPaiId,
     String? canalLembrete,
+    String? tipoEvento,
+    String? modalidade,
+    String? sala,
+    String? servico,
+    String? linkOnline,
+    String? googleEventId,
+    String? googleCalendarId,
+    DateTime? googleSyncedAt,
+    bool? permitirConflito,
   }) {
     return Compromisso(
       id: id ?? this.id,
@@ -153,16 +201,32 @@ class Compromisso extends HiveObject {
           dataLimiteRecorrencia ?? this.dataLimiteRecorrencia,
       compromissoPaiId: compromissoPaiId ?? this.compromissoPaiId,
       canalLembrete: canalLembrete ?? this.canalLembrete,
+      tipoEvento: tipoEvento ?? this.tipoEvento,
+      modalidade: modalidade ?? this.modalidade,
+      sala: sala ?? this.sala,
+      servico: servico ?? this.servico,
+      linkOnline: linkOnline ?? this.linkOnline,
+      googleEventId: googleEventId ?? this.googleEventId,
+      googleCalendarId: googleCalendarId ?? this.googleCalendarId,
+      googleSyncedAt: googleSyncedAt ?? this.googleSyncedAt,
+      permitirConflito: permitirConflito ?? this.permitirConflito,
     );
   }
 
-  String gerarMensagemLembretePadrao(String nomePaciente, String nomeProfissional) {
+  String gerarMensagemLembretePadrao(
+    String nomePaciente,
+    String nomeProfissional,
+  ) {
     return 'Olá {nome}, lembrete da sua sessão com {profissional} '
         'em {data} às {hora}. Até lá!';
   }
 
-  String formatarMensagemLembrete(String nomePaciente, String nomeProfissional) {
-    final data = '${dataHoraInicio.day.toString().padLeft(2, '0')}/'
+  String formatarMensagemLembrete(
+    String nomePaciente,
+    String nomeProfissional,
+  ) {
+    final data =
+        '${dataHoraInicio.day.toString().padLeft(2, '0')}/'
         '${dataHoraInicio.month.toString().padLeft(2, '0')}/'
         '${dataHoraInicio.year}';
     final hora = horarioInicioFormatado;

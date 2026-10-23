@@ -36,13 +36,21 @@ class CompromissoAdapter extends TypeAdapter<Compromisso> {
       dataLimiteRecorrencia: fields[14] as DateTime?,
       compromissoPaiId: fields[15] as String?,
       canalLembrete: fields[16] == null ? 'whatsapp' : fields[16] as String,
+      tipoEvento: fields[17] == null ? 'sessao' : fields[17] as String,
+      modalidade: fields[18] == null ? 'presencial' : fields[18] as String,
+      sala: fields[19] == null ? '' : fields[19] as String,
+      servico: fields[20] == null ? '' : fields[20] as String,
+      linkOnline: fields[21] == null ? '' : fields[21] as String,
+      googleEventId: fields[22] == null ? '' : fields[22] as String,
+      googleCalendarId: fields[23] == null ? '' : fields[23] as String,
+      googleSyncedAt: fields[24] as DateTime?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Compromisso obj) {
     writer
-      ..writeByte(17)
+      ..writeByte(25)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -76,7 +84,23 @@ class CompromissoAdapter extends TypeAdapter<Compromisso> {
       ..writeByte(15)
       ..write(obj.compromissoPaiId)
       ..writeByte(16)
-      ..write(obj.canalLembrete);
+      ..write(obj.canalLembrete)
+      ..writeByte(17)
+      ..write(obj.tipoEvento)
+      ..writeByte(18)
+      ..write(obj.modalidade)
+      ..writeByte(19)
+      ..write(obj.sala)
+      ..writeByte(20)
+      ..write(obj.servico)
+      ..writeByte(21)
+      ..write(obj.linkOnline)
+      ..writeByte(22)
+      ..write(obj.googleEventId)
+      ..writeByte(23)
+      ..write(obj.googleCalendarId)
+      ..writeByte(24)
+      ..write(obj.googleSyncedAt);
   }
 
   @override
