@@ -317,6 +317,36 @@ def _grafico_barras(serie: list) -> str:
     return '<div class="barras">' + "".join(colunas) + "</div>"
 
 
+def _grafico_barras_duplas(serie: list, legenda: tuple) -> str:
+    """Barras agrupadas: série [(rótulo, total, parte)] + legenda (total, parte)."""
+    if not serie:
+        return '<p class="off">Sem dados ainda.</p>'
+    maximo = max((int(total or 0) for _, total, _ in serie), default=0) or 1
+    colunas = []
+    for rotulo, total, parte in serie:
+        total = int(total or 0)
+        parte = int(parte or 0)
+        altura_total = 6 + int(88 * total / maximo)
+        altura_parte = 6 + int(88 * parte / maximo)
+        colunas.append(
+            '<div class="barra" title="'
+            + _esc(str(rotulo)) + f": {total} ({parte})" + '>'
+            '<div class="colunas">'
+            f'<div class="col total" style="height:{altura_total}%"></div>'
+            f'<div class="col parte" style="height:{altura_parte}%"></div>'
+            "</div>"
+            f'<span class="rotulo">{_esc(str(rotulo))}</span>'
+            "</div>"
+        )
+    return (
+        '<div class="barras duplas">' + "".join(colunas) + "</div>"
+        '<div class="legenda-chart">'
+        f'<span><i class="cor total"></i>{_esc(legenda[0])}</span>'
+        f'<span><i class="cor parte"></i>{_esc(legenda[1])}</span>'
+        "</div>"
+    )
+
+
 def _grafico_donut(itens: list) -> str:
     """Donut em SVG puro + legenda (itens: [(rótulo, valor, cor)])."""
     total = sum(int(valor or 0) for _, valor, _ in itens)
@@ -347,14 +377,13 @@ def _grafico_donut(itens: list) -> str:
             f'<span class="qtd">{valor}</span>'
             "</div>"
         )
-    svg = (
-        '<svg width="118" height="118" viewBox="0 0 84 84" role="img" '
-        f'aria-label="Distribuição de contas">{"".join(partes)}</svg>'
-    )
+    partes_svg = "".join(partes)
+    legenda_html = "".join(legenda)
     return (
         '<div class="donut-wrap">'
-        + svg
-        + '<div class="legenda">' + "".join(legenda) + "</div></div>"
+        f'<svg width="118" height="118" viewBox="0 0 84 84" role="img" '
+        f'aria-label="Distribuição">{partes_svg}</svg>'
+        f'<div class="legenda">{legenda_html}</div></div>'
     )
 
 
@@ -369,7 +398,7 @@ def pagina_dashboard(
     pode_email: bool = True,
     estatisticas: dict | None = None,
 ) -> str:
-    """Dashboard v2 (Fase 5K): KPIs, anéis, gráficos e tabelas limpas."""
+    """Dashboard v3 (Fase 5L): KPIs, anéis, 4 gráficos e tabelas limpas."""
     filtros = filtros or {}
     extras = extras or {}
     estatisticas = estatisticas or {}
@@ -379,19 +408,6 @@ def pagina_dashboard(
     pagina_atual = int(pagina.get("pagina") or 1)
 
     pendentes = int(extras.get("usuarios_pendentes") or 0)
-    saude_geral = "ok"
-    for item in saude or []:
-        estado = item.get("estado") or "ok"
-        if estado == "erro":
-            saude_geral = "erro"
-            break
-        if estado == "atencao":
-            saude_geral = "atencao"
-    rotulo_saude = {
-        "ok": "tudo certo",
-        "atencao": "atenção",
-        "erro": "erro",
-    }.get(saude_geral, saude_geral)
 
     kpis_html = f"""  <div class="kpis">
     <div class="kpi"><div class="n">{int(kpis.get("psicologos") or 0)}</div><div class="l">Psicólogos</div></div>
@@ -401,49 +417,80 @@ def pagina_dashboard(
     <div class="kpi{' destaque' if pendentes else ''}"><div class="n">{pendentes}</div><div class="l">Contas pendentes</div></div>
   </div>"""
 
-    pct_online = int(estatisticas.get("online_pct") or 0)
-    pct_contratos = int(estatisticas.get("contratos_pct") or 0)
-    pct_lembretes = int(estatisticas.get("lembretes_pct") or 0)
     aneis_html = f"""  <div class="aneis">
-    <div class="anel-card">{_anel(pct_online)}
+    <div class="anel-card">{_anel(int(estatisticas.get("online_pct") or 0))}
       <div class="txt"><strong>Psicólogos online</strong>
         <small>{int(kpis.get("online_agora") or 0)} de {int(kpis.get("psicologos") or 0)} com heartbeat recente</small></div>
     </div>
-    <div class="anel-card">{_anel(pct_contratos, "#22c55e")}
+    <div class="anel-card">{_anel(int(estatisticas.get("contratos_pct") or 0), "#22c55e")}
       <div class="txt"><strong>Contratos aceitos</strong>
         <small>{int(estatisticas.get("contratos_aceitos") or 0)} de {int(estatisticas.get("contratos_total") or 0)} contratos</small></div>
     </div>
-    <div class="anel-card">{_anel(pct_lembretes, "#0ea5e9")}
+    <div class="anel-card">{_anel(int(estatisticas.get("lembretes_pct") or 0), "#0ea5e9")}
       <div class="txt"><strong>Lembretes entregues</strong>
         <small>{int(estatisticas.get("lembretes_ok") or 0)} de {int(estatisticas.get("lembretes_total") or 0)} enviados</small></div>
     </div>
   </div>"""
 
-    serie = estatisticas.get("serie_meses") or []
     status = estatisticas.get("status") or {}
-    donut = _grafico_donut([
+    donut_contas = _grafico_donut([
         ("Ativos", status.get("ativo", 0), "#22c55e"),
         ("Pendentes", status.get("pendente", 0), "#f59e0b"),
         ("Suspensos", status.get("suspenso", 0), "#ef4444"),
     ])
+    serie_contratos = estatisticas.get("serie_contratos") or []
+    lembretes_status = estatisticas.get("lembretes_status") or {}
+    donut_lembretes = _grafico_donut([
+        ("Pendentes", lembretes_status.get("pendente", 0), "#f59e0b"),
+        ("Enviados", lembretes_status.get("enviado", 0), "#0ea5e9"),
+        ("Falhas", lembretes_status.get("falha", 0), "#ef4444"),
+        ("Cancelados", lembretes_status.get("cancelado", 0), "#cbd5e1"),
+    ])
+
     graficos_html = f"""  <div class="graficos">
     <div class="painel-card">
       <div class="titulo"><strong>Cadastros por mês</strong><small>Últimos 12 meses</small></div>
-      {_grafico_barras(serie)}
+      {_grafico_barras(estatisticas.get("serie_meses") or [])}
     </div>
     <div class="painel-card">
       <div class="titulo"><strong>Distribuição de contas</strong><small>{int(kpis.get("total_usuarios") or 0)} contas</small></div>
-      {donut}
+      {donut_contas}
     </div>
+  </div>
+
+  <div class="graficos">
+    <div class="painel-card">
+      <div class="titulo"><strong>Contratos por mês</strong><small>Total e aceitos</small></div>
+      {_grafico_barras_duplas(serie_contratos, ("Criados", "Aceitos"))}
+    </div>
+    <div class="painel-card">
+      <div class="titulo"><strong>Lembretes por status</strong><small>{sum(int(v or 0) for v in lembretes_status.values())} lembretes</small></div>
+      {donut_lembretes}
+    </div>
+  </div>"""
+
+    mini_kpis_html = f"""  <div class="kpis mini">
+    <div class="kpi"><div class="n">{int(extras.get("contratos_aceitos") or 0)}</div><div class="l">Contratos aceitos</div></div>
+    <div class="kpi"><div class="n">{int(extras.get("anamneses_respondidas") or 0)}</div><div class="l">Anamneses respondidas</div></div>
+    <div class="kpi"><div class="n">{int(extras.get("lembretes_entregues") or 0)}</div><div class="l">Lembretes entregues</div></div>
+    <div class="kpi{' destaque' if int(extras.get("lembretes_falhas") or 0) else ''}"><div class="n">{int(extras.get("lembretes_falhas") or 0)}</div><div class="l">Falhas de lembrete</div></div>
   </div>"""
 
     linhas = "".join(_linha_usuario(u) for u in usuarios) or (
         '<tr><td colspan="10" class="off">Nenhuma pessoa encontrada com esses filtros.</td></tr>'
     )
+    link_anterior = (
+        f'<a href="/admin?{_querystring(filtros, max(1, pagina_atual - 1))}">← Anterior</a>'
+        if pagina_atual > 1 else ""
+    )
+    link_proxima = (
+        f'<a href="/admin?{_querystring(filtros, min(total_paginas, pagina_atual + 1))}">Próxima →</a>'
+        if pagina_atual < total_paginas else ""
+    )
     pager = f"""  <div class="pager">
     Página {pagina_atual} de {total_paginas} · {total} pessoa(s)
-    {f'<a href="/admin?{_querystring(filtros, max(1, pagina_atual - 1))}">← Anterior</a>' if pagina_atual > 1 else ''}
-    {f'<a href="/admin?{_querystring(filtros, min(total_paginas, pagina_atual + 1))}">Próxima →</a>' if pagina_atual < total_paginas else ''}
+    {link_anterior}
+    {link_proxima}
   </div>"""
 
     return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
@@ -454,8 +501,9 @@ def pagina_dashboard(
 {kpis_html}
 {aneis_html}
 {graficos_html}
+{mini_kpis_html}
 {_secao_operacao(extras)}
-  {_secao_saude(saude)}
+{_secao_saude(saude)}
   <h2>Pessoas ({total})</h2>
   {_form_filtros(filtros, opcoes)}
   <div class="tabela-card">
@@ -470,8 +518,6 @@ def pagina_dashboard(
   {pager}
   <div id="auditoria">{_secao_auditoria(auditoria)}</div>
 </main>
-  </div>
-</div>
 </body></html>"""
 
 

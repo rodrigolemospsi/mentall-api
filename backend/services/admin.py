@@ -518,13 +518,8 @@ def arquivar_falhas_antigas(dias: int = DIAS_FALHA_ANTIGA) -> int:
     return cur.rowcount or 0
 
 
-def estatisticas_dashboard() -> dict:
-    """Séries e percentuais para os gráficos/aneis do dashboard (Fase 5K).
-
-    LGPD: só contagens agregadas — nenhum conteúdo clínico."""
-    agora = datetime.now(timezone.utc)
-
-    # Últimos 12 meses (inclui o atual), do mais antigo para o mais recente.
+def _meses_ultimos_12(agora: datetime) -> list:
+    """[(ano, mês)] dos últimos 12 meses, do mais antigo para o atual."""
     meses = []
     ano, mes = agora.year, agora.month
     for _ in range(12):
@@ -534,17 +529,64 @@ def estatisticas_dashboard() -> dict:
             mes = 12
             ano -= 1
     meses.reverse()
+    return meses
+
+
+_ROTULOS_MES = ["jan", "fev", "mar", "abr", "mai", "jun",
+                "jul", "ago", "set", "out", "nov", "dez"]
+
+
+def _contagem_por_mes(tabela: str, campo: str, inicio: str, where: str = "", params=()) -> dict:
+    sql = f"SELECT substr({campo}, 1, 7) AS mes, COUNT(*) AS n FROM {tabela} WHERE {campo} >= ?"
+    if where:
+        sql += f" AND ({where})"
+    sql += " GROUP BY mes"
+    linhas = executar(sql, (inicio, *params)).fetchall()
+    return {linha["mes"]: int(linha["n"]) for linha in linhas}
+
+
+def estatisticas_dashboard() -> dict:
+    """Séries e percentuais para os gráficos/aneis do dashboard (Fases 5K/5L).
+
+    LGPD: só contagens agregadas — nenhum conteúdo clínico."""
+    agora = datetime.now(timezone.utc)
+    meses = _meses_ultimos_12(agora)
+    rotulos = [(_ROTULOS_MES[m - 1], ano, m) for ano, m in meses]
     inicio = f"{meses[0][0]:04d}-{meses[0][1]:02d}-01"
-    linhas = executar(
-        "SELECT substr(criado_em, 1, 7) AS mes, COUNT(*) AS n FROM usuarios "
-        "WHERE criado_em >= ? GROUP BY mes",
-        (inicio,),
-    ).fetchall()
-    por_mes = {linha["mes"]: int(linha["n"]) for linha in linhas}
-    rotulos = ["jan", "fev", "mar", "abr", "mai", "jun",
-               "jul", "ago", "set", "out", "nov", "dez"]
+
+    # Cadastros de psicólogos por mês
+    por_mes_usuarios = _contagem_por_mes("usuarios", "criado_em", inicio)
     serie_meses = [
-        (rotulos[m - 1], por_mes.get(f"{a:04d}-{m:02d}", 0)) for a, m in meses
+        (rotulo, por_mes_usuarios.get(f"{ano:04d}-{mes:02d}", 0))
+        for rotulo, ano, mes in rotulos
+    ]
+
+    # Contratos: total criado x aceitos por mês
+    contratos_total_mes = _contagem_por_mes("contratos", "criado_em", inicio)
+    contratos_aceitos_mes = _contagem_por_mes(
+        "contratos", "aceito_em", inicio, "aceito_em IS NOT NULL"
+    )
+    contratos_serie = [
+        (
+            rotulo,
+            contratos_total_mes.get(f"{ano:04d}-{mes:02d}", 0),
+            contratos_aceitos_mes.get(f"{ano:04d}-{mes:02d}", 0),
+        )
+        for rotulo, ano, mes in rotulos
+    ]
+
+    # Lembretes: total criado x entregues por mês
+    lembretes_total_mes = _contagem_por_mes("lembretes", "criado_em", inicio)
+    lembretes_entregues_mes = _contagem_por_mes(
+        "lembretes", "entregue_em", inicio, "entregue_em IS NOT NULL"
+    )
+    lembretes_serie = [
+        (
+            rotulo,
+            lembretes_total_mes.get(f"{ano:04d}-{mes:02d}", 0),
+            lembretes_entregues_mes.get(f"{ano:04d}-{mes:02d}", 0),
+        )
+        for rotulo, ano, mes in rotulos
     ]
 
     status = {}
@@ -552,6 +594,24 @@ def estatisticas_dashboard() -> dict:
         "SELECT status, COUNT(*) AS n FROM usuarios GROUP BY status"
     ).fetchall():
         status[linha["status"]] = int(linha["n"])
+
+    contratos_status = {}
+    for linha in executar(
+        "SELECT status, COUNT(*) AS n FROM contratos GROUP BY status"
+    ).fetchall():
+        contratos_status[linha["status"]] = int(linha["n"])
+
+    lembretes_status = {}
+    for linha in executar(
+        "SELECT status, COUNT(*) AS n FROM lembretes GROUP BY status"
+    ).fetchall():
+        lembretes_status[linha["status"]] = int(linha["n"])
+
+    anamneses_status = {}
+    for linha in executar(
+        "SELECT status, COUNT(*) AS n FROM anamneses GROUP BY status"
+    ).fetchall():
+        anamneses_status[linha["status"]] = int(linha["n"])
 
     def pct(parte: int, total: int) -> int:
         return int(round(100 * parte / total)) if total else 0
@@ -590,7 +650,12 @@ def estatisticas_dashboard() -> dict:
 
     return {
         "serie_meses": serie_meses,
+        "serie_contratos": contratos_serie,
+        "serie_lembretes": lembretes_serie,
         "status": status,
+        "contratos_status": contratos_status,
+        "lembretes_status": lembretes_status,
+        "anamneses_status": anamneses_status,
         "online_pct": pct(online, psicologos),
         "contratos_pct": pct(contratos_aceitos, contratos_total),
         "contratos_aceitos": contratos_aceitos,

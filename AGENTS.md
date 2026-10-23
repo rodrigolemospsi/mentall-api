@@ -108,6 +108,27 @@ lembrete falhava. Requisito do dono: **mostrar na home um alerta para reconectar
 O status vem do backend (`/wuzapi/status`), que agora também **sincroniza o banco** (Fase 5F), então o
 card da Saúde do painel e o alerta do app concordam entre si.
 
+## Dashboard analítico — Fase 5L (24/10/2026)
+
+### Contexto
+Depois da transformação visual (Fase 5K), o dono pediu **mais cartões/gráficos** no dashboard
+(ex.: lembretes por status, contratos por mês).
+
+### O que foi adicionado
+1. **`backend/services/admin.py` — `estatisticas_dashboard()`** ganhou:
+   - `serie_contratos`: últimos 12 meses com **criados** e **aceitos** por mês;
+   - `serie_lembretes`: últimos 12 meses com **total** e **entregues** por mês;
+   - `contratos_status`, `lembretes_status`, `anamneses_status` (contagens por status).
+2. **`backend/admin_ui.py`** — dashboard ganhou:
+   - **Dois gráficos novos**:
+     - **Contratos por mês** (barras agrupadas: criados × aceitos, legenda no rodapé);
+     - **Lembretes por status** (donut: pendentes, enviados, falhas, cancelados + legenda).
+   - **4 mini-KPIs**: Contratos aceitos, Anamneses respondidas, Lembretes entregues,
+     Falhas de lembrete (em vermelho quando há falhas).
+   - CSS novo para barras agrupadas, legendas e mini-KPIs (responsivo).
+3. **`backend/tests/test_admin_analytics.py`** (novo) — 6 testes (séries de 12 meses, contratos,
+   lembretes, anamneses e marcadores no HTML).
+
 ## Dashboard v2 (transformação visual) — Fase 5K (24/10/2026)
 
 ### Contexto
