@@ -82,6 +82,35 @@ Suspender bloqueia **novos logins**, mas um JWT de app já emitido continua vál
 não existe registro de tokens por usuário. Revogação global por usuário (token_version) fica para o
 P1 de segurança.
 
+## Alerta de WhatsApp desconectado na Home — Fase 5J (24/10/2026)
+> **Nota de commit:** a ligação do alerta em `home_page.dart` está na working tree junto com o WIP
+> do app (ainda não commitado). O APK 1.0.54 já inclui o alerta; o wiring entra no commit quando o
+> WIP do app for consolidado.
+
+
+
+### Contexto
+Os lembretes das sessões são enviados pelo WhatsApp (Wuzapi). Quando a sessão cai (celular
+desconectado, logout, perda de conexão), o psicólogo não era avisado no app — só descobria quando um
+lembrete falhava. Requisito do dono: **mostrar na home um alerta para reconectar**.
+
+### O que mudou (arquivos)
+1. **`lib/widgets/alerta_wuzapi.dart` (novo)** — banner de alerta com dois estados:
+   - **"WhatsApp desconectado"** (configurado, mas `conectado`/`logado` = false): “A conexão caiu.
+     Reconecte para não perder os lembretes das sessões.”
+   - **"WhatsApp não conectado"** (ainda não configurado): convida a conectar.
+   - Botão **Reconectar** abre a tela `WhatsappConexaoPage` e revalida ao voltar.
+   - Verifica ao abrir a Home, ao retornar do segundo plano (`WidgetsBindingObserver`) e a cada **60 s**.
+   - Se a consulta falhar (sem internet), **mantém o estado anterior** (não gera falso alarme).
+   - Não consulta nada além de `GET /wuzapi/status` (metadados, sem conteúdo clínico).
+2. **`lib/screens/home_page.dart`** — `AlertaWuzapi` no topo da home (antes da saudação).
+3. **`test/widgets/alerta_wuzapi_test.dart`** (novo) — 4 testes (desconectado, não configurado,
+   conectado, falha de consulta).
+
+### Observação
+O status vem do backend (`/wuzapi/status`), que agora também **sincroniza o banco** (Fase 5F), então o
+card da Saúde do painel e o alerta do app concordam entre si.
+
 ## Psicólogo × equipe do painel — Fase 5I (24/10/2026)
 
 ### Contexto
