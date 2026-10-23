@@ -577,6 +577,148 @@ class EncryptionService {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Backup portátil (Fase 5G): envelope cifrado por SENHA (PBKDF2 + AES-GCM)
+  // e chave de recuperação. Independe da chave mestra do aparelho, então pode
+  // ser restaurado em qualquer aparelho/instalação.
+  // ---------------------------------------------------------------------------
+
+  static const int _iteracoesEnvelopeSenha = 100000;
+  static const int _saltEnvelopeBytes = 16;
+
+  Future<Uint8List> _derivarChaveSenha(
+    String senha,
+    String saltBase64,
+    int iteracoes,
+  ) {
+    // 64 bytes: 32 para AES-GCM + 32 para o HMAC.
+    return _executarPbkdf2Isolate(senha, saltBase64, iteracoes, 64);
+  }
+
+  Uint8List _hmacComChave(List<int> chaveMac, List<int> nonce, List<int> cifrado) {
+    final hmac = Hmac(sha256, chaveMac);
+    return Uint8List.fromList(hmac.convert([...nonce, ...cifrado]).bytes);
+  }
+
+  Future<String?> _criptografarComSenha(
+    String texto,
+    String senha,
+    String tipo,
+  ) async {
+    if (texto.isEmpty || senha.isEmpty) return null;
+    try {
+      final salt = encrypt.IV.fromSecureRandom(_saltEnvelopeBytes);
+      final saltB64 = base64Encode(salt.bytes);
+      final derivada = await _derivarChaveSenha(senha, saltB64, _iteracoesEnvelopeSenha);
+      final chaveAes = encrypt.Key(Uint8List.sublistView(derivada, 0, 32));
+      final chaveMac = Uint8List.sublistView(derivada, 32, 64);
+
+      final nonce = encrypt.IV.fromSecureRandom(12);
+      final nonceBytes = Uint8List.fromList(nonce.bytes);
+      final encrypter =
+          encrypt.Encrypter(encrypt.AES(chaveAes, mode: encrypt.AESMode.gcm));
+      final cifrado = encrypter.encrypt(texto, iv: nonce);
+      final cifradoBytes = Uint8List.fromList(cifrado.bytes);
+      final mac = _hmacComChave(chaveMac, nonceBytes, cifradoBytes);
+
+      return jsonEncode({
+        'tipo': tipo,
+        'kdf': 'pbkdf2-sha256',
+        'iteracoes': _iteracoesEnvelopeSenha,
+        'salt': saltB64,
+        'nonce': base64Encode(nonceBytes),
+        'cifrado': base64Encode(cifradoBytes),
+        'mac': base64Encode(mac),
+      });
+    } catch (e) {
+      Log.erro(e, contexto: 'EncryptionService._criptografarComSenha');
+      return null;
+    }
+  }
+
+  Future<String?> _descriptografarComSenha(
+    String envelopeJson,
+    String senha,
+    String tipoEsperado,
+  ) async {
+    if (envelopeJson.isEmpty || senha.isEmpty) return null;
+    try {
+      final env = jsonDecode(envelopeJson) as Map<String, dynamic>;
+      if (env['tipo'] != tipoEsperado) return null;
+      final iteracoes = (env['iteracoes'] as num?)?.toInt() ?? _iteracoesEnvelopeSenha;
+      final saltB64 = env['salt'] as String;
+      final derivada = await _derivarChaveSenha(senha, saltB64, iteracoes);
+      final chaveAes = encrypt.Key(Uint8List.sublistView(derivada, 0, 32));
+      final chaveMac = Uint8List.sublistView(derivada, 32, 64);
+
+      final nonce = Uint8List.fromList(base64Decode(env['nonce'] as String));
+      final cifrado = Uint8List.fromList(base64Decode(env['cifrado'] as String));
+      final macEsperado = Uint8List.fromList(base64Decode(env['mac'] as String));
+      final macCalculado = _hmacComChave(chaveMac, nonce, cifrado);
+
+      if (macCalculado.length != macEsperado.length ||
+          !_constEq(macCalculado, macEsperado)) {
+        return null;
+      }
+
+      final encrypter =
+          encrypt.Encrypter(encrypt.AES(chaveAes, mode: encrypt.AESMode.gcm));
+      return encrypter.decrypt(
+        encrypt.Encrypted(cifrado),
+        iv: encrypt.IV(nonce),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Cifra um backup com senha do usuário (restaurável em qualquer aparelho).
+  Future<String?> criptografarEnvelopeComSenha(String jsonClaro, String senha) =>
+      _criptografarComSenha(jsonClaro, senha, 'mentall_backup_v2');
+
+  /// Abre um backup cifrado com senha. Devolve null para senha errada/corrompido.
+  Future<String?> descriptografarEnvelopeComSenha(String envelopeJson, String senha) =>
+      _descriptografarComSenha(envelopeJson, senha, 'mentall_backup_v2');
+
+  /// Exporta a chave mestra embrulhada por senha (arquivo de recuperação).
+  ///
+  /// Serve para recuperar backups antigos (formato v1, presos ao aparelho) em
+  /// um aparelho novo: importe a chave e depois o backup v1.
+  Future<String?> exportarChaveProtegida(String senha) async {
+    if (_key == null || senha.isEmpty) return null;
+    return _criptografarComSenha(
+      base64Encode(_key!.bytes),
+      senha,
+      'mentall_chave_v1',
+    );
+  }
+
+  /// Importa a chave de recuperação: SUBSTITUI a chave mestra deste aparelho.
+  /// Use em aparelho novo/restauração; dados já cifrados com a chave antiga
+  /// deste aparelho deixam de ser legíveis.
+  Future<bool> importarChaveProtegida(String envelopeJson, String senha) async {
+    final jsonClaro =
+        await _descriptografarComSenha(envelopeJson, senha, 'mentall_chave_v1');
+    if (jsonClaro == null) return false;
+    try {
+      final bytes = base64Decode(jsonClaro.trim());
+      if (bytes.length != 32) return false;
+      _setKey(encrypt.Key(Uint8List.fromList(bytes)));
+      try {
+        await _duravel.write(key: _secureKeyDuravel, value: _key!.base64);
+      } catch (_) {
+        // Cofre indisponível: chave fica só em memória (sessão atual).
+      }
+      try {
+        await _box.put(_chaveGeradaKey, 'true');
+        await _box.put(_chaveDuravelKey, 'true');
+      } catch (_) {}
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// HMAC-SHA256 sobre (nonce || cifrado) usando chave derivada da chave mestra.
   Uint8List _hmacBackup(Uint8List nonce, Uint8List cifrado) {
     final derivado = _derivarChaveMacEnvelope();

@@ -82,6 +82,40 @@ Suspender bloqueia **novos logins**, mas um JWT de app já emitido continua vál
 não existe registro de tokens por usuário. Revogação global por usuário (token_version) fica para o
 P1 de segurança.
 
+## Backup portátil com senha + chave de recuperação — Fase 5G (24/10/2026)
+
+### Contexto
+O backup do app era um envelope **preso à chave mestra do aparelho** (`mentall_backup_v1`). Ao
+reinstalar/limpar os dados do app (necessário para resolver login), a chave é destruída e o backup
+deixa de abrir ("chave diferente ou integridade comprometida"). Não havia como migrar dados entre
+aparelhos nem recuperar backups antigos.
+
+### O que mudou (arquivos)
+1. **`lib/services/encryption_service.dart`** — envelopes com senha:
+   - `criptografarEnvelopeComSenha` / `descriptografarEnvelopeComSenha` (formato `mentall_backup_v2`:
+     PBKDF2-SHA256 100k + salt aleatório + AES-256-GCM + HMAC-SHA256);
+   - `exportarChaveProtegida` / `importarChaveProtegida` (formato `mentall_chave_v1`): embrulha a
+     chave mestra com senha para recuperar backups antigos em aparelho novo.
+2. **`lib/services/backup_service.dart`** — `exportarParaJsonPortavel(senha)`,
+   `importarDeJson(json, {senha})` (detecta v1 e v2), `ehBackupComSenha`,
+   `exportarChaveRecuperacao`/`importarChaveRecuperacao`; `exportarParaJson` (v1) refatorado para
+   `_montarDados()` e mantido por compatibilidade com o backup agendado.
+3. **`lib/screens/backup_restore_page.dart`** — ao exportar, escolha **Portátil (com senha)** ou
+   **Só neste aparelho**; ao importar, detecta v2 e pede a senha; novo card **Chave de recuperação**
+   (exportar/importar com confirmação de substituição de chave) + aviso na tela.
+4. **`test/services/backup_portavel_test.dart`** (novo) — v2 roundtrip em "outro aparelho", senha
+   errada, arquivo adulterado (integridade), v1 compatível e chave de recuperação.
+
+### Segurança
+- v2 usa salt + nonce aleatórios por arquivo, KDF PBKDF2 100k e MAC em tempo constante.
+- A senha do backup **não** é armazenada em lugar nenhum; sem ela o arquivo não abre.
+- Importar chave de recuperação substitui a chave local — a UI avisa e pede confirmação.
+
+### Observação
+O backup portátil resolve o cenário "troquei/reinstalei o aparelho". Backups **v1 antigos** continuam
+abrindo somente no aparelho original **ou** em outro aparelho após importar a **chave de recuperação**
+(que precisa ter sido exportada antes).
+
 ## Card do WhatsApp com status ao vivo — Fase 5F (23/10/2026)
 
 ### Contexto

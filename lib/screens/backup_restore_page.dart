@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/service_providers.dart';
 import '../services/backup_storage.dart';
+import '../services/backup_service.dart';
 import '../services/configuracoes_service.dart';
 import '../utils/mentall_colors.dart';
 import '../utils/raio.dart';
@@ -92,17 +93,41 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
     }
     if (!mounted) return;
 
+    final portavel = await _escolherModoExportacao();
+    if (portavel == null) return; // cancelou
+
+    String? senha;
+    if (portavel) {
+      senha = await _pedirSenha(
+        titulo: 'Backup portátil (com senha)',
+        mensagem:
+            'Escolha uma senha para este backup. Ela permite restaurar os dados em '
+            'QUALQUER aparelho, mesmo depois de reinstalar o app. Guarde-a bem: '
+            'sem ela o backup não pode ser aberto.',
+        confirmarSenha: true,
+      );
+      if (senha == null) return;
+    }
+
     ref.read(_exportandoProvider.notifier).state = true;
 
     try {
-      final json = ref.read(backupServiceProvider).exportarParaJson();
-      final nomeArquivo =
-          'mentall_backup_${DateTime.now().millisecondsSinceEpoch}.json';
+      final servico = ref.read(backupServiceProvider);
+      final json = portavel
+          ? await servico.exportarParaJsonPortavel(senha!)
+          : servico.exportarParaJson();
+      final prefixo = portavel ? 'mentall_backup_portatil_' : 'mentall_backup_';
+      final nomeArquivo = '$prefixo${DateTime.now().millisecondsSinceEpoch}.json';
 
       await exportarJson(json, nomeArquivo);
 
       if (!mounted) return;
-      _mostrarSnackBar('Backup exportado com sucesso!', context.corSuccess);
+      _mostrarSnackBar(
+        portavel
+            ? 'Backup portátil exportado! Restaurável em qualquer aparelho com a senha.'
+            : 'Backup exportado com sucesso!',
+        context.corSuccess,
+      );
     } catch (e) {
       if (!mounted) return;
       _mostrarSnackBar('Não foi possível exportar o backup. Tente novamente.', context.corError);
@@ -124,10 +149,21 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
       final jsonString = await selecionarArquivoJson();
       if (jsonString == null) return;
 
+      String? senha;
+      if (BackupService.ehBackupComSenha(jsonString)) {
+        if (!mounted) return;
+        senha = await _pedirSenha(
+          titulo: 'Backup protegido por senha',
+          mensagem: 'Digite a senha definida quando este backup portátil foi exportado.',
+          confirmarSenha: false,
+        );
+        if (senha == null) return;
+      }
+
       ref.read(_importandoProvider.notifier).state = true;
 
       final resultado =
-          await ref.read(backupServiceProvider).importarDeJson(jsonString);
+          await ref.read(backupServiceProvider).importarDeJson(jsonString, senha: senha);
 
       if (!mounted) return;
       _mostrarSnackBar(resultado, context.corSuccess);
@@ -136,6 +172,194 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
       _mostrarSnackBar('Não foi possível importar o backup. Verifique o arquivo.', context.corError);
     } finally {
       if (mounted) ref.read(_importandoProvider.notifier).state = false;
+    }
+  }
+
+  /// Diálogo de escolha: backup portátil (com senha) ou só neste aparelho.
+  Future<bool?> _escolherModoExportacao() async {
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Como exportar o backup?'),
+        content: const Text(
+          '• Portátil (recomendado): protegido por senha, pode ser restaurado em '
+          'qualquer aparelho — use antes de trocar de celular ou reinstalar o app.\n\n'
+          '• Só neste aparelho: usa a chave do aparelho atual e só abre nele.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Só neste aparelho'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Portátil (com senha)'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Pede uma senha (com confirmação opcional) para backup/chave portátil.
+  Future<String?> _pedirSenha({
+    required String titulo,
+    required String mensagem,
+    required bool confirmarSenha,
+  }) async {
+    final senhaController = TextEditingController();
+    final confirmacaoController = TextEditingController();
+    final erroController = ValueNotifier<String?>(null);
+
+    final resultado = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(titulo),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(mensagem),
+              const SizedBox(height: 16),
+              TextField(
+                controller: senhaController,
+                obscureText: true,
+                autofocus: true,
+                decoration: const InputDecoration(labelText: 'Senha (mínimo 8 caracteres)'),
+              ),
+              if (confirmarSenha) ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: confirmacaoController,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: 'Repita a senha'),
+                ),
+              ],
+              ValueListenableBuilder<String?>(
+                valueListenable: erroController,
+                builder: (contexto, erro, _) => erro == null
+                    ? const SizedBox.shrink()
+                    : Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Text(
+                          erro,
+                          style: TextStyle(color: contexto.corError),
+                        ),
+                      ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(null),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final senha = senhaController.text;
+              if (senha.length < 8) {
+                erroController.value = 'Use pelo menos 8 caracteres.';
+                return;
+              }
+              if (confirmarSenha && senha != confirmacaoController.text) {
+                erroController.value = 'As senhas não conferem.';
+                return;
+              }
+              Navigator.of(dialogContext).pop(senha);
+            },
+            child: Text(confirmarSenha ? 'Criar backup' : 'Abrir backup'),
+          ),
+        ],
+      ),
+    );
+
+    senhaController.dispose();
+    confirmacaoController.dispose();
+    erroController.dispose();
+    return resultado;
+  }
+
+  Future<void> _exportarChaveRecuperacao() async {
+    final autorizado = await _validarAutenticacaoAntesExportar();
+    if (!autorizado) return;
+    if (!mounted) return;
+    final senha = await _pedirSenha(
+      titulo: 'Exportar chave de recuperação',
+      mensagem:
+          'A chave de recuperação permite abrir backups ANTIGOS (feitos neste '
+          'aparelho) em um aparelho novo. Guarde o arquivo e a senha separados.',
+      confirmarSenha: true,
+    );
+    if (senha == null) return;
+    try {
+      final chave = await ref.read(backupServiceProvider).exportarChaveRecuperacao(senha);
+      if (chave == null) {
+        if (!mounted) return;
+        _mostrarSnackBar('Não foi possível gerar a chave de recuperação.', context.corError);
+        return;
+      }
+      await exportarJson(
+        chave,
+        'mentall_chave_recuperacao_${DateTime.now().millisecondsSinceEpoch}.json',
+      );
+      if (!mounted) return;
+      _mostrarSnackBar('Chave de recuperação exportada!', context.corSuccess);
+    } catch (_) {
+      if (!mounted) return;
+      _mostrarSnackBar('Não foi possível gerar a chave de recuperação.', context.corError);
+    }
+  }
+
+  Future<void> _importarChaveRecuperacao() async {
+    final autorizado = await _validarAutenticacaoAntesExportar();
+    if (!autorizado) return;
+    try {
+      final jsonString = await selecionarArquivoJson();
+      if (jsonString == null) return;
+      if (!mounted) return;
+      final confirmar = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Importar chave de recuperação?'),
+          content: const Text(
+            'A chave deste aparelho será SUBSTITUÍDA pela chave do arquivo. '
+            'Faça isso apenas em aparelho novo ou para recuperar backups antigos. '
+            'Dados já gravados neste aparelho com a chave atual podem ficar ilegíveis.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Substituir chave'),
+            ),
+          ],
+        ),
+      );
+      if (confirmar != true) return;
+      if (!mounted) return;
+      final senha = await _pedirSenha(
+        titulo: 'Senha da chave de recuperação',
+        mensagem: 'Digite a senha definida quando a chave foi exportada.',
+        confirmarSenha: false,
+      );
+      if (senha == null) return;
+      final ok = await ref
+          .read(backupServiceProvider)
+          .importarChaveRecuperacao(jsonString, senha);
+      if (!mounted) return;
+      _mostrarSnackBar(
+        ok
+            ? 'Chave importada! Agora você pode importar backups antigos deste aparelho.'
+            : 'Senha incorreta ou arquivo de chave inválido.',
+        ok ? context.corSuccess : context.corError,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      _mostrarSnackBar('Não foi possível importar a chave de recuperação.', context.corError);
     }
   }
 
@@ -290,6 +514,52 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
     );
   }
 
+  Widget _cardChaveRecuperacao(BuildContext context) {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(Raio.xxl),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.key_outlined, size: 40, color: context.corPrimaria),
+            const SizedBox(height: 12),
+            const Text(
+              'Chave de recuperação',
+              style: TextStyle(fontSize: Tipografia.lg, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Exporte a chave deste aparelho protegida por senha para conseguir abrir '
+              'backups antigos (formato anterior) em um aparelho novo.',
+              style: TextStyle(color: context.corTextoSecondary, height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _exportarChaveRecuperacao,
+                  icon: const Icon(Icons.vpn_key_outlined),
+                  label: const Text('Exportar chave'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _importarChaveRecuperacao,
+                  icon: const Icon(Icons.key),
+                  label: const Text('Importar chave'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.watch(configuracoesRevisaoProvider);
@@ -399,6 +669,8 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
             ),
           ),
           const SizedBox(height: 16),
+          _cardChaveRecuperacao(context),
+          const SizedBox(height: 16),
           _cardBackupAutomatico(context, config),
           const SizedBox(height: 24),
           Card(
@@ -418,7 +690,8 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
                   Expanded(
                     child: Text(
                       'O backup não inclui arquivos de áudio, apenas metadados e dados textuais. '
-                      'Mantenha o arquivo .json em local seguro.',
+                      'Use o backup PORTÁTIL (com senha) antes de trocar de aparelho ou reinstalar o app: '
+                      'o backup padrão só abre neste aparelho. Mantenha o arquivo .json em local seguro.',
                       style: TextStyle(color: context.corTextoBody, height: 1.4),
                     ),
                   ),

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:hive_ce/hive.dart';
 
+import '../models/compromisso.dart';
 import '../models/paciente.dart';
 import '../models/pacote.dart';
 import '../models/perfil_profissional.dart';
@@ -22,10 +23,7 @@ class BackupService with EncryptedServiceMixin {
 
   bool get _podeCifrar => encryption != null && encryption!.configurado;
 
-  String exportarParaJson() {
-    if (!_podeCifrar) {
-      throw StateError('Desbloqueie o app antes de exportar o backup.');
-    }
+  Map<String, dynamic> _montarDados() {
     final pacientes = Hive.box<Paciente>('pacientes');
     final sessoes = Hive.box<Sessao>('sessoes');
     final perfil = Hive.box<PerfilProfissional>('perfil_profissional');
@@ -64,7 +62,8 @@ class BackupService with EncryptedServiceMixin {
           'modo_atendimento': p.modoAtendimento,
           if (p.fotoBase64.isNotEmpty) 'foto_base64': _decrypt(p.fotoBase64),
           'tratamento': p.tratamento,
-          if (p.enderecoJson.isNotEmpty) 'endereco_json': _decrypt(p.enderecoJson),
+          if (p.enderecoJson.isNotEmpty)
+            'endereco_json': _decrypt(p.enderecoJson),
           'valor_sessao': p.valorSessao,
         };
       }).toList(),
@@ -110,58 +109,139 @@ class BackupService with EncryptedServiceMixin {
           'metodo_pagamento': s.metodoPagamento,
         };
       }).toList(),
-        'contratos': Hive.box<ContratoTerapeutico>('contratos').values.map((c) {
-          return {
-            'id': c.id,
-            'paciente_id': c.pacienteId,
-            'token': _decrypt(c.token),
-            'data_criacao': c.dataCriacao.toIso8601String(),
-            if (c.dataEnvio != null)
-              'data_envio': c.dataEnvio!.toIso8601String(),
-            if (c.dataAceite != null)
-              'data_aceite': c.dataAceite!.toIso8601String(),
-            'status': c.status,
-            'nome_aceite': _decrypt(c.nomeAceite),
-            'url': _decrypt(c.url),
-            'arquivado': c.arquivado,
-          };
-        }).toList(),
-        'pacotes': Hive.box<Pacote>('pacotes').values.map((p) {
-          return {
-            'id': p.id,
-            'paciente_id': p.pacienteId,
-            'total_sessoes': p.totalSessoes,
-            'sessoes_restantes': p.sessoesRestantes,
-            'valor_total': p.valorTotal,
-            'data_criacao': p.dataCriacao.toIso8601String(),
-            'ativo': p.ativo,
-            'observacoes': p.observacoes,
-          };
-        }).toList(),
-        'progresso_sessoes': Hive.box<ProgressoSessao>('progresso_sessoes').values.map((p) {
-          return {
-            'id': p.id,
-            'paciente_id': p.pacienteId,
-            'sessao_id': p.sessaoId,
-            'numero_sessao': p.numeroSessao,
-            'sintomas_json': p.sintomasJson,
-            'metas_json': p.metasJson,
-            'avaliacao_geral': p.avaliacaoGeral,
-            'tendencia': p.tendencia,
-            'data_processamento': p.dataProcessamento.toIso8601String(),
-          };
-        }).toList(),
+      'compromissos':
+          (Hive.isBoxOpen('compromissos')
+                  ? Hive.box<Compromisso>('compromissos').values
+                  : const <Compromisso>[])
+              .map((c) {
+                return {
+                  'id': c.id,
+                  'paciente_id': c.pacienteId,
+                  'data_hora_inicio': c.dataHoraInicio.toIso8601String(),
+                  'data_hora_fim': c.dataHoraFim.toIso8601String(),
+                  'titulo': _decrypt(c.titulo),
+                  'observacoes': _decrypt(c.observacoes),
+                  'status': c.status,
+                  if (c.sessaoId != null) 'sessao_id': c.sessaoId,
+                  'data_criacao': c.dataCriacao.toIso8601String(),
+                  if (c.dataAtualizacao != null)
+                    'data_atualizacao': c.dataAtualizacao!.toIso8601String(),
+                  'lembrete_ativado': c.lembreteAtivado,
+                  'minutos_antecedencia': c.minutosAntecedencia,
+                  'mensagem_lembrete': _decrypt(c.mensagemLembrete),
+                  'recorrencia': c.recorrencia,
+                  if (c.dataLimiteRecorrencia != null)
+                    'data_limite_recorrencia': c.dataLimiteRecorrencia!
+                        .toIso8601String(),
+                  if (c.compromissoPaiId != null)
+                    'compromisso_pai_id': c.compromissoPaiId,
+                  'canal_lembrete': c.canalLembrete,
+                  'tipo_evento': c.tipoEvento,
+                  'modalidade': c.modalidade,
+                  'sala': c.sala,
+                  'servico': c.servico,
+                  'link_online': c.linkOnline,
+                  'google_event_id': c.googleEventId,
+                  'google_calendar_id': c.googleCalendarId,
+                  if (c.googleSyncedAt != null)
+                    'google_synced_at': c.googleSyncedAt!.toIso8601String(),
+                };
+              })
+              .toList(),
+      'contratos': Hive.box<ContratoTerapeutico>('contratos').values.map((c) {
+        return {
+          'id': c.id,
+          'paciente_id': c.pacienteId,
+          'token': _decrypt(c.token),
+          'data_criacao': c.dataCriacao.toIso8601String(),
+          if (c.dataEnvio != null) 'data_envio': c.dataEnvio!.toIso8601String(),
+          if (c.dataAceite != null)
+            'data_aceite': c.dataAceite!.toIso8601String(),
+          'status': c.status,
+          'nome_aceite': _decrypt(c.nomeAceite),
+          'url': _decrypt(c.url),
+          'arquivado': c.arquivado,
+        };
+      }).toList(),
+      'pacotes': Hive.box<Pacote>('pacotes').values.map((p) {
+        return {
+          'id': p.id,
+          'paciente_id': p.pacienteId,
+          'total_sessoes': p.totalSessoes,
+          'sessoes_restantes': p.sessoesRestantes,
+          'valor_total': p.valorTotal,
+          'data_criacao': p.dataCriacao.toIso8601String(),
+          'ativo': p.ativo,
+          'observacoes': p.observacoes,
+        };
+      }).toList(),
+      'progresso_sessoes': Hive.box<ProgressoSessao>('progresso_sessoes').values
+          .map((p) {
+            return {
+              'id': p.id,
+              'paciente_id': p.pacienteId,
+              'sessao_id': p.sessaoId,
+              'numero_sessao': p.numeroSessao,
+              'sintomas_json': p.sintomasJson,
+              'metas_json': p.metasJson,
+              'avaliacao_geral': p.avaliacaoGeral,
+              'tendencia': p.tendencia,
+              'data_processamento': p.dataProcessamento.toIso8601String(),
+            };
+          })
+          .toList(),
     };
 
-    const encoder = JsonEncoder.withIndent('  ');
-    final jsonClaro = encoder.convert(dados);
+    return dados;
+  }
 
+  String exportarParaJson() {
+    if (!_podeCifrar) {
+      throw StateError('Desbloqueie o app antes de exportar o backup.');
+    }
+    final jsonClaro = const JsonEncoder.withIndent('  ').convert(_montarDados());
     final envelope = encryption!.criptografarEnvelope(jsonClaro);
     if (envelope == null) {
       throw StateError('Nao foi possivel proteger o backup.');
     }
-    return encoder.convert(jsonDecode(envelope));
+    return const JsonEncoder.withIndent('  ').convert(jsonDecode(envelope));
   }
+
+  /// Backup portátil: cifrado com a SENHA do usuário (PBKDF2 + AES-GCM).
+  /// Diferente do backup padrão, NÃO depende da chave deste aparelho — pode ser
+  /// restaurado em qualquer aparelho/reinstalação, desde que a senha seja lembrada.
+  Future<String> exportarParaJsonPortavel(String senha) async {
+    if (!_podeCifrar) {
+      throw StateError('Desbloqueie o app antes de exportar o backup.');
+    }
+    if (senha.trim().length < 8) {
+      throw StateError('A senha do backup deve ter pelo menos 8 caracteres.');
+    }
+    final jsonClaro = const JsonEncoder.withIndent('  ').convert(_montarDados());
+    final envelope = await encryption!.criptografarEnvelopeComSenha(jsonClaro, senha);
+    if (envelope == null) {
+      throw StateError('Nao foi possivel proteger o backup com senha.');
+    }
+    return envelope;
+  }
+
+  /// True quando o arquivo é um backup portátil (protegido por senha).
+  static bool ehBackupComSenha(String jsonString) {
+    try {
+      final dados = jsonDecode(jsonString) as Map<String, dynamic>;
+      return dados['tipo'] == 'mentall_backup_v2';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Exporta a chave mestra embrulhada por senha (arquivo de recuperação).
+  Future<String?> exportarChaveRecuperacao(String senha) async =>
+      await encryption?.exportarChaveProtegida(senha);
+
+  /// Importa a chave de recuperação (substitui a chave deste aparelho).
+  Future<bool> importarChaveRecuperacao(String envelope, String senha) async =>
+      await encryption?.importarChaveProtegida(envelope, senha) ?? false;
 
   Future<void> _salvarSobrescrevendo<T>(
     Box<T> box,
@@ -179,7 +259,7 @@ class BackupService with EncryptedServiceMixin {
     }
   }
 
-  Future<String> importarDeJson(String jsonString) async {
+  Future<String> importarDeJson(String jsonString, {String? senha}) async {
     try {
       if (!_podeCifrar) {
         return 'Backup criptografado: configure o PIN ou desbloqueie o app para restaurar.';
@@ -187,7 +267,22 @@ class BackupService with EncryptedServiceMixin {
       // O agendamento antigo emitiu duas camadas. Nao aceitar aninhamento ilimitado.
       for (var camada = 0; camada < 2; camada++) {
         final dados = jsonDecode(jsonString) as Map<String, dynamic>;
-        if (dados['tipo'] != 'mentall_backup_v1') break;
+        final tipo = dados['tipo'];
+
+        if (tipo == 'mentall_backup_v2') {
+          if (senha == null || senha.isEmpty) {
+            return 'Backup protegido por senha: informe a senha para restaurar.';
+          }
+          final jsonClaro =
+              await encryption!.descriptografarEnvelopeComSenha(jsonString, senha);
+          if (jsonClaro == null) {
+            return 'Senha incorreta ou arquivo de backup corrompido. Verifique a senha e o arquivo original.';
+          }
+          jsonString = jsonClaro;
+          continue;
+        }
+
+        if (tipo != 'mentall_backup_v1') break;
         final jsonClaro = encryption!.descriptografarEnvelope(jsonString);
         if (jsonClaro == null) {
           return 'Nao foi possivel abrir o backup: chave diferente ou integridade comprometida. Preserve o arquivo e o aparelho original.';
@@ -212,8 +307,13 @@ class BackupService with EncryptedServiceMixin {
         return 'Arquivo de backup invalido: versao nao suportada.';
       }
       for (final secao in [
-        'pacientes', 'sessoes', 'perfil_profissional', 'contratos',
-        'pacotes', 'progresso_sessoes',
+        'pacientes',
+        'sessoes',
+        'compromissos',
+        'perfil_profissional',
+        'contratos',
+        'pacotes',
+        'progresso_sessoes',
       ]) {
         final ids = <String>{};
         for (final item in dados[secao] as List<dynamic>? ?? []) {
@@ -229,6 +329,9 @@ class BackupService with EncryptedServiceMixin {
 
       final pacientesBox = Hive.box<Paciente>('pacientes');
       final sessoesBox = Hive.box<Sessao>('sessoes');
+      final compromissosBox = Hive.isBoxOpen('compromissos')
+          ? Hive.box<Compromisso>('compromissos')
+          : null;
       final perfilBox = Hive.box<PerfilProfissional>('perfil_profissional');
       final contratosBox = Hive.box<ContratoTerapeutico>('contratos');
       final pacotesBox = Hive.box<Pacote>('pacotes');
@@ -241,6 +344,12 @@ class BackupService with EncryptedServiceMixin {
       final sessaoIdToKey = <String, dynamic>{};
       for (final entry in sessoesBox.toMap().entries) {
         sessaoIdToKey[entry.value.id] = entry.key;
+      }
+      final compromissoIdToKey = <String, dynamic>{};
+      if (compromissosBox != null) {
+        for (final entry in compromissosBox.toMap().entries) {
+          compromissoIdToKey[entry.value.id] = entry.key;
+        }
       }
       final perfilIdToKey = <String, dynamic>{};
       for (final entry in perfilBox.toMap().entries) {
@@ -261,6 +370,7 @@ class BackupService with EncryptedServiceMixin {
 
       int pacientesImportados = 0;
       int sessoesImportadas = 0;
+      int compromissosImportados = 0;
       int perfisImportados = 0;
       int contratosImportados = 0;
       int pacotesImportados = 0;
@@ -292,12 +402,14 @@ class BackupService with EncryptedServiceMixin {
           valorSessao: (map['valor_sessao'] as num?)?.toDouble() ?? 0.0,
         );
 
-        gravacoes.add(() => _salvarSobrescrevendo<Paciente>(
-          pacientesBox,
-          paciente,
-          (existente) => existente.id == paciente.id,
-          pacienteIdToKey,
-        ));
+        gravacoes.add(
+          () => _salvarSobrescrevendo<Paciente>(
+            pacientesBox,
+            paciente,
+            (existente) => existente.id == paciente.id,
+            pacienteIdToKey,
+          ),
+        );
         pacientesImportados++;
       }
 
@@ -312,28 +424,34 @@ class BackupService with EncryptedServiceMixin {
               : DateTime.now(),
           humor: map['humor'] as int? ?? 5,
           temaPrincipal: _encrypt(map['tema_principal'] as String? ?? ''),
-          eventosImportantes:
-              _encrypt(map['eventos_importantes'] as String? ?? ''),
-          pensamentosAutomaticos:
-              _encrypt(map['pensamentos_automaticos'] as String? ?? ''),
+          eventosImportantes: _encrypt(
+            map['eventos_importantes'] as String? ?? '',
+          ),
+          pensamentosAutomaticos: _encrypt(
+            map['pensamentos_automaticos'] as String? ?? '',
+          ),
           emocoes: _encrypt(map['emocoes'] as String? ?? ''),
           comportamentos: _encrypt(map['comportamentos'] as String? ?? ''),
           intervencoes: _encrypt(map['intervencoes'] as String? ?? ''),
           tecnicasTcc: _encrypt(map['tecnicas_tcc'] as String? ?? ''),
           tarefaCasa: _encrypt(map['tarefa_casa'] as String? ?? ''),
           evolucaoClinica: _encrypt(map['evolucao_clinica'] as String? ?? ''),
-          planoProximaSessao:
-              _encrypt(map['plano_proxima_sessao'] as String? ?? ''),
+          planoProximaSessao: _encrypt(
+            map['plano_proxima_sessao'] as String? ?? '',
+          ),
           observacoes: _encrypt(map['observacoes'] as String? ?? ''),
           relatoPosSessao: _encrypt(map['relato_pos_sessao'] as String? ?? ''),
-          apontamentosCopiloto:
-              _encrypt(map['apontamentos_copiloto'] as String? ?? ''),
+          apontamentosCopiloto: _encrypt(
+            map['apontamentos_copiloto'] as String? ?? '',
+          ),
           arquivada: map['arquivada'] as bool? ?? false,
           audioRelatoPath: _encrypt(map['audio_relato_path'] as String? ?? ''),
-          transcricaoRelato:
-              _encrypt(map['transcricao_relato'] as String? ?? ''),
-          transcricaoRevisada:
-              _encrypt(map['transcricao_revisada'] as String? ?? ''),
+          transcricaoRelato: _encrypt(
+            map['transcricao_relato'] as String? ?? '',
+          ),
+          transcricaoRevisada: _encrypt(
+            map['transcricao_revisada'] as String? ?? '',
+          ),
           dataProcessamentoIa: map['data_processamento_ia'] != null
               ? DateTime.parse(map['data_processamento_ia'] as String)
               : null,
@@ -343,13 +461,14 @@ class BackupService with EncryptedServiceMixin {
           audioMantido: map['audio_mantido'] as bool? ?? false,
           revisadoPeloProfissional:
               map['revisado_pelo_profissional'] as bool? ?? false,
-          erroProcessamentoIa:
-              _encrypt(map['erro_processamento_ia'] as String? ?? ''),
+          erroProcessamentoIa: _encrypt(
+            map['erro_processamento_ia'] as String? ?? '',
+          ),
           origemRelato: map['origem_relato'] as String? ?? 'manual',
-          audioRelatoBase64:
-              _encrypt(map['audio_relato_base64'] as String? ?? ''),
-          artigosSugeridos:
-              _encrypt(map['artigos_sugeridos'] as String? ?? ''),
+          audioRelatoBase64: _encrypt(
+            map['audio_relato_base64'] as String? ?? '',
+          ),
+          artigosSugeridos: _encrypt(map['artigos_sugeridos'] as String? ?? ''),
           valorSessao: (map['valor_sessao'] as num?)?.toDouble() ?? 0.0,
           statusPagamento: map['status_pagamento'] as String? ?? 'pendente',
           dataPagamento: map['data_pagamento'] != null
@@ -358,24 +477,86 @@ class BackupService with EncryptedServiceMixin {
           metodoPagamento: map['metodo_pagamento'] as String? ?? '',
         );
 
-        gravacoes.add(() => _salvarSobrescrevendo<Sessao>(
-          sessoesBox,
-          sessao,
-          (existente) => existente.id == sessao.id,
-          sessaoIdToKey,
-        ));
+        gravacoes.add(
+          () => _salvarSobrescrevendo<Sessao>(
+            sessoesBox,
+            sessao,
+            (existente) => existente.id == sessao.id,
+            sessaoIdToKey,
+          ),
+        );
         sessoesImportadas++;
       }
 
-      for (final item
-          in dados['perfil_profissional'] as List<dynamic>? ?? []) {
+      if (compromissosBox != null) {
+        for (final item in dados['compromissos'] as List<dynamic>? ?? []) {
+          final map = item as Map<String, dynamic>;
+          final inicio = map['data_hora_inicio'] != null
+              ? DateTime.parse(map['data_hora_inicio'] as String)
+              : DateTime.now();
+          final compromisso = Compromisso(
+            id: map['id'] as String,
+            pacienteId: map['paciente_id'] as String? ?? '',
+            dataHoraInicio: inicio,
+            dataHoraFim: map['data_hora_fim'] != null
+                ? DateTime.parse(map['data_hora_fim'] as String)
+                : inicio.add(const Duration(minutes: 50)),
+            titulo: _encrypt(map['titulo'] as String? ?? ''),
+            observacoes: _encrypt(map['observacoes'] as String? ?? ''),
+            status: map['status'] as String? ?? 'agendado',
+            sessaoId: map['sessao_id'] as String?,
+            dataCriacao: map['data_criacao'] != null
+                ? DateTime.parse(map['data_criacao'] as String)
+                : DateTime.now(),
+            dataAtualizacao: map['data_atualizacao'] != null
+                ? DateTime.parse(map['data_atualizacao'] as String)
+                : null,
+            lembreteAtivado: map['lembrete_ativado'] as bool? ?? false,
+            minutosAntecedencia:
+                (map['minutos_antecedencia'] as num?)?.toInt() ?? 1440,
+            mensagemLembrete: _encrypt(
+              map['mensagem_lembrete'] as String? ?? '',
+            ),
+            recorrencia: map['recorrencia'] as String? ?? '',
+            dataLimiteRecorrencia: map['data_limite_recorrencia'] != null
+                ? DateTime.parse(map['data_limite_recorrencia'] as String)
+                : null,
+            compromissoPaiId: map['compromisso_pai_id'] as String?,
+            canalLembrete: map['canal_lembrete'] as String? ?? 'whatsapp',
+            tipoEvento: map['tipo_evento'] as String? ?? 'sessao',
+            modalidade: map['modalidade'] as String? ?? 'presencial',
+            sala: map['sala'] as String? ?? '',
+            servico: map['servico'] as String? ?? '',
+            linkOnline: map['link_online'] as String? ?? '',
+            googleEventId: map['google_event_id'] as String? ?? '',
+            googleCalendarId: map['google_calendar_id'] as String? ?? '',
+            googleSyncedAt: map['google_synced_at'] != null
+                ? DateTime.parse(map['google_synced_at'] as String)
+                : null,
+          );
+
+          gravacoes.add(
+            () => _salvarSobrescrevendo<Compromisso>(
+              compromissosBox,
+              compromisso,
+              (existente) => existente.id == compromisso.id,
+              compromissoIdToKey,
+            ),
+          );
+          compromissosImportados++;
+        }
+      }
+
+      for (final item in dados['perfil_profissional'] as List<dynamic>? ?? []) {
         final map = item as Map<String, dynamic>;
         final perfil = PerfilProfissional(
           id: map['id'] as String,
           nome: _encrypt(map['nome'] as String? ?? ''),
-          registroProfissional:
-              _encrypt(map['registro_profissional'] as String? ?? ''),
-          abordagemClinica: map['abordagem_clinica'] as String? ?? 'Integrativa',
+          registroProfissional: _encrypt(
+            map['registro_profissional'] as String? ?? '',
+          ),
+          abordagemClinica:
+              map['abordagem_clinica'] as String? ?? 'Integrativa',
           termoPessoaAtendida:
               map['termo_pessoa_atendida'] as String? ?? 'paciente',
           dataCriacao: map['data_criacao'] != null
@@ -391,12 +572,14 @@ class BackupService with EncryptedServiceMixin {
           fotoBase64: map['foto_base64'] as String? ?? '',
         );
 
-        gravacoes.add(() => _salvarSobrescrevendo<PerfilProfissional>(
-          perfilBox,
-          perfil,
-          (existente) => existente.id == perfil.id,
-          perfilIdToKey,
-        ));
+        gravacoes.add(
+          () => _salvarSobrescrevendo<PerfilProfissional>(
+            perfilBox,
+            perfil,
+            (existente) => existente.id == perfil.id,
+            perfilIdToKey,
+          ),
+        );
         perfisImportados++;
       }
 
@@ -421,12 +604,14 @@ class BackupService with EncryptedServiceMixin {
           arquivado: map['arquivado'] as bool? ?? false,
         );
 
-        gravacoes.add(() => _salvarSobrescrevendo<ContratoTerapeutico>(
-          contratosBox,
-          contrato,
-          (existente) => existente.id == contrato.id,
-          contratoIdToKey,
-        ));
+        gravacoes.add(
+          () => _salvarSobrescrevendo<ContratoTerapeutico>(
+            contratosBox,
+            contrato,
+            (existente) => existente.id == contrato.id,
+            contratoIdToKey,
+          ),
+        );
         contratosImportados++;
       }
 
@@ -445,12 +630,14 @@ class BackupService with EncryptedServiceMixin {
           observacoes: map['observacoes'] as String? ?? '',
         );
 
-        gravacoes.add(() => _salvarSobrescrevendo<Pacote>(
-          pacotesBox,
-          pacote,
-          (existente) => existente.id == pacote.id,
-          pacoteIdToKey,
-        ));
+        gravacoes.add(
+          () => _salvarSobrescrevendo<Pacote>(
+            pacotesBox,
+            pacote,
+            (existente) => existente.id == pacote.id,
+            pacoteIdToKey,
+          ),
+        );
         pacotesImportados++;
       }
 
@@ -470,12 +657,14 @@ class BackupService with EncryptedServiceMixin {
               : DateTime.now(),
         );
 
-        gravacoes.add(() => _salvarSobrescrevendo<ProgressoSessao>(
-          progressosBox,
-          progresso,
-          (existente) => existente.id == progresso.id,
-          progressoIdToKey,
-        ));
+        gravacoes.add(
+          () => _salvarSobrescrevendo<ProgressoSessao>(
+            progressosBox,
+            progresso,
+            (existente) => existente.id == progresso.id,
+            progressoIdToKey,
+          ),
+        );
         progressosImportados++;
       }
 
@@ -484,10 +673,18 @@ class BackupService with EncryptedServiceMixin {
         for (final item in dados['pacientes'] as List<dynamic>? ?? [])
           item['id'] as String,
       };
-      for (final secao in ['sessoes', 'contratos', 'pacotes', 'progresso_sessoes']) {
+      for (final secao in [
+        'sessoes',
+        'compromissos',
+        'contratos',
+        'pacotes',
+        'progresso_sessoes',
+      ]) {
         for (final item in dados[secao] as List<dynamic>? ?? []) {
           if (!pacientesDisponiveis.contains(item['paciente_id'])) {
-            throw const FormatException('Referencia a paciente ausente no backup.');
+            throw const FormatException(
+              'Referencia a paciente ausente no backup.',
+            );
           }
         }
       }
@@ -503,7 +700,9 @@ class BackupService with EncryptedServiceMixin {
         if (sessaoId.trim().isEmpty ||
             (pacientePorSessao.containsKey(sessaoId) &&
                 pacientePorSessao[sessaoId] != item['paciente_id'])) {
-          throw const FormatException('Referencia de sessao invalida no progresso.');
+          throw const FormatException(
+            'Referencia de sessao invalida no progresso.',
+          );
         }
       }
 
@@ -513,6 +712,7 @@ class BackupService with EncryptedServiceMixin {
 
       return 'Importa\u00e7\u00e3o conclu\u00edda: $perfisImportados perfil(is), '
           '$pacientesImportados paciente(s), $sessoesImportadas sess\u00e3o(\u00f5es), '
+          '$compromissosImportados compromisso(s), '
           '$contratosImportados contrato(s), $pacotesImportados pacote(s), '
           '$progressosImportados registro(s) de progresso.';
     } catch (e) {
