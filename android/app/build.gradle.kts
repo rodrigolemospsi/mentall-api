@@ -7,18 +7,21 @@ plugins {
 // Assinatura de produção configurável via propriedades do Gradle (e.g.
 // ~/.gradle/gradle.properties) ou variáveis de ambiente. Sem keystore de
 // produção o build de release usa a assinatura de debug (desenvolvimento).
-val keystoreFile = providers.gradleProperty("MENTALL_KEYSTORE_FILE").orNull
+// Nomes diferentes das propriedades do SigningConfig para não haver
+// shadowing na atribuição (ex.: `keyAlias = keyAlias` resolvia para o campo
+// vazio do próprio SigningConfig e o bundle saía com alias nulo).
+val mentallKeystoreFile = providers.gradleProperty("MENTALL_KEYSTORE_FILE").orNull
     ?: System.getenv("MENTALL_KEYSTORE_FILE")
-val keystorePassword = providers.gradleProperty("MENTALL_KEYSTORE_PASSWORD").orNull
+val mentallKeystorePassword = providers.gradleProperty("MENTALL_KEYSTORE_PASSWORD").orNull
     ?: System.getenv("MENTALL_KEYSTORE_PASSWORD")
-val keyAlias = providers.gradleProperty("MENTALL_KEY_ALIAS").orNull
+val mentallKeyAlias = providers.gradleProperty("MENTALL_KEY_ALIAS").orNull
     ?: System.getenv("MENTALL_KEY_ALIAS")
-val keyPassword = providers.gradleProperty("MENTALL_KEY_PASSWORD").orNull
+val mentallKeyPassword = providers.gradleProperty("MENTALL_KEY_PASSWORD").orNull
     ?: System.getenv("MENTALL_KEY_PASSWORD")
-val hasReleaseSigning = !keystoreFile.isNullOrBlank()
-    && !keystorePassword.isNullOrBlank()
-    && !keyAlias.isNullOrBlank()
-    && !keyPassword.isNullOrBlank()
+val hasReleaseSigning = !mentallKeystoreFile.isNullOrBlank()
+    && !mentallKeystorePassword.isNullOrBlank()
+    && !mentallKeyAlias.isNullOrBlank()
+    && !mentallKeyPassword.isNullOrBlank()
 
 android {
     namespace = "com.mentall.app"
@@ -45,10 +48,10 @@ android {
     signingConfigs {
         if (hasReleaseSigning) {
             create("release") {
-                storeFile = file(keystoreFile!!)
-                storePassword = keystorePassword
-                keyAlias = keyAlias
-                keyPassword = keyPassword
+                storeFile = File(mentallKeystoreFile!!)
+                storePassword = mentallKeystorePassword
+                keyAlias = mentallKeyAlias
+                keyPassword = mentallKeyPassword
             }
         }
     }

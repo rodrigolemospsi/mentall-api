@@ -42,6 +42,38 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Keystore de produção e AAB assinado (itens 4.1/4.2) — Fase 5U (23/10/2026)
+
+### Contexto
+O release era assinado com a chave de debug — não serve para a Play Store. Foi gerada a **upload
+key** de produção (fora do repositório) e produzidos o AAB e o APK assinados de verdade.
+
+### O que mudou (arquivos)
+1. **Chave gerada fora do repo:** `~/.mentall-pro-keys/` — `mentall-upload.jks` (PKCS12, RSA 4096,
+   validade ~27 anos), `release.env` (variáveis `MENTALL_*`), `LEIA-ME.txt` (senha + backup),
+   `fingerprints.txt` e `keystore.sha256` (integridade). **Nenhuma senha está neste arquivo.**
+   SHA-1 do certificado: `C2:E5:C8:5E:93:04:15:18:FA:7C:F5:4A:51:A4:A5:47:6E:D8:B5:62`.
+2. **`tools/build_release.sh` (novo)** — roda analyze/testes, gera AAB + APK assinados e valida a
+   assinatura com `apksigner verify --print-certs`.
+3. **`docs/RELEASE_ANDROID.md` (novo)** — operação, backup/restauração, Play App Signing e cadastro
+   do SHA-1 no Google Cloud (Google Sign-In/Calendar).
+4. **`.gitignore`** — bloqueia `*.jks`, `*.keystore`, `*.p12`, `key.properties`, `release.env`.
+5. **`AGENTS.md`** — esta seção.
+
+### Verificação
+- `flutter analyze --no-pub` + `flutter test --no-pub`: **350/350 OK** (MEDI, 23/10).
+- AAB assinado em `build/app/outputs/bundle/release/app-release.aab` (MEDI).
+- APK assinado em `build/app/outputs/flutter-apk/app-release.apk`; `apksigner verify` OK (MEDI);
+  cópia em `MentAllPRO-v1.0.58-release.apk` para teste no aparelho.
+- SHA-1 do APK confere com a upload key (MEDI).
+- **Pendente:** upload na Play Store (depende das contas 0.1/0.2), Play App Signing e cadastro do
+  SHA-1 no Google Cloud.
+
+### Pendências
+- Item 4.3 (tag de versão) fica para o upload aprovado.
+- Google Cloud: cadastrar o SHA-1 da upload key agora e o SHA-1 da chave de assinatura do app
+  após ativar o Play App Signing.
+
 ## URLs legais dentro do app (item 1.5) — Fase 5T (23/10/2026)
 
 ### Contexto

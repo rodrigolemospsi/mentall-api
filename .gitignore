@@ -81,3 +81,10 @@ design_refs/*.jpeg
 # Backups locais de .env (contêm segredos — nunca versionar)
 .env.bak-*
 backend/.env.bak-*
+
+# Assinatura Android / keystore — NUNCA versionar
+*.jks
+*.keystore
+*.p12
+key.properties
+release.env
