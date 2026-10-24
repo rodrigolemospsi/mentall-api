@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../providers/service_providers.dart';
 import '../../services/lgpd/auditoria_service.dart';
 import '../../services/lgpd/pdf_arquitetura_lgpd_service.dart';
+import '../../utils/links_legais.dart';
 import '../../utils/mentall_colors.dart';
 import '../../utils/raio.dart';
 import '../login_page.dart';
@@ -162,33 +163,101 @@ class PrivacidadeSegurancaPage extends ConsumerWidget {
             titulo: 'Documentos Legais',
             children: [
               ListTile(
-                leading: Icon(Icons.description_outlined, color: context.corPrimaria),
-                title: const Text('Termos de Uso'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const TermosUsoPage()),
-                  );
-                },
+                leading: Icon(Icons.privacy_tip_outlined, color: context.corPrimaria),
+                title: const Text('Política de Privacidade'),
+                subtitle: const Text('Versão oficial em mentallpro.com.br/privacidade'),
+                trailing: const Icon(Icons.open_in_new, size: 20),
+                onTap: () => _abrirLink(context, LinksLegais.privacidade),
               ),
               const Divider(indent: 16),
               ListTile(
-                leading: Icon(Icons.privacy_tip_outlined, color: context.corPrimaria),
-                title: const Text('Política de Privacidade'),
+                leading: Icon(Icons.description_outlined, color: context.corPrimaria),
+                title: const Text('Termos de Uso'),
+                subtitle: const Text('Versão oficial em mentallpro.com.br/termos'),
+                trailing: const Icon(Icons.open_in_new, size: 20),
+                onTap: () => _abrirLink(context, LinksLegais.termos),
+              ),
+              const Divider(indent: 16),
+              ListTile(
+                leading: Icon(Icons.no_accounts_outlined, color: context.corPrimaria),
+                title: const Text('Exclusão de conta (site)'),
+                subtitle: const Text('Solicitar sem precisar abrir o aplicativo'),
+                trailing: const Icon(Icons.open_in_new, size: 20),
+                onTap: () => _abrirLink(context, LinksLegais.exclusaoConta),
+              ),
+              const Divider(indent: 16),
+              ListTile(
+                leading: Icon(Icons.cloud_off_outlined, color: context.corPrimaria),
+                title: const Text('Versões offline no app'),
+                subtitle: const Text('Política e Termos disponíveis sem internet'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const PoliticaPrivacidadePage()),
-                  );
-                },
+                onTap: () => _mostrarVersoesOffline(context),
               ),
             ],
           ),
           const SizedBox(height: 16),
         ],
+      ),
+    );
+  }
+
+  Future<void> _abrirLink(BuildContext context, String url) async {
+    final abriu = await LinksLegais.abrir(url);
+    if (!abriu && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Não foi possível abrir o link. Verifique sua conexão e tente novamente.',
+          ),
+        ),
+      );
+    }
+  }
+
+  void _mostrarVersoesOffline(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Versões offline no app',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+            ListTile(
+              leading: Icon(Icons.privacy_tip_outlined, color: context.corPrimaria),
+              title: const Text('Política de Privacidade'),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const PoliticaPrivacidadePage(),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.description_outlined, color: context.corPrimaria),
+              title: const Text('Termos de Uso'),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const TermosUsoPage()),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }

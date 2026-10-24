@@ -42,6 +42,42 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## URLs legais dentro do app (item 1.5) — Fase 5T (23/10/2026)
+
+### Contexto
+Item 1.5 do checklist: o app mantinha apenas o texto embutido das páginas legais, divergente das
+páginas publicadas em 23/10 em `mentallpro.com.br`. O texto in-app foi alinhado à versão 1.2 e as
+telas passaram a abrir as URLs oficiais.
+
+### O que mudou (arquivos)
+1. **`lib/utils/links_legais.dart` (novo)** — URLs oficiais (privacidade, termos, exclusão, contato),
+   versão publicada 1.2 e helper `abrir()` via `url_launcher` (navegador externo).
+2. **`lib/screens/lgpd/politica_privacidade_page.dart`** — texto reescrito e alinhado à v1.2
+   publicada (papéis, dados, compartilhamento real: Fly/SQLite, Magalu, Cloudflare, OpenAI, Groq,
+   Resend, Mailu, Google Calendar opcional; retenção/exclusão; direitos; IA OpenAI-only) + atalho
+   "Ler a versão oficial no site".
+3. **`lib/screens/lgpd/termos_uso_page.dart`** — texto alinhado (removido DeepSeek como fallback;
+   incluídos conta/segurança, exclusão e foro do usuário) + atalho "Ler a versão oficial no site".
+4. **`lib/screens/lgpd/privacidade_seguranca_page.dart`** — "Documentos Legais" agora abre as URLs
+   públicas (privacidade, termos, exclusão) e mantém "Versões offline no app".
+5. **`lib/screens/configuracoes_page.dart`** — nova seção "Privacidade e documentos" com Política,
+   Termos e Exclusão (site) e atalho para Privacidade e Segurança.
+6. **`test/widgets/links_legais_test.dart` (novo)** — 4 testes: URL enviada ao `url_launcher`,
+   constantes oficiais, telas mostram a versão 1.2 e abrem o site.
+7. **`pubspec.yaml`** — `1.0.58+59` (APK de teste).
+8. **`AGENTS.md`** — esta seção.
+
+### Verificação
+- `flutter analyze --no-pub`: **No issues found** (MEDI, 23/10).
+- `flutter test --no-pub`: **350/350 OK** (MEDI, 23/10).
+- `flutter build apk --release`: APK `MentAllPRO-v1.0.58.apk` (debug signing).
+- Pendente NO APARELHO: abrir os links nas três telas e conferir que o navegador carrega as páginas
+  publicadas.
+
+### Pendências
+- O texto in-app é um resumo fiel; a versão oficial é a do site.
+- Revisão jurídica (itens 1.6/1.8/1.9) pode exigir ajuste nos dois textos.
+
 ## PDFs com fonte Unicode embutida (correção do travessão) — Fase 5R (23/10/2026)
 
 ### Contexto

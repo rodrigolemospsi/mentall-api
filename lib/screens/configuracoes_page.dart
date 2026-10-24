@@ -7,10 +7,12 @@ import 'package:http/http.dart' as http;
 import '../providers/service_providers.dart';
 import '../services/api_client.dart';
 import '../services/configuracoes_service.dart';
+import '../utils/links_legais.dart';
 import '../utils/mentall_colors.dart';
 import '../utils/raio.dart';
 import 'exclusao_conta_page.dart';
 import 'google_calendar_page.dart';
+import 'lgpd/privacidade_seguranca_page.dart';
 import 'lembretes_page.dart';
 import 'login_page.dart';
 import 'redefinir_senha_page.dart';
@@ -145,6 +147,62 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
                     );
                   }
                 },
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _secao(
+            context,
+            titulo: 'Privacidade e documentos',
+            children: [
+              ListTile(
+                leading: Icon(Icons.shield_outlined, color: context.corPrimaria),
+                title: const Text('Privacidade e Segurança'),
+                subtitle: const Text(
+                  'Como seus dados são protegidos, auditoria e documentos',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const PrivacidadeSegurancaPage(),
+                  ),
+                ),
+              ),
+              const Divider(indent: 16),
+              ListTile(
+                leading: Icon(
+                  Icons.privacy_tip_outlined,
+                  color: context.corPrimaria,
+                ),
+                title: const Text('Política de Privacidade (site)'),
+                subtitle: const Text('Versão oficial publicada e atualizada'),
+                trailing: const Icon(Icons.open_in_new, size: 20),
+                onTap: () =>
+                    _abrirLinkExterno(context, LinksLegais.privacidade),
+              ),
+              const Divider(indent: 16),
+              ListTile(
+                leading: Icon(
+                  Icons.description_outlined,
+                  color: context.corPrimaria,
+                ),
+                title: const Text('Termos de Uso (site)'),
+                subtitle: const Text('Versão oficial publicada e atualizada'),
+                trailing: const Icon(Icons.open_in_new, size: 20),
+                onTap: () => _abrirLinkExterno(context, LinksLegais.termos),
+              ),
+              const Divider(indent: 16),
+              ListTile(
+                leading: Icon(
+                  Icons.no_accounts_outlined,
+                  color: context.corPrimaria,
+                ),
+                title: const Text('Exclusão de conta (site)'),
+                subtitle: const Text('Solicitar a exclusão sem abrir o app'),
+                trailing: const Icon(Icons.open_in_new, size: 20),
+                onTap: () =>
+                    _abrirLinkExterno(context, LinksLegais.exclusaoConta),
               ),
             ],
           ),
@@ -418,6 +476,19 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _abrirLinkExterno(BuildContext context, String url) async {
+    final abriu = await LinksLegais.abrir(url);
+    if (!abriu && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Não foi possível abrir o link. Verifique sua conexão e tente novamente.',
+          ),
+        ),
+      );
+    }
   }
 
   void _mostrarDialogServidor(BuildContext context, WidgetRef ref) {
