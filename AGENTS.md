@@ -42,6 +42,36 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Rascunho de Data Safety / App Privacy (itens 3.1–3.3) — Fase 5V (23/10/2026)
+
+### Contexto
+Preparar as respostas dos formulários de privacidade das lojas (Google Play Data Safety, declaração
+de app de saúde e Apple App Privacy) a partir do código, para preenchimento rápido quando as contas
+de loja abrirem. Nenhum código do app mudou; é documentação técnica.
+
+### O que mudou (arquivos)
+1. **`docs/lojas/DATA_SAFETY_E_APP_PRIVACY.md` (novo)** — inventário do que sai do aparelho (servidor,
+   OpenAI, Groq, Google Calendar, WhatsApp/Meta, Resend, Cloudflare, Fly/Magalu/Mailu) e do que fica
+   só no aparelho; tabela linha a linha do Data Safety (coletado/compartilhado/vinculado/finalidades);
+   respostas de segurança, exclusão de dados e URL da política; declaração de “Health apps”; tabela
+   do App Privacy (Apple) com finalidades e vínculo; o que **não** declarar; pendências (DPA, decisão
+   do Calendar 0.8, retenção OpenAI/Groq, financeiro, e-mail do titular) e passo a passo de
+   preenchimento.
+2. **`AGENTS.md`** — esta seção.
+
+### Verificação
+- Documento revisado contra `backend/models/schemas.py`, `backend/services/{exclusao_conta,telemetria,wuzapi_admin}.py`,
+  `lib/services/{telemetria_service,ia_clinica_service}.dart`, manifestos e textos publicados (LI, 23/10).
+- Nenhuma alteração de código/teste nesta fase (suíte permanece 350/350 do commit e64d580/6d75a71).
+- Conferido que o áudio e o texto de síntese transitam mas **não são persistidos** no servidor
+  (`/transcrever` e `/gerar-sintese` em `backend/main.py`) e que o nome do paciente vai vazio ao
+  backend/IA (`ia_clinica_service.dart`).
+
+### Pendências
+- Preencher os consoles só depois de: DPA com provedores (1.6/1.7), decisão do Calendar no 1º envio
+  (0.8), definição de preço/cobrança (0.6) e e-mail do titular (0.7).
+- Apple ainda precisa de `NSFaceIDUsageDescription` (4.6) e revisão das nutrition labels no envio.
+
 ## Keystore de produção e AAB assinado (itens 4.1/4.2) — Fase 5U (23/10/2026)
 
 ### Contexto
