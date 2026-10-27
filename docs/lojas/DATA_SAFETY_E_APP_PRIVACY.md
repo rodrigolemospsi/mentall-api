@@ -220,7 +220,7 @@ rastreamento** (sem SDK de ads/analytics de terceiros). Portanto: **“Data Used
 | Android | `RECEIVE_BOOT_COMPLETED` | Reagendar notificações após reiniciar | Continuidade dos lembretes |
 | Android | `INTERNET` / `VIBRATE` | API e feedback | Operação normal |
 | iOS | `NSMicrophoneUsageDescription` | Gravar relato | Idem |
-| iOS | `NSFaceIDUsageDescription` | Biometria | **Pendente (item 4.6)** — sem ela, risco de rejeição |
+| iOS | `NSFaceIDUsageDescription` | Biometria | Adicionada em 27/10/2026 (item 4.6), com `PrivacyInfo.xcprivacy` (item 4.7) |
 
 > Nenhuma permissão de localização, contatos, câmera, fotos ou sensores de saúde é usada.
 

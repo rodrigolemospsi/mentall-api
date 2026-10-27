@@ -28,6 +28,9 @@
     <key>NSMicrophoneUsageDescription</key>
     <string>O MentAll usa o microfone para gravar o relato clínico do profissional após a sessão.</string>
 
+    <key>NSFaceIDUsageDescription</key>
+    <string>O MentAll usa o Face ID para desbloquear o app e proteger o prontuário e os dados clínicos salvos no aparelho.</string>
+
     <key>LSRequiresIPhoneOS</key>
     <true/>
     <key>UIApplicationSceneManifest</key>
