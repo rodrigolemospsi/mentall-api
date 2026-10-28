@@ -6,15 +6,25 @@ import time
 
 log = logging.getLogger("mentall.db")
 
-TURSO_URL = os.getenv("TURSO_DATABASE_URL", "").strip()
-TURSO_TOKEN = os.getenv("TURSO_AUTH_TOKEN", "").strip()
+def _config_turso() -> tuple[str, str]:
+    """Credenciais lidas em tempo de execucao.
 
-# Em producao (Fly) o disco e efemero: aceitar escrita local durante uma queda
-# do Turso confirmaria operacoes que serao perdidas. `ALLOW_SQLITE_FALLBACK`
-# deve ser "false" nos secrets do deploy; em dev e testes manter "true".
-ALLOW_SQLITE_FALLBACK = os.getenv("ALLOW_SQLITE_FALLBACK", "true").strip().lower() in (
-    "1", "true", "yes", "on",
-)
+    O .env pode ser carregado depois deste modulo em alguns pontos de entrada;
+    ler no import deixaria URL/token vazios e forçaria o SQLite efemero.
+    """
+    return (
+        os.getenv("TURSO_DATABASE_URL", "").strip(),
+        os.getenv("TURSO_AUTH_TOKEN", "").strip(),
+    )
+
+
+def _allow_sqlite_fallback() -> bool:
+    # Em producao (Fly) o disco e efemero: aceitar escrita local durante uma
+    # queda do Turso confirmaria operacoes que serao perdidas. Deve ser "false"
+    # nos secrets do deploy; em dev e testes manter "true".
+    return os.getenv("ALLOW_SQLITE_FALLBACK", "true").strip().lower() in (
+        "1", "true", "yes", "on",
+    )
 
 _conexao = None
 _conexao_lock = threading.Lock()
@@ -46,7 +56,8 @@ def _conectar_local():
 
 def _conectar_turso():
     import libsql
-    return libsql.connect(database=TURSO_URL, auth_token=TURSO_TOKEN)
+    url, token = _config_turso()
+    return libsql.connect(database=url, auth_token=token)
 
 
 def _to_dict(row, cursor):
@@ -87,10 +98,13 @@ def _criar_tabelas(conn) -> None:
 def _obter_conexao():
     global _conexao, _usa_turso, _turso_ultima_tentativa
 
+    turso_url, turso_token = _config_turso()
+    allow_fallback = _allow_sqlite_fallback()
+
     if _conexao is not None:
         try:
             _conexao.execute("SELECT 1")
-            if not _usa_turso and TURSO_URL and TURSO_TOKEN:
+            if not _usa_turso and turso_url and turso_token:
                 agora = time.time()
                 if agora - _turso_ultima_tentativa >= TURSO_RECONNECT_INTERVAL:
                     _turso_ultima_tentativa = agora
@@ -112,7 +126,7 @@ def _obter_conexao():
             return _conexao
 
         _turso_ultima_tentativa = time.time()
-        if _sqlite_path() and not (TURSO_URL and TURSO_TOKEN):
+        if _sqlite_path() and not (turso_url and turso_token):
             # Opção A (Fase 5C): banco no disco da própria máquina (volume do
             # Fly). Sem Turso configurado, este é o modo persistente oficial.
             log.info("Banco local persistente configurado em %s", _sqlite_path())
@@ -120,8 +134,8 @@ def _obter_conexao():
             _usa_turso = False
             _criar_tabelas(_conexao)
             return _conexao
-        if TURSO_URL and TURSO_TOKEN:
-            log.info("Conectando ao Turso: %s", TURSO_URL[:60])
+        if turso_url and turso_token:
+            log.info("Conectando ao Turso: %s", turso_url[:60])
             nova = _tentar_conectar_turso()
             if nova is not None:
                 _conexao = nova
@@ -131,11 +145,11 @@ def _obter_conexao():
         log.critical(
             "ATENCAO: Turso indisponivel. "
             + ("Usando SQLite local (efemero). Os dados NAO persistirao entre "
-               "reinicios. Verifique a conexao com o Turso." if ALLOW_SQLITE_FALLBACK
+               "reinicios. Verifique a conexao com o Turso." if allow_fallback
                else "Falha de persistencia. Bloqueando escrita (fail-closed). "
                "Verifique a conexao com o Turso e os secrets do deploy.")
         )
-        if not ALLOW_SQLITE_FALLBACK:
+        if not allow_fallback:
             # Em producao o disco e efemero (Fly). Aceitar escrita local neste
             # modo significaria confirmar operacoes que serao perdidas. Fail-closed:
             # melhor falhar explicitamente do que perder dados silenciosamente.
@@ -307,6 +321,59 @@ _tabelas = [
         ip TEXT NOT NULL DEFAULT '',
         criado_em TEXT NOT NULL
     )""",
+    """CREATE TABLE IF NOT EXISTS custos_uso (
+        id TEXT PRIMARY KEY,
+        owner_id TEXT NOT NULL DEFAULT '',
+        provedor TEXT NOT NULL,
+        modelo TEXT NOT NULL DEFAULT '',
+        operacao TEXT NOT NULL,
+        fonte TEXT NOT NULL DEFAULT 'medido',
+        referencia TEXT NOT NULL DEFAULT '',
+        unidades REAL NOT NULL DEFAULT 0,
+        tokens_in INTEGER NOT NULL DEFAULT 0,
+        tokens_out INTEGER NOT NULL DEFAULT 0,
+        segundos REAL NOT NULL DEFAULT 0,
+        custo_brl REAL NOT NULL DEFAULT 0,
+        cambio_usd_brl REAL NOT NULL DEFAULT 0,
+        detalhe TEXT NOT NULL DEFAULT '{}',
+        criado_em TEXT NOT NULL
+    )""",
+    """CREATE TABLE IF NOT EXISTS precos_provedor (
+        id TEXT PRIMARY KEY,
+        provedor TEXT NOT NULL,
+        modelo TEXT NOT NULL DEFAULT '*',
+        operacao TEXT NOT NULL,
+        unidade TEXT NOT NULL DEFAULT 'token',
+        preco_usd REAL NOT NULL DEFAULT 0,
+        preco_usd_saida REAL NOT NULL DEFAULT 0,
+        ativo INTEGER NOT NULL DEFAULT 1,
+        observacao TEXT NOT NULL DEFAULT '',
+        criado_em TEXT NOT NULL
+    )""",
+    """CREATE TABLE IF NOT EXISTS custos_fixos (
+        id TEXT PRIMARY KEY,
+        descricao TEXT NOT NULL,
+        fornecedor TEXT NOT NULL DEFAULT '',
+        valor_brl REAL NOT NULL DEFAULT 0,
+        dia_cobranca INTEGER NOT NULL DEFAULT 1,
+        periodicidade TEXT NOT NULL DEFAULT 'mensal',
+        ativo INTEGER NOT NULL DEFAULT 1,
+        criado_em TEXT NOT NULL
+    )""",
+    """CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id TEXT PRIMARY KEY,
+        ator TEXT NOT NULL DEFAULT '',
+        endpoint TEXT NOT NULL UNIQUE,
+        p256dh TEXT NOT NULL,
+        auth TEXT NOT NULL,
+        criado_em TEXT NOT NULL,
+        atualizado_em TEXT NOT NULL
+    )""",
+    """CREATE TABLE IF NOT EXISTS custos_sync_estado (
+        chave TEXT PRIMARY KEY,
+        valor TEXT NOT NULL DEFAULT '',
+        atualizado_em TEXT NOT NULL
+    )""",
 ]
 
 _tabelas_exclusao = [
@@ -340,6 +407,9 @@ _indices = [
     "CREATE INDEX IF NOT EXISTS idx_eventos_tipo ON eventos(tipo)",
     "CREATE INDEX IF NOT EXISTS idx_admin_auditoria_criado ON admin_auditoria(criado_em)",
     "CREATE INDEX IF NOT EXISTS idx_admin_sessoes_ator ON admin_sessoes(ator)",
+    "CREATE INDEX IF NOT EXISTS idx_custos_uso_referencia ON custos_uso(referencia)",
+    "CREATE INDEX IF NOT EXISTS idx_custos_uso_provedor ON custos_uso(provedor)",
+    "CREATE INDEX IF NOT EXISTS idx_custos_uso_owner ON custos_uso(owner_id)",
 ]
 
 try:

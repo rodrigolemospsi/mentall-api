@@ -15,6 +15,53 @@ from prompts.abordagens import PROMPTS_ABORDAGEM, PROMPT_UNIVERSAL, PROMPT_PROGR
 
 log = logging.getLogger("mentall.ia_clinica")
 
+
+def _com_uso(resultado: dict, provedor: str, modelo: str, resposta=None, tokens_in=0, tokens_out=0) -> dict:
+    """Anexa ao resultado os tokens usados (para o painel de custos)."""
+    try:
+        usage = getattr(resposta, "usage_metadata", None) or getattr(resposta, "usage", None)
+        if usage is not None:
+            tokens_in = (
+                getattr(usage, "prompt_token_count", None)
+                or getattr(usage, "prompt_tokens", None)
+                or tokens_in
+            )
+            tokens_out = (
+                getattr(usage, "candidates_token_count", None)
+                or getattr(usage, "completion_tokens", None)
+                or tokens_out
+            )
+    except Exception:
+        pass
+    resultado["uso"] = {
+        "provedor": provedor,
+        "modelo": modelo or "",
+        "tokens_in": int(tokens_in or 0),
+        "tokens_out": int(tokens_out or 0),
+    }
+    return resultado
+
+
+def _registrar_custo_sintese(owner_id: str, resultado: dict) -> None:
+    """Grava o custo estimado da síntese no painel (falha não afeta a síntese)."""
+    try:
+        from services import custos
+
+        uso = resultado.get("uso") or {}
+        provedor = (uso.get("provedor") or resultado.get("provedor") or "").strip()
+        if not provedor:
+            return
+        custos.registrar_uso_ia(
+            owner_id=owner_id or "",
+            provedor=provedor,
+            modelo=uso.get("modelo") or "",
+            tokens_in=int(uso.get("tokens_in") or 0),
+            tokens_out=int(uso.get("tokens_out") or 0),
+            operacao="sintese",
+        )
+    except Exception:
+        log.exception("Falha ao registrar custo da síntese")
+
 TERMOS_PESSOA_ATENDIDA = {"paciente", "cliente", "pessoa atendida"}
 
 BASES_PESQUISA = [
@@ -603,12 +650,14 @@ def _gerar_sintese_gemini(prompt: str) -> dict:
         return {"sucesso": False, "erro": "GEMINI_API_KEY não configurada."}
 
     try:
+        modelo = _get_model_name("gemini")
+
         config = types.GenerateContentConfig(
             response_mime_type="application/json",
         )
 
         response = client.models.generate_content(
-            model=_get_model_name("gemini"),
+            model=modelo,
             contents=prompt,
             config=config,
         )
@@ -618,8 +667,8 @@ def _gerar_sintese_gemini(prompt: str) -> dict:
             return {"sucesso": False, "erro": "Resposta vazia da IA."}
 
         log.info("Gemini síntese concluída com sucesso")
-        resultado = json.loads(conteudo)
-        return _parse_resultado_sucesso(resultado)
+        resultado = _parse_resultado_sucesso(json.loads(conteudo))
+        return _com_uso(resultado, "gemini", modelo, response)
 
     except json.JSONDecodeError as e:
         log.warning("Gemini síntese JSON inválido: %s", e)
@@ -683,8 +732,15 @@ def _gerar_sintese_deepseek(prompt: str) -> dict:
             return {"sucesso": False, "erro": "Resposta vazia da IA."}
 
         log.info("DeepSeek síntese concluída com sucesso")
-        resultado = json.loads(conteudo)
-        return _parse_resultado_sucesso(resultado)
+        uso = data.get("usage") or {}
+        resultado = _parse_resultado_sucesso(json.loads(conteudo))
+        return _com_uso(
+            resultado,
+            "deepseek",
+            model,
+            tokens_in=uso.get("prompt_tokens", 0),
+            tokens_out=uso.get("completion_tokens", 0),
+        )
 
     except json.JSONDecodeError as e:
         log.warning("DeepSeek síntese JSON inválido: %s", e)
@@ -696,8 +752,9 @@ def _gerar_sintese_deepseek(prompt: str) -> dict:
 
 def _gerar_sintese_openai_compat(client, prompt: str) -> dict:
     try:
+        modelo = _get_model_name("openai")
         response = client.chat.completions.create(
-            model=_get_model_name("openai"),
+            model=modelo,
             messages=[
                 {
                     "role": "system",
@@ -715,8 +772,8 @@ def _gerar_sintese_openai_compat(client, prompt: str) -> dict:
             return {"sucesso": False, "erro": "Resposta vazia da IA."}
 
         log.info("OpenAI síntese concluída com sucesso")
-        resultado = json.loads(conteudo)
-        return _parse_resultado_sucesso(resultado)
+        resultado = _parse_resultado_sucesso(json.loads(conteudo))
+        return _com_uso(resultado, "openai", modelo, response)
 
     except json.JSONDecodeError as e:
         log.warning("OpenAI síntese JSON inválido: %s", e)
@@ -735,6 +792,7 @@ def gerar_sintese(
     transcricao_relato: str,
     relato_manual: str,
     tema_principal: str,
+    owner_id: str = "",
 ) -> dict:
     try:
         prompt_abordagem = obter_prompt_abordagem(abordagem_clinica)
@@ -776,6 +834,7 @@ def gerar_sintese(
             resultado = _chamar_provider_sintese(prov, prompt)
             if resultado.get("sucesso"):
                 _registrar_sucesso(prov)
+                _registrar_custo_sintese(owner_id, resultado)
                 # Informa QUAL provedor processou o dado clinico. Exigencia de
                 # transparencia (Apple 5.1.2(i)) e base da trilha de auditoria:
                 # sem isso, nem o profissional nem o sistema sabem para onde o

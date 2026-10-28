@@ -86,7 +86,7 @@ def pendencias(metricas: dict | None = None) -> list[dict]:
 
 
 def formatar_mensagem(itens: list[dict]) -> str:
-    linhas = ["MentAll PRO — e-mails fora do SLA:"]
+    linhas = ["MentAll PRO — e-mails fora do SLA (horário comercial):"]
     for item in itens:
         partes = [f"{item['endereco']}: {int(item['violacoes_sla'])} fora do SLA"]
         sla = item.get("sla_horas")

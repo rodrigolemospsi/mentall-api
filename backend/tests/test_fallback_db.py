@@ -28,24 +28,24 @@ class TestFallbackFailClosed(unittest.TestCase):
         self.assertFalse(db._usa_turso)
 
     def test_fallback_desabilitado_lanca_em_vez_de_aceitar_escrita(self):
-        with mock.patch.object(db, "ALLOW_SQLITE_FALLBACK", False):
-            with mock.patch.object(db, "TURSO_URL", ""):
-                with mock.patch.object(db, "TURSO_TOKEN", ""):
-                    with mock.patch.object(db, "_conexao", None):
-                        db._turso_ultima_tentativa = 0
-                        with self.assertRaises(RuntimeError):
-                            db._obter_conexao()
+        # O db.py passou a ler TURSO_*/ALLOW_SQLITE_FALLBACK por funcao (o .env
+        # pode carregar depois do import); o teste acompanha essa leitura.
+        with mock.patch.dict(os.environ, {"ALLOW_SQLITE_FALLBACK": "false"}, clear=False):
+            with mock.patch.object(db, "_config_turso", return_value=("", "")):
+                with mock.patch.object(db, "_conexao", None):
+                    db._turso_ultima_tentativa = 0
+                    with self.assertRaises(RuntimeError):
+                        db._obter_conexao()
 
     def test_fallback_habilitado_cai_no_sqlite_local(self):
-        with mock.patch.object(db, "ALLOW_SQLITE_FALLBACK", True):
-            with mock.patch.object(db, "TURSO_URL", ""):
-                with mock.patch.object(db, "TURSO_TOKEN", ""):
-                    with mock.patch.object(db, "_conexao", None):
-                        db._turso_ultima_tentativa = 0
-                        with mock.patch.object(db, "_tentar_conectar_turso", return_value=None):
-                            conn = db._obter_conexao()
-                            self.assertIsNotNone(conn)
-                            self.assertEqual(db._usa_turso, False)
+        with mock.patch.dict(os.environ, {"ALLOW_SQLITE_FALLBACK": "true"}, clear=False):
+            with mock.patch.object(db, "_config_turso", return_value=("", "")):
+                with mock.patch.object(db, "_conexao", None):
+                    db._turso_ultima_tentativa = 0
+                    with mock.patch.object(db, "_tentar_conectar_turso", return_value=None):
+                        conn = db._obter_conexao()
+                        self.assertIsNotNone(conn)
+                        self.assertEqual(db._usa_turso, False)
 
 
 if __name__ == "__main__":

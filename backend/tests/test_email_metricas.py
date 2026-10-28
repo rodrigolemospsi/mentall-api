@@ -242,7 +242,10 @@ class SlaTests(unittest.TestCase):
         agora = datetime.now(timezone.utc)
         headers = [{"data": agora - timedelta(hours=30),
                     "message_id": "<b@x>", "para": "to: financeiro@mentallpro.com.br"}]
-        with patch.object(email_metricas, "ENDERECOS", ("financeiro@",)):
+        # O SLA passou a contar minutos uteis (seg-sex 8-18, sab 8-13); fixa a
+        # metrica para testar a regra de violacao de forma deterministica.
+        with patch.object(email_metricas, "ENDERECOS", ("financeiro@",)), \
+             patch.object(email_metricas, "_minutos_uteis", return_value=30 * 60):
             res = email_metricas._metricas_por_endereco(
                 agora - timedelta(days=7), headers, {}, agora,
                 {"financeiro@": 24.0})

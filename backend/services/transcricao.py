@@ -63,7 +63,26 @@ def _create_openai_client():
     return OpenAI(**kwargs)
 
 
-def transcrever_audio(audio_base64: str, formato: str = "wav") -> dict:
+def _duracao_audio(audio_bytes: bytes, formato: str, duracao_api: float) -> tuple[float, bool]:
+    """Duração do áudio em segundos + se foi estimada (sem metadados)."""
+    if duracao_api and float(duracao_api) > 0:
+        return float(duracao_api), False
+    try:
+        if (formato or "").lower().lstrip(".") == "wav":
+            import wave
+
+            with wave.open(io.BytesIO(audio_bytes), "rb") as wav:
+                taxa = wav.getframerate() or 1
+                return wav.getnframes() / float(taxa), False
+    except Exception:
+        pass
+    if audio_bytes:
+        # Estimativa conservadora (64 kbps = 8.000 bytes/s) quando não há duração.
+        return len(audio_bytes) / 8000.0, True
+    return 0.0, True
+
+
+def transcrever_audio(audio_base64: str, formato: str = "wav", owner_id: str = "") -> dict:
     provider = _get_transcricao_provider()
     model = _get_transcricao_model()
 
@@ -87,15 +106,33 @@ def transcrever_audio(audio_base64: str, formato: str = "wav") -> dict:
         audio_file.name = f"audio.{formato}"
 
         if provider == "groq":
-            transcricao = _transcrever_groq(audio_file, model)
+            transcricao, duracao = _transcrever_groq(audio_file, model)
         else:
-            transcricao = _transcrever_openai(audio_file, model)
+            transcricao, duracao = _transcrever_openai(audio_file, model)
+
+        segundos, estimada = _duracao_audio(audio_bytes, formato, duracao)
 
         log.info("Transcricao concluida com sucesso (%d caracteres)", len(transcricao.strip()))
+        try:
+            from services import custos
+
+            custos.registrar_transcricao(
+                owner_id=owner_id or "",
+                provedor=provider,
+                modelo=model,
+                segundos=segundos,
+                bytes_audio=len(audio_bytes),
+                estimado=estimada,
+            )
+        except Exception:
+            log.exception("Falha ao registrar custo da transcrição")
+
         return {
             "sucesso": True,
             "transcricao": transcricao.strip(),
             "erro": "",
+            "duracao_s": round(segundos, 2),
+            "duracao_estimada": estimada,
         }
 
     except Exception as e:
@@ -110,21 +147,51 @@ def transcrever_audio(audio_base64: str, formato: str = "wav") -> dict:
 
 def _transcrever_groq(audio_file, model):
     client = _create_groq_client()
-    response = client.audio.transcriptions.create(
-        model=model,
-        file=audio_file,
-        language="pt",
-        response_format="text",
-    )
-    return response if isinstance(response, str) else response.text
+    try:
+        response = client.audio.transcriptions.create(
+            model=model,
+            file=audio_file,
+            language="pt",
+            response_format="verbose_json",
+        )
+        texto = getattr(response, "text", "") or (response if isinstance(response, str) else "")
+        duracao = float(getattr(response, "duration", 0) or 0)
+        return texto, duracao
+    except Exception:
+        try:
+            audio_file.seek(0)
+        except Exception:
+            pass
+        response = client.audio.transcriptions.create(
+            model=model,
+            file=audio_file,
+            language="pt",
+            response_format="text",
+        )
+        return (response if isinstance(response, str) else response.text), 0.0
 
 
 def _transcrever_openai(audio_file, model):
     client = _create_openai_client()
-    response = client.audio.transcriptions.create(
-        model=model,
-        file=audio_file,
-        language="pt",
-        response_format="text",
-    )
-    return response
+    try:
+        response = client.audio.transcriptions.create(
+            model=model,
+            file=audio_file,
+            language="pt",
+            response_format="verbose_json",
+        )
+        texto = getattr(response, "text", "") or (response if isinstance(response, str) else "")
+        duracao = float(getattr(response, "duration", 0) or 0)
+        return texto, duracao
+    except Exception:
+        try:
+            audio_file.seek(0)
+        except Exception:
+            pass
+        response = client.audio.transcriptions.create(
+            model=model,
+            file=audio_file,
+            language="pt",
+            response_format="text",
+        )
+        return (response if isinstance(response, str) else response.text), 0.0
