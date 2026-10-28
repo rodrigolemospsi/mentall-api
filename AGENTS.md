@@ -42,6 +42,31 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Cópia de trabalho independente do app — 28/10/2026
+
+### Contexto
+O dono pediu uma cópia do app para fazer mudanças sem tocar no original. Foi criado um clone git
+independente em `~/Documents/deepseek-harness/default-workspace/mentall-pro-app-copia` (o original
+continua em `~/mentall-pro-app`). Remotos: `origin` → GitHub (`mentall-api`) e `original` → pasta
+local do app original.
+
+### O que mudou (arquivos)
+1. **`COPIA.md` (novo)** — origem, remotos, o que não veio junto (`.env`, banco, `.venv`, `build/`) e
+   como rodar a cópia (portas/banco separados do original).
+2. **`AGENTS.md` (cópia)** — esta seção. O `AGENTS.md` do repositório original **não** foi alterado.
+3. Nenhum arquivo de código foi editado nesta etapa.
+
+### Verificação
+- MEDI (28/10): HEAD da cópia = HEAD do original = `8649d4d`; 535 arquivos rastreados; árvore limpa
+  antes deste registro.
+- MEDI: original com `git status --porcelain` vazio e HEAD inalterado após a cópia.
+- MEDI: clone com `--no-local` (sem link físico) — 33 MB de código + 21 MB de `.git`.
+- NÃO foi feito `git push`: a cópia é local, nada foi enviado ao GitHub.
+
+### Pendências
+- Decidir se a cópia recebe configs locais (`backend/.env`, `backend/data/`) para rodar isolada.
+- Se a cópia for rodar: `flutter pub get`, recriar `.venv`, `.env` de teste e portas diferentes.
+
 ## Ajustes de painel: precisão de custos e auto-status do reporte — 28/10/2026
 
 ### Contexto
