@@ -7,6 +7,7 @@ import 'package:local_auth/local_auth.dart';
 import '../providers/service_providers.dart';
 import '../utils/mentall_colors.dart';
 import '../utils/raio.dart';
+import '../widgets/mentall_card.dart';
 import 'main_shell.dart';
 import 'perfil_profissional_form_page.dart';
 import '../utils/tipografia.dart';
@@ -125,82 +126,100 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final label = face ? 'Usar reconhecimento facial' : 'Usar digital / face';
 
     return Scaffold(
-      backgroundColor: context.corFundo,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Image.asset(
-                  Theme.of(context).brightness == Brightness.dark
-                      ? 'assets/images/logo_mentallpro_fundoescuro_01.png'
-                      : 'assets/images/logo_mentallpro_fundoclaro_01.png',
-                  height: 96,
-                  cacheHeight: 192,
-                  semanticLabel: 'Logo MentAll PRO',
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'Acesso protegido',
-                  style: TextStyle(
-                    fontSize: Tipografia.xl,
-                    fontWeight: FontWeight.bold,
-                    color: context.corTextoHeading,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Autentique-se para acessar o prontuário.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: context.corTextoMuted, fontSize: Tipografia.base),
-                ),
-                const SizedBox(height: 28),
-                Semantics(
-                  label: 'Autenticar com biometria',
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: processando ? null : _autenticar,
-                      icon: processando
-                          ? SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: context.corOnPrimaria,
-                              ),
-                            )
-                          : Icon(icon, size: 28),
-                      label: Text(
-                        processando ? 'Autenticando...' : label,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: PainelCores.gradienteEntradaPara(
+            Theme.of(context).brightness,
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: MentAllCard(
+                  padding: const EdgeInsets.all(Espacamento.xl),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Image.asset(
+                        Theme.of(context).brightness == Brightness.dark
+                            ? 'assets/images/logo_mentallpro_fundoescuro_01.png'
+                            : 'assets/images/logo_mentallpro_fundoclaro_01.png',
+                        height: 96,
+                        cacheHeight: 192,
+                        semanticLabel: 'Logo MentAll PRO',
                       ),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(Raio.lg),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Acesso protegido',
+                        style: TextStyle(
+                          fontSize: Tipografia.xl,
+                          fontWeight: FontWeight.bold,
+                          color: context.corTextoHeading,
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Autentique-se para acessar o prontuário.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: context.corTextoMuted,
+                          fontSize: Tipografia.base,
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      Semantics(
+                        label: 'Autenticar com biometria',
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: processando ? null : _autenticar,
+                            icon: processando
+                                ? SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: context.corOnPrimaria,
+                                    ),
+                                  )
+                                : Icon(icon, size: 28),
+                            label: Text(
+                              processando ? 'Autenticando...' : label,
+                            ),
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(Raio.lg),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (erro.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            erro,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: context.corError,
+                              fontSize: Tipografia.smMd,
+                            ),
+                          ),
+                        ),
+                      if (possuiPinLegado)
+                        TextButton(
+                          onPressed: processando ? null : _mostrarMigracaoPin,
+                          child: const Text('Migrar do PIN antigo'),
+                        ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                if (erro.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      erro,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: context.corError, fontSize: Tipografia.smMd),
-                    ),
-                  ),
-                if (possuiPinLegado)
-                  TextButton(
-                    onPressed: processando ? null : _mostrarMigracaoPin,
-                    child: const Text('Migrar do PIN antigo'),
-                  ),
-              ],
+              ),
             ),
           ),
         ),

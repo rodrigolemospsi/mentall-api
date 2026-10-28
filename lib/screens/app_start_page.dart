@@ -117,7 +117,6 @@ class _AppStartPageState extends ConsumerState<AppStartPage>
   }
 
   Widget _buildSplash(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: _pularSplash,
       child: AnimatedBuilder(
@@ -129,16 +128,20 @@ class _AppStartPageState extends ConsumerState<AppStartPage>
           );
         },
         child: Scaffold(
-          backgroundColor: context.corFundo,
-          body: Center(
+          body: Container(
+            decoration: BoxDecoration(
+              gradient: PainelCores.gradienteEntradaPara(
+                Theme.of(context).brightness,
+              ),
+            ),
+            child: Center(
               child: Image.asset(
-                isDark
-                    ? 'assets/images/logo_mentallpro_fundoescuro_01.png'
-                    : 'assets/images/logo_mentallpro_fundoclaro_01.png',
+                'assets/images/logo_mentallpro_fundoescuro_01.png',
                 height: 128,
                 cacheHeight: 256,
                 semanticLabel: 'Logo MentAll PRO',
               ),
+            ),
           ),
         ),
       ),

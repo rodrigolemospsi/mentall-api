@@ -250,14 +250,16 @@ Future<void> _iniciarApp() async {
 class MentAllApp extends ConsumerWidget {
   MentAllApp({super.key});
 
-  static const Color _corPrimaria = Color(0xFF8806CE);
-
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
   ThemeData _criarTema(Brightness brightness) {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: _corPrimaria,
-      brightness: brightness,
+    final escuro = brightness == Brightness.dark;
+    final colorScheme = _esquemaPainel(brightness);
+    final corCard = escuro
+        ? PainelCores.escuroCard
+        : colorScheme.surfaceContainerLowest;
+    final raioBotao = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(Raio.md),
     );
 
     return ThemeData(
@@ -275,50 +277,35 @@ class MentAllApp extends ConsumerWidget {
       useMaterial3: true,
       scaffoldBackgroundColor: colorScheme.surface,
       appBarTheme: AppBarTheme(
-        backgroundColor: colorScheme.primary,
-        foregroundColor: colorScheme.onPrimary,
-        centerTitle: false,
+        backgroundColor: corCard,
+        foregroundColor: colorScheme.onSurface,
         elevation: 0,
-      ),
-      navigationBarTheme: brightness == Brightness.light
-          ? NavigationBarThemeData(
-              backgroundColor: corSombraCard.withValues(alpha: 0.30),
-              indicatorColor: corAcaoFgClaro.withValues(alpha: 0.14),
-              surfaceTintColor: Colors.transparent,
-              iconTheme: WidgetStateProperty.resolveWith(
-                (states) => IconThemeData(
-                  color: states.contains(WidgetState.selected)
-                      ? _corPrimaria
-                      : _corPrimaria.withValues(alpha: 0.85),
-                ),
-              ),
-              labelTextStyle: WidgetStateProperty.resolveWith(
-                (states) => TextStyle(
-                  fontSize: Tipografia.sm,
-                  fontWeight: states.contains(WidgetState.selected)
-                      ? FontWeight.w600
-                      : FontWeight.w400,
-                  color: states.contains(WidgetState.selected)
-                      ? _corPrimaria
-                      : _corPrimaria.withValues(alpha: 0.85),
-                ),
-              ),
-            )
-          : null,
-      floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: colorScheme.primary,
-        foregroundColor: colorScheme.onPrimary,
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(Raio.md),
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        iconTheme: IconThemeData(
+          color: colorScheme.onSurfaceVariant,
+          size: 22,
         ),
+        actionsIconTheme: IconThemeData(
+          color: colorScheme.onSurfaceVariant,
+          size: 22,
+        ),
+        titleTextStyle: TextStyle(
+          fontSize: Tipografia.lg,
+          fontWeight: FontWeight.w700,
+          color: colorScheme.onSurface,
+        ),
+        shape: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
       ),
       cardTheme: CardThemeData(
-        elevation: brightness == Brightness.light ? 1 : 4,
-        color: colorScheme.surface,
+        color: corCard,
+        elevation: 0,
+        shadowColor: escuro
+            ? Colors.black
+            : PainelCores.texto.withValues(alpha: 0.06),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(Raio.xxl),
+          borderRadius: BorderRadius.circular(Raio.xl),
+          side: BorderSide(color: colorScheme.outlineVariant),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
@@ -326,25 +313,256 @@ class MentAllApp extends ConsumerWidget {
           backgroundColor: colorScheme.primary,
           foregroundColor: colorScheme.onPrimary,
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(Raio.lg),
+          shape: raioBotao,
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: Tipografia.baseMd,
           ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(Raio.lg),
+          foregroundColor: colorScheme.onSurface,
+          side: BorderSide(color: colorScheme.outline),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          shape: raioBotao,
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: Tipografia.baseMd,
           ),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(Raio.lg),
+          foregroundColor: colorScheme.primary,
+          shape: raioBotao,
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: Tipografia.baseMd,
           ),
         ),
       ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: corCard,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
+        hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+        labelStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+        floatingLabelStyle: TextStyle(color: colorScheme.primary),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(Raio.md),
+          borderSide: BorderSide(color: colorScheme.outline),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(Raio.md),
+          borderSide: BorderSide(color: colorScheme.outline),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(Raio.md),
+          borderSide: BorderSide(color: colorScheme.primary, width: 1.6),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(Raio.md),
+          borderSide: BorderSide(color: colorScheme.error),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(Raio.md),
+          borderSide: BorderSide(color: colorScheme.error, width: 1.6),
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: colorScheme.surfaceContainer,
+        selectedColor: colorScheme.primaryContainer,
+        disabledColor: colorScheme.surfaceContainer,
+        side: BorderSide(color: colorScheme.outlineVariant),
+        shape: const StadiumBorder(),
+        labelStyle: TextStyle(
+          color: colorScheme.onSurface,
+          fontSize: Tipografia.smMd,
+          fontWeight: FontWeight.w500,
+        ),
+        secondaryLabelStyle: TextStyle(color: colorScheme.onPrimaryContainer),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        showCheckmark: false,
+      ),
+      dividerTheme: DividerThemeData(
+        color: colorScheme.outlineVariant,
+        thickness: 1,
+        space: 1,
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: corCard,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(Raio.xl),
+          side: BorderSide(color: colorScheme.outlineVariant),
+        ),
+        titleTextStyle: TextStyle(
+          fontSize: Tipografia.lg,
+          fontWeight: FontWeight.w700,
+          color: colorScheme.onSurface,
+        ),
+        contentTextStyle: TextStyle(
+          fontSize: Tipografia.base,
+          color: colorScheme.onSurfaceVariant,
+          height: 1.4,
+        ),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: corCard,
+        modalBackgroundColor: corCard,
+        elevation: 0,
+        modalElevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(Raio.xl),
+          ),
+          side: BorderSide(color: colorScheme.outlineVariant),
+        ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: colorScheme.inverseSurface,
+        contentTextStyle: TextStyle(color: colorScheme.onInverseSurface),
+        actionTextColor: colorScheme.inversePrimary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(Raio.md),
+        ),
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: colorScheme.primary,
+        linearTrackColor: colorScheme.surfaceContainerHigh,
+        circularTrackColor: colorScheme.surfaceContainerHigh,
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
+        elevation: 2,
+        highlightElevation: 3,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(Raio.xl),
+        ),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: corCard,
+        indicatorColor: colorScheme.primaryContainer,
+        elevation: 0,
+        iconTheme: WidgetStateProperty.resolveWith(
+          (states) => IconThemeData(
+            color: states.contains(WidgetState.selected)
+                ? colorScheme.primary
+                : colorScheme.onSurfaceVariant,
+          ),
+        ),
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (states) => TextStyle(
+            fontSize: Tipografia.sm,
+            fontWeight: states.contains(WidgetState.selected)
+                ? FontWeight.w600
+                : FontWeight.w400,
+            color: states.contains(WidgetState.selected)
+                ? colorScheme.primary
+                : colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+      listTileTheme: ListTileThemeData(
+        iconColor: colorScheme.onSurfaceVariant,
+        textColor: colorScheme.onSurface,
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: corCard,
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(Raio.md),
+          side: BorderSide(color: colorScheme.outlineVariant),
+        ),
+        textStyle: TextStyle(
+          color: colorScheme.onSurface,
+          fontSize: Tipografia.base,
+        ),
+      ),
+    );
+  }
+
+  /// Esquema de cores do painel do dono (backend/admin_ui.py, tema v2).
+  ColorScheme _esquemaPainel(Brightness brightness) {
+    final base = ColorScheme.fromSeed(
+      seedColor: PainelCores.roxo,
+      brightness: brightness,
+    );
+
+    if (brightness == Brightness.dark) {
+      return base.copyWith(
+        primary: PainelCores.escuroPrimaria,
+        onPrimary: const Color(0xFF1E1B4B),
+        primaryContainer: PainelCores.sidebar2,
+        onPrimaryContainer: const Color(0xFFEDE9FE),
+        secondary: const Color(0xFFC4B5FD),
+        onSecondary: const Color(0xFF1E1B4B),
+        secondaryContainer: const Color(0xFF3B2A72),
+        onSecondaryContainer: const Color(0xFFEDE9FE),
+        tertiary: const Color(0xFFDDD6FE),
+        onTertiary: const Color(0xFF1E1B4B),
+        tertiaryContainer: PainelCores.roxoEscuro,
+        onTertiaryContainer: const Color(0xFFEDE9FE),
+        error: const Color(0xFFF87171),
+        onError: const Color(0xFF450A0A),
+        errorContainer: const Color(0xFF7F1D1D),
+        onErrorContainer: const Color(0xFFFEE2E2),
+        surface: PainelCores.escuroFundo,
+        onSurface: PainelCores.escuroTexto,
+        onSurfaceVariant: PainelCores.escuroTextoMuted,
+        surfaceContainerLowest: const Color(0xFF111C2E),
+        surfaceContainerLow: PainelCores.escuroSuperficie,
+        surfaceContainer: PainelCores.escuroCard,
+        surfaceContainerHigh: const Color(0xFF243447),
+        surfaceContainerHighest: PainelCores.escuroBorda,
+        outline: const Color(0xFF475569),
+        outlineVariant: PainelCores.escuroBorda,
+        inverseSurface: PainelCores.escuroTexto,
+        onInverseSurface: PainelCores.escuroFundo,
+        inversePrimary: PainelCores.roxo,
+        shadow: Colors.black,
+        scrim: Colors.black,
+      );
+    }
+
+    return base.copyWith(
+      primary: PainelCores.roxo,
+      onPrimary: Colors.white,
+      primaryContainer: const Color(0xFFEDE9FE),
+      onPrimaryContainer: const Color(0xFF2E1065),
+      secondary: PainelCores.sidebar1,
+      onSecondary: Colors.white,
+      secondaryContainer: const Color(0xFFEDE9FE),
+      onSecondaryContainer: const Color(0xFF2E1065),
+      tertiary: PainelCores.roxoClaro,
+      onTertiary: const Color(0xFF2E1065),
+      tertiaryContainer: const Color(0xFFDDD6FE),
+      onTertiaryContainer: const Color(0xFF2E1065),
+      error: PainelCores.erro,
+      onError: Colors.white,
+      errorContainer: const Color(0xFFFDECEC),
+      onErrorContainer: const Color(0xFF7F1D1D),
+      surface: PainelCores.fundo,
+      onSurface: PainelCores.texto,
+      onSurfaceVariant: PainelCores.textoMuted,
+      surfaceContainerLowest: PainelCores.card,
+      surfaceContainerLow: PainelCores.superficie,
+      surfaceContainer: PainelCores.chip,
+      surfaceContainerHigh: const Color(0xFFE8ECF7),
+      surfaceContainerHighest: const Color(0xFFE2E8F0),
+      outline: PainelCores.bordaForte,
+      outlineVariant: PainelCores.borda,
+      inverseSurface: PainelCores.texto,
+      onInverseSurface: const Color(0xFFF1F5F9),
+      inversePrimary: PainelCores.roxoClaro,
+      shadow: PainelCores.texto,
+      scrim: PainelCores.texto,
     );
   }
 

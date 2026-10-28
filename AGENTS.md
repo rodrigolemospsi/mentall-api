@@ -42,6 +42,38 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Visual do app alinhado ao painel de controle — 28/10/2026
+
+### Contexto
+O dono pediu que a UI do app imitasse as **cores e o estilo do painel do dono**. A identidade do painel
+(tema v2 em `backend/admin_ui.py`, variáveis CSS `--v2-*`) foi portada para o tema Material 3 do app.
+
+### O que mudou (arquivos)
+1. **`lib/utils/mentall_colors.dart`** — nova classe `PainelCores` (fonte única: roxo `#7C3AED`,
+   gradientes, fundo `#F3F5FB`, card branco, borda `#E6EAF2`, sombra `0 10px 30px rgba(15,23,42,.06)`,
+   semânticas ok/atenção/erro e escala do modo escuro) + tokens do extension remapeados.
+2. **`lib/main.dart`** — `_criarTema` deixa o `ColorScheme.fromSeed` e passa a usar `_esquemaPainel`
+   explícito (claro/escuro) + temas de AppBar, Card, botões, inputs, chips, diálogo, sheet, snackbar,
+   FAB, navbar, list tile e popup menu.
+3. **`lib/screens/main_shell.dart`** — navbar inferior com o gradiente da sidebar do painel e ícones/
+   rótulos brancos.
+4. **`lib/screens/login_page.dart`** — fundo com o gradiente das telas de entrada do painel e conteúdo
+   em cartão (largura máxima 420).
+5. **`lib/screens/app_start_page.dart`** — splash com o mesmo gradiente e logo branca.
+6. **`lib/screens/home_page.dart`** — AppBar da Home no estilo do topbar do painel (fundo branco,
+   ícones muted).
+
+### Verificação
+- MEDI (28/10): `flutter pub get` OK; `flutter analyze` → **No issues found**; `flutter test` →
+  **354/354 OK**.
+- MEDI: diff restrito aos 6 arquivos; base `328ac41`; nada foi enviado ao GitHub.
+- NÃO rodado em aparelho/emulador: conferir visualmente splash → login → Home e a navbar.
+
+### Pendências
+- Validar visualmente no aparelho (o teste verde não prova visual).
+- Telas de cadastro/onboarding (`conta_page.dart`, `onboarding_page.dart`) ainda não receberam o
+  gradiente de entrada.
+
 ## Cópia de trabalho independente do app — 28/10/2026
 
 ### Contexto

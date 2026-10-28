@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/service_providers.dart';
+import '../utils/mentall_colors.dart';
+import '../utils/tipografia.dart';
 import 'agenda_page.dart';
 import 'financeiro_page.dart';
 import 'home_page.dart';
@@ -43,44 +45,75 @@ class _MainShellState extends ConsumerState<MainShell> {
               : const SizedBox.shrink(),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: tabIndex,
-        onDestinationSelected: (i) =>
-            ref.read(_tabIndexProvider.notifier).state = i,
-        destinations: [
-          Semantics(
-            label: 'Inicio',
-            child: const NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
-              label: 'Início',
+      bottomNavigationBar: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: PainelCores.gradienteSidebar,
+        ),
+        child: NavigationBarTheme(
+          data: NavigationBarThemeData(
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            indicatorColor: Colors.white.withValues(alpha: 0.18),
+            elevation: 0,
+            iconTheme: WidgetStateProperty.resolveWith(
+              (states) => IconThemeData(
+                color: states.contains(WidgetState.selected)
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.72),
+              ),
+            ),
+            labelTextStyle: WidgetStateProperty.resolveWith(
+              (states) => TextStyle(
+                fontSize: Tipografia.sm,
+                fontWeight: states.contains(WidgetState.selected)
+                    ? FontWeight.w700
+                    : FontWeight.w500,
+                color: states.contains(WidgetState.selected)
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.78),
+              ),
             ),
           ),
-          Semantics(
-            label: termoPluralNavbar,
-            child: NavigationDestination(
-              icon: const Icon(Icons.people_outlined),
-              selectedIcon: const Icon(Icons.people),
-              label: termoPluralNavbar,
-            ),
+          child: NavigationBar(
+            selectedIndex: tabIndex,
+            onDestinationSelected: (i) =>
+                ref.read(_tabIndexProvider.notifier).state = i,
+            destinations: [
+              Semantics(
+                label: 'Inicio',
+                child: const NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home),
+                  label: 'Início',
+                ),
+              ),
+              Semantics(
+                label: termoPluralNavbar,
+                child: NavigationDestination(
+                  icon: const Icon(Icons.people_outlined),
+                  selectedIcon: const Icon(Icons.people),
+                  label: termoPluralNavbar,
+                ),
+              ),
+              Semantics(
+                label: 'Financeiro',
+                child: const NavigationDestination(
+                  icon: Icon(Icons.payments_outlined),
+                  selectedIcon: Icon(Icons.payments),
+                  label: 'Financeiro',
+                ),
+              ),
+              Semantics(
+                label: 'Agenda',
+                child: const NavigationDestination(
+                  icon: Icon(Icons.calendar_month_outlined),
+                  selectedIcon: Icon(Icons.calendar_month),
+                  label: 'Agenda',
+                ),
+              ),
+            ],
           ),
-          Semantics(
-            label: 'Financeiro',
-            child: const NavigationDestination(
-              icon: Icon(Icons.payments_outlined),
-              selectedIcon: Icon(Icons.payments),
-              label: 'Financeiro',
-            ),
-          ),
-          Semantics(
-            label: 'Agenda',
-            child: const NavigationDestination(
-              icon: Icon(Icons.calendar_month_outlined),
-              selectedIcon: Icon(Icons.calendar_month),
-              label: 'Agenda',
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
