@@ -55,4 +55,49 @@ void main() {
     expect(result.tendencia, 'melhora');
     expect(result.recomendacoes, 'Monitorar evolucao');
   });
+
+  test('reportar sintese envia so metadados e devolve o protocolo', () async {
+    final dir = await Directory.systemTemp.createTemp('ia_clinica_reporte_');
+    Hive.init(dir.path);
+    await Hive.openBox<String>('app_config');
+    addTearDown(() async {
+      ApiClient.authToken = null;
+      await Hive.close();
+      await dir.delete(recursive: true);
+    });
+    await ApiClient.setBaseUrl('https://clinica.example/api');
+    ApiClient.authToken = 'test.${base64Url.encode(utf8.encode(jsonEncode({
+      'exp': DateTime.now().add(const Duration(hours: 1)).millisecondsSinceEpoch ~/ 1000,
+    })))}.signature';
+    final requests = <http.Request>[];
+    final client = MockClient((request) async {
+      requests.add(request);
+      return http.Response(
+        jsonEncode({'sucesso': true, 'protocolo': 'abc123def456'}),
+        200,
+      );
+    });
+    addTearDown(client.close);
+
+    final protocolo = await IaClinicaService(client: client).reportarSintese(
+      sessaoId: 'sessao-9',
+      motivo: 'conteudo_ofensivo',
+      detalhe: 'Trecho agressivo',
+      provedor: 'openai',
+    );
+
+    expect(requests, hasLength(1));
+    expect(
+      requests.single.url,
+      Uri.parse('https://clinica.example/api/reportar-sintese'),
+    );
+    expect(requests.single.method, 'POST');
+    final corpo = jsonDecode(requests.single.body) as Map<String, dynamic>;
+    expect(corpo['sessao_id'], 'sessao-9');
+    expect(corpo['motivo'], 'conteudo_ofensivo');
+    expect(corpo['detalhe'], 'Trecho agressivo');
+    expect(corpo['provedor'], 'openai');
+    expect(corpo.containsKey('relato_clinico'), isFalse);
+    expect(protocolo, 'abc123def456');
+  });
 }

@@ -42,6 +42,42 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Quick wins de publicação (4.6/4.7/4.8) + reporte de IA in-app (3.4) — 27/10/2026
+
+### Contexto
+Fechar quick wins de loja do checklist v3.0 sem tocar no WIP de painel: iOS (Face ID e privacy
+manifest), ambiente local OpenAI-only e o caminho in-app de reporte de saída de IA exigido pelo Play.
+4.6/4.7/4.8 foram commitados em `fix/checklist-quick-wins-4.6-4.7-4.8` (commit `0ee8e7d`); o 3.4 sai
+nesta branch/worktree para merge independente.
+
+### O que mudou (arquivos)
+1. **`ios/Runner/Info.plist`** — `NSFaceIDUsageDescription` (4.6).
+2. **`ios/Runner/PrivacyInfo.xcprivacy` (novo)** + `ios/Runner.xcodeproj/project.pbxproj` — manifest
+   sem tracking, 9 tipos de dado (App Privacy) e APIs UserDefaults/FileTimestamp/SystemBootTime;
+   incluído em Copy Bundle Resources (4.7). Calendar só após a decisão 0.8.
+3. **`backend/.env`** (não versionado) — GEMINI/DEEPSEEK/TURSO vazios, `IA_MODEL_PROVIDER=openai`,
+   `IA_MODEL=gpt-4.1-mini` e `IA_PROVIDER_ORDER=openai` (4.8).
+4. **`backend/models/schemas.py`**, **`backend/services/reportes_ia.py` (novo)**,
+   **`backend/services/db.py`** e **`backend/main.py`** — `POST /reportar-sintese` (token + rate limit,
+   422 para motivo inválido) e tabela `reportes_ia`; grava só metadados (sem conteúdo clínico).
+5. **`lib/widgets/reportar_sintese_dialog.dart` (novo)**, **`lib/widgets/sessao_relato_ia_widget.dart`**,
+   **`lib/screens/sessao_form_page.dart`** e **`lib/services/ia_clinica_service.dart`** — botão
+   "Reportar problema com o texto gerado" após a síntese, diálogo com 5 motivos + observação e envio.
+6. **Testes** — `backend/tests/test_reportes_ia.py` (9), `test_reportes_ia_endpoint.py` (4),
+   `test/widgets/reportar_sintese_dialog_test.dart` (3), `ia_clinica_service_test.dart` (+1).
+
+### Verificação
+- Backend (MEDI, 27/10): `run_isolated.py` **489/489 OK** (476 + 13 novos).
+- Flutter (MEDI, 27/10): `dart analyze` **No issues found!**; `flutter test` **354/354 OK** (350 + 4).
+- iOS (MEDI parcial): `plutil -lint` OK nos três arquivos; `flutter build ios --no-codesign` não
+  concluiu na sessão (>35 min, interrompido).
+- Pendente NO APARELHO: gerar síntese → reportar → conferir protocolo e registro.
+
+### Pendências
+- Merge da branch do 3.4 e deploy do backend para o endpoint existir em produção.
+- Listar os reportes no painel (hoje só banco/log) — próximo passo de suporte.
+- 4.7: validar o manifest no archive/App Store Connect quando a conta Apple abrir.
+
 ## Rascunho de Data Safety / App Privacy (itens 3.1–3.3) — Fase 5V (23/10/2026)
 
 ### Contexto

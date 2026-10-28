@@ -427,3 +427,43 @@ class EventoRequest(BaseModel):
 
 class TelemetriaResponse(BaseModel):
     sucesso: bool = True
+
+
+# ── Reporte de saída de IA (item 3.4 do checklist de publicação) ──────────────
+# O Google Play exige um caminho in-app para reportar conteúdo gerado por IA.
+# O app envia só metadados (motivo + observação opcional); o relato clínico e a
+# síntese NÃO passam por este fluxo.
+
+MOTIVOS_REPORTE_IA = (
+    "conteudo_incorreto",
+    "tom_inadequado",
+    "dado_sensivel",
+    "conteudo_ofensivo",
+    "outro",
+)
+
+
+class ReporteSinteseRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sessao_id: str = Field(min_length=1, max_length=100)
+    motivo: str = Field(min_length=1, max_length=40)
+    detalhe: str = Field(default="", max_length=500)
+    provedor: str = Field(default="", max_length=30)
+
+    @field_validator("motivo")
+    @classmethod
+    def _validar_motivo(cls, v: str) -> str:
+        motivo = v.strip().lower()
+        if motivo not in MOTIVOS_REPORTE_IA:
+            raise ValueError(
+                "motivo deve ser um dos permitidos: "
+                + ", ".join(MOTIVOS_REPORTE_IA)
+            )
+        return motivo
+
+
+class ReporteSinteseResponse(BaseModel):
+    sucesso: bool = True
+    protocolo: str = ""
+    erro: str = ""
