@@ -75,9 +75,41 @@ MOTIVO_LABELS = {
     "outro": "Outro problema",
 }
 
+# Workflow de resolucao (painel do dono)
+STATUS_REPORTE = ("aberto", "em_analise", "resolvido", "descartado")
+STATUS_LABELS = {
+    "aberto": "Aberto",
+    "em_analise": "Em analise",
+    "resolvido": "Resolvido",
+    "descartado": "Descartado",
+}
+SEVERIDADES = ("baixa", "media", "alta")
+SEVERIDADE_LABELS = {"baixa": "Baixa", "media": "Media", "alta": "Alta"}
+CAUSAS_RAIZ = {
+    "prompt": "Prompt/persona da IA",
+    "modelo": "Modelo/provedor de IA",
+    "entrada_profissional": "Entrada do profissional",
+    "expectativa": "Expectativa do profissional",
+    "outro": "Outro",
+}
+CONTATO_CANAIS = {
+    "whatsapp": "WhatsApp",
+    "email": "E-mail",
+    "telefone": "Telefone",
+    "presencial": "Presencial",
+    "outro": "Outro",
+}
+MUDANCAS_APLICADAS = {
+    "prompt_ajustado": "Prompt ajustado",
+    "modelo_trocado": "Modelo/provedor trocado",
+    "correcao_dado": "Correcao de dado",
+    "sem_mudanca": "Sem mudanca necessaria",
+    "outro": "Outro",
+}
+
 
 def resumo_reportes() -> dict:
-    """Contagens para os cards do painel: total, ultimos 7 dias e por motivo."""
+    """Contagens para os cards: total, ultimos 7 dias, por motivo e por status."""
     corte_7d = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
     linha = executar(
         "SELECT COUNT(*) AS n FROM reportes_ia WHERE criado_em >= ?", (corte_7d,)
@@ -88,27 +120,126 @@ def resumo_reportes() -> dict:
             "SELECT motivo, COUNT(*) AS n FROM reportes_ia GROUP BY motivo"
         ).fetchall()
     }
+    por_status = {
+        str(item["status"] or "aberto"): int(item["n"] or 0)
+        for item in executar(
+            "SELECT status, COUNT(*) AS n FROM reportes_ia GROUP BY status"
+        ).fetchall()
+    }
     return {
         "total": contar_reportes(),
         "ultimos_7d": int(linha["n"] or 0) if linha else 0,
         "por_motivo": por_motivo,
+        "por_status": por_status,
     }
 
 
-def listar_reportes(motivo: str = "", limite: int = 100) -> list:
+def listar_reportes(motivo: str = "", status: str = "", limite: int = 100) -> list:
     """Reportes para o painel - so metadados (sem relato/sintese)."""
     motivo = (motivo or "").strip().lower()
     if motivo not in MOTIVOS_REPORTE_IA:
         motivo = ""
+    status = (status or "").strip().lower()
+    if status not in STATUS_REPORTE:
+        status = ""
     limite = max(1, min(200, int(limite)))
     sql = (
         "SELECT r.id, r.owner_id, r.sessao_id, r.motivo, r.detalhe, r.provedor, "
-        "r.criado_em, u.email AS dono_email, u.nome AS dono_nome "
+        "r.criado_em, r.status, r.severidade, r.resolvido_em, r.atualizado_em, "
+        "u.email AS dono_email, u.nome AS dono_nome "
         "FROM reportes_ia r LEFT JOIN usuarios u ON u.id = r.owner_id "
     )
-    params: tuple = ()
+    clausulas, params = [], []
     if motivo:
-        sql += "WHERE r.motivo = ? "
-        params = (motivo,)
+        clausulas.append("r.motivo = ?")
+        params.append(motivo)
+    if status:
+        clausulas.append("r.status = ?")
+        params.append(status)
+    if clausulas:
+        sql += "WHERE " + " AND ".join(clausulas) + " "
     sql += "ORDER BY r.criado_em DESC LIMIT ?"
-    return executar(sql, params + (limite,)).fetchall()
+    return executar(sql, tuple(params) + (limite,)).fetchall()
+
+
+def obter_reporte(reporte_id: str) -> dict | None:
+    """Um reporte com todos os campos de metadados e de resolucao."""
+    return executar(
+        "SELECT r.*, u.email AS dono_email, u.nome AS dono_nome "
+        "FROM reportes_ia r LEFT JOIN usuarios u ON u.id = r.owner_id "
+        "WHERE r.id = ?",
+        (reporte_id,),
+    ).fetchone()
+
+
+def atualizar_resolucao(
+    *,
+    reporte_id: str,
+    status: str,
+    severidade: str = "media",
+    causa_raiz: str = "",
+    contato_feito: bool = False,
+    contato_canal: str = "",
+    contato_em: str = "",
+    contato_resumo: str = "",
+    devolutiva: str = "",
+    como_ficou: str = "",
+    mudanca_aplicada: str = "",
+    resolvido_por: str = "",
+) -> bool:
+    """Salva o tratamento do reporte. Devolve False se o reporte nao existir."""
+    status = (status or "").strip().lower()
+    severidade = (severidade or "media").strip().lower()
+    causa_raiz = (causa_raiz or "").strip().lower()
+    contato_canal = (contato_canal or "").strip().lower()
+    mudanca_aplicada = (mudanca_aplicada or "").strip().lower()
+
+    if status not in STATUS_REPORTE:
+        raise ValueError("status invalido: " + ", ".join(STATUS_REPORTE))
+    if severidade not in SEVERIDADES:
+        raise ValueError("severidade invalida: " + ", ".join(SEVERIDADES))
+    if causa_raiz and causa_raiz not in CAUSAS_RAIZ:
+        raise ValueError("causa_raiz invalida: " + ", ".join(CAUSAS_RAIZ))
+    if contato_canal and contato_canal not in CONTATO_CANAIS:
+        raise ValueError("contato_canal invalido: " + ", ".join(CONTATO_CANAIS))
+    if mudanca_aplicada and mudanca_aplicada not in MUDANCAS_APLICADAS:
+        raise ValueError(
+            "mudanca_aplicada invalida: " + ", ".join(MUDANCAS_APLICADAS)
+        )
+
+    agora = datetime.now(timezone.utc).isoformat()
+    finalizado = status in ("resolvido", "descartado")
+    resolvido_em = agora if finalizado else ""
+    resolvido_por = (resolvido_por or "").strip()[:200] if finalizado else ""
+    cursor = executar(
+        "UPDATE reportes_ia SET status = ?, severidade = ?, causa_raiz = ?, "
+        "contato_feito = ?, contato_canal = ?, contato_em = ?, contato_resumo = ?, "
+        "devolutiva = ?, como_ficou = ?, mudanca_aplicada = ?, resolvido_por = ?, "
+        "resolvido_em = ?, atualizado_em = ? WHERE id = ?",
+        (
+            status,
+            severidade,
+            causa_raiz,
+            1 if contato_feito else 0,
+            contato_canal,
+            (contato_em or "").strip()[:20],
+            (contato_resumo or "").strip()[:1000],
+            (devolutiva or "").strip()[:2000],
+            (como_ficou or "").strip()[:2000],
+            mudanca_aplicada,
+            resolvido_por,
+            resolvido_em,
+            agora,
+            reporte_id,
+        ),
+    )
+    alteradas = cursor.rowcount
+    cursor.commit()
+    log.warning(
+        "Reporte de IA %s atualizado: status=%s severidade=%s por=%s",
+        reporte_id[:8],
+        status,
+        severidade,
+        resolvido_por or "-",
+    )
+    return alteradas > 0

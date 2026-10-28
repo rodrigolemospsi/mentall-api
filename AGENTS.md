@@ -42,6 +42,35 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Painel: resolução dos reportes de IA — 28/10/2026
+
+### Contexto
+O painel listava os reportes, mas não havia como tratá-los. Cada reporte agora abre uma página de
+resolução com contato com o profissional, devolutiva, como ficou no sistema, causa raiz, severidade
+e status (aberto → em análise → resolvido/descartado), com responsável/data e auditoria.
+
+### O que mudou (arquivos)
+1. **`backend/services/db.py`** — migrações incrementais em `reportes_ia`: `status`, `severidade`,
+   `causa_raiz`, `contato_feito`, `contato_canal`, `contato_em`, `contato_resumo`, `devolutiva`,
+   `como_ficou`, `mudanca_aplicada`, `resolvido_por`, `resolvido_em`, `atualizado_em`.
+2. **`backend/services/reportes_ia.py`** — enums/labels do workflow; `resumo_reportes` com
+   contagem por status; `listar_reportes(..., status=)`; `obter_reporte`; `atualizar_resolucao`
+   (valida enums, preenche/limpa data de resolução e passa pela auditoria do painel).
+3. **`backend/admin_ui.py`** — lista com status/severidade e link "Abrir"; página de detalhe com
+   metadados e formulário de resolução.
+4. **`backend/main.py`** — `GET /admin/reportes-ia/{id}` e `POST /admin/reportes-ia/{id}/resolver`
+   (admin, rate limit, auditoria `reporte_ia.resolver`, 400 para valor inválido, 404 se não existir).
+5. **`backend/tests/test_admin_reportes_ia.py`** — +12 testes (serviço, página e HTTP).
+6. **`AGENTS.md`** — esta seção.
+
+### Verificação
+- Suíte isolada do backend **511/511 OK** (MEDI, 28/10; 12 testes novos).
+
+### Pendências
+- Devolutiva automática ao profissional no app (notificação/e-mail) é follow-up — hoje é registro
+  interno do painel.
+- Ações em lote (ex.: marcar vários como descartados) não existem; fazer se o volume justificar.
+
 ## Painel: Reportes de IA (follow-up do item 3.4) — 28/10/2026
 
 ### Contexto

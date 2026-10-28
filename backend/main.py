@@ -2987,7 +2987,7 @@ def admin_lembretes(request: Request, status: str = "", msg: str = "", erro: str
 
 
 @app.get("/admin/reportes-ia", response_class=HTMLResponse, tags=["Admin"])
-def admin_reportes_ia(request: Request, motivo: str = ""):
+def admin_reportes_ia(request: Request, motivo: str = "", status: str = ""):
     """Reportes de saida de IA (item 3.4) — so metadados, sem conteudo clinico."""
     _rate_limit_check(request, max_requests=60)
     bloqueio = _exigir_papel(request, ("admin",))
@@ -2997,12 +2997,86 @@ def admin_reportes_ia(request: Request, motivo: str = ""):
     motivo = (motivo or "").strip().lower()
     if motivo not in reportes_ia.MOTIVOS_REPORTE_IA:
         motivo = ""
+    status = (status or "").strip().lower()
+    if status not in reportes_ia.STATUS_REPORTE:
+        status = ""
     resumo = reportes_ia.resumo_reportes()
-    lista = reportes_ia.listar_reportes(motivo=motivo, limite=100)
+    lista = reportes_ia.listar_reportes(motivo=motivo, status=status, limite=100)
     return HTMLResponse(
         admin_ui.pagina_reportes_ia(
-            resumo, lista, motivo, pode_email=(papel == "admin")
+            resumo,
+            lista,
+            motivo,
+            status,
+            pode_email=(papel == "admin"),
         )
+    )
+
+
+@app.get("/admin/reportes-ia/{reporte_id}", response_class=HTMLResponse, tags=["Admin"])
+def admin_reporte_ia_detalhe(
+    request: Request, reporte_id: str, msg: str = "", erro: str = ""
+):
+    """Detalhe e resolucao de um reporte de IA."""
+    _rate_limit_check(request, max_requests=60)
+    bloqueio = _exigir_papel(request, ("admin",))
+    if bloqueio:
+        return bloqueio
+    item = reportes_ia.obter_reporte(reporte_id)
+    if not item:
+        return HTMLResponse(
+            admin_ui.pagina_reportes_ia(
+                reportes_ia.resumo_reportes(), [], erro="Reporte nao encontrado."
+            ),
+            status_code=404,
+        )
+    return HTMLResponse(admin_ui.pagina_reporte_ia_detalhe(item, msg=msg, erro=erro))
+
+
+@app.post("/admin/reportes-ia/{reporte_id}/resolver", tags=["Admin"])
+async def admin_reporte_ia_resolver(request: Request, reporte_id: str):
+    """Grava contato/devolutiva/como ficou e muda o status do reporte (auditado)."""
+    _rate_limit_check(request, max_requests=30, chave_extra="admin-reportes")
+    bloqueio = _exigir_papel(request, ("admin",))
+    if bloqueio:
+        return bloqueio
+    form = await request.form()
+    ator = _identidade_admin(request) or "desconhecido"
+    status = (form.get("status") or "").strip().lower()
+    severidade = (form.get("severidade") or "media").strip().lower()
+    try:
+        atualizado = reportes_ia.atualizar_resolucao(
+            reporte_id=reporte_id,
+            status=status,
+            severidade=severidade,
+            causa_raiz=(form.get("causa_raiz") or "").strip().lower(),
+            contato_feito=(form.get("contato_feito") or "") in ("1", "on", "true", "sim"),
+            contato_canal=(form.get("contato_canal") or "").strip().lower(),
+            contato_em=(form.get("contato_em") or "").strip(),
+            contato_resumo=(form.get("contato_resumo") or "").strip(),
+            devolutiva=(form.get("devolutiva") or "").strip(),
+            como_ficou=(form.get("como_ficou") or "").strip(),
+            mudanca_aplicada=(form.get("mudanca_aplicada") or "").strip().lower(),
+            resolvido_por=ator,
+        )
+    except ValueError as exc:
+        item = reportes_ia.obter_reporte(reporte_id) or {}
+        return HTMLResponse(
+            admin_ui.pagina_reporte_ia_detalhe(item, erro=str(exc)), status_code=400
+        )
+    if not atualizado:
+        return RedirectResponse(
+            "/admin/reportes-ia?erro=Reporte+nao+encontrado.", status_code=303
+        )
+    admin_service.registrar_auditoria(
+        ator,
+        "reporte_ia.resolver",
+        reporte_id,
+        f"status={status}; severidade={severidade}",
+        _cliente_ip(request),
+    )
+    return RedirectResponse(
+        f"/admin/reportes-ia/{reporte_id}?msg=Resolucao+salva.", status_code=303
     )
 
 
