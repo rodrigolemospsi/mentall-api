@@ -284,18 +284,59 @@ def ultima_sync_magalu() -> str:
     return _sync_estado("magalu:ultima_sync")
 
 
+def _ultima_sync_dt() -> datetime | None:
+    valor = ultima_sync_magalu()
+    if not valor:
+        return None
+    try:
+        momento = datetime.fromisoformat(valor)
+    except ValueError:
+        return None
+    if momento.tzinfo is None:
+        momento = momento.replace(tzinfo=FUSO_BRASILIA)
+    return momento
+
+
+def sincronizar_se_necessario(min_intervalo_segundos: int = 120) -> dict | None:
+    """Atualiza a Magalu se a última sync estiver velha (ao abrir o painel)."""
+    if not magalu_configurada():
+        return None
+    ultima = _ultima_sync_dt()
+    agora = _agora_brt()
+    if ultima is not None:
+        idade = (agora - ultima).total_seconds()
+        if idade < max(30, int(min_intervalo_segundos)):
+            return None
+    try:
+        return sincronizar_magalu(dias=7)
+    except Exception:
+        log.exception("Falha no sync sob demanda da Magalu")
+        return None
+
+
 _SYNC_PARAR = threading.Event()
 _SYNC_THREAD: threading.Thread | None = None
 
 
-def iniciar_sync_automatico(intervalo_horas: int = 6) -> None:
-    """Sincroniza a Magalu em background (primeira vez no start, depois a cada N horas)."""
+def intervalo_sync_minutos() -> int:
+    """Intervalo do sync automático da Magalu (MAGALU_SYNC_MINUTOS, padrão 5 min)."""
+    try:
+        valor = int(os.getenv("MAGALU_SYNC_MINUTOS", "5").strip() or 5)
+    except ValueError:
+        valor = 5
+    return max(1, valor)
+
+
+def iniciar_sync_automatico(intervalo_minutos: int | None = None) -> None:
+    """Sincroniza a Magalu em background (start + a cada N minutos)."""
     global _SYNC_THREAD
     if _SYNC_THREAD is not None and _SYNC_THREAD.is_alive():
         return
     if not magalu_configurada():
         log.info("Sync automático da Magalu desligado: chave não configurada.")
         return
+
+    minutos = max(1, int(intervalo_minutos or intervalo_sync_minutos()))
 
     def _laco() -> None:
         while not _SYNC_PARAR.is_set():
@@ -304,7 +345,7 @@ def iniciar_sync_automatico(intervalo_horas: int = 6) -> None:
                 log.info("Sync automático Magalu: %s", resultado)
             except Exception:
                 log.exception("Falha no sync automático da Magalu")
-            _SYNC_PARAR.wait(max(1, int(intervalo_horas)) * 3600)
+            _SYNC_PARAR.wait(minutos * 60)
 
     _SYNC_PARAR.clear()
     _SYNC_THREAD = threading.Thread(target=_laco, name="custos-magalu", daemon=True)
@@ -325,7 +366,7 @@ def sincronizar_magalu(dias: int = 7) -> dict:
         resultado["erro"] = "MAGALU_CONSUMPTION_API_KEY não configurada."
         return resultado
     try:
-        fim = _agora_brt().date() - timedelta(days=1)
+        fim = _agora_brt().date()  # inclui hoje (parcial) para o painel quase em tempo real
         inicio = fim - timedelta(days=max(1, int(dias)) - 1)
         url = (
             "https://api.magalu.cloud/consumption/usage"

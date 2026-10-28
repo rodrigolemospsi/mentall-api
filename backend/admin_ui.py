@@ -2413,6 +2413,7 @@ def pagina_custos(dados: dict, msg: str = "", erro: str = "", pode_email: bool =
 
     return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="refresh" content="120">
 <title>MentAll PRO — Custos e uso</title><style>{_ESTILO}</style>{_PWA_HEAD}</head>
 <body>
 {_cabecalho_painel("custos", pode_email=pode_email)}
@@ -2438,9 +2439,9 @@ def pagina_custos(dados: dict, msg: str = "", erro: str = "", pode_email: bool =
   </div>
 
   <h3>Magalu Cloud</h3>
-  <p>Chave da API: {status_chave} · Última sincronização: {_esc(ultima)}
+  <p>Chave da API: {status_chave} · Última sincronização: {_esc(ultima)} · atualização automática a cada {dados.get("sync_minutos", 5)} min (inclui o dia atual, ainda parcial)
   <form method="post" action="/admin/custos/sincronizar" style="margin:10px 0">
-    <button type="submit" class="btn">Sincronizar últimos 7 dias</button>
+    <button type="submit" class="btn">Sincronizar agora (7 dias, inclui hoje)</button>
   </form>
   </p>
 

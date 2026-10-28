@@ -3698,7 +3698,14 @@ def admin_custos(request: Request, msg: str = "", erro: str = ""):
     bloqueio = _exigir_papel(request, ("admin", "financeiro"))
     if bloqueio:
         return bloqueio
+    # Atualiza a Magalu ao abrir o painel (se passou do intervalo mínimo), para
+    # os valores refletirem o dia atual sem esperar o ciclo automático.
+    try:
+        custos.sincronizar_se_necessario()
+    except Exception:
+        log.exception("Falha ao sincronizar Magalu ao abrir o painel de custos")
     dados = custos.painel()
+    dados["sync_minutos"] = custos.intervalo_sync_minutos()
     papel = _papel_admin(request)
     return HTMLResponse(
         admin_ui.pagina_custos(dados, msg=msg, erro=erro, pode_email=(papel == "admin"))

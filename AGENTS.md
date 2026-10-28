@@ -42,6 +42,29 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Custos Magalu em tempo quase real — 28/10/2026
+
+### Contexto
+O painel de custos só mostrava até ontem (o sync pedia `end_date = hoje - 1`) e rodava de 6 em 6
+horas, então o dia atual nunca aparecia e os valores pareciam parados.
+
+### O que mudou (arquivos)
+1. **`backend/services/custos.py`** — `sincronizar_magalu` agora inclui o **dia atual** (dados parciais
+   que crescem durante o dia, com delete+insert idempotente no período); `iniciar_sync_automatico`
+   roda no start e a cada **5 min** (`MAGALU_SYNC_MINUTOS` configurável); novo
+   `sincronizar_se_necessario()` (atualiza ao abrir o painel se a última sync tem > 2 min).
+2. **`backend/main.py`** — `GET /admin/custos` chama `sincronizar_se_necessario()` antes de montar a
+   página e passa o intervalo para a UI.
+3. **`backend/admin_ui.py`** — página de custos com **auto-refresh de 120 s**, texto "atualização
+   automática a cada N min (inclui o dia atual, ainda parcial)" e botão "Sincronizar agora".
+4. **`backend/tests/test_custos_sync.py`** — 4 testes (inclui hoje/idempotência, intervalo, sync sob
+   demanda e HTTP ao abrir o painel). Suíte: **530/530 OK** (MEDI, 28/10; 526 + 4).
+5. **`AGENTS.md`** — esta seção.
+
+### Verificação
+- API da Magalu testada em produção: devolve a linha de **hoje** (parcial).
+- Suíte isolada do backend **530/530 OK** (MEDI, 28/10).
+
 ## Ajustes de painel: precisão de custos e auto-status do reporte — 28/10/2026
 
 ### Contexto
