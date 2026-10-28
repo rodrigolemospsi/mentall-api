@@ -42,6 +42,27 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Nova numeração de versão 2.0.1+61 — 28/10/2026
+
+### Contexto
+O dono pediu nova numeração para a linha visual, começando em **v2.0.1**. O `versionCode` 61 é maior
+que o 60 anterior, então o APK atualiza por cima do app instalado preservando os dados.
+
+### O que mudou (arquivos)
+1. **`pubspec.yaml`** — `version: 2.0.1+61` (versionName 2.0.1 / versionCode 61).
+2. Artefatos regerados (não versionados): `MentAllPRO-v2.0.1-debugsign.apk`,
+   `MentAllPRO-v2.0.1-release.apk` e o AAB em `build/app/outputs/bundle/release/`.
+   Os antigos `MentAllPRO-v1.0.59-visual*.apk` foram removidos da cópia para não confundir.
+
+### Verificação
+- MEDI (28/10): `flutter analyze` → **No issues found**; `flutter test` → **354/354 OK**.
+- MEDI: `aapt` confirma `versionCode=61 versionName=2.0.1` nos dois APKs; assinaturas conferidas —
+  debug `b63841f4…` (teste no aparelho) e produção `c2e5c85e…` (upload key).
+- Nada foi enviado ao GitHub.
+
+### Pendências
+- Validar no aparelho a atualização 1.0.59 → 2.0.1 (instalar por cima, dados preservados).
+
 ## Barra superior da Home sem o topbar branco fixo — 28/10/2026
 
 ### Contexto
