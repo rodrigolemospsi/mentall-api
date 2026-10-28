@@ -492,7 +492,7 @@ def painel(mes: str | None = None) -> dict:
     sessoes = _contar_eventos_mes("transcricao", mes)
     sinteses = _contar_eventos_mes("sintese", mes)
     custo_por_prof = round(total / ativos, 2) if ativos else 0.0
-    custo_por_sessao = round(total_ia / sessoes, 2) if sessoes else 0.0
+    custo_por_sessao = round(total_ia / sessoes, 6) if sessoes else 0.0
 
     dias_serie = []
     hoje = _agora_brt().date()
@@ -522,8 +522,8 @@ def painel(mes: str | None = None) -> dict:
         "mes": mes,
         "periodo_label": datetime.strptime(mes + "-01", "%Y-%m-%d").strftime("%m/%Y"),
         "total_brl": round(total, 2),
-        "ia_brl": round(total_ia, 2),
-        "infra_brl": round(total_infra, 2),
+        "ia_brl": round(total_ia, 4),
+        "infra_brl": round(total_infra, 4),
         "fixos_brl": fixos_total,
         "outros_brl": round(total - total_ia - total_infra - fixos_total, 2),
         "orcamento_brl": orcamento,
