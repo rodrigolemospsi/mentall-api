@@ -338,6 +338,25 @@ def atualizar_resolucao(
     return alteradas > 0
 
 
+def marcar_em_analise(reporte_id: str, por: str = "") -> bool:
+    """Move um reporte 'aberto' para 'em análise' quando o admin o abre."""
+    agora = datetime.now(timezone.utc).isoformat()
+    cursor = executar(
+        "UPDATE reportes_ia SET status = 'em_analise', atualizado_em = ? "
+        "WHERE id = ? AND status = 'aberto'",
+        (agora, reporte_id),
+    )
+    alterado = cursor.rowcount
+    cursor.commit()
+    if alterado:
+        log.info(
+            "Reporte de IA %s movido para em_analise ao abrir (por=%s)",
+            reporte_id[:8],
+            (por or "-")[:40],
+        )
+    return alterado > 0
+
+
 def registrar_envio_devolutiva(reporte_id: str, enviado: bool, erro: str = "") -> None:
     """Guarda o resultado do envio da devolutiva por e-mail ao profissional."""
     agora = datetime.now(timezone.utc).isoformat()

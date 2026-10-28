@@ -573,3 +573,76 @@ class PushNovoReporteTests(unittest.TestCase):
         item = reportes_ia.obter_reporte(protocolo)
         self.assertEqual(item["modelo"], "gpt-4o-mini")
         self.assertEqual(len(item["prompt_versao"]), 12)
+
+
+
+class AutoEmAnaliseTests(unittest.TestCase):
+    def setUp(self):
+        _limpar()
+
+    def test_marcar_em_analise_move_apenas_aberto(self):
+        aberto = _reporte("outro")
+        self.assertTrue(reportes_ia.marcar_em_analise(aberto, "dono@ex.com"))
+        self.assertEqual(reportes_ia.obter_reporte(aberto)["status"], "em_analise")
+        # segunda chamada nao muda mais nada
+        self.assertFalse(reportes_ia.marcar_em_analise(aberto, "dono@ex.com"))
+        resolvido = _reporte("tom_inadequado")
+        reportes_ia.atualizar_resolucao(
+            reporte_id=resolvido, status="resolvido", severidade="alta",
+            devolutiva="ok", resolvido_por="dono@ex.com",
+        )
+        self.assertFalse(reportes_ia.marcar_em_analise(resolvido, "dono@ex.com"))
+        self.assertEqual(reportes_ia.obter_reporte(resolvido)["status"], "resolvido")
+
+class AutoEmAnaliseHttpTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        _limpar()
+        db.executar("DELETE FROM admin_auditoria").commit()
+        _usuario("admin-1", "dono@ex.com", role="admin")
+        self.client = httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=main.app, client=("203.0.113.94", 55004)),
+            base_url="https://test.invalid",
+            follow_redirects=False,
+        )
+        self.addAsyncCleanup(self.client.aclose)
+
+    async def _login(self):
+        resposta = await self.client.post(
+            "/admin/login", data={"email": "dono@ex.com", "senha": SENHA}
+        )
+        self.assertEqual(resposta.status_code, 303)
+        cookie = resposta.headers["set-cookie"].split(";")[0]
+        self.client.cookies.clear()
+        return cookie
+
+    async def test_abrir_detalhe_move_para_em_analise_e_audita(self):
+        rid = _reporte("conteudo_incorreto")
+        cookie = await self._login()
+        primeira = await self.client.get(
+            f"/admin/reportes-ia/{rid}", headers={"Cookie": cookie}
+        )
+        self.assertEqual(primeira.status_code, 200)
+        self.assertIn("Em analise", primeira.text)
+        self.assertEqual(reportes_ia.obter_reporte(rid)["status"], "em_analise")
+        auditoria = db.executar(
+            "SELECT COUNT(*) AS n FROM admin_auditoria WHERE acao = 'reporte_ia.em_analise'"
+        ).fetchone()
+        self.assertEqual(int(auditoria["n"]), 1)
+        # abrir de novo não muda mais nem audita de novo
+        segunda = await self.client.get(
+            f"/admin/reportes-ia/{rid}", headers={"Cookie": cookie}
+        )
+        self.assertEqual(segunda.status_code, 200)
+        auditoria = db.executar(
+            "SELECT COUNT(*) AS n FROM admin_auditoria WHERE acao = 'reporte_ia.em_analise'"
+        ).fetchone()
+        self.assertEqual(int(auditoria["n"]), 1)
+
+
+
+class PrecisaoCustoTests(unittest.TestCase):
+    def test_formata_centavos_com_4_casas(self):
+        self.assertEqual(admin_ui._brl_preciso(0.003564), "R$ 0,0036")
+        self.assertEqual(admin_ui._brl_preciso(0.017418), "R$ 0,0174")
+        self.assertEqual(admin_ui._brl_preciso(16.22), "R$ 16,22")
+        self.assertEqual(admin_ui._brl_preciso(0), "R$ 0,00")

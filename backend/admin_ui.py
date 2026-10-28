@@ -2306,6 +2306,17 @@ def _secao_metricas_email(metricas: dict | None) -> str:
 # Painel de custos (Fase 1): IA medida, Magalu via API e custos fixos
 # ---------------------------------------------------------------------------
 
+def _brl_preciso(valor) -> str:
+    """Reais com 4 casas quando o valor e pequeno (custos de IA sao centavos)."""
+    try:
+        numero = float(valor or 0)
+    except (TypeError, ValueError):
+        return "R$ 0,00"
+    casas = 4 if 0 < abs(numero) < 1 else 2
+    texto = f"{numero:,.{casas}f}"
+    return "R$ " + texto.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
 def _brl(valor) -> str:
     """Formata em reais: R$ 1.234,56."""
     try:
@@ -2336,7 +2347,7 @@ def pagina_custos(dados: dict, msg: str = "", erro: str = "", pode_email: bool =
                 _brl(dados.get("total_brl")),
                 destaque=float(dados.get("pct_orcamento") or 0) >= 80,
             ),
-            _cartao("IA (variável)", _brl(dados.get("ia_brl"))),
+            _cartao("IA (variável)", _brl_preciso(dados.get("ia_brl"))),
             _cartao("Infra Magalu (API)", _brl(dados.get("infra_brl"))),
             _cartao("Custos fixos", _brl(dados.get("fixos_brl"))),
             _cartao("Orçamento do mês", _brl(dados.get("orcamento_brl"))),
@@ -2353,7 +2364,7 @@ def pagina_custos(dados: dict, msg: str = "", erro: str = "", pode_email: bool =
                 _brl(dados.get("margem_por_profissional_brl")),
                 destaque=float(dados.get("margem_por_profissional_brl") or 0) < 0,
             ),
-            _cartao("Custo médio por transcrição", _brl(dados.get("custo_por_sessao_brl"))),
+            _cartao("Custo médio por transcrição", _brl_preciso(dados.get("custo_por_sessao_brl"))),
             _cartao("Profissionais ativos (30d)", dados.get("profissionais_ativos", 0)),
             _cartao("Transcrições no mês", dados.get("sessoes_transcritas", 0)),
         ]
@@ -2362,7 +2373,7 @@ def pagina_custos(dados: dict, msg: str = "", erro: str = "", pode_email: bool =
     linhas_provedor = "".join(
         "<tr>"
         f"<td>{_esc(item.get('provedor'))}</td>"
-        f"<td>{_brl(item.get('custo_brl'))}</td>"
+        f"<td>{_brl_preciso(item.get('custo_brl'))}</td>"
         f"<td>{_esc(item.get('origem'))}</td>"
         f"<td>{_esc(item.get('unidades'))}</td>"
         "</tr>"
@@ -2408,7 +2419,7 @@ def pagina_custos(dados: dict, msg: str = "", erro: str = "", pode_email: bool =
 <main>
   <h2 style="font-size:18px;color:#1E293B;margin-top:0">Custos e uso</h2>
   <p class="nota-lgpd">Somente números: provedor, modelo, tokens/segundos e valor. Nenhum conteúdo clínico.
-  Câmbio usado: R$ {float(dados.get('cambio_usd_brl') or 0):.2f}/US$. Custos de IA são estimativas pela tabela de preços;
+  Câmbio usado: R$ {float(dados.get('cambio_usd_brl') or 0):.2f}/US$. Custos de IA são estimativas pela tabela de preços (centavos aparecem com 4 casas);
   a Magalu vem da API oficial de consumo.</p>
   {_alertas(msg, erro)}
   {alertas}

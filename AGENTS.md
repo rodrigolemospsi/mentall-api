@@ -42,6 +42,27 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Ajustes de painel: precisão de custos e auto-status do reporte — 28/10/2026
+
+### Contexto
+Feedback do dono no painel: (1) valores de "Custos e uso" pareciam não mudar — os custos de IA
+(~R$ 0,003/síntese) arredondavam para R$ 0,00 em 2 casas; (2) ao tratar um reporte aberto, o status
+deveria mudar — o salvamento já persistia, mas abrir não marcava "em análise".
+
+### O que mudou (arquivos)
+1. **`backend/admin_ui.py`** — `_brl_preciso()`: reais com 4 casas quando o valor é < R$ 1; aplicado a
+   "IA (variável)", "Custo médio por transcrição" e à coluna de custo por provedor; nota na página.
+2. **`backend/services/reportes_ia.py`** — `marcar_em_analise()`: move `aberto` → `em_analise`.
+3. **`backend/main.py`** — ao abrir `/admin/reportes-ia/{id}` com status `aberto`, o reporte vai para
+   `em_analise` e a transição é auditada (`reporte_ia.em_analise`).
+4. **`backend/tests/test_admin_reportes_ia.py`** — +3 testes (marcar, abrir via HTTP com auditoria,
+   formatação com 4 casas). Suíte: **526/526 OK** (MEDI, 28/10; 523 + 3).
+5. **`AGENTS.md`** — esta seção.
+
+### Verificação
+- Suíte isolada do backend **526/526 OK** (MEDI, 28/10).
+- Custos/uso já estavam sendo gravados (3 sínteses + 3 transcrições em 28/10; sync Magalu idempotente).
+
 ## Reportes de IA: follow-ups (e-mail, SLA, lote, métricas, modelo/prompt, templates, push) — 28/10/2026
 
 ### Contexto

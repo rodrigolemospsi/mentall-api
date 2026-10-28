@@ -3081,6 +3081,20 @@ def admin_reporte_ia_detalhe(
             ),
             status_code=404,
         )
+    # Ao abrir um reporte ainda "aberto", ele vai para "em analise" (o admin
+    # começou a tratar). Assim o status muda no mesmo gesto (e fica auditado).
+    if (item.get("status") or "") == "aberto":
+        ator = _identidade_admin(request) or ""
+        if reportes_ia.marcar_em_analise(reporte_id, ator):
+            admin_service.registrar_auditoria(
+                ator or "desconhecido",
+                "reporte_ia.em_analise",
+                reporte_id,
+                "aberto -> em_analise",
+                _cliente_ip(request),
+            )
+            item = reportes_ia.obter_reporte(reporte_id) or item
+            msg = msg or "Status movido para Em analise ao abrir."
     return HTMLResponse(
         admin_ui.pagina_reporte_ia_detalhe(
             item, msg=msg, erro=erro, template=(template or "").strip().lower()
