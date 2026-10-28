@@ -42,6 +42,26 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Barra superior da Home sem o topbar branco fixo — 28/10/2026
+
+### Contexto
+O dono pediu para retirar a barra superior "fixa" da Home (topbar branca com borda inferior) e deixar
+a **mesma cor de fundo da tela** (cinza `#F3F5FB`). A mudança é só na Home; as demais telas mantêm o
+topbar branco do painel.
+
+### O que mudou (arquivos)
+1. **`lib/screens/home_page.dart`** — AppBar da Home: `backgroundColor: context.corFundo`,
+   `foregroundColor: context.corPrimaria` (ícones roxos, como antes) e `shape: const Border()` para
+   anular a borda inferior herdada do `AppBarTheme`.
+
+### Verificação
+- MEDI (28/10): `flutter analyze` → **No issues found**; `flutter test` → **354/354 OK**.
+- MEDI: APKs regerados e assinados — debug `b63841f4…` (instala por cima, preserva dados) e produção
+  `c2e5c85e…`; AAB regerado. Nada foi enviado ao GitHub (2 commits à frente: `8325c02` + este).
+
+### Pendências
+- Validar visualmente no aparelho (Home com fundo contínuo, sem barra branca).
+
 ## Visual do app alinhado ao painel de controle — 28/10/2026
 
 ### Contexto
