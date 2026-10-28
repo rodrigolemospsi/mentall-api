@@ -48,24 +48,33 @@
 O dono pediu uma cópia do app para fazer mudanças sem tocar no original. Foi criado um clone git
 independente em `~/Documents/deepseek-harness/default-workspace/mentall-pro-app-copia` (o original
 continua em `~/mentall-pro-app`). Remotos: `origin` → GitHub (`mentall-api`) e `original` → pasta
-local do app original.
+local do app original. A pedido do dono, a cópia recebeu também as configs locais.
 
 ### O que mudou (arquivos)
-1. **`COPIA.md` (novo)** — origem, remotos, o que não veio junto (`.env`, banco, `.venv`, `build/`) e
-   como rodar a cópia (portas/banco separados do original).
-2. **`AGENTS.md` (cópia)** — esta seção. O `AGENTS.md` do repositório original **não** foi alterado.
-3. Nenhum arquivo de código foi editado nesta etapa.
+1. **`COPIA.md` (novo)** — origem, remotos, configs incluídas, o que não veio junto e como rodar a
+   cópia (porta 8001, chaves reais, avisos de efeitos reais).
+2. **`backend/.env` e `backend/data/mentall.db` (não versionados)** — copiados do original
+   (`chmod 600`): mesmas chaves de produção + snapshot consistente do banco local (0 usuários).
+3. **`backend/.venv/` (não versionado)** — recriado com Python 3.12 + `requirements.txt`.
+4. **`AGENTS.md` (cópia)** — esta seção. O `AGENTS.md` do repositório original **não** foi alterado.
+5. Nenhum arquivo de código foi editado nesta etapa.
 
 ### Verificação
 - MEDI (28/10): HEAD da cópia = HEAD do original = `8649d4d`; 535 arquivos rastreados; árvore limpa
   antes deste registro.
 - MEDI: original com `git status --porcelain` vazio e HEAD inalterado após a cópia.
 - MEDI: clone com `--no-local` (sem link físico) — 33 MB de código + 21 MB de `.git`.
+- MEDI: banco copiado com `.backup` — `PRAGMA quick_check` ok; 21 tabelas com contagens idênticas
+  ao original; `backend/.env` com permissão 600.
+- MEDI: smoke test do backend da cópia em `127.0.0.1:8001` → `GET /health` 200
+  (`{"status":"ok","versao":"1.0.0","debug_info":{"database":"sqlite_local"}}`), shutdown limpo.
 - NÃO foi feito `git push`: a cópia é local, nada foi enviado ao GitHub.
 
 ### Pendências
-- Decidir se a cópia recebe configs locais (`backend/.env`, `backend/data/`) para rodar isolada.
-- Se a cópia for rodar: `flutter pub get`, recriar `.venv`, `.env` de teste e portas diferentes.
+- `flutter pub get` ainda não rodou nesta cópia (o sandbox do agente não escreve no cache do Flutter);
+  rodar no Terminal do macOS antes de buildar/rodar o app.
+- Ao rodar: backend na porta 8001 e app apontando para a cópia (ver `COPIA.md`), com integrações
+  reais neutralizadas para não gerar WhatsApp/e-mail a pacientes.
 
 ## Ajustes de painel: precisão de custos e auto-status do reporte — 28/10/2026
 
