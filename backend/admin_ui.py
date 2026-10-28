@@ -561,6 +561,7 @@ def _nav(ativo: str = "psicologos", pode_email: bool = True) -> str:
     if pode_email:
         itens.append(("E-mail", "/admin/email", "email"))
         itens.append(("Lembretes", "/admin/lembretes", "lembretes"))
+        itens.append(("Reportes IA", "/admin/reportes-ia", "reportes"))
     itens.append(("Custos", "/admin/custos", "custos"))
     itens.append(("Segurança", "/admin/seguranca", "seguranca"))
     partes = []
@@ -821,6 +822,10 @@ _ICONES = {
         '<path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/>'
         '<path d="M22 20H2"/>'
     ),
+    "alerta": (
+        '<path d="M12 3.2 2.8 20h18.4L12 3.2z"/>'
+        '<path d="M12 9v4.4"/><path d="M12 16.7h.01"/>'
+    ),
 }
 
 
@@ -840,6 +845,7 @@ def _cabecalho_painel(ativo: str = "psicologos", pode_email: bool = True) -> str
     if pode_email:
         itens.append(("email", "E-mail", "/admin/email", ("email",)))
         itens.append(("relogio", "Lembretes", "/admin/lembretes", ("lembretes",)))
+        itens.append(("alerta", "Reportes IA", "/admin/reportes-ia", ("reportes",)))
     itens.append(("grafico", "Custos", "/admin/custos", ("custos",)))
     itens.append(("escudo", "Segurança", "/admin/seguranca", ("seguranca",)))
 
@@ -2614,3 +2620,107 @@ def pagina_conectar_avisos(qr: str, estado: dict | None = None, destino: str = "
 </main>
 </body></html>
 """
+
+
+# ── Reportes de saída de IA (item 3.4) — painel do dono ────────────────────
+_MOTIVOS_REPORTE_LABEL = {
+    "conteudo_incorreto": "Conteudo incorreto/inventado",
+    "tom_inadequado": "Tom/linguagem inadequada",
+    "dado_sensivel": "Exposicao de dado sensivel",
+    "conteudo_ofensivo": "Conteudo ofensivo/discriminatorio",
+    "outro": "Outro problema",
+}
+
+
+def _pill_motivo_reporte(motivo: str) -> str:
+    classes = {
+        "dado_sensivel": "saude-erro",
+        "conteudo_ofensivo": "saude-erro",
+        "conteudo_incorreto": "saude-atencao",
+        "tom_inadequado": "saude-atencao",
+    }
+    rotulo = _MOTIVOS_REPORTE_LABEL.get(motivo, motivo or "-")
+    return f'<span class="pill {classes.get(motivo, "saude-info")}">{_esc(rotulo)}</span>'
+
+
+def _linha_reporte(item: dict) -> str:
+    protocolo = _esc((item.get("id") or "")[:8]) or "-"
+    sessao = _esc((item.get("sessao_id") or "")[:8]) or "-"
+    dono = _esc(item.get("dono_email") or item.get("owner_id") or "-")
+    detalhe = _esc(item.get("detalhe") or "") or "-"
+    provedor = _esc(item.get("provedor") or "-")
+    return (
+        "<tr>"
+        f"<td>{_quando(item.get('criado_em'))}</td>"
+        f"<td>{dono}</td>"
+        f"<td>{_pill_motivo_reporte(item.get('motivo') or '')}</td>"
+        f"<td><code>{protocolo}</code></td>"
+        f"<td>{sessao}</td>"
+        f"<td>{provedor}</td>"
+        f"<td>{detalhe}</td>"
+        "</tr>"
+    )
+
+
+def pagina_reportes_ia(
+    resumo: dict,
+    reportes: list,
+    filtro_motivo: str = "",
+    msg: str = "",
+    erro: str = "",
+    pode_email: bool = True,
+) -> str:
+    """Reportes de saida de IA — so metadados (sem conteudo clinico)."""
+    resumo = resumo or {}
+    por_motivo = resumo.get("por_motivo") or {}
+    cards = "".join(
+        [
+            _cartao("Total", resumo.get("total", 0)),
+            _cartao("Ultimos 7 dias", resumo.get("ultimos_7d", 0)),
+            _cartao("Conteudo incorreto", por_motivo.get("conteudo_incorreto", 0)),
+            _cartao("Tom inadequado", por_motivo.get("tom_inadequado", 0)),
+            _cartao("Dado sensivel", por_motivo.get("dado_sensivel", 0),
+                    destaque=bool(por_motivo.get("dado_sensivel"))),
+            _cartao("Ofensivo", por_motivo.get("conteudo_ofensivo", 0),
+                    destaque=bool(por_motivo.get("conteudo_ofensivo"))),
+            _cartao("Outro", por_motivo.get("outro", 0)),
+        ]
+    )
+    opcoes = [("", "Todos os motivos")] + [
+        (chave, rotulo) for chave, rotulo in _MOTIVOS_REPORTE_LABEL.items()
+    ]
+    opcoes_html = "".join(
+        f'<option value="{_esc(valor)}"{" selected" if valor == filtro_motivo else ""}>'
+        f"{_esc(rotulo)}</option>"
+        for valor, rotulo in opcoes
+    )
+    linhas = "".join(_linha_reporte(item) for item in (reportes or [])) or (
+        '<tr><td colspan="7" class="off">Nenhum reporte com esse filtro.</td></tr>'
+    )
+    return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MentAll PRO — Reportes de IA</title><style>{_ESTILO}</style>{_PWA_HEAD}</head>
+<body>
+{_cabecalho_painel("reportes", pode_email=pode_email)}
+<main>
+  <h2 style="font-size:18px;color:#1E293B;margin-top:0">Reportes de saida de IA</h2>
+  <p class="nota-lgpd">Somente metadados: motivo, observacao do profissional, sessao e provedor.
+  O relato clinico e o texto da sintese NAO sao enviados nem exibidos aqui (LGPD).</p>
+  {_alertas(msg, erro)}
+  <div class="grid-cards">{cards}</div>
+  <form class="filtros" method="get" action="/admin/reportes-ia">
+    <select name="motivo">{opcoes_html}</select>
+    <button type="submit">Filtrar</button>
+    <a class="btn secundario" href="/admin/reportes-ia">Limpar</a>
+  </form>
+  <div class="tabela-card">
+  <table>
+    <thead><tr>
+      <th>Quando</th><th>Profissional</th><th>Motivo</th><th>Protocolo</th>
+      <th>Sessao</th><th>Provedor</th><th>Observacao</th>
+    </tr></thead>
+    <tbody>{linhas}</tbody>
+  </table>
+  </div>
+</main>
+</body></html>"""

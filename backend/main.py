@@ -38,6 +38,7 @@ from services import custos
 from services import email_novos
 from services import push
 from services import wuzapi_alertas
+from services import reportes_ia
 from services import saude as saude_service
 from services import admin_seguranca as seguranca_admin
 from fastapi.middleware.cors import CORSMiddleware
@@ -2982,6 +2983,26 @@ def admin_lembretes(request: Request, status: str = "", msg: str = "", erro: str
     lembretes = admin_service.listar_lembretes_painel(status=status, limite=100)
     return HTMLResponse(
         admin_ui.pagina_lembretes(resumo, lembretes, status, msg, erro)
+    )
+
+
+@app.get("/admin/reportes-ia", response_class=HTMLResponse, tags=["Admin"])
+def admin_reportes_ia(request: Request, motivo: str = ""):
+    """Reportes de saida de IA (item 3.4) — so metadados, sem conteudo clinico."""
+    _rate_limit_check(request, max_requests=60)
+    bloqueio = _exigir_papel(request, ("admin",))
+    if bloqueio:
+        return bloqueio
+    papel = _papel_admin(request)
+    motivo = (motivo or "").strip().lower()
+    if motivo not in reportes_ia.MOTIVOS_REPORTE_IA:
+        motivo = ""
+    resumo = reportes_ia.resumo_reportes()
+    lista = reportes_ia.listar_reportes(motivo=motivo, limite=100)
+    return HTMLResponse(
+        admin_ui.pagina_reportes_ia(
+            resumo, lista, motivo, pode_email=(papel == "admin")
+        )
     )
 
 

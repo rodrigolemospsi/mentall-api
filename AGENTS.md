@@ -42,6 +42,31 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Painel: Reportes de IA (follow-up do item 3.4) — 28/10/2026
+
+### Contexto
+O item 3.4 (reporte in-app de saída de IA) já estava em produção, mas o painel do dono não tinha
+onde ver os reportes. Adicionada a página `/admin/reportes-ia` (admin) com os metadados: data,
+profissional, motivo, protocolo, sessão, provedor e observação — sem conteúdo clínico (LGPD).
+
+### O que mudou (arquivos)
+1. **`backend/services/reportes_ia.py`** — `resumo_reportes()` (total, últimos 7 dias, por motivo) e
+   `listar_reportes(motivo, limite)` com join em `usuarios` para o e-mail.
+2. **`backend/admin_ui.py`** — novo item de menu "Reportes IA" (ícone `alerta`), `pagina_reportes_ia`
+   com cards + filtro por motivo + tabela.
+3. **`backend/main.py`** — `GET /admin/reportes-ia` com gate `_exigir_papel(("admin",))` e rate limit.
+4. **`backend/tests/test_admin_reportes_ia.py` (novo)** — serviço, página e HTTP (admin vê, suporte
+   toma 403, sem sessão mostra login, filtro por motivo).
+5. **`AGENTS.md`** — esta seção.
+
+### Verificação
+- Suíte isolada do backend **499/499 OK** (MEDI, 28/10; 10 testes novos).
+- Página não exibe relato/síntese: o banco de `reportes_ia` só guarda metadados.
+
+### Pendências
+- Ação sobre o reporte (marcar como revisado/arquivar) é follow-up, se o volume justificar.
+- Índice na tabela é somente leitura; nada no app foi alterado.
+
 ## Quick wins de publicação (4.6/4.7/4.8) + reporte de IA in-app (3.4) — 27/10/2026
 
 ### Contexto
