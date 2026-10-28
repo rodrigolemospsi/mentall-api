@@ -23,6 +23,8 @@ def registrar_reporte(
     motivo: str,
     detalhe: str = "",
     provedor: str = "",
+    modelo: str = "",
+    prompt_versao: str = "",
 ) -> str:
     """Grava o reporte e devolve o protocolo (id) para exibir ao profissional."""
     motivo_normalizado = (motivo or "").strip().lower()
@@ -34,8 +36,8 @@ def registrar_reporte(
     criado_em = datetime.now(timezone.utc).isoformat()
     executar(
         "INSERT INTO reportes_ia "
-        "(id, owner_id, sessao_id, motivo, detalhe, provedor, criado_em) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "(id, owner_id, sessao_id, motivo, detalhe, provedor, modelo, "
+        "prompt_versao, criado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             protocolo,
             (owner_id or "").strip()[:100],
@@ -43,6 +45,8 @@ def registrar_reporte(
             motivo_normalizado,
             (detalhe or "").strip()[:TAMANHO_MAX_DETALHE],
             (provedor or "").strip()[:30],
+            (modelo or "").strip()[:60],
+            (prompt_versao or "").strip()[:24],
             criado_em,
         ),
     ).commit()
@@ -75,6 +79,33 @@ MOTIVO_LABELS = {
     "outro": "Outro problema",
 }
 
+# Templates de devolutiva para agilizar o atendimento (texto editavel no painel).
+TEMPLATES_DEVOLUTIVA = {
+    "conteudo_incorreto": (
+        "Ola! Revisamos o relato sobre a sintese gerada pela IA. Ajustamos as "
+        "instrucoes do modelo para reduzir conteudo incorreto ou inventado. "
+        "Obrigado pelo retorno - ele ajuda a melhorar o sistema."
+    ),
+    "tom_inadequado": (
+        "Ola! Revisamos o tom da sintese e ajustamos as instrucoes da IA para "
+        "manter linguagem clinica, respeitosa e adequada. Obrigado pelo retorno."
+    ),
+    "dado_sensivel": (
+        "Ola! Tratamos com prioridade o relato sobre dado sensivel. Reforcamos "
+        "as instrucoes da IA para nao expor informacoes pessoais no texto gerado. "
+        "Obrigado pelo retorno."
+    ),
+    "conteudo_ofensivo": (
+        "Ola! Revisamos o relato sobre conteudo ofensivo e ajustamos as "
+        "instrucoes da IA. Casos assim sao tratados com prioridade. Obrigado "
+        "por sinalizar."
+    ),
+    "outro": (
+        "Ola! Revisamos o relato enviado sobre a sintese gerada pela IA e "
+        "registramos o retorno para melhoria continua do sistema. Obrigado."
+    ),
+}
+
 # Workflow de resolucao (painel do dono)
 STATUS_REPORTE = ("aberto", "em_analise", "resolvido", "descartado")
 STATUS_LABELS = {
@@ -83,6 +114,8 @@ STATUS_LABELS = {
     "resolvido": "Resolvido",
     "descartado": "Descartado",
 }
+STATUS_EM_ABERTO = ("aberto", "em_analise")
+STATUS_FINAIS = ("resolvido", "descartado")
 SEVERIDADES = ("baixa", "media", "alta")
 SEVERIDADE_LABELS = {"baixa": "Baixa", "media": "Media", "alta": "Alta"}
 CAUSAS_RAIZ = {
@@ -106,13 +139,26 @@ MUDANCAS_APLICADAS = {
     "sem_mudanca": "Sem mudanca necessaria",
     "outro": "Outro",
 }
+DIAS_AGING = 7
+
+
+def _corte(dias: int) -> str:
+    return (datetime.now(timezone.utc) - timedelta(days=dias)).isoformat()
 
 
 def resumo_reportes() -> dict:
-    """Contagens para os cards: total, ultimos 7 dias, por motivo e por status."""
-    corte_7d = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    """Contagens para os cards: total, janelas, motivo, status e aging."""
+    corte_7d = _corte(7)
     linha = executar(
-        "SELECT COUNT(*) AS n FROM reportes_ia WHERE criado_em >= ?", (corte_7d,)
+        "SELECT "
+        "(SELECT COUNT(*) FROM reportes_ia) AS total, "
+        "(SELECT COUNT(*) FROM reportes_ia WHERE criado_em >= ?) AS ultimos_7d, "
+        "(SELECT COUNT(*) FROM reportes_ia WHERE status IN ('aberto','em_analise')) AS abertos, "
+        "(SELECT COUNT(*) FROM reportes_ia WHERE status IN ('aberto','em_analise') "
+        " AND criado_em < ?) AS abertos_7d, "
+        "(SELECT COUNT(*) FROM reportes_ia WHERE status IN ('resolvido','descartado') "
+        " AND resolvido_em >= ?) AS resolvidos_7d",
+        (corte_7d, corte_7d, corte_7d),
     ).fetchone()
     por_motivo = {
         str(item["motivo"]): int(item["n"] or 0)
@@ -126,15 +172,50 @@ def resumo_reportes() -> dict:
             "SELECT status, COUNT(*) AS n FROM reportes_ia GROUP BY status"
         ).fetchall()
     }
+    tempo_medio = _tempo_medio_resolucao_horas()
     return {
-        "total": contar_reportes(),
-        "ultimos_7d": int(linha["n"] or 0) if linha else 0,
+        "total": int(linha["total"] or 0) if linha else 0,
+        "ultimos_7d": int(linha["ultimos_7d"] or 0) if linha else 0,
+        "abertos": int(linha["abertos"] or 0) if linha else 0,
+        "abertos_7d": int(linha["abertos_7d"] or 0) if linha else 0,
+        "resolvidos_7d": int(linha["resolvidos_7d"] or 0) if linha else 0,
+        "tempo_medio_resolucao_horas": tempo_medio,
         "por_motivo": por_motivo,
         "por_status": por_status,
     }
 
 
-def listar_reportes(motivo: str = "", status: str = "", limite: int = 100) -> list:
+def _tempo_medio_resolucao_horas() -> float | None:
+    linhas = executar(
+        "SELECT criado_em, resolvido_em FROM reportes_ia "
+        "WHERE resolvido_em != '' AND status IN ('resolvido','descartado')"
+    ).fetchall()
+    duracoes = []
+    for linha in linhas:
+        try:
+            inicio = datetime.fromisoformat(str(linha["criado_em"]))
+            fim = datetime.fromisoformat(str(linha["resolvido_em"]))
+        except ValueError:
+            continue
+        if inicio.tzinfo is None:
+            inicio = inicio.replace(tzinfo=timezone.utc)
+        if fim.tzinfo is None:
+            fim = fim.replace(tzinfo=timezone.utc)
+        horas = (fim - inicio).total_seconds() / 3600
+        if horas >= 0:
+            duracoes.append(horas)
+    if not duracoes:
+        return None
+    return round(sum(duracoes) / len(duracoes), 1)
+
+
+def listar_reportes(
+    motivo: str = "",
+    status: str = "",
+    periodo_dias: int = 0,
+    atrasados: bool = False,
+    limite: int = 100,
+) -> list:
     """Reportes para o painel - so metadados (sem relato/sintese)."""
     motivo = (motivo or "").strip().lower()
     if motivo not in MOTIVOS_REPORTE_IA:
@@ -143,12 +224,6 @@ def listar_reportes(motivo: str = "", status: str = "", limite: int = 100) -> li
     if status not in STATUS_REPORTE:
         status = ""
     limite = max(1, min(200, int(limite)))
-    sql = (
-        "SELECT r.id, r.owner_id, r.sessao_id, r.motivo, r.detalhe, r.provedor, "
-        "r.criado_em, r.status, r.severidade, r.resolvido_em, r.atualizado_em, "
-        "u.email AS dono_email, u.nome AS dono_nome "
-        "FROM reportes_ia r LEFT JOIN usuarios u ON u.id = r.owner_id "
-    )
     clausulas, params = [], []
     if motivo:
         clausulas.append("r.motivo = ?")
@@ -156,6 +231,24 @@ def listar_reportes(motivo: str = "", status: str = "", limite: int = 100) -> li
     if status:
         clausulas.append("r.status = ?")
         params.append(status)
+    try:
+        periodo_dias = int(periodo_dias)
+    except (TypeError, ValueError):
+        periodo_dias = 0
+    if periodo_dias in (7, 30, 90):
+        clausulas.append("r.criado_em >= ?")
+        params.append(_corte(periodo_dias))
+    if atrasados:
+        clausulas.append("r.status IN ('aberto','em_analise')")
+        clausulas.append("r.criado_em < ?")
+        params.append(_corte(DIAS_AGING))
+    sql = (
+        "SELECT r.id, r.owner_id, r.sessao_id, r.motivo, r.detalhe, r.provedor, "
+        "r.modelo, r.prompt_versao, r.criado_em, r.status, r.severidade, "
+        "r.resolvido_em, r.resolvido_por, r.devolutiva_enviada_em, r.atualizado_em, "
+        "u.email AS dono_email, u.nome AS dono_nome "
+        "FROM reportes_ia r LEFT JOIN usuarios u ON u.id = r.owner_id "
+    )
     if clausulas:
         sql += "WHERE " + " AND ".join(clausulas) + " "
     sql += "ORDER BY r.criado_em DESC LIMIT ?"
@@ -208,7 +301,7 @@ def atualizar_resolucao(
         )
 
     agora = datetime.now(timezone.utc).isoformat()
-    finalizado = status in ("resolvido", "descartado")
+    finalizado = status in STATUS_FINAIS
     resolvido_em = agora if finalizado else ""
     resolvido_por = (resolvido_por or "").strip()[:200] if finalizado else ""
     cursor = executar(
@@ -243,3 +336,91 @@ def atualizar_resolucao(
         resolvido_por or "-",
     )
     return alteradas > 0
+
+
+def registrar_envio_devolutiva(reporte_id: str, enviado: bool, erro: str = "") -> None:
+    """Guarda o resultado do envio da devolutiva por e-mail ao profissional."""
+    agora = datetime.now(timezone.utc).isoformat()
+    executar(
+        "UPDATE reportes_ia SET devolutiva_enviada_em = ?, devolutiva_envio_erro = ? "
+        "WHERE id = ?",
+        (agora if enviado else "", "" if enviado else (erro or "")[:300], reporte_id),
+    ).commit()
+
+
+def atualizar_status_lote(ids: list, status: str, por: str = "") -> int:
+    """Muda o status de varios reportes de uma vez (acoes em lote do painel)."""
+    status = (status or "").strip().lower()
+    if status not in ("aberto", "em_analise", "descartado"):
+        raise ValueError(
+            "acao em lote invalida: use aberto, em_analise ou descartado"
+        )
+    ids = [str(i).strip() for i in (ids or []) if str(i).strip()][:200]
+    if not ids:
+        return 0
+    agora = datetime.now(timezone.utc).isoformat()
+    finalizado = status == "descartado"
+    marcadores = ",".join("?" for _ in ids)
+    cursor = executar(
+        "UPDATE reportes_ia SET status = ?, resolvido_por = ?, resolvido_em = ?, "
+        f"atualizado_em = ? WHERE id IN ({marcadores})",
+        (
+            status,
+            (por or "").strip()[:200] if finalizado else "",
+            agora if finalizado else "",
+            agora,
+            *ids,
+        ),
+    )
+    alteradas = cursor.rowcount
+    cursor.commit()
+    log.warning("Reportes de IA em lote: status=%s em %d registro(s)", status, alteradas)
+    return alteradas
+
+
+def metricas_dashboard() -> dict:
+    """Métricas de qualidade da IA para o dashboard (reportes por semana/modelo)."""
+    resumo = resumo_reportes()
+    corte_56d = _corte(56)
+    linhas = executar(
+        "SELECT criado_em, status FROM reportes_ia WHERE criado_em >= ?", (corte_56d,)
+    ).fetchall()
+    semanas = []
+    agora = datetime.now(timezone.utc)
+    for indice in range(7, -1, -1):
+        inicio = agora - timedelta(days=7 * (indice + 1))
+        fim = agora - timedelta(days=7 * indice)
+        total = 0
+        resolvidos = 0
+        for linha in linhas:
+            try:
+                criado = datetime.fromisoformat(str(linha["criado_em"]))
+            except ValueError:
+                continue
+            if criado.tzinfo is None:
+                criado = criado.replace(tzinfo=timezone.utc)
+            if inicio <= criado < fim:
+                total += 1
+                if str(linha["status"]) in STATUS_FINAIS:
+                    resolvidos += 1
+        semanas.append((f"{inicio.strftime('%d/%m')}", total, resolvidos))
+    por_modelo = [
+        (str(item["modelo"] or "nao informado"), int(item["n"] or 0))
+        for item in executar(
+            "SELECT modelo, COUNT(*) AS n FROM reportes_ia "
+            "GROUP BY modelo ORDER BY n DESC LIMIT 6"
+        ).fetchall()
+    ]
+    por_causa = [
+        (CAUSAS_RAIZ.get(str(item["causa_raiz"]), str(item["causa_raiz"])), int(item["n"] or 0))
+        for item in executar(
+            "SELECT causa_raiz, COUNT(*) AS n FROM reportes_ia "
+            "WHERE causa_raiz != '' GROUP BY causa_raiz ORDER BY n DESC LIMIT 6"
+        ).fetchall()
+    ]
+    return {
+        "resumo": resumo,
+        "serie_semanas": semanas,
+        "por_modelo": por_modelo,
+        "por_causa": por_causa,
+    }

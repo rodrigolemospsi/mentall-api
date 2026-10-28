@@ -2,8 +2,10 @@
 
 import unittest
 from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, patch
 
 import httpx
+from fastapi.testclient import TestClient
 
 import admin_ui
 import main
@@ -359,3 +361,215 @@ class ResolucaoHttpTests(unittest.IsolatedAsyncioTestCase):
             "/admin/reportes-ia/nao-existe", headers={"Cookie": cookie}
         )
         self.assertEqual(resposta.status_code, 404)
+
+
+
+class AgingMetricasTests(unittest.TestCase):
+    def setUp(self):
+        _limpar()
+
+    def test_resumo_aging_e_tempo_medio(self):
+        antigo = _reporte("outro")
+        db.executar(
+            "UPDATE reportes_ia SET criado_em = ?, status = 'aberto' WHERE id = ?",
+            (_iso(10), antigo),
+        ).commit()
+        _reporte("tom_inadequado", detalhe="recente")
+        resolvido = _reporte("dado_sensivel")
+        reportes_ia.atualizar_resolucao(
+            reporte_id=resolvido, status="resolvido", severidade="alta",
+            devolutiva="ok", resolvido_por="dono@ex.com",
+        )
+        resumo = reportes_ia.resumo_reportes()
+        self.assertEqual(resumo["total"], 3)
+        self.assertEqual(resumo["abertos"], 2)
+        self.assertEqual(resumo["abertos_7d"], 1)
+        self.assertEqual(resumo["resolvidos_7d"], 1)
+        self.assertIsNotNone(resumo["tempo_medio_resolucao_horas"])
+
+    def test_filtros_periodo_e_atrasados(self):
+        antigo = _reporte("outro")
+        db.executar(
+            "UPDATE reportes_ia SET criado_em = ?, status = 'aberto' WHERE id = ?",
+            (_iso(10), antigo),
+        ).commit()
+        _reporte("outro")
+        self.assertEqual(len(reportes_ia.listar_reportes(atrasados=True)), 1)
+        self.assertEqual(len(reportes_ia.listar_reportes(periodo_dias=7)), 1)
+
+    def test_lote_descarta_e_reabre(self):
+        primeiro = _reporte("outro")
+        segundo = _reporte("tom_inadequado")
+        total = reportes_ia.atualizar_status_lote(
+            [primeiro, segundo], "descartado", "dono@ex.com"
+        )
+        self.assertEqual(total, 2)
+        item = reportes_ia.obter_reporte(primeiro)
+        self.assertEqual(item["status"], "descartado")
+        self.assertEqual(item["resolvido_por"], "dono@ex.com")
+        self.assertTrue(item["resolvido_em"])
+        reportes_ia.atualizar_status_lote([primeiro], "aberto", "dono@ex.com")
+        item = reportes_ia.obter_reporte(primeiro)
+        self.assertEqual(item["status"], "aberto")
+        self.assertEqual(item["resolvido_em"], "")
+
+    def test_lote_status_invalido_recusado(self):
+        with self.assertRaises(ValueError):
+            reportes_ia.atualizar_status_lote(["x"], "resolvido", "dono")
+
+    def test_metricas_dashboard(self):
+        rid = _reporte("tom_inadequado")
+        reportes_ia.registrar_reporte(
+            owner_id="u1", sessao_id="s", motivo="outro",
+            modelo="gpt-4.1-mini", prompt_versao="abc123456789",
+        )
+        reportes_ia.atualizar_resolucao(
+            reporte_id=rid, status="resolvido", severidade="alta",
+            causa_raiz="prompt", devolutiva="ok", resolvido_por="dono@ex.com",
+        )
+        metricas = reportes_ia.metricas_dashboard()
+        self.assertEqual(metricas["resumo"]["total"], 2)
+        self.assertEqual(len(metricas["serie_semanas"]), 8)
+        modelos = dict(metricas["por_modelo"])
+        self.assertEqual(modelos.get("gpt-4.1-mini"), 1)
+        causas = dict(metricas["por_causa"])
+        self.assertEqual(causas.get("Prompt/persona da IA"), 1)
+
+
+class TemplatesModeloPromptTests(unittest.TestCase):
+    def setUp(self):
+        _limpar()
+
+    def test_template_preenche_devolutiva(self):
+        rid = _reporte("dado_sensivel")
+        html = admin_ui.pagina_reporte_ia_detalhe(
+            reportes_ia.obter_reporte(rid), template="dado_sensivel"
+        )
+        self.assertIn("Tratamos com prioridade", html)
+        self.assertIn("Templates:", html)
+
+    def test_registra_modelo_e_versao_do_prompt(self):
+        rid = reportes_ia.registrar_reporte(
+            owner_id="u1", sessao_id="s", motivo="outro",
+            modelo="gpt-4.1-mini", prompt_versao="abc123456789",
+        )
+        item = reportes_ia.obter_reporte(rid)
+        self.assertEqual(item["modelo"], "gpt-4.1-mini")
+        self.assertEqual(item["prompt_versao"], "abc123456789")
+
+    def test_versao_prompt_sintese_e_hash_curto(self):
+        from services.ia_clinica import versao_prompt_sintese
+
+        versao = versao_prompt_sintese()
+        self.assertEqual(len(versao), 12)
+        int(versao, 16)
+
+
+class DevolutivaEmailHttpTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        _limpar()
+        db.executar("DELETE FROM admin_auditoria").commit()
+        _usuario("admin-1", "dono@ex.com", role="admin")
+        _usuario("sup-1", "suporte@ex.com", role="suporte")
+        self.client = httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=main.app, client=("203.0.113.93", 55003)),
+            base_url="https://test.invalid",
+            follow_redirects=False,
+        )
+        self.addAsyncCleanup(self.client.aclose)
+
+    async def _login(self, email="dono@ex.com"):
+        resposta = await self.client.post(
+            "/admin/login", data={"email": email, "senha": SENHA}
+        )
+        self.assertEqual(resposta.status_code, 303)
+        cookie = resposta.headers["set-cookie"].split(";")[0]
+        self.client.cookies.clear()
+        return cookie
+
+    async def test_envia_devolutiva_por_email(self):
+        _usuario("u1", "profissional@ex.com")
+        rid = _reporte("tom_inadequado")
+        cookie = await self._login()
+        with patch.object(main, "_enviar_email", new=AsyncMock(return_value=True)) as envio:
+            resposta = await self.client.post(
+                f"/admin/reportes-ia/{rid}/resolver",
+                data={
+                    "status": "resolvido",
+                    "severidade": "media",
+                    "devolutiva": "Ajustamos as instrucoes da IA.",
+                    "como_ficou": "Prompt revisado.",
+                    "enviar_devolutiva": "1",
+                },
+                headers={"Cookie": cookie},
+            )
+        self.assertEqual(resposta.status_code, 303)
+        envio.assert_awaited_once()
+        self.assertEqual(envio.await_args.args[0], "profissional@ex.com")
+        item = reportes_ia.obter_reporte(rid)
+        self.assertTrue(item["devolutiva_enviada_em"])
+        auditoria = db.executar(
+            "SELECT COUNT(*) AS n FROM admin_auditoria "
+            "WHERE acao = 'reporte_ia.devolutiva_email'"
+        ).fetchone()
+        self.assertEqual(int(auditoria["n"]), 1)
+
+    async def test_lote_pelo_painel(self):
+        primeiro = _reporte("outro")
+        segundo = _reporte("tom_inadequado")
+        cookie = await self._login()
+        resposta = await self.client.post(
+            "/admin/reportes-ia/lote",
+            data={"ids": [primeiro, segundo], "acao": "em_analise"},
+            headers={"Cookie": cookie},
+        )
+        self.assertEqual(resposta.status_code, 303)
+        status = db.executar(
+            "SELECT status FROM reportes_ia WHERE id = ?", (primeiro,)
+        ).fetchone()["status"]
+        self.assertEqual(status, "em_analise")
+        auditoria = db.executar(
+            "SELECT COUNT(*) AS n FROM admin_auditoria WHERE acao = 'reporte_ia.lote'"
+        ).fetchone()
+        self.assertEqual(int(auditoria["n"]), 1)
+
+    async def test_suporte_nao_faz_lote(self):
+        cookie = await self._login()
+        self.client.cookies.clear()
+        cookie_suporte = await self._login("suporte@ex.com")
+        resposta = await self.client.post(
+            "/admin/reportes-ia/lote",
+            data={"ids": ["x"], "acao": "descartado"},
+            headers={"Cookie": cookie_suporte},
+        )
+        self.assertEqual(resposta.status_code, 403)
+
+
+class PushNovoReporteTests(unittest.TestCase):
+    def setUp(self):
+        _limpar()
+        main.app.dependency_overrides[main._verificar_token] = (
+            lambda: ("profissional", "owner-push")
+        )
+        self.client = TestClient(main.app)
+
+    def tearDown(self):
+        main.app.dependency_overrides.clear()
+
+    def test_reportar_notifica_admin_e_grava_modelo(self):
+        with patch.object(main.push, "enviar", return_value={"enviados": 1}) as push_mock:
+            resposta = self.client.post(
+                "/reportar-sintese",
+                json={
+                    "sessao_id": "sessao-push",
+                    "motivo": "conteudo_incorreto",
+                    "detalhe": "texto inventado",
+                },
+            )
+        self.assertEqual(resposta.status_code, 200)
+        push_mock.assert_called_once()
+        self.assertIn("Novo reporte", push_mock.call_args.args[0])
+        protocolo = resposta.json()["protocolo"]
+        item = reportes_ia.obter_reporte(protocolo)
+        self.assertEqual(item["modelo"], "gpt-4o-mini")
+        self.assertEqual(len(item["prompt_versao"]), 12)

@@ -401,6 +401,7 @@ def pagina_dashboard(
     auditoria: list | None = None,
     pode_email: bool = True,
     estatisticas: dict | None = None,
+    reportes_metricas: dict | None = None,
 ) -> str:
     """Dashboard v3 (Fase 5L): KPIs, anéis, 4 gráficos e tabelas limpas."""
     filtros = filtros or {}
@@ -507,6 +508,7 @@ def pagina_dashboard(
 {graficos_html}
 {mini_kpis_html}
 {_secao_operacao(extras)}
+{_secao_reportes_metricas(reportes_metricas)}
 {_secao_saude(saude)}
   <h2>Pessoas ({total})</h2>
   {_form_filtros(filtros, opcoes)}
@@ -2665,6 +2667,13 @@ _MUDANCA_LABEL = {
     "sem_mudanca": "Sem mudanca necessaria",
     "outro": "Outro",
 }
+_TEMPLATE_ROTULO = {
+    "conteudo_incorreto": "Conteudo incorreto",
+    "tom_inadequado": "Tom inadequado",
+    "dado_sensivel": "Dado sensivel",
+    "conteudo_ofensivo": "Ofensivo",
+    "outro": "Outro",
+}
 
 
 def _pill_motivo_reporte(motivo: str) -> str:
@@ -2704,17 +2713,22 @@ def _data_input(iso) -> str:
 
 
 def _linha_reporte(item: dict) -> str:
-    protocolo = _esc((item.get("id") or "")[:8]) or "-"
+    reporte_id = _esc(item.get("id") or "")
+    protocolo = reporte_id[:8] or "-"
     dono = _esc(item.get("dono_email") or item.get("owner_id") or "-")
+    modelo = _esc(item.get("modelo") or item.get("provedor") or "-")
     return (
         "<tr>"
+        f'<td><input type="checkbox" name="ids" value="{reporte_id}" '
+        f'aria-label="Selecionar reporte {protocolo}"></td>'
         f"<td>{_quando(item.get('criado_em'))}</td>"
         f"<td>{dono}</td>"
         f"<td>{_pill_motivo_reporte(item.get('motivo') or '')}</td>"
         f"<td>{_pill_severidade(item.get('severidade') or 'media')}</td>"
         f"<td>{_pill_status_reporte(item.get('status') or 'aberto')}</td>"
+        f"<td>{modelo}</td>"
         f"<td><code>{protocolo}</code></td>"
-        f'<td><a class="btn pequeno" href="/admin/reportes-ia/{_esc(item.get("id"))}">Abrir</a></td>'
+        f'<td><a class="btn pequeno" href="/admin/reportes-ia/{reporte_id}">Abrir</a></td>'
         "</tr>"
     )
 
@@ -2724,6 +2738,8 @@ def pagina_reportes_ia(
     reportes: list,
     filtro_motivo: str = "",
     filtro_status: str = "",
+    periodo: int = 0,
+    atrasados: bool = False,
     msg: str = "",
     erro: str = "",
     pode_email: bool = True,
@@ -2732,25 +2748,29 @@ def pagina_reportes_ia(
     resumo = resumo or {}
     por_motivo = resumo.get("por_motivo") or {}
     por_status = resumo.get("por_status") or {}
+    tempo = resumo.get("tempo_medio_resolucao_horas")
     cards = "".join(
         [
             _cartao("Total", resumo.get("total", 0)),
-            _cartao("Abertos", por_status.get("aberto", 0), destaque=bool(por_status.get("aberto"))),
+            _cartao("Abertos", resumo.get("abertos", 0)),
+            _cartao("Abertos ha +7 dias", resumo.get("abertos_7d", 0),
+                    destaque=bool(resumo.get("abertos_7d"))),
+            _cartao("Resolvidos (7 dias)", resumo.get("resolvidos_7d", 0)),
+            _cartao("Tempo medio de resolucao",
+                    f"{tempo:.1f} h" if tempo is not None else "-"),
             _cartao("Em analise", por_status.get("em_analise", 0)),
             _cartao("Resolvidos", por_status.get("resolvido", 0)),
             _cartao("Descartados", por_status.get("descartado", 0)),
-            _cartao("Conteudo incorreto", por_motivo.get("conteudo_incorreto", 0)),
-            _cartao("Tom inadequado", por_motivo.get("tom_inadequado", 0)),
             _cartao("Dado sensivel", por_motivo.get("dado_sensivel", 0),
                     destaque=bool(por_motivo.get("dado_sensivel"))),
             _cartao("Ofensivo", por_motivo.get("conteudo_ofensivo", 0),
                     destaque=bool(por_motivo.get("conteudo_ofensivo"))),
-            _cartao("Outro", por_motivo.get("outro", 0)),
         ]
     )
     linhas = "".join(_linha_reporte(item) for item in (reportes or [])) or (
-        '<tr><td colspan="7" class="off">Nenhum reporte com esse filtro.</td></tr>'
+        '<tr><td colspan="9" class="off">Nenhum reporte com esse filtro.</td></tr>'
     )
+    periodos = {7: "Ultimos 7 dias", 30: "Ultimos 30 dias", 90: "Ultimos 90 dias"}
     return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MentAll PRO — Reportes de IA</title><style>{_ESTILO}</style>{_PWA_HEAD}</head>
@@ -2758,41 +2778,147 @@ def pagina_reportes_ia(
 {_cabecalho_painel("reportes", pode_email=pode_email)}
 <main>
   <h2 style="font-size:18px;color:#1E293B;margin-top:0">Reportes de saida de IA</h2>
-  <p class="nota-lgpd">Somente metadados: motivo, observacao do profissional, sessao e provedor.
+  <p class="nota-lgpd">Somente metadados: motivo, observacao do profissional, sessao, modelo e provedor.
   O relato clinico e o texto da sintese NAO sao enviados nem exibidos aqui (LGPD).
-  Clique em <strong>Abrir</strong> para registrar o tratamento (contato, devolutiva e como ficou).</p>
+  Clique em <strong>Abrir</strong> para registrar o tratamento (contato, devolutiva, como ficou
+  e envio da devolutiva por e-mail).</p>
   {_alertas(msg, erro)}
   <div class="grid-cards">{cards}</div>
   <form class="filtros" method="get" action="/admin/reportes-ia">
     <select name="motivo">{_opcoes_mapa(_MOTIVOS_REPORTE_LABEL, filtro_motivo, "Todos os motivos")}</select>
     <select name="status">{_opcoes_mapa(_STATUS_REPORTE_LABEL, filtro_status, "Todos os status")}</select>
+    <select name="periodo">{_opcoes_mapa(periodos, str(periodo), "Todo o periodo")}</select>
+    <select name="atrasados">
+      <option value="">Aging (todos)</option>
+      <option value="1"{" selected" if atrasados else ""}>So abertos ha +7 dias</option>
+    </select>
     <button type="submit">Filtrar</button>
     <a class="btn secundario" href="/admin/reportes-ia">Limpar</a>
   </form>
+  <form method="post" action="/admin/reportes-ia/lote">
   <div class="tabela-card">
   <table>
     <thead><tr>
-      <th>Quando</th><th>Profissional</th><th>Motivo</th><th>Sev.</th>
-      <th>Status</th><th>Protocolo</th><th>Acoes</th>
+      <th></th><th>Quando</th><th>Profissional</th><th>Motivo</th><th>Sev.</th>
+      <th>Status</th><th>Modelo</th><th>Protocolo</th><th>Acoes</th>
     </tr></thead>
     <tbody>{linhas}</tbody>
   </table>
   </div>
+  <div class="acoes-linha">
+    <label>Acao em lote
+      <select name="acao">
+        <option value="em_analise">Marcar como em analise</option>
+        <option value="descartado">Descartar selecionados</option>
+        <option value="aberto">Reabrir selecionados</option>
+      </select>
+    </label>
+    <button type="submit">Aplicar aos selecionados</button>
+  </div>
+  </form>
 </main>
 </body></html>"""
 
 
-def pagina_reporte_ia_detalhe(item: dict, msg: str = "", erro: str = "") -> str:
+def _secao_reportes_metricas(metricas: dict | None) -> str:
+    """Métricas de qualidade da IA no dashboard (reportes por semana/modelo/causa)."""
+    if not metricas:
+        return ""
+    resumo = metricas.get("resumo") or {}
+    tempo = resumo.get("tempo_medio_resolucao_horas")
+    cards = "".join(
+        [
+            _cartao("Reportes de IA", resumo.get("total", 0)),
+            _cartao("Abertos", resumo.get("abertos", 0),
+                    destaque=bool(resumo.get("abertos_7d"))),
+            _cartao("Abertos ha +7 dias", resumo.get("abertos_7d", 0),
+                    destaque=bool(resumo.get("abertos_7d"))),
+            _cartao("Resolvidos (7 dias)", resumo.get("resolvidos_7d", 0)),
+            _cartao("Tempo medio de resolucao",
+                    f"{tempo:.1f} h" if tempo is not None else "-"),
+        ]
+    )
+    serie = [
+        (str(rotulo), int(total))
+        for rotulo, total, _ in (metricas.get("serie_semanas") or [])
+    ]
+    grafico = _grafico_barras(serie)
+    linhas_modelo = "".join(
+        f"<tr><td>{_esc(rotulo)}</td><td>{int(total)}</td></tr>"
+        for rotulo, total in (metricas.get("por_modelo") or [])
+    ) or '<tr><td colspan="2" class="off">Sem dados ainda.</td></tr>'
+    linhas_causa = "".join(
+        f"<tr><td>{_esc(rotulo)}</td><td>{int(total)}</td></tr>"
+        for rotulo, total in (metricas.get("por_causa") or [])
+    ) or '<tr><td colspan="2" class="off">Sem dados ainda.</td></tr>'
+    return f"""<h2>Reportes de IA (qualidade)</h2>
+  <div class="grid-cards">{cards}</div>
+  <div class="graficos">
+    <div class="painel-card">
+      <div class="titulo"><strong>Reportes por semana</strong><small>ultimas 8 semanas</small></div>
+      {grafico}
+    </div>
+    <div class="painel-card">
+      <div class="titulo"><strong>Por modelo</strong><small>onde os relatos se concentram</small></div>
+      <div class="tabela-card"><table><thead><tr><th>Modelo</th><th>Reportes</th></tr></thead>
+      <tbody>{linhas_modelo}</tbody></table></div>
+    </div>
+  </div>
+  <div class="painel-card">
+    <div class="titulo"><strong>Causa raiz (tratados)</strong><small>onde ajustar primeiro</small></div>
+    <div class="tabela-card"><table><thead><tr><th>Causa</th><th>Reportes</th></tr></thead>
+    <tbody>{linhas_causa}</tbody></table></div>
+  </div>
+"""
+
+
+def pagina_reporte_ia_detalhe(
+    item: dict, msg: str = "", erro: str = "", template: str = ""
+) -> str:
     """Detalhe/tratamento de um reporte de IA (metadados + resolucao)."""
+    from services import reportes_ia as _rep
+
     item = item or {}
+    templates = _rep.TEMPLATES_DEVOLUTIVA
     status = (item.get("status") or "aberto").strip().lower()
+    dono_email = (item.get("dono_email") or "").strip()
+    devolutiva_valor = (
+        templates.get(template)
+        if template in templates
+        else (item.get("devolutiva") or "")
+    )
     resolvido_em = item.get("resolvido_em") or ""
-    resolvido_por = item.get("resolvido_por") or ""
     info_resolucao = ""
     if resolvido_em:
         info_resolucao = (
             f'<p class="nota-lgpd">Resolvido em {_quando(resolvido_em)}'
-            f' por {_esc(resolvido_por) or "-"}.</p>'
+            f' por {_esc(item.get("resolvido_por")) or "-"}.</p>'
+        )
+    envio_info = ""
+    if item.get("devolutiva_enviada_em"):
+        envio_info = (
+            f'<p class="nota-lgpd">Devolutiva enviada por e-mail em '
+            f'{_quando(item.get("devolutiva_enviada_em"))}.</p>'
+        )
+    elif item.get("devolutiva_envio_erro"):
+        envio_info = (
+            '<p class="nota-lgpd">Falha no ultimo envio da devolutiva: '
+            f'{_esc(item.get("devolutiva_envio_erro"))}</p>'
+        )
+    links_templates = " ".join(
+        f'<a class="voltar" href="/admin/reportes-ia/{_esc(item.get("id"))}'
+        f'?template={_esc(chave)}">{_esc(_TEMPLATE_ROTULO.get(chave, chave))}</a>'
+        for chave in templates
+    ) or "-"
+    if dono_email:
+        email_html = (
+            '<label><span><input type="checkbox" name="enviar_devolutiva" value="1" checked> '
+            f"Enviar esta devolutiva por e-mail para {_esc(dono_email)}</span></label>"
+        )
+    else:
+        email_html = (
+            '<p class="dica">Profissional sem e-mail cadastrado - a devolutiva '
+            "ficara registrada apenas no painel.</p>"
         )
     return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2810,20 +2936,23 @@ def pagina_reporte_ia_detalhe(item: dict, msg: str = "", erro: str = "") -> str:
     {_cartao("Severidade", _SEVERIDADE_LABEL.get((item.get("severidade") or "media"), "-"))}
   </div>
   {info_resolucao}
+  {envio_info}
   <div class="tabela-card">
   <table>
     <tbody>
-      <tr><th style="text-align:left">Profissional</th><td>{_esc(item.get("dono_email") or item.get("owner_id") or "-")}</td></tr>
+      <tr><th style="text-align:left">Profissional</th><td>{_esc(dono_email or item.get("owner_id") or "-")}</td></tr>
       <tr><th style="text-align:left">Motivo</th><td>{_pill_motivo_reporte(item.get("motivo") or "")}</td></tr>
       <tr><th style="text-align:left">Sessao</th><td>{_esc((item.get("sessao_id") or "")[:8]) or "-"}</td></tr>
       <tr><th style="text-align:left">Provedor de IA</th><td>{_esc(item.get("provedor") or "-")}</td></tr>
+      <tr><th style="text-align:left">Modelo</th><td>{_esc(item.get("modelo") or "-")}</td></tr>
+      <tr><th style="text-align:left">Versao do prompt</th><td><code>{_esc(item.get("prompt_versao") or "-")}</code></td></tr>
       <tr><th style="text-align:left">Observacao do profissional</th><td>{_esc(item.get("detalhe") or "-")}</td></tr>
     </tbody>
   </table>
   </div>
 
   <h3>Resolucao</h3>
-  <p class="nota-lgpd">Registre o que foi feito. Nada de conteudo clinico aqui — so o tratamento do reporte.</p>
+  <p class="nota-lgpd">Registre o que foi feito. Nada de conteudo clinico aqui - so o tratamento do reporte.</p>
   <form class="card-form" method="post" action="/admin/reportes-ia/{_esc(item.get("id"))}/resolver">
     <label>Status
       <select name="status">{_opcoes_mapa(_STATUS_REPORTE_LABEL, status)}</select>
@@ -2845,7 +2974,8 @@ def pagina_reporte_ia_detalhe(item: dict, msg: str = "", erro: str = "") -> str:
       <textarea name="contato_resumo" maxlength="1000" rows="2" placeholder="O que foi conversado, quando e por qual canal">{_esc(item.get("contato_resumo") or "")}</textarea>
     </label>
     <label>Devolutiva ao profissional
-      <textarea name="devolutiva" maxlength="2000" rows="3" placeholder="O que foi respondido/devolvido ao profissional">{_esc(item.get("devolutiva") or "")}</textarea>
+      <span class="dica">Templates: {links_templates}</span>
+      <textarea name="devolutiva" maxlength="2000" rows="3" placeholder="O que foi respondido/devolvido ao profissional">{_esc(devolutiva_valor)}</textarea>
     </label>
     <label>Como ficou no sistema
       <textarea name="como_ficou" maxlength="2000" rows="3" placeholder="O que mudou no produto/IA e o que o profissional deve esperar">{_esc(item.get("como_ficou") or "")}</textarea>
@@ -2853,6 +2983,7 @@ def pagina_reporte_ia_detalhe(item: dict, msg: str = "", erro: str = "") -> str:
     <label>Mudanca aplicada
       <select name="mudanca_aplicada">{_opcoes_mapa(_MUDANCA_LABEL, (item.get("mudanca_aplicada") or ""), "Nao informada")}</select>
     </label>
+    {email_html}
     <button type="submit" class="btn">Salvar resolucao</button>
     <a class="btn secundario" href="/admin/reportes-ia">Voltar</a>
   </form>

@@ -13,7 +13,7 @@ import smtplib
 import string
 import time
 import uuid
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
@@ -114,7 +114,13 @@ from services.contrato_service import (
     registrar_aceite,
 )
 from services.crp_service import verificar_crp_online
-from services.ia_clinica import _get_model_name, gerar_artigos, gerar_progresso, gerar_sintese
+from services.ia_clinica import (
+    _get_model_name,
+    gerar_artigos,
+    gerar_progresso,
+    gerar_sintese,
+    versao_prompt_sintese,
+)
 from services.lembrete_service import (
     _enviar_whatsapp_via_wuzapi,
     agendar_lembrete,
@@ -1069,13 +1075,20 @@ async def reportar_sintese(
     _req: Request,
     auth: tuple = Depends(_verificar_token),
 ):
-    """Reporte in-app de saída de IA inadequada (requisito do Google Play, item 3.4).
+    """Reporte in-app de saida de IA inadequada (requisito do Google Play, 3.4).
 
-    Recebe só metadados (motivo e observação opcional) — nenhum conteúdo
-    clínico. O protocolo devolvido permite acompanhar o reporte no suporte.
+    Recebe so metadados (motivo e observacao opcional) - nenhum conteudo
+    clinico. O protocolo devolvido permite acompanhar o reporte no suporte.
     """
     _rate_limit_check(_req, max_requests=10)
     _, owner_id = auth
+
+    # Follow-up 5: guarda o modelo e a versao do prompt vigentes no momento do
+    # reporte (o app nao precisa enviar; o backend infere da configuracao atual).
+    provedor = os.getenv("IA_MODEL_PROVIDER", "openai").strip().lower()
+    modelo = _get_model_name(provedor)
+    prompt_versao = versao_prompt_sintese()
+
     try:
         protocolo = reportes_ia.registrar_reporte(
             owner_id=owner_id,
@@ -1083,15 +1096,32 @@ async def reportar_sintese(
             motivo=request.motivo,
             detalhe=request.detalhe,
             provedor=request.provedor,
+            modelo=modelo,
+            prompt_versao=prompt_versao,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     log.warning(
-        "Reporte de saída de IA recebido (protocolo=%s, sessao=%s)",
+        "Reporte de saida de IA recebido (protocolo=%s, sessao=%s, modelo=%s)",
         protocolo[:8],
         request.sessao_id[:8],
+        modelo,
     )
+
+    # Follow-up 7: avisa o admin por Web Push (se VAPID/inscricoes configurados).
+    try:
+        push.enviar(
+            "Novo reporte de IA",
+            "Motivo: "
+            + reportes_ia.MOTIVO_LABELS.get(request.motivo, request.motivo)
+            + " - protocolo "
+            + protocolo[:8],
+            "/admin/reportes-ia",
+        )
+    except Exception:
+        log.exception("Falha ao enviar push do novo reporte de IA")
+
     return ReporteSinteseResponse(sucesso=True, protocolo=protocolo)
 
 
@@ -2440,6 +2470,7 @@ def admin_painel(request: Request, pagina: int = 1):
             opcoes=opcoes,
             auditoria=auditoria,
             estatisticas=estatisticas,
+            reportes_metricas=reportes_ia.metricas_dashboard(),
             pode_email=(papel == "admin"),
         )
     )
@@ -2987,8 +3018,14 @@ def admin_lembretes(request: Request, status: str = "", msg: str = "", erro: str
 
 
 @app.get("/admin/reportes-ia", response_class=HTMLResponse, tags=["Admin"])
-def admin_reportes_ia(request: Request, motivo: str = "", status: str = ""):
-    """Reportes de saida de IA (item 3.4) — so metadados, sem conteudo clinico."""
+def admin_reportes_ia(
+    request: Request,
+    motivo: str = "",
+    status: str = "",
+    periodo: int = 0,
+    atrasados: str = "",
+):
+    """Reportes de saida de IA (item 3.4) - so metadados, sem conteudo clinico."""
     _rate_limit_check(request, max_requests=60)
     bloqueio = _exigir_papel(request, ("admin",))
     if bloqueio:
@@ -3000,16 +3037,190 @@ def admin_reportes_ia(request: Request, motivo: str = "", status: str = ""):
     status = (status or "").strip().lower()
     if status not in reportes_ia.STATUS_REPORTE:
         status = ""
+    periodo = periodo if periodo in (7, 30, 90) else 0
+    filtro_atrasados = (atrasados or "").strip() in ("1", "true", "on", "sim")
     resumo = reportes_ia.resumo_reportes()
-    lista = reportes_ia.listar_reportes(motivo=motivo, status=status, limite=100)
+    lista = reportes_ia.listar_reportes(
+        motivo=motivo,
+        status=status,
+        periodo_dias=periodo,
+        atrasados=filtro_atrasados,
+        limite=100,
+    )
     return HTMLResponse(
         admin_ui.pagina_reportes_ia(
             resumo,
             lista,
             motivo,
             status,
+            periodo,
+            filtro_atrasados,
             pode_email=(papel == "admin"),
         )
+    )
+
+
+@app.get("/admin/reportes-ia/{reporte_id}", response_class=HTMLResponse, tags=["Admin"])
+def admin_reporte_ia_detalhe(
+    request: Request,
+    reporte_id: str,
+    msg: str = "",
+    erro: str = "",
+    template: str = "",
+):
+    """Detalhe e resolucao de um reporte de IA (com templates de devolutiva)."""
+    _rate_limit_check(request, max_requests=60)
+    bloqueio = _exigir_papel(request, ("admin",))
+    if bloqueio:
+        return bloqueio
+    item = reportes_ia.obter_reporte(reporte_id)
+    if not item:
+        return HTMLResponse(
+            admin_ui.pagina_reportes_ia(
+                reportes_ia.resumo_reportes(), [], erro="Reporte nao encontrado."
+            ),
+            status_code=404,
+        )
+    return HTMLResponse(
+        admin_ui.pagina_reporte_ia_detalhe(
+            item, msg=msg, erro=erro, template=(template or "").strip().lower()
+        )
+    )
+
+
+@app.post("/admin/reportes-ia/lote", tags=["Admin"])
+async def admin_reportes_ia_lote(request: Request):
+    """Acoes em lote nos reportes (marcar em analise, descartar, reabrir)."""
+    _rate_limit_check(request, max_requests=20, chave_extra="admin-reportes")
+    bloqueio = _exigir_papel(request, ("admin",))
+    if bloqueio:
+        return bloqueio
+    form = await request.form()
+    ator = _identidade_admin(request) or "desconhecido"
+    acao = (form.get("acao") or "").strip().lower()
+    ids = form.getlist("ids")
+    try:
+        total = reportes_ia.atualizar_status_lote(ids, acao, ator)
+    except ValueError as exc:
+        return RedirectResponse(
+            "/admin/reportes-ia?erro=" + quote(str(exc)), status_code=303
+        )
+    admin_service.registrar_auditoria(
+        ator,
+        "reporte_ia.lote",
+        "",
+        f"{total} reporte(s) -> {acao}",
+        _cliente_ip(request),
+    )
+    return RedirectResponse(
+        "/admin/reportes-ia?msg=" + quote(f"{total} reporte(s) atualizado(s)."),
+        status_code=303,
+    )
+
+
+@app.post("/admin/reportes-ia/{reporte_id}/resolver", tags=["Admin"])
+async def admin_reporte_ia_resolver(request: Request, reporte_id: str):
+    """Grava contato/devolutiva/como ficou, muda o status e envia a devolutiva."""
+    _rate_limit_check(request, max_requests=30, chave_extra="admin-reportes")
+    bloqueio = _exigir_papel(request, ("admin",))
+    if bloqueio:
+        return bloqueio
+    form = await request.form()
+    ator = _identidade_admin(request) or "desconhecido"
+    status = (form.get("status") or "").strip().lower()
+    severidade = (form.get("severidade") or "media").strip().lower()
+    devolutiva = (form.get("devolutiva") or "").strip()
+    como_ficou = (form.get("como_ficou") or "").strip()
+    enviar_devolutiva = (form.get("enviar_devolutiva") or "") in (
+        "1",
+        "on",
+        "true",
+        "sim",
+    )
+    try:
+        atualizado = reportes_ia.atualizar_resolucao(
+            reporte_id=reporte_id,
+            status=status,
+            severidade=severidade,
+            causa_raiz=(form.get("causa_raiz") or "").strip().lower(),
+            contato_feito=(form.get("contato_feito") or "") in ("1", "on", "true", "sim"),
+            contato_canal=(form.get("contato_canal") or "").strip().lower(),
+            contato_em=(form.get("contato_em") or "").strip(),
+            contato_resumo=(form.get("contato_resumo") or "").strip(),
+            devolutiva=devolutiva,
+            como_ficou=como_ficou,
+            mudanca_aplicada=(form.get("mudanca_aplicada") or "").strip().lower(),
+            resolvido_por=ator,
+        )
+    except ValueError as exc:
+        item = reportes_ia.obter_reporte(reporte_id) or {}
+        return HTMLResponse(
+            admin_ui.pagina_reporte_ia_detalhe(item, erro=str(exc)), status_code=400
+        )
+    if not atualizado:
+        return RedirectResponse(
+            "/admin/reportes-ia?erro=Reporte+nao+encontrado.", status_code=303
+        )
+    admin_service.registrar_auditoria(
+        ator,
+        "reporte_ia.resolver",
+        reporte_id,
+        f"status={status}; severidade={severidade}",
+        _cliente_ip(request),
+    )
+
+    mensagem = "Resolucao salva."
+    if enviar_devolutiva and devolutiva:
+        item = reportes_ia.obter_reporte(reporte_id) or {}
+        destino = (item.get("dono_email") or "").strip()
+        if destino:
+            corpo = (
+                "<p>Ola!</p>"
+                "<p>Recebemos e tratamos o reporte <strong>"
+                + html.escape(reporte_id[:8])
+                + "</strong> sobre o texto gerado pela IA.</p>"
+                "<p>Transparencia: o relato clinico e a sintese nao sao enviados "
+                "neste fluxo; so o motivo e a observacao.</p>"
+                "<p><strong>Devolutiva:</strong><br>"
+                + html.escape(devolutiva).replace(chr(10), "<br>")
+                + "</p>"
+                + (
+                    "<p><strong>Como ficou no sistema:</strong><br>"
+                    + html.escape(como_ficou).replace(chr(10), "<br>")
+                    + "</p>"
+                    if como_ficou
+                    else ""
+                )
+                + "<p>Obrigado pelo retorno - ele ajuda a melhorar a IA do "
+                "MentAll PRO.</p>"
+            )
+            enviado = await _enviar_email(
+                destino,
+                "MentAll PRO - retorno sobre o texto gerado pela IA ("
+                + reporte_id[:8]
+                + ")",
+                corpo,
+            )
+            reportes_ia.registrar_envio_devolutiva(reporte_id, enviado)
+            admin_service.registrar_auditoria(
+                ator,
+                "reporte_ia.devolutiva_email",
+                reporte_id,
+                "enviada" if enviado else "falha no envio",
+                _cliente_ip(request),
+            )
+            mensagem = (
+                "Resolucao salva e devolutiva enviada por e-mail."
+                if enviado
+                else "Resolucao salva, mas nao foi possivel enviar a devolutiva por e-mail."
+            )
+        else:
+            mensagem = (
+                "Resolucao salva. Profissional sem e-mail cadastrado para devolutiva."
+            )
+
+    return RedirectResponse(
+        f"/admin/reportes-ia/{reporte_id}?msg={quote(mensagem)}", status_code=303
     )
 
 

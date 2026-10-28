@@ -92,6 +92,7 @@ def _criar_tabelas(conn) -> None:
     for sql in _tabelas + _tabelas_exclusao + _indices:
         conn.execute(sql)
     conn.commit()
+    _aplicar_migracoes(conn)
     log.info("Tabelas verificadas/criadas com sucesso.")
 
 
@@ -423,6 +424,63 @@ _indices = [
     "CREATE INDEX IF NOT EXISTS idx_custos_uso_owner ON custos_uso(owner_id)",
 ]
 
+# ── Migrações incrementais (reaplicadas a cada conexão nova) ────────────────
+_MIGRACOES = [
+    ("usuarios", "role", "TEXT NOT NULL DEFAULT 'user'"),
+    ("usuarios", "email_verificacao_token_hash", "TEXT"),
+    ("usuarios", "email_verificacao_expiracao", "TEXT"),
+    ("recuperacoes", "codigo_hash", "TEXT"),
+    ("recuperacoes", "tentativas", "INTEGER NOT NULL DEFAULT 0"),
+    ("recuperacoes", "bloqueio_ate", "TEXT"),
+    ("lembretes", "tentativas", "INTEGER NOT NULL DEFAULT 0"),
+    ("lembretes", "ultima_tentativa_em", "TEXT"),
+    ("lembretes", "mensagem_id", "TEXT"),
+    ("lembretes", "entregue_em", "TEXT"),
+    ("lembretes", "lido_em", "TEXT"),
+    ("usuarios", "token_version", "INTEGER NOT NULL DEFAULT 0"),
+    ("usuarios", "eh_psicologo", "INTEGER NOT NULL DEFAULT 1"),
+    ("reportes_ia", "status", "TEXT NOT NULL DEFAULT 'aberto'"),
+    ("reportes_ia", "severidade", "TEXT NOT NULL DEFAULT 'media'"),
+    ("reportes_ia", "causa_raiz", "TEXT NOT NULL DEFAULT ''"),
+    ("reportes_ia", "contato_feito", "INTEGER NOT NULL DEFAULT 0"),
+    ("reportes_ia", "contato_canal", "TEXT NOT NULL DEFAULT ''"),
+    ("reportes_ia", "contato_em", "TEXT NOT NULL DEFAULT ''"),
+    ("reportes_ia", "contato_resumo", "TEXT NOT NULL DEFAULT ''"),
+    ("reportes_ia", "devolutiva", "TEXT NOT NULL DEFAULT ''"),
+    ("reportes_ia", "como_ficou", "TEXT NOT NULL DEFAULT ''"),
+    ("reportes_ia", "mudanca_aplicada", "TEXT NOT NULL DEFAULT ''"),
+    ("reportes_ia", "resolvido_por", "TEXT NOT NULL DEFAULT ''"),
+    ("reportes_ia", "resolvido_em", "TEXT NOT NULL DEFAULT ''"),
+    ("reportes_ia", "atualizado_em", "TEXT NOT NULL DEFAULT ''"),
+    ("reportes_ia", "modelo", "TEXT NOT NULL DEFAULT ''"),
+    ("reportes_ia", "prompt_versao", "TEXT NOT NULL DEFAULT ''"),
+    ("reportes_ia", "devolutiva_enviada_em", "TEXT NOT NULL DEFAULT ''"),
+    ("reportes_ia", "devolutiva_envio_erro", "TEXT NOT NULL DEFAULT ''"),
+]
+
+
+def _aplicar_migracoes(conn) -> None:
+    """Adiciona colunas faltantes na conexão recebida (seguro p/ banco existente)."""
+    for tabela, coluna, tipo in _MIGRACOES:
+        try:
+            colunas = {
+                linha[1] for linha in conn.execute(f"PRAGMA table_info({tabela})")
+            }
+        except Exception:
+            continue
+        if coluna in colunas:
+            continue
+        try:
+            conn.execute(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {tipo}")
+            log.info("Migracao: coluna %s.%s adicionada.", tabela, coluna)
+        except Exception as erro:  # pragma: no cover - banco exotico
+            log.warning("Falha na migracao %s.%s: %s", tabela, coluna, erro)
+    try:
+        conn.commit()
+    except Exception:
+        pass
+
+
 try:
     conn = _obter_conexao()
     _criar_tabelas(conn)
@@ -445,32 +503,6 @@ def _garantir_coluna(tabela: str, coluna: str, tipo: str) -> None:
         log.info("Migracao: coluna %s.%s adicionada.", tabela, coluna)
 
 
-# Migracoes incrementais (para bancos ja existentes)
-_garantir_coluna("usuarios", "role", "TEXT NOT NULL DEFAULT 'user'")
-_garantir_coluna("usuarios", "email_verificacao_token_hash", "TEXT")
-_garantir_coluna("usuarios", "email_verificacao_expiracao", "TEXT")
-_garantir_coluna("recuperacoes", "codigo_hash", "TEXT")
-_garantir_coluna("recuperacoes", "tentativas", "INTEGER NOT NULL DEFAULT 0")
-_garantir_coluna("recuperacoes", "bloqueio_ate", "TEXT")
-_garantir_coluna("lembretes", "tentativas", "INTEGER NOT NULL DEFAULT 0")
-_garantir_coluna("lembretes", "ultima_tentativa_em", "TEXT")
-_garantir_coluna("lembretes", "mensagem_id", "TEXT")
-_garantir_coluna("lembretes", "entregue_em", "TEXT")
-_garantir_coluna("lembretes", "lido_em", "TEXT")
-_garantir_coluna("usuarios", "token_version", "INTEGER NOT NULL DEFAULT 0")
-_garantir_coluna("usuarios", "eh_psicologo", "INTEGER NOT NULL DEFAULT 1")
+# As migrações incrementais ficam em _MIGRACOES e são aplicadas a cada
+# conexão nova (inclusive após reset_cache), para bancos já existentes.
 
-# Resolucao dos reportes de IA (painel): workflow de tratamento.
-_garantir_coluna("reportes_ia", "status", "TEXT NOT NULL DEFAULT 'aberto'")
-_garantir_coluna("reportes_ia", "severidade", "TEXT NOT NULL DEFAULT 'media'")
-_garantir_coluna("reportes_ia", "causa_raiz", "TEXT NOT NULL DEFAULT ''")
-_garantir_coluna("reportes_ia", "contato_feito", "INTEGER NOT NULL DEFAULT 0")
-_garantir_coluna("reportes_ia", "contato_canal", "TEXT NOT NULL DEFAULT ''")
-_garantir_coluna("reportes_ia", "contato_em", "TEXT NOT NULL DEFAULT ''")
-_garantir_coluna("reportes_ia", "contato_resumo", "TEXT NOT NULL DEFAULT ''")
-_garantir_coluna("reportes_ia", "devolutiva", "TEXT NOT NULL DEFAULT ''")
-_garantir_coluna("reportes_ia", "como_ficou", "TEXT NOT NULL DEFAULT ''")
-_garantir_coluna("reportes_ia", "mudanca_aplicada", "TEXT NOT NULL DEFAULT ''")
-_garantir_coluna("reportes_ia", "resolvido_por", "TEXT NOT NULL DEFAULT ''")
-_garantir_coluna("reportes_ia", "resolvido_em", "TEXT NOT NULL DEFAULT ''")
-_garantir_coluna("reportes_ia", "atualizado_em", "TEXT NOT NULL DEFAULT ''")

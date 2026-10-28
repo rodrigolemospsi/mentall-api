@@ -1,3 +1,5 @@
+import hashlib
+import inspect
 import json
 import logging
 import os
@@ -1067,3 +1069,16 @@ def _chamar_llm_json_gemini(prompt: str, temperature: float) -> dict:
 
     return _executar_com_retry("Gemini", tentar)
 
+
+
+def versao_prompt_sintese() -> str:
+    """Hash curto do código que monta o prompt de síntese.
+
+    Muda automaticamente quando as instruções do prompt mudam — serve para
+    rastrear em qual versão de prompt um reporte de IA foi gerado.
+    """
+    try:
+        fonte = inspect.getsource(_montar_prompt_sintese)
+    except (OSError, TypeError):
+        return ""
+    return hashlib.sha256(fonte.encode("utf-8")).hexdigest()[:12]
