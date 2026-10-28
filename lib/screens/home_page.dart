@@ -368,8 +368,9 @@ class _HomePageState extends ConsumerState<HomePage> {
             height: 78,
           ),
           centerTitle: false,
-          backgroundColor: context.corAppBarBg,
-          foregroundColor: context.corAppBarFg,
+          backgroundColor: context.corFundo,
+          foregroundColor: context.corPrimaria,
+          shape: const Border(),
           elevation: 0,
           actions: [
             IconButton(
