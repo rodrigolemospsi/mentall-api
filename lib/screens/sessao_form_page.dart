@@ -29,6 +29,7 @@ import '../widgets/sessao_financeiro_widget.dart';
 import '../widgets/sessao_form_widgets.dart';
 import '../widgets/sessao_progresso_widget.dart';
 import '../widgets/sessao_relato_ia_widget.dart';
+import '../widgets/reportar_sintese_dialog.dart';
 import '../utils/tipografia.dart';
 
 class SessaoFormPage extends ConsumerStatefulWidget {
@@ -1360,6 +1361,49 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
     );
   }
 
+  /// Reporte de saída de IA inadequada (requisito do Google Play, item 3.4).
+  ///
+  /// O envio leva só metadados (motivo + observação); o relato e a síntese não
+  /// saem do aparelho por este fluxo.
+  Future<void> _reportarSintese() async {
+    final reporte = await mostrarDialogoReportarSintese(context);
+    if (!mounted || reporte == null) return;
+
+    final protocolo = await _iaClinicaService.reportarSintese(
+      sessaoId: _sessaoId,
+      motivo: reporte.motivo,
+      detalhe: reporte.detalhe,
+    );
+    if (!mounted) return;
+
+    if (protocolo == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Não foi possível registrar o reporte agora. '
+            'Verifique a conexão e tente novamente.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    _registrarAuditoria(
+      'Saída de IA reportada',
+      'Problema reportado no texto gerado (motivo: ${reporte.motivo})',
+    );
+    final protocoloCurto =
+        protocolo.length > 8 ? protocolo.substring(0, 8) : protocolo;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Reporte registrado (protocolo $protocoloCurto). '
+          'Obrigado — o time vai revisar o texto gerado.',
+        ),
+      ),
+    );
+  }
+
   void _limparErroProcessamento() {
     _erroProcessamentoIa = '';
 
@@ -1845,6 +1889,7 @@ class _SessaoFormPageState extends ConsumerState<SessaoFormPage> {
         onTranscrever: _transcreverRelato,
         onGerarSintese: _gerarSinteseComIa,
         onMarcarRevisado: _marcarComoRevisado,
+        onReportarSintese: _reportarSintese,
         onAudioMantidoChanged: (value) {
           _audioMantido = value;
           _triggerRebuild();

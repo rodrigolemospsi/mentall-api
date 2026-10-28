@@ -122,7 +122,12 @@ from services.exclusao_conta import (
     pode_excluir as _pode_excluir_conta,
     token_revogado as _token_revogado,
 )
-from models.schemas import ExcluirContaRequest
+from models.schemas import (
+    ExcluirContaRequest,
+    ReporteSinteseRequest,
+    ReporteSinteseResponse,
+)
+from services import reportes_ia
 from services import wuzapi_admin
 
 _rate_limit_store: dict[str, list[float]] = {}
@@ -1023,6 +1028,42 @@ async def sintese(request: SinteseRequest, _req: Request):
         erro="",
         provedor=resultado.get("provedor", ""),
     )
+
+
+@app.post(
+    "/reportar-sintese",
+    response_model=ReporteSinteseResponse,
+    tags=["IA Clinica"],
+)
+async def reportar_sintese(
+    request: ReporteSinteseRequest,
+    _req: Request,
+    auth: tuple = Depends(_verificar_token),
+):
+    """Reporte in-app de saída de IA inadequada (requisito do Google Play, item 3.4).
+
+    Recebe só metadados (motivo e observação opcional) — nenhum conteúdo
+    clínico. O protocolo devolvido permite acompanhar o reporte no suporte.
+    """
+    _rate_limit_check(_req, max_requests=10)
+    _, owner_id = auth
+    try:
+        protocolo = reportes_ia.registrar_reporte(
+            owner_id=owner_id,
+            sessao_id=request.sessao_id,
+            motivo=request.motivo,
+            detalhe=request.detalhe,
+            provedor=request.provedor,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    log.warning(
+        "Reporte de saída de IA recebido (protocolo=%s, sessao=%s)",
+        protocolo[:8],
+        request.sessao_id[:8],
+    )
+    return ReporteSinteseResponse(sucesso=True, protocolo=protocolo)
 
 
 @app.post(

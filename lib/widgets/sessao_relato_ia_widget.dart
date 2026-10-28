@@ -25,6 +25,7 @@ class SessaoFormActions {
   final VoidCallback onTranscrever;
   final VoidCallback onGerarSintese;
   final VoidCallback onMarcarRevisado;
+  final VoidCallback onReportarSintese;
   final ValueChanged<bool> onAudioMantidoChanged;
 
   const SessaoFormActions({
@@ -40,6 +41,7 @@ class SessaoFormActions {
     required this.onTranscrever,
     required this.onGerarSintese,
     required this.onMarcarRevisado,
+    required this.onReportarSintese,
     required this.onAudioMantidoChanged,
   });
 }
@@ -179,6 +181,23 @@ class SecaoRelatoIaWidget extends ConsumerWidget {
                 style: FilledButton.styleFrom(
                   backgroundColor: context.corPrimaria,
                   foregroundColor: context.corOnPrimaria,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
+          ),
+        ],
+        if (geradoComIa) ...[
+          const SizedBox(height: 4),
+          Semantics(
+            label: 'Reportar problema com o texto gerado',
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: acaoEmAndamento ? null : acoes.onReportarSintese,
+                icon: const Icon(Icons.flag_outlined),
+                label: const Text('Reportar problema com o texto gerado'),
+                style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
               ),

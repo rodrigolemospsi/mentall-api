@@ -186,6 +186,36 @@ class IaClinicaService {
     }
   }
 
+  /// Reporta uma saída de IA inadequada (exigência do Google Play, item 3.4).
+  ///
+  /// Envia só metadados — nenhum conteúdo clínico sai do aparelho neste fluxo.
+  /// Retorna o protocolo de registro, ou `null` se não foi possível registrar.
+  Future<String?> reportarSintese({
+    required String sessaoId,
+    required String motivo,
+    String detalhe = '',
+    String provedor = '',
+  }) async {
+    try {
+      final resultado = await _fazerRequisicaoComRetry(
+        endpoint: '/reportar-sintese',
+        body: {
+          'sessao_id': sessaoId,
+          'motivo': motivo,
+          'detalhe': detalhe.trim(),
+          'provedor': provedor.trim(),
+        },
+      );
+      if (resultado['status'] != 200) return null;
+      final data = resultado['data'] as Map<String, dynamic>?;
+      if (data == null || data['sucesso'] != true) return null;
+      final protocolo = (data['protocolo'] as String?)?.trim() ?? '';
+      return protocolo.isEmpty ? 'registrado' : protocolo;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Mantida sem uso: o nome da pessoa atendida deixou de ser enviado ao provedor
   /// de IA em 16/10/2026. Preservada para reuso caso volte a ser necessaria em
   /// outro fluxo (ex.: exibicao local), sem disparar aviso do analyze.

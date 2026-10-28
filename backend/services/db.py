@@ -307,6 +307,15 @@ _tabelas = [
         ip TEXT NOT NULL DEFAULT '',
         criado_em TEXT NOT NULL
     )""",
+    """CREATE TABLE IF NOT EXISTS reportes_ia (
+        id TEXT PRIMARY KEY,
+        owner_id TEXT NOT NULL DEFAULT '',
+        sessao_id TEXT NOT NULL DEFAULT '',
+        motivo TEXT NOT NULL DEFAULT '',
+        detalhe TEXT NOT NULL DEFAULT '',
+        provedor TEXT NOT NULL DEFAULT '',
+        criado_em TEXT NOT NULL
+    )""",
 ]
 
 _tabelas_exclusao = [
@@ -340,6 +349,8 @@ _indices = [
     "CREATE INDEX IF NOT EXISTS idx_eventos_tipo ON eventos(tipo)",
     "CREATE INDEX IF NOT EXISTS idx_admin_auditoria_criado ON admin_auditoria(criado_em)",
     "CREATE INDEX IF NOT EXISTS idx_admin_sessoes_ator ON admin_sessoes(ator)",
+    "CREATE INDEX IF NOT EXISTS idx_reportes_ia_owner ON reportes_ia(owner_id)",
+    "CREATE INDEX IF NOT EXISTS idx_reportes_ia_criado ON reportes_ia(criado_em)",
 ]
 
 try:
