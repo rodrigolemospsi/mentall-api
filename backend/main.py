@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import csv
 import io
 import hashlib
@@ -18,6 +19,12 @@ from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
 
 from dotenv import load_dotenv
+
+# O .env precisa ser carregado ANTES de importar os serviços: módulos como
+# services/db.py leem TURSO_DATABASE_URL/TURSO_AUTH_TOKEN no import. Se o
+# dotenv rodar depois, o backend cai no SQLite efêmero sem tentar o Turso.
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
+
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
@@ -27,6 +34,10 @@ from services import email_alertas
 from services.email_alertas import iniciar_alertas_email, parar_alertas_email
 from services import email_metricas
 from services import email_admin
+from services import custos
+from services import email_novos
+from services import push
+from services import wuzapi_alertas
 from services import saude as saude_service
 from services import admin_seguranca as seguranca_admin
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,8 +45,6 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import jwt
 from jwt.exceptions import InvalidTokenError as JWTError
 from passlib.context import CryptContext
-
-load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
 
 logging.basicConfig(
     level=logging.INFO,
@@ -728,9 +737,13 @@ async def lifespan(app: FastAPI):
 
     iniciar_scheduler()
     iniciar_alertas_email()
+    email_novos.iniciar_avisos_email()
+    custos.iniciar_sync_automatico()
     yield
     await parar_scheduler()
     await parar_alertas_email()
+    await email_novos.parar_avisos_email()
+    custos.parar_sync_automatico()
 
 
 app = FastAPI(
@@ -950,6 +963,20 @@ def verificar_crp(request: VerificarCrpRequest, _req: Request):
     )
 
 
+def _owner_do_request(req: Request) -> str:
+    """owner_id do token do app, para atribuir custo ao profissional."""
+    cabecalho = req.headers.get("authorization") or ""
+    if not cabecalho.lower().startswith("bearer "):
+        return ""
+    try:
+        payload = jwt.decode(
+            cabecalho.split(" ", 1)[1].strip(), JWT_SECRET, algorithms=[JWT_ALGORITHM]
+        )
+        return str(payload.get("owner") or "")
+    except Exception:
+        return ""
+
+
 @app.post(
     "/transcrever",
     response_model=TranscricaoResponse,
@@ -970,7 +997,7 @@ async def transcrever(request: TranscricaoRequest, req: Request):
     log.info("Solicitação de transcrição recebida (formato: %s)", request.formato)
     loop = asyncio.get_running_loop()
     resultado = await loop.run_in_executor(
-        None, transcrever_audio, request.audio_base64, request.formato,
+        None, transcrever_audio, request.audio_base64, request.formato, _owner_do_request(req),
     )
 
     if not resultado["sucesso"]:
@@ -1008,6 +1035,7 @@ async def sintese(request: SinteseRequest, _req: Request):
         request.transcricao_relato,
         request.relato_manual,
         request.tema_principal,
+        _owner_do_request(_req),
     )
 
     if not resultado["sucesso"]:
@@ -3012,7 +3040,7 @@ def _exigir_sessao_admin(request: Request):
     return _exigir_papel(request, ("admin",))
 
 
-def _pagina_email(msg: str = "", erro: str = "", credenciais=None, metricas=None) -> HTMLResponse:
+def _pagina_email(msg: str = "", erro: str = "", credenciais=None, metricas=None, avisos=None) -> HTMLResponse:
     try:
         caixas = email_admin.listar_caixas()
         aliases = email_admin.listar_aliases()
@@ -3029,6 +3057,7 @@ def _pagina_email(msg: str = "", erro: str = "", credenciais=None, metricas=None
             erro=erro,
             credenciais=credenciais,
             metricas=metricas,
+            avisos=avisos,
         )
     )
 
@@ -3057,7 +3086,8 @@ def admin_email(request: Request, msg: str = "", erro: str = "", atualizar: str 
         metricas = email_metricas.coletar(force=atualizar in ("1", "sim", "true"))
     except Exception:
         log.exception("Falha ao coletar métricas de e-mail")
-    return _pagina_email(msg=msg, erro=erro, metricas=metricas)
+    avisos = email_novos.estado(_identidade_admin(request))
+    return _pagina_email(msg=msg, erro=erro, metricas=metricas, avisos=avisos)
 
 
 @app.post("/admin/email/alertar-agora", tags=["Admin"])
@@ -3199,6 +3229,227 @@ async def admin_email_alias_excluir(request: Request):
         return _redirect_email(msg=f"Endereço {email} excluído.")
     except email_admin.EmailAdminErro as exc:
         return _pagina_email(erro=str(exc))
+
+
+# ---------------------------------------------------------------------------
+# Avisos de novo e-mail: Web Push no PWA + WhatsApp + e-mail opcional
+# ---------------------------------------------------------------------------
+
+@app.get("/admin/push/public-key", tags=["Admin"])
+def admin_push_public_key(request: Request):
+    if _sessao_admin(request) is None:
+        return JSONResponse({"erro": "não autenticado"}, status_code=401)
+    return JSONResponse({"key": push.public_key(), "configurado": push.configurado()})
+
+
+def _json_sessao(request: Request):
+    return _sessao_admin(request) is not None
+
+
+@app.post("/admin/push/subscribe", tags=["Admin"])
+async def admin_push_subscribe(request: Request):
+    if not _json_sessao(request):
+        return JSONResponse({"ok": False, "erro": "não autenticado"}, status_code=401)
+    try:
+        dados = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "erro": "JSON inválido"}, status_code=400)
+    ator = _identidade_admin(request)
+    if not push.salvar_inscricao(ator, dados or {}):
+        return JSONResponse({"ok": False, "erro": "inscrição inválida"}, status_code=400)
+    admin_service.registrar_auditoria(ator, "push.inscrever", "", "", _cliente_ip(request))
+    return JSONResponse({"ok": True, "inscricoes": push.contar(ator)})
+
+
+@app.post("/admin/push/unsubscribe", tags=["Admin"])
+async def admin_push_unsubscribe(request: Request):
+    if not _json_sessao(request):
+        return JSONResponse({"ok": False, "erro": "não autenticado"}, status_code=401)
+    try:
+        dados = await request.json()
+    except Exception:
+        dados = {}
+    endpoint = str((dados or {}).get("endpoint") or "")
+    return JSONResponse({"ok": push.remover_inscricao(endpoint)})
+
+
+@app.post("/admin/email/avisos/testar", tags=["Admin"])
+def admin_email_avisos_testar(request: Request):
+    _rate_limit_check(request, max_requests=6, chave_extra="admin-avisos")
+    bloqueio = _exigir_papel(request, ("admin",))
+    if bloqueio:
+        return bloqueio
+    resultado = email_novos.testar_aviso()
+    admin_service.registrar_auditoria(
+        _identidade_admin(request), "email.avisos_testar", "", json.dumps(resultado)[:300], _cliente_ip(request)
+    )
+    if resultado.get("enviado"):
+        canais = ", ".join(nome for nome, ok in (resultado.get("canais") or {}).items() if ok)
+        return _redirect_email(msg=f"Teste enviado por: {canais or 'nenhum canal ativo'}.")
+    return _redirect_email(
+        erro="Nenhum canal de aviso ativo. Ative as notificações neste dispositivo ou configure WhatsApp/e-mail."
+    )
+
+
+@app.post("/admin/email/avisos/verificar", tags=["Admin"])
+def admin_email_avisos_verificar(request: Request):
+    _rate_limit_check(request, max_requests=10, chave_extra="admin-avisos")
+    bloqueio = _exigir_papel(request, ("admin",))
+    if bloqueio:
+        return bloqueio
+    resultado = email_novos.verificar_caixas(notificar=True)
+    admin_service.registrar_auditoria(
+        _identidade_admin(request), "email.avisos_verificar", "", json.dumps(resultado)[:300], _cliente_ip(request)
+    )
+    if not resultado.get("ok"):
+        return _redirect_email(erro=str(resultado.get("motivo") or "falha ao verificar as caixas"))
+    msg = f"{resultado.get('caixas')} caixa(s) verificada(s), {resultado.get('novos')} e-mail(s) novo(s)."
+    if resultado.get("enviado"):
+        msg += " Aviso enviado."
+    elif resultado.get("novos"):
+        msg += " Sem canal de aviso ativo."
+    return _redirect_email(msg=msg)
+
+
+@app.get("/admin/email/avisos/wpp19/qr.png", tags=["Admin"])
+def admin_email_avisos_wpp19_qr(request: Request):
+    """QR do remetente 19 servido como imagem (CSP permite apenas same-origin)."""
+    bloqueio = _exigir_papel(request, ("admin",))
+    if bloqueio:
+        return Response(status_code=403)
+    qr = wuzapi_alertas.qr_code()
+    if not qr.startswith("data:image"):
+        return Response(status_code=503)
+    try:
+        conteudo = base64.b64decode(qr.split(",", 1)[1])
+    except Exception:
+        return Response(status_code=503)
+    return Response(
+        content=conteudo,
+        media_type="image/png",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.post("/admin/email/avisos/wpp19/codigo", response_class=HTMLResponse, tags=["Admin"])
+def admin_email_avisos_wpp19_codigo(request: Request):
+    _rate_limit_check(request, max_requests=20, chave_extra="admin-avisos-wpp")
+    bloqueio = _exigir_papel(request, ("admin",))
+    if bloqueio:
+        return bloqueio
+    codigo = wuzapi_alertas.codigo_pareamento()
+    return HTMLResponse(
+        admin_ui.pagina_conectar_avisos(
+            "", wuzapi_alertas.status(), email_novos._destino_whatsapp(), codigo=codigo
+        )
+    )
+
+
+@app.get("/admin/email/avisos/wpp19", response_class=HTMLResponse, tags=["Admin"])
+def admin_email_avisos_wpp19(request: Request):
+    _rate_limit_check(request, max_requests=60, chave_extra="admin-avisos-wpp")
+    bloqueio = _exigir_papel(request, ("admin",))
+    if bloqueio:
+        return bloqueio
+    estado = wuzapi_alertas.status()
+    qr = "" if estado.get("conectado") else wuzapi_alertas.qr_code()
+    return HTMLResponse(
+        admin_ui.pagina_conectar_avisos(qr, estado, email_novos._destino_whatsapp())
+    )
+
+
+# ---------------------------------------------------------------------------
+# Painel de custos (Fase 1): custo de IA, Magalu Cloud e custos fixos
+# ---------------------------------------------------------------------------
+
+def _redirect_custos(msg: str = "", erro: str = "") -> RedirectResponse:
+    parametros = {}
+    if msg:
+        parametros["msg"] = msg
+    if erro:
+        parametros["erro"] = erro
+    destino = "/admin/custos" + (("?" + urlencode(parametros)) if parametros else "")
+    return RedirectResponse(destino, status_code=303)
+
+
+@app.get("/admin/custos", response_class=HTMLResponse, tags=["Admin"])
+def admin_custos(request: Request, msg: str = "", erro: str = ""):
+    _rate_limit_check(request, max_requests=60)
+    bloqueio = _exigir_papel(request, ("admin", "financeiro"))
+    if bloqueio:
+        return bloqueio
+    dados = custos.painel()
+    papel = _papel_admin(request)
+    return HTMLResponse(
+        admin_ui.pagina_custos(dados, msg=msg, erro=erro, pode_email=(papel == "admin"))
+    )
+
+
+@app.post("/admin/custos/sincronizar", tags=["Admin"])
+def admin_custos_sincronizar(request: Request):
+    _rate_limit_check(request, max_requests=10, chave_extra="admin-custos")
+    bloqueio = _exigir_papel(request, ("admin",))
+    if bloqueio:
+        return bloqueio
+    resultado = custos.sincronizar_magalu(dias=7)
+    admin_service.registrar_auditoria(
+        _identidade_admin(request),
+        "custos.sincronizar_magalu",
+        "",
+        f"ok={resultado.get('ok')} registros={resultado.get('registros')}",
+        _cliente_ip(request),
+    )
+    if not resultado.get("ok"):
+        return _redirect_custos(erro=f"Magalu: {resultado.get('erro') or 'falha na sincronização'}")
+    return _redirect_custos(
+        msg=(
+            f"Magalu sincronizada: {resultado.get('registros', 0)} registro(s), "
+            f"R$ {float(resultado.get('total_brl') or 0):.2f} no período."
+        )
+    )
+
+
+@app.post("/admin/custos/fixos", tags=["Admin"])
+async def admin_custos_novo_fixo(request: Request):
+    _rate_limit_check(request, max_requests=20, chave_extra="admin-custos")
+    bloqueio = _exigir_papel(request, ("admin",))
+    if bloqueio:
+        return bloqueio
+    form = await request.form()
+    descricao = (form.get("descricao") or "").strip()
+    fornecedor = (form.get("fornecedor") or "").strip()
+    try:
+        valor = float(str(form.get("valor_brl") or "0").replace(",", "."))
+    except ValueError:
+        valor = 0.0
+    try:
+        dia = int(str(form.get("dia_cobranca") or "1"))
+    except ValueError:
+        dia = 1
+    periodicidade = (form.get("periodicidade") or "mensal").strip().lower()
+    if not descricao:
+        return _redirect_custos(erro="Informe a descrição do custo fixo.")
+    if valor <= 0:
+        return _redirect_custos(erro="Informe um valor maior que zero.")
+    custo_id = custos.registrar_custo_fixo(descricao, fornecedor, valor, dia, periodicidade)
+    admin_service.registrar_auditoria(
+        _identidade_admin(request), "custos.fixo_criar", custo_id, descricao[:120], _cliente_ip(request)
+    )
+    return _redirect_custos(msg="Custo fixo cadastrado.")
+
+
+@app.post("/admin/custos/fixos/{custo_id}/remover", tags=["Admin"])
+def admin_custos_remover_fixo(request: Request, custo_id: str):
+    _rate_limit_check(request, max_requests=20, chave_extra="admin-custos")
+    bloqueio = _exigir_papel(request, ("admin",))
+    if bloqueio:
+        return bloqueio
+    if not custos.remover_custo_fixo(custo_id):
+        return _redirect_custos(erro="Custo fixo não encontrado ou já removido.")
+    admin_service.registrar_auditoria(
+        _identidade_admin(request), "custos.fixo_remover", custo_id, "", _cliente_ip(request)
+    )
+    return _redirect_custos(msg="Custo fixo removido.")
 
 
 if __name__ == "__main__":

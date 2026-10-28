@@ -18,7 +18,9 @@ import re
 import threading
 import time
 from datetime import datetime, timedelta, timezone
+from datetime import time as hora_do_dia
 from email.utils import parsedate_to_datetime
+from zoneinfo import ZoneInfo
 
 log = logging.getLogger("mentall.email_metricas")
 
@@ -36,6 +38,50 @@ ENDERECOS = tuple(
 )
 
 SLAS_PADRAO = {"contato@": 24.0, "suporte@": 4.0, "financeiro@": 24.0}
+
+# Janela de atendimento (horário de Brasília). Fora dela, o relógio do SLA para.
+FUSO_BRASILIA = ZoneInfo("America/Sao_Paulo")
+HORA_INICIO = int(os.getenv("MAIL_SLA_INICIO_HORA", "8"))
+HORA_FIM = int(os.getenv("MAIL_SLA_FIM_HORA", "18"))
+# Sábado tem janela própria (padrão 8h-13h). Domingo fica fechado.
+SABADO_INICIO = int(os.getenv("MAIL_SLA_SABADO_INICIO_HORA", "8"))
+SABADO_FIM = int(os.getenv("MAIL_SLA_SABADO_FIM_HORA", "13"))
+
+
+def _janela_do_dia(dia) -> tuple[int, int] | None:
+    """Janela de atendimento do dia: seg-sex 8-18, sábado 8-13, domingo fechado."""
+    if dia.weekday() <= 4:
+        return HORA_INICIO, HORA_FIM
+    if dia.weekday() == 5:
+        return (SABADO_INICIO, SABADO_FIM) if SABADO_FIM > SABADO_INICIO else None
+    return None
+
+
+def _minutos_uteis(inicio: datetime | None, fim: datetime | None) -> float:
+    """Minutos decorridos dentro da janela de atendimento (Brasília).
+
+    Segunda a sexta: 8h-18h. Sábado: 8h-13h. Domingo: fechado.
+    Fora da janela o relógio do SLA fica parado.
+    """
+    if not inicio or not fim:
+        return 0.0
+    ini = inicio.astimezone(FUSO_BRASILIA)
+    final = fim.astimezone(FUSO_BRASILIA)
+    if final <= ini:
+        return 0.0
+    total = 0.0
+    dia = ini.date()
+    while dia <= final.date():
+        janela = _janela_do_dia(dia)
+        if janela:
+            abertura = datetime.combine(dia, hora_do_dia(janela[0]), tzinfo=FUSO_BRASILIA)
+            fechamento = datetime.combine(dia, hora_do_dia(janela[1]), tzinfo=FUSO_BRASILIA)
+            trecho_ini = max(ini, abertura)
+            trecho_fim = min(final, fechamento)
+            if trecho_fim > trecho_ini:
+                total += (trecho_fim - trecho_ini).total_seconds()
+        dia += timedelta(days=1)
+    return total / 60.0
 
 
 def _slas() -> dict:
@@ -57,7 +103,8 @@ def _slas() -> dict:
 
 
 _CAMPOS = (
-    "(BODY.PEEK[HEADER.FIELDS (FROM TO CC DATE MESSAGE-ID IN-REPLY-TO REFERENCES)])"
+    "(BODY.PEEK[HEADER.FIELDS "
+    "(FROM TO CC DATE MESSAGE-ID IN-REPLY-TO REFERENCES AUTO-SUBMITTED PRECEDENCE X-AUTORESPONDER)])"
 )
 
 _cache = {"expira_em": 0.0, "dados": None}
@@ -100,6 +147,31 @@ def configurado() -> bool:
 # ---------------------------------------------------------------------------
 # Helpers de parsing (puros — testáveis sem rede)
 # ---------------------------------------------------------------------------
+
+_PADRAO_AUTOMATICO = re.compile(
+    r"(?:^(?:noreply|no-reply|nao-?responda|postmaster|mailer-?daemon|bounce|"
+    r"do-?not-?reply|automated)(?:[._+-]|$))|dmarc",
+    re.IGNORECASE,
+)
+
+
+def _remetente_automatico(from_header: str, auto_submitted: str = "", precedencia: str = "") -> bool:
+    """True para relatórios/notificações que não exigem resposta humana."""
+    auto = (auto_submitted or "").strip().lower()
+    if auto and auto != "no":
+        return True
+    if (precedencia or "").strip().lower() in ("bulk", "list", "junk"):
+        return True
+    endereco = ""
+    try:
+        from email.utils import parseaddr
+
+        endereco = parseaddr(from_header or "")[1] or ""
+    except Exception:
+        endereco = ""
+    local = endereco.split("@")[0].strip().lower() if "@" in endereco else ""
+    return bool(local and _PADRAO_AUTOMATICO.search(local))
+
 
 def _parse_data(valor) -> datetime | None:
     try:
@@ -159,12 +231,16 @@ def _cabecalhos(conexao, ids: list) -> list[dict]:
         if not bruto:
             continue
         msg = email.message_from_bytes(bruto)
+        from_header = f"{msg.get('From') or ''}"
         resultado.append({
             "data": _parse_data(msg.get("Date")),
             "message_id": _normalizar_message_id(msg.get("Message-ID")),
             "refs": _referencias(msg),
             "para": f"{msg.get('To') or ''} {msg.get('Cc') or ''}".lower(),
-            "de": f"{msg.get('From') or ''}".lower(),
+            "de": from_header.lower(),
+            "automatico": _remetente_automatico(
+                from_header, msg.get("Auto-Submitted") or "", msg.get("Precedence") or ""
+            ),
         })
     return resultado
 
@@ -182,9 +258,17 @@ def _metricas_por_endereco(
         sla = slas.get(endereco)
         com_7d = [
             h for h in headers_in
-            if h.get("data") and h["data"] >= inicio_7d and endereco in (h.get("para") or "")
+            if h.get("data")
+            and h["data"] >= inicio_7d
+            and endereco in (h.get("para") or "")
+            and DOMINIO_PROPRIO not in (h.get("de") or "")
         ]
-        com_30d = [h for h in headers_in if endereco in (h.get("para") or "")]
+        com_30d = [
+            h
+            for h in headers_in
+            if endereco in (h.get("para") or "")
+            and DOMINIO_PROPRIO not in (h.get("de") or "")
+        ]
         respondidas = 0
         tempos = []
         violacoes = 0
@@ -199,7 +283,7 @@ def _metricas_por_endereco(
                 if sla is not None and resposta > sla * 60:
                     violacoes += 1
             else:
-                idade_horas = (agora - h["data"]).total_seconds() / 3600
+                idade_horas = _minutos_uteis(h["data"], agora) / 60.0
                 if sla is not None and idade_horas > sla:
                     violacoes += 1
                     pendentes_sla += 1
@@ -234,6 +318,7 @@ def _coletar_caixa(caixa: dict, agora: datetime) -> dict:
         "sem_resposta_24h": 0,
         "violacoes_sla": 0,
         "pendentes_sla": 0,
+        "ignorados_automaticos": 0,
         "ultima_entrada": "",
         "por_endereco": {},
         "serie_dias": {},
@@ -256,7 +341,9 @@ def _coletar_caixa(caixa: dict, agora: datetime) -> dict:
         resultado["recebidas_30d"] = len(ids_30)
         resultado["recebidas_7d"] = len(_buscar_ids(conexao, inicio_7d))
         resultado["recebidas_hoje"] = len(_buscar_ids(conexao, inicio_hoje))
-        headers_in = _cabecalhos(conexao, ids_30[-LIMITE:])
+        headers_in_todos = _cabecalhos(conexao, ids_30[-LIMITE:])
+        headers_in = [h for h in headers_in_todos if not h.get("automatico")]
+        resultado["ignorados_automaticos"] = len(headers_in_todos) - len(headers_in)
 
         datas = [h["data"] for h in headers_in if h["data"]]
         if datas:
@@ -293,7 +380,7 @@ def _coletar_caixa(caixa: dict, agora: datetime) -> dict:
                 if ref in mapa_entrada:
                     delta = (h["data"] - mapa_entrada[ref]).total_seconds()
                     if 0 <= delta <= DIAS * 86400:
-                        minutos = delta / 60
+                        minutos = _minutos_uteis(mapa_entrada[ref], h["data"])
                         tempos.append(minutos)
                         respondidas.add(ref)
                         anterior = resposta_por_mid.get(ref)
@@ -318,10 +405,11 @@ def _coletar_caixa(caixa: dict, agora: datetime) -> dict:
             for item in resultado["por_endereco"].values()
         )
 
-        limite_24h = agora - timedelta(hours=24)
         pendentes = 0
         for h in headers_in:
-            if not h["data"] or h["data"] > limite_24h:
+            if not h["data"]:
+                continue
+            if _minutos_uteis(h["data"], agora) <= 24 * 60:
                 continue
             if h["message_id"] in respondidas:
                 continue
@@ -360,6 +448,7 @@ def _agregar(caixas: list[dict]) -> dict:
         "sem_resposta_24h": pendentes,
         "violacoes_sla": sum(int(c.get("violacoes_sla") or 0) for c in caixas),
         "pendentes_sla": sum(int(c.get("pendentes_sla") or 0) for c in caixas),
+        "ignorados_automaticos": sum(int(c.get("ignorados_automaticos") or 0) for c in caixas),
         "tempo_medio_resposta_min": tempo_medio,
         "caixas": len(caixas),
     }

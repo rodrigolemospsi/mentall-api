@@ -561,6 +561,7 @@ def _nav(ativo: str = "psicologos", pode_email: bool = True) -> str:
     if pode_email:
         itens.append(("E-mail", "/admin/email", "email"))
         itens.append(("Lembretes", "/admin/lembretes", "lembretes"))
+    itens.append(("Custos", "/admin/custos", "custos"))
     itens.append(("Segurança", "/admin/seguranca", "seguranca"))
     partes = []
     for rotulo, href, chave in itens:
@@ -651,6 +652,7 @@ def pagina_email(
     erro: str = "",
     credenciais: tuple | None = None,
     metricas: dict | None = None,
+    avisos: dict | None = None,
 ) -> str:
     """Página de administração das caixas de e-mail (Fase 4)."""
     bloco_credencial = ""
@@ -749,6 +751,7 @@ def pagina_email(
       <p class="dica">Contato@, financeiro@, dmarc@ etc. são encaminhados para uma caixa existente.</p>
     </div>
   </div>
+  {_secao_avisos_email(avisos)}
   {_secao_metricas_email(metricas)}
 </main>
   </div>
@@ -837,6 +840,7 @@ def _cabecalho_painel(ativo: str = "psicologos", pode_email: bool = True) -> str
     if pode_email:
         itens.append(("email", "E-mail", "/admin/email", ("email",)))
         itens.append(("relogio", "Lembretes", "/admin/lembretes", ("lembretes",)))
+    itens.append(("grafico", "Custos", "/admin/custos", ("custos",)))
     itens.append(("escudo", "Segurança", "/admin/seguranca", ("seguranca",)))
 
     links = []
@@ -2183,13 +2187,20 @@ def _secao_metricas_email(metricas: dict | None) -> str:
         f'<div class="kpi"><div class="n">{int(totais.get("nao_lidas") or 0)}</div>'
         '<div class="l">Não lidos agora</div></div>'
         f'<div class="kpi"><div class="n">{_esc(tempo_txt)}</div>'
-        '<div class="l">Tempo médio de resposta</div></div>'
+        '<div class="l">Tempo médio de resposta (útil)</div></div>'
         f'<div class="kpi{" destaque" if violacoes else ""}"><div class="n">{violacoes}</div>'
         '<div class="l">Fora do SLA</div></div>'
         f'<div class="kpi{" destaque" if int(totais.get("sem_resposta_24h") or 0) else ""}">'
         f'<div class="n">{int(totais.get("sem_resposta_24h") or 0)}</div>'
         '<div class="l">Sem resposta há +24h</div></div>'
         '</div>'
+    )
+    cards += (
+        '<p class="dica">Prazos de SLA e o backlog de +24h contam apenas dentro do '
+        '<strong>horário de atendimento: segunda a sexta, 8h–18h; sábado, 8h–13h; '
+        'domingo fechado (horário de Brasília)</strong>. Fora dessa janela o relógio fica parado. '
+        f"Relatórios automáticos (DMARC, postmaster, no-reply) não entram nas métricas: "
+        f"{int(totais.get('ignorados_automaticos') or 0)} ignorado(s).</p>"
     )
 
     serie_dias = metricas.get("serie_dias") or []
@@ -2265,7 +2276,7 @@ def _secao_metricas_email(metricas: dict | None) -> str:
       <div class="tabela-card">
       <table>
         <thead><tr><th>Caixa</th><th>Recebidas 7d / 30d</th><th>Não lidas</th>
-          <th>Enviadas 30d</th><th>Tempo médio resp.</th><th>Fora do SLA</th>
+          <th>Enviadas 30d</th><th>Tempo médio resp. (útil)</th><th>Fora do SLA</th>
           <th>Sem resposta +24h</th><th>Última entrada</th><th>Status</th></tr></thead>
         <tbody>{''.join(linhas_caixas)}</tbody>
       </table>
@@ -2273,10 +2284,333 @@ def _secao_metricas_email(metricas: dict | None) -> str:
       <div class="tabela-card">
       <table>
         <thead><tr><th>Endereço</th><th>SLA</th><th>Recebidas 7d</th><th>Recebidas 30d</th>
-          <th>Respondidas 30d</th><th>Tempo médio resp.</th><th>Pendentes fora do SLA</th>
+          <th>Respondidas 30d</th><th>Tempo médio resp. (útil)</th><th>Pendentes fora do SLA</th>
           <th>Violações</th></tr></thead>
         <tbody>{linhas_enderecos}</tbody>
       </table>
       </div>
 """
 
+
+
+
+# ---------------------------------------------------------------------------
+# Painel de custos (Fase 1): IA medida, Magalu via API e custos fixos
+# ---------------------------------------------------------------------------
+
+def _brl(valor) -> str:
+    """Formata em reais: R$ 1.234,56."""
+    try:
+        numero = float(valor or 0)
+    except (TypeError, ValueError):
+        numero = 0.0
+    texto = f"{numero:,.2f}"
+    return "R$ " + texto.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def pagina_custos(dados: dict, msg: str = "", erro: str = "", pode_email: bool = True) -> str:
+    """Painel de custos e uso (admin/financeiro)."""
+    dados = dados or {}
+    alertas = "".join(
+        f'<div class="aviso-box">{_esc(alerta)}</div>' for alerta in (dados.get("alertas") or [])
+    )
+    status_chave = (
+        '<span class="pill saude-ok">configurada</span>'
+        if dados.get("magalu_configurada")
+        else '<span class="pill saude-atencao">sem chave</span>'
+    )
+    ultima = _quando(dados.get("ultima_sync_magalu")) if dados.get("ultima_sync_magalu") else "nunca"
+
+    cards = "".join(
+        [
+            _cartao(
+                f"Custo total · {dados.get('periodo_label', '')}",
+                _brl(dados.get("total_brl")),
+                destaque=float(dados.get("pct_orcamento") or 0) >= 80,
+            ),
+            _cartao("IA (variável)", _brl(dados.get("ia_brl"))),
+            _cartao("Infra Magalu (API)", _brl(dados.get("infra_brl"))),
+            _cartao("Custos fixos", _brl(dados.get("fixos_brl"))),
+            _cartao("Orçamento do mês", _brl(dados.get("orcamento_brl"))),
+            _cartao("Restante do orçamento", _brl(dados.get("restante_brl"))),
+        ]
+    )
+
+    unit = "".join(
+        [
+            _cartao("Preço mensal do plano", _brl(dados.get("preco_mensal_brl"))),
+            _cartao("Custo por profissional ativo", _brl(dados.get("custo_por_profissional_brl"))),
+            _cartao(
+                "Margem por profissional",
+                _brl(dados.get("margem_por_profissional_brl")),
+                destaque=float(dados.get("margem_por_profissional_brl") or 0) < 0,
+            ),
+            _cartao("Custo médio por transcrição", _brl(dados.get("custo_por_sessao_brl"))),
+            _cartao("Profissionais ativos (30d)", dados.get("profissionais_ativos", 0)),
+            _cartao("Transcrições no mês", dados.get("sessoes_transcritas", 0)),
+        ]
+    )
+
+    linhas_provedor = "".join(
+        "<tr>"
+        f"<td>{_esc(item.get('provedor'))}</td>"
+        f"<td>{_brl(item.get('custo_brl'))}</td>"
+        f"<td>{_esc(item.get('origem'))}</td>"
+        f"<td>{_esc(item.get('unidades'))}</td>"
+        "</tr>"
+        for item in (dados.get("por_provedor") or [])
+    ) or '<tr><td colspan="4" class="off">Nenhum custo registrado no mês ainda.</td></tr>'
+
+    linhas_dia = "".join(
+        f"<tr><td>{_esc(rotulo)}</td><td>{_brl(valor)}</td></tr>"
+        for rotulo, valor in (dados.get("dias") or [])
+    )
+
+    linhas_fixos = "".join(
+        "<tr>"
+        f"<td>{_esc(item.get('descricao'))}</td>"
+        f"<td>{_esc(item.get('fornecedor') or '-')}</td>"
+        f"<td>{_brl(item.get('valor_brl'))}</td>"
+        f"<td>{_esc(item.get('periodicidade'))}</td>"
+        f"<td>dia {int(item.get('dia_cobranca') or 1)}</td>"
+        '<td><form method="post" action="/admin/custos/fixos/'
+        + _esc(item.get("id"))
+        + '/remover" style="margin:0"><button type="submit" class="btn secundario pequeno">Remover</button></form></td>'
+        "</tr>"
+        for item in (dados.get("fixos") or [])
+    ) or '<tr><td colspan="6" class="off">Nenhum custo fixo cadastrado.</td></tr>'
+
+    linhas_precos = "".join(
+        "<tr>"
+        f"<td>{_esc(p.get('provedor'))}</td>"
+        f"<td>{_esc(p.get('operacao'))}</td>"
+        f"<td>{_esc(p.get('unidade'))}</td>"
+        f"<td>US$ {float(p.get('preco_usd') or 0):.4f}</td>"
+        f"<td>US$ {float(p.get('preco_usd_saida') or 0):.4f}</td>"
+        f"<td>{_esc(p.get('observacao'))}</td>"
+        "</tr>"
+        for p in (dados.get("precos") or [])
+    )
+
+    return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MentAll PRO — Custos e uso</title><style>{_ESTILO}</style>{_PWA_HEAD}</head>
+<body>
+{_cabecalho_painel("custos", pode_email=pode_email)}
+<main>
+  <h2 style="font-size:18px;color:#1E293B;margin-top:0">Custos e uso</h2>
+  <p class="nota-lgpd">Somente números: provedor, modelo, tokens/segundos e valor. Nenhum conteúdo clínico.
+  Câmbio usado: R$ {float(dados.get('cambio_usd_brl') or 0):.2f}/US$. Custos de IA são estimativas pela tabela de preços;
+  a Magalu vem da API oficial de consumo.</p>
+  {_alertas(msg, erro)}
+  {alertas}
+
+  <div class="grid-cards">{cards}</div>
+
+  <h3>Unit economics</h3>
+  <div class="grid-cards">{unit}</div>
+
+  <h3>Por provedor no mês</h3>
+  <div class="tabela-card">
+    <table>
+      <thead><tr><th>Provedor</th><th>Custo</th><th>Origem</th><th>Unidades</th></tr></thead>
+      <tbody>{linhas_provedor}</tbody>
+    </table>
+  </div>
+
+  <h3>Magalu Cloud</h3>
+  <p>Chave da API: {status_chave} · Última sincronização: {_esc(ultima)}
+  <form method="post" action="/admin/custos/sincronizar" style="margin:10px 0">
+    <button type="submit" class="btn">Sincronizar últimos 7 dias</button>
+  </form>
+  </p>
+
+  <h3>Custos fixos</h3>
+  <div class="tabela-card">
+    <table>
+      <thead><tr><th>Descrição</th><th>Fornecedor</th><th>Valor</th><th>Periodicidade</th><th>Cobrança</th><th></th></tr></thead>
+      <tbody>{linhas_fixos}</tbody>
+    </table>
+  </div>
+  <form class="card-form" method="post" action="/admin/custos/fixos">
+    <label>Descrição<input type="text" name="descricao" maxlength="160" required placeholder="Ex.: VPS Magalu (plano mensal)"></label>
+    <label>Fornecedor<input type="text" name="fornecedor" maxlength="120" placeholder="Magalu Cloud"></label>
+    <label>Valor (R$)<input type="text" name="valor_brl" inputmode="decimal" required placeholder="59,90"></label>
+    <label>Dia da cobrança<input type="number" name="dia_cobranca" min="1" max="28" value="1"></label>
+    <label>Periodicidade
+      <select name="periodicidade"><option value="mensal">Mensal</option><option value="anual">Anual</option></select>
+    </label>
+    <button type="submit" class="btn">Adicionar custo fixo</button>
+  </form>
+  <p class="dica">Custos anuais entram no total divididos por 12.</p>
+
+  <h3>Tabela de preços de IA (referência)</h3>
+  <div class="tabela-card">
+    <table>
+      <thead><tr><th>Provedor</th><th>Operação</th><th>Unidade</th><th>Entrada</th><th>Saída</th><th>Observação</th></tr></thead>
+      <tbody>{linhas_precos}</tbody>
+    </table>
+  </div>
+
+  <h3>Últimos 14 dias</h3>
+  <div class="tabela-card">
+    <table>
+      <thead><tr><th>Dia</th><th>Custo registrado</th></tr></thead>
+      <tbody>{linhas_dia}</tbody>
+    </table>
+  </div>
+</main>
+</body></html>
+"""
+
+
+
+def _secao_avisos_email(avisos: dict | None) -> str:
+    """Status e ativação dos avisos imediatos de novo e-mail."""
+    from services import push
+    if not avisos:
+        return ""
+    ativo = bool(avisos.get("ativo"))
+    push_ok = bool(avisos.get("push_configurado"))
+    inscricoes = int(avisos.get("push_inscricoes") or 0)
+    whatsapp = bool(avisos.get("whatsapp_configurado"))
+    email_ok = bool(avisos.get("email_aviso_configurado"))
+    ultima = _quando(avisos.get("ultima_verificacao")) if avisos.get("ultima_verificacao") else "nunca"
+    ultimo = _quando(avisos.get("ultimo_envio")) if avisos.get("ultimo_envio") else "nunca"
+    caixas = ", ".join(avisos.get("caixas") or []) or "nenhuma caixa configurada"
+
+    if not ativo:
+        estado = (
+            '<div class="aviso-box">Monitoramento desligado: configure <code>MAIL_METRICAS_CAIXAS</code> '
+            "para o backend ler as caixas via IMAP.</div>"
+        )
+    elif push_ok:
+        estado = (
+            f'<p class="dica">Push: pronto neste painel · dispositivos inscritos: <strong>{inscricoes}</strong>. '
+            "Se ainda não ativou, clique em “Ativar notificações neste dispositivo” e autorize o navegador.</p>"
+        )
+    else:
+        estado = (
+            '<div class="aviso-box">Push desligado no servidor (chaves VAPID ausentes). '
+            "Configure as notificações para receber aviso na hora.</div>"
+        )
+
+    botoes_pwa = ""
+    if push_ok:
+        botoes_pwa = (
+            '<button type="button" id="ativar-push" class="btn" '
+            f'data-public-key="{_esc(push.public_key() if push else "")}">'
+            "Ativar notificações neste dispositivo</button>"
+            '<p class="dica" id="status-push" style="margin-top:8px"></p>'
+        )
+
+    remetente = avisos.get("remetente") or {}
+    remetente_configurado = bool(avisos.get("remetente_configurado"))
+    remetente_conectado = bool(remetente.get("conectado"))
+    remetente_numero = str(remetente.get("numero") or "")
+    if remetente_numero:
+        remetente_numero = remetente_numero.split("@")[0]
+        remetente_numero = remetente_numero[:4] + "****" + remetente_numero[-2:]
+    somente = ", ".join(avisos.get("somente_caixas") or []) or "contato@mentallpro.com.br"
+    rotas = avisos.get("whatsapp_por_caixa") or []
+    rotas_txt = "; ".join(
+        f"{rota.get('caixa')} → {rota.get('destino')}" for rota in rotas
+    ) or "sem rota por caixa (usa o destino padrão)"
+    padrao = avisos.get("whatsapp_destino_padrao") or "não configurado"
+
+    return f"""
+  <div class="tabela-card" style="padding:16px;margin-top:22px">
+    <h2 style="margin-top:0">Aviso imediato de novo e-mail</h2>
+    {estado}
+    <p class="dica">Caixas monitoradas: {_esc(caixas)} · verificação a cada {int(avisos.get('intervalo_s') or 0)} s ·
+    última verificação: {_esc(ultima)} · último aviso: {_esc(ultimo)}</p>
+    <p class="dica">Canais: push no painel {('ativo' if push_ok else 'inativo')} ·
+    WhatsApp {('configurado' if whatsapp else 'não configurado')} (padrão: {_esc(padrao)}) ·
+    e-mail de aviso {('configurado' if email_ok else 'não configurado')}.</p>
+    <p class="dica">Roteamento por caixa: {_esc(rotas_txt)}.</p>
+    <p class="dica">Somente estas caixas geram aviso: <strong>{_esc(somente)}</strong>.
+    Remetente dos avisos: número 19 {('conectado como ' + _esc(remetente_numero)) if remetente_conectado else ('configurado, aguardando conexão' if remetente_configurado else 'ainda não criado')}.
+    {'<a class="btn" href="/admin/email/avisos/wpp19">Conectar/verificar o número 19</a>' if not remetente_conectado else ''}</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+      {botoes_pwa}
+      <form method="post" action="/admin/email/avisos/testar" style="margin:0">
+        <button type="submit" class="btn secundario">Enviar teste de aviso</button>
+      </form>
+      <form method="post" action="/admin/email/avisos/verificar" style="margin:0">
+        <button type="submit" class="btn secundario">Verificar caixas agora</button>
+      </form>
+    </div>
+    <p class="dica">O aviso traz remetente e assunto, nunca o corpo do e-mail (LGPD).
+    Para receber no WhatsApp, configure <code>EMAIL_ALERTA_WHATSAPP</code>; para receber por e-mail,
+    <code>EMAIL_NOVO_ALERTA_EMAIL</code>.</p>
+  </div>
+"""
+
+
+
+
+
+def pagina_conectar_avisos(qr: str, estado: dict | None = None, destino: str = "", codigo: str = "") -> str:
+    """Página para parear o número 19 que envia os avisos do contato@."""
+    estado = estado or {}
+    conectado = bool(estado.get("conectado"))
+    numero = str(estado.get("numero") or "")
+    if numero:
+        numero = numero.split("@")[0]
+        numero = numero[:4] + "****" + numero[-2:]
+    destino_digitos = "".join(ch for ch in str(destino or "") if ch.isdigit())
+    destino_mostra = (
+        destino_digitos[:4] + "****" + destino_digitos[-2:] if len(destino_digitos) > 6 else "não configurado"
+    )
+    refresh = "" if (conectado or codigo) else '<meta http-equiv="refresh" content="12">'
+    if conectado:
+        bloco = f"""
+      <div class="ok-box">Número de avisos conectado como <strong>{_esc(numero)}</strong>.
+      Os avisos do contato@ vão sair deste número para <strong>{_esc(destino_mostra)}</strong>.</div>
+      <form method="post" action="/admin/email/avisos/testar" style="margin-top:14px">
+        <button type="submit" class="btn">Enviar teste de aviso (19 → {_esc(destino_mostra)})</button>
+      </form>
+      <p class="dica" style="margin-top:12px"><a class="btn secundario" href="/admin/email">Voltar ao e-mail</a></p>"""
+    elif qr:
+        bloco = f"""
+      <p>No celular do número <strong>19</strong>: WhatsApp → <strong>Aparelhos conectados</strong> →
+      <strong>Conectar aparelho</strong> → escaneie o QR abaixo. A página atualiza sozinha a cada 12 s.</p>
+      <div style="text-align:center;margin:18px 0">
+        <img src="/admin/email/avisos/wpp19/qr.png?t={int(datetime.now().timestamp())}"
+             alt="QR Code para conectar o WhatsApp do número 19" width="260" height="260"
+             style="border-radius:16px;background:#fff;padding:10px;box-shadow:0 4px 16px rgba(0,0,0,.12)">
+      </div>
+      <form method="post" action="/admin/email/avisos/wpp19/codigo" style="margin:16px 0">
+        <button type="submit" class="btn secundario">Prefiro usar código de pareamento</button>
+      </form>
+      <p class="dica">Se o QR expirar, recarregue esta página. Nada aparece no seu WhatsApp até você escanear.</p>
+      <p class="dica"><a class="btn secundario" href="/admin/email">Voltar ao e-mail</a></p>"""
+    if codigo:
+        bloco += f"""
+      <div class="credencial" style="margin-top:16px">
+        <strong>Código de pareamento do número 19:</strong>
+        <p style="font-size:30px;font-weight:700;letter-spacing:.12em;margin:10px 0">{_esc(codigo)}</p>
+        <p class="dica">No celular do 19: WhatsApp → Aparelhos conectados → Conectar aparelho →
+        <strong>Conectar com número de telefone</strong> → digite o código acima. Ele expira rápido;
+        se falhar, gere outro.</p>
+      </div>
+      <p class="dica"><a class="btn" href="/admin/email/avisos/wpp19">Voltar ao QR / atualizar status</a></p>"""
+    else:
+        bloco = f"""
+      <div class="aviso-box">Não foi possível gerar o QR agora. Verifique as credenciais do WuzAPI no servidor
+      e recarregue esta página.</div>
+      <p class="dica"><a class="btn secundario" href="/admin/email">Voltar ao e-mail</a></p>"""
+
+    return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">{refresh}
+<title>MentAll PRO — Conectar avisos (número 19)</title><style>{_ESTILO}</style>{_PWA_HEAD}</head>
+<body>
+{_cabecalho_painel("email")}
+<main>
+  <h2 style="font-size:18px;color:#1E293B;margin-top:0">Avisos do contato@ pelo número 19</h2>
+  <p class="nota-lgpd">O número 19 envia apenas os avisos de e-mail para o destino configurado
+  (<strong>{_esc(destino_mostra)}</strong>). Os lembretes dos pacientes continuam na instância atual do app.</p>
+  {bloco}
+</main>
+</body></html>
+"""
