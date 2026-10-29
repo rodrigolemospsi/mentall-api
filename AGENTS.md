@@ -42,6 +42,27 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Tag v2.0.4 criada e enviada — 28/10/2026
+
+### Contexto
+O dono pediu para marcar o release da linha visual 2.0.x no GitHub.
+
+### O que mudou (arquivos)
+1. **`AGENTS.md`** — esta seção.
+2. **Tag anotada `v2.0.4`** no commit `e5be382` (objeto da tag `662afdd`), enviada ao `origin`
+   (`refs/tags/v2.0.4`). Não existia nenhuma tag no repositório até aqui.
+
+### Verificação
+- MEDI: `git push origin v2.0.4` → `* [new tag] v2.0.4 -> v2.0.4`; `git ls-remote --tags origin v2.0.4`
+  devolve o mesmo objeto (`662afdd`) do commit `e5be382`.
+- MEDI: `master` local == `origin/master`; CI do push anterior passou (run `40863361107`, inclusive
+  deploy no Fly).
+- Por ser commit só de documentação (`**.md`), o `paths-ignore` do workflow não dispara CI.
+
+### Pendências
+- Opcional: criar GitHub Release a partir da tag (notas de versão) e/ou tags para os próximos ajustes
+  (v2.0.5...).
+
 ## Push da linha visual 2.0.x para o GitHub — 28/10/2026
 
 ### Contexto
