@@ -493,6 +493,51 @@ def _profissionais_ativos() -> int:
         return 0
 
 
+def custo_por_profissional(mes: str | None = None, limite: int = 20) -> list[dict]:
+    """Custo de IA medido por profissional no mês (unit economics real)."""
+    mes = (mes or "").strip() or _mes_brt()
+    try:
+        linhas = executar(
+            "SELECT c.owner_id, u.email AS email, u.nome AS nome, "
+            "COUNT(*) AS chamadas, "
+            "SUM(CASE WHEN c.operacao = 'sintese' THEN 1 ELSE 0 END) AS sinteses, "
+            "SUM(CASE WHEN c.operacao = 'transcricao' THEN 1 ELSE 0 END) AS transcricoes, "
+            "SUM(c.custo_brl) AS custo_brl, "
+            "SUM(COALESCE(c.tokens_in, 0) + COALESCE(c.tokens_out, 0)) AS tokens, "
+            "SUM(COALESCE(c.segundos, 0)) AS segundos "
+            "FROM custos_uso c LEFT JOIN usuarios u ON u.id = c.owner_id "
+            "WHERE c.referencia LIKE ? AND c.provedor IN "
+            "('openai','groq','deepseek','gemini') "
+            "GROUP BY c.owner_id ORDER BY custo_brl DESC LIMIT ?",
+            (f"{mes}-%", max(1, min(100, int(limite)))),
+        ).fetchall()
+    except Exception:
+        log.exception("Falha ao agregar custo por profissional")
+        return []
+    preco = preco_mensal_brl()
+    resultado = []
+    for linha in linhas:
+        custo = float(linha.get("custo_brl") or 0)
+        email = (linha.get("email") or "").strip()
+        owner_id = str(linha.get("owner_id") or "")
+        resultado.append(
+            {
+                "owner_id": owner_id,
+                "profissional": email or (owner_id[:8] or "sem dono"),
+                "nome": (linha.get("nome") or "").strip(),
+                "chamadas": int(linha.get("chamadas") or 0),
+                "sinteses": int(linha.get("sinteses") or 0),
+                "transcricoes": int(linha.get("transcricoes") or 0),
+                "tokens": int(linha.get("tokens") or 0),
+                "segundos": round(float(linha.get("segundos") or 0), 1),
+                "custo_brl": round(custo, 6),
+                "margem_brl": round(preco - custo, 2),
+                "pct_do_plano": round((custo / preco * 100) if preco else 0.0, 2),
+            }
+        )
+    return resultado
+
+
 def painel(mes: str | None = None) -> dict:
     mes = (mes or "").strip() or _mes_brt()
     linhas = _linhas_mes(mes)
@@ -575,6 +620,7 @@ def painel(mes: str | None = None) -> dict:
         "por_operacao": {k: round(v, 2) for k, v in sorted(por_operacao.items(), key=lambda i: -i[1])},
         "dias": dias_serie,
         "fixos": fixos,
+        "por_profissional": custo_por_profissional(mes),
         "profissionais_ativos": ativos,
         "sessoes_transcritas": sessoes,
         "sinteses": sinteses,

@@ -42,6 +42,28 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Custos: IA por profissional (item 7.3 do checklist) — 28/10/2026
+
+### Contexto
+O checklist pedia medir o custo real de IA por profissional para comparar com o preço do plano
+(R$ 79,90) e detectar anomalias — o painel só mostrava total, por provedor e por operação.
+
+### O que mudou (arquivos)
+1. **`backend/services/custos.py`** — `custo_por_profissional(mes)`: agrega `custos_uso` por
+   `owner_id` no mês (chamadas, sínteses, transcrições, tokens, segundos, custo e margem contra o
+   preço do plano), juntando o e-mail do profissional; ignora a infra Magalu; `painel()` passa a
+   devolver `por_profissional`.
+2. **`backend/admin_ui.py`** — seção "Custo de IA por profissional · mês" na página de custos, com
+   custo (4 casas), chamadas, sínteses, transcrições, tokens e margem (plano − IA).
+3. **`backend/tests/test_custos_sync.py`** — +2 testes (agregação/ignora infra e tabela na página).
+   Suíte: **532/532 OK** (MEDI, 28/10; 530 + 2).
+4. **`AGENTS.md`** — esta seção.
+
+### Verificação
+- Suíte isolada do backend **532/532 OK** (MEDI, 28/10).
+- Item **4.5** do checklist verificado: APK v1.0.59 (versionCode 60) com **compileSdk 36 /
+  targetSdk 36** (aapt2 36.0.0) — exigência vigente do Play atendida.
+
 ## Custos Magalu em tempo quase real — 28/10/2026
 
 ### Contexto

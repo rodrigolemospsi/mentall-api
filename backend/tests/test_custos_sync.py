@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi.testclient import TestClient
 
+import admin_ui
 import main
 from services import custos, db
 from services.usuarios import hash_senha
@@ -153,3 +154,62 @@ class PainelCustosHttpTests(unittest.TestCase):
         mock_sync.assert_called_once()
         self.assertIn("atualização automática a cada", resposta.text)
         self.assertIn('http-equiv="refresh"', resposta.text)
+
+
+
+class CustoPorProfissionalTests(unittest.TestCase):
+    def setUp(self):
+        _limpar()
+        db.executar("DELETE FROM custos_uso").commit()
+        for uid, email in (("u-1", "ana@ex.com"), ("u-2", "bruno@ex.com")):
+            db.executar(
+                "INSERT INTO usuarios (id, email, password_hash, nome, plano, status, role, criado_em) "
+                "VALUES (?, ?, ?, 'Nome', 'pro', 'ativo', 'user', ?)",
+                (uid, email, hash_senha(SENHA), datetime.now(FUSO).isoformat()),
+            ).commit()
+
+    def _linha(self, uid, provedor, operacao, custo, tokens_in=0, tokens_out=0, segundos=0.0):
+        hoje = _hoje_brt().isoformat()
+        db.executar(
+            "INSERT INTO custos_uso (id, owner_id, provedor, modelo, operacao, fonte, referencia, "
+            "unidades, tokens_in, tokens_out, segundos, custo_brl, cambio_usd_brl, detalhe, criado_em) "
+            "VALUES (?, ?, ?, 'modelo', ?, 'medido', ?, 0, ?, ?, ?, ?, 5.4, '{}', ?)",
+            (
+                f"teste-{uid}-{provedor}",
+                uid,
+                provedor,
+                operacao,
+                hoje,
+                tokens_in,
+                tokens_out,
+                segundos,
+                custo,
+                datetime.now(FUSO).isoformat(),
+            ),
+        ).commit()
+
+    def test_agrega_por_profissional_e_ignora_infra(self):
+        self._linha("u-1", "openai", "sintese", 0.02, tokens_in=1000, tokens_out=500)
+        self._linha("u-2", "groq", "transcricao", 0.01, segundos=60)
+        # infra Magalu nao entra no custo por profissional
+        self._linha("", "magalu", "infra", 1.50)
+        linhas = custos.custo_por_profissional()
+        self.assertEqual(len(linhas), 2)
+        primeiro = linhas[0]
+        self.assertEqual(primeiro["profissional"], "ana@ex.com")
+        self.assertAlmostEqual(primeiro["custo_brl"], 0.02, places=4)
+        self.assertEqual(primeiro["sinteses"], 1)
+        self.assertEqual(primeiro["tokens"], 1500)
+        self.assertAlmostEqual(
+            primeiro["margem_brl"], custos.preco_mensal_brl() - 0.02, places=2
+        )
+        segundo = linhas[1]
+        self.assertEqual(segundo["profissional"], "bruno@ex.com")
+        self.assertEqual(segundo["transcricoes"], 1)
+
+    def test_pagina_mostra_tabela_por_profissional(self):
+        self._linha("u-1", "openai", "sintese", 0.02, tokens_in=1000, tokens_out=500)
+        html = admin_ui.pagina_custos(custos.painel())
+        self.assertIn("Custo de IA por profissional", html)
+        self.assertIn("ana@ex.com", html)
+        self.assertIn("Margem (plano − IA)", html)
