@@ -2380,6 +2380,19 @@ def pagina_custos(dados: dict, msg: str = "", erro: str = "", pode_email: bool =
         for item in (dados.get("por_provedor") or [])
     ) or '<tr><td colspan="4" class="off">Nenhum custo registrado no mês ainda.</td></tr>'
 
+    linhas_profissional = "".join(
+        "<tr>"
+        f"<td>{_esc(item.get('profissional'))}</td>"
+        f"<td>{_brl_preciso(item.get('custo_brl'))}</td>"
+        f"<td>{int(item.get('chamadas') or 0)}</td>"
+        f"<td>{int(item.get('sinteses') or 0)}</td>"
+        f"<td>{int(item.get('transcricoes') or 0)}</td>"
+        f"<td>{int(item.get('tokens') or 0)}</td>"
+        f"<td>{_brl(item.get('margem_brl'))}</td>"
+        "</tr>"
+        for item in (dados.get("por_profissional") or [])
+    ) or '<tr><td colspan="7" class="off">Nenhum uso de IA registrado no mês ainda.</td></tr>'
+
     linhas_dia = "".join(
         f"<tr><td>{_esc(rotulo)}</td><td>{_brl(valor)}</td></tr>"
         for rotulo, valor in (dados.get("dias") or [])
@@ -2413,6 +2426,7 @@ def pagina_custos(dados: dict, msg: str = "", erro: str = "", pode_email: bool =
 
     return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="refresh" content="120">
 <title>MentAll PRO — Custos e uso</title><style>{_ESTILO}</style>{_PWA_HEAD}</head>
 <body>
 {_cabecalho_painel("custos", pode_email=pode_email)}
@@ -2437,10 +2451,22 @@ def pagina_custos(dados: dict, msg: str = "", erro: str = "", pode_email: bool =
     </table>
   </div>
 
+  <h3>Custo de IA por profissional · {dados.get('periodo_label', '')}</h3>
+  <p class="dica">Só chamadas de IA medidas na API (síntese/transcrição) por dono dos dados; a infra
+  Magalu e os custos fixos ficam no total global. Margem = preço do plano
+  ({_brl(dados.get('preco_mensal_brl'))}) − custo de IA do profissional no mês.</p>
+  <div class="tabela-card">
+    <table>
+      <thead><tr><th>Profissional</th><th>Custo IA</th><th>Chamadas</th><th>Sínteses</th>
+      <th>Transcrições</th><th>Tokens</th><th>Margem (plano − IA)</th></tr></thead>
+      <tbody>{linhas_profissional}</tbody>
+    </table>
+  </div>
+
   <h3>Magalu Cloud</h3>
-  <p>Chave da API: {status_chave} · Última sincronização: {_esc(ultima)}
+  <p>Chave da API: {status_chave} · Última sincronização: {_esc(ultima)} · atualização automática a cada {dados.get("sync_minutos", 5)} min (inclui o dia atual, ainda parcial)
   <form method="post" action="/admin/custos/sincronizar" style="margin:10px 0">
-    <button type="submit" class="btn">Sincronizar últimos 7 dias</button>
+    <button type="submit" class="btn">Sincronizar agora (7 dias, inclui hoje)</button>
   </form>
   </p>
 

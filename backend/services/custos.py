@@ -284,18 +284,59 @@ def ultima_sync_magalu() -> str:
     return _sync_estado("magalu:ultima_sync")
 
 
+def _ultima_sync_dt() -> datetime | None:
+    valor = ultima_sync_magalu()
+    if not valor:
+        return None
+    try:
+        momento = datetime.fromisoformat(valor)
+    except ValueError:
+        return None
+    if momento.tzinfo is None:
+        momento = momento.replace(tzinfo=FUSO_BRASILIA)
+    return momento
+
+
+def sincronizar_se_necessario(min_intervalo_segundos: int = 120) -> dict | None:
+    """Atualiza a Magalu se a última sync estiver velha (ao abrir o painel)."""
+    if not magalu_configurada():
+        return None
+    ultima = _ultima_sync_dt()
+    agora = _agora_brt()
+    if ultima is not None:
+        idade = (agora - ultima).total_seconds()
+        if idade < max(30, int(min_intervalo_segundos)):
+            return None
+    try:
+        return sincronizar_magalu(dias=7)
+    except Exception:
+        log.exception("Falha no sync sob demanda da Magalu")
+        return None
+
+
 _SYNC_PARAR = threading.Event()
 _SYNC_THREAD: threading.Thread | None = None
 
 
-def iniciar_sync_automatico(intervalo_horas: int = 6) -> None:
-    """Sincroniza a Magalu em background (primeira vez no start, depois a cada N horas)."""
+def intervalo_sync_minutos() -> int:
+    """Intervalo do sync automático da Magalu (MAGALU_SYNC_MINUTOS, padrão 5 min)."""
+    try:
+        valor = int(os.getenv("MAGALU_SYNC_MINUTOS", "5").strip() or 5)
+    except ValueError:
+        valor = 5
+    return max(1, valor)
+
+
+def iniciar_sync_automatico(intervalo_minutos: int | None = None) -> None:
+    """Sincroniza a Magalu em background (start + a cada N minutos)."""
     global _SYNC_THREAD
     if _SYNC_THREAD is not None and _SYNC_THREAD.is_alive():
         return
     if not magalu_configurada():
         log.info("Sync automático da Magalu desligado: chave não configurada.")
         return
+
+    minutos = max(1, int(intervalo_minutos or intervalo_sync_minutos()))
 
     def _laco() -> None:
         while not _SYNC_PARAR.is_set():
@@ -304,7 +345,7 @@ def iniciar_sync_automatico(intervalo_horas: int = 6) -> None:
                 log.info("Sync automático Magalu: %s", resultado)
             except Exception:
                 log.exception("Falha no sync automático da Magalu")
-            _SYNC_PARAR.wait(max(1, int(intervalo_horas)) * 3600)
+            _SYNC_PARAR.wait(minutos * 60)
 
     _SYNC_PARAR.clear()
     _SYNC_THREAD = threading.Thread(target=_laco, name="custos-magalu", daemon=True)
@@ -325,7 +366,7 @@ def sincronizar_magalu(dias: int = 7) -> dict:
         resultado["erro"] = "MAGALU_CONSUMPTION_API_KEY não configurada."
         return resultado
     try:
-        fim = _agora_brt().date() - timedelta(days=1)
+        fim = _agora_brt().date()  # inclui hoje (parcial) para o painel quase em tempo real
         inicio = fim - timedelta(days=max(1, int(dias)) - 1)
         url = (
             "https://api.magalu.cloud/consumption/usage"
@@ -452,6 +493,51 @@ def _profissionais_ativos() -> int:
         return 0
 
 
+def custo_por_profissional(mes: str | None = None, limite: int = 20) -> list[dict]:
+    """Custo de IA medido por profissional no mês (unit economics real)."""
+    mes = (mes or "").strip() or _mes_brt()
+    try:
+        linhas = executar(
+            "SELECT c.owner_id, u.email AS email, u.nome AS nome, "
+            "COUNT(*) AS chamadas, "
+            "SUM(CASE WHEN c.operacao = 'sintese' THEN 1 ELSE 0 END) AS sinteses, "
+            "SUM(CASE WHEN c.operacao = 'transcricao' THEN 1 ELSE 0 END) AS transcricoes, "
+            "SUM(c.custo_brl) AS custo_brl, "
+            "SUM(COALESCE(c.tokens_in, 0) + COALESCE(c.tokens_out, 0)) AS tokens, "
+            "SUM(COALESCE(c.segundos, 0)) AS segundos "
+            "FROM custos_uso c LEFT JOIN usuarios u ON u.id = c.owner_id "
+            "WHERE c.referencia LIKE ? AND c.provedor IN "
+            "('openai','groq','deepseek','gemini') "
+            "GROUP BY c.owner_id ORDER BY custo_brl DESC LIMIT ?",
+            (f"{mes}-%", max(1, min(100, int(limite)))),
+        ).fetchall()
+    except Exception:
+        log.exception("Falha ao agregar custo por profissional")
+        return []
+    preco = preco_mensal_brl()
+    resultado = []
+    for linha in linhas:
+        custo = float(linha.get("custo_brl") or 0)
+        email = (linha.get("email") or "").strip()
+        owner_id = str(linha.get("owner_id") or "")
+        resultado.append(
+            {
+                "owner_id": owner_id,
+                "profissional": email or (owner_id[:8] or "sem dono"),
+                "nome": (linha.get("nome") or "").strip(),
+                "chamadas": int(linha.get("chamadas") or 0),
+                "sinteses": int(linha.get("sinteses") or 0),
+                "transcricoes": int(linha.get("transcricoes") or 0),
+                "tokens": int(linha.get("tokens") or 0),
+                "segundos": round(float(linha.get("segundos") or 0), 1),
+                "custo_brl": round(custo, 6),
+                "margem_brl": round(preco - custo, 2),
+                "pct_do_plano": round((custo / preco * 100) if preco else 0.0, 2),
+            }
+        )
+    return resultado
+
+
 def painel(mes: str | None = None) -> dict:
     mes = (mes or "").strip() or _mes_brt()
     linhas = _linhas_mes(mes)
@@ -534,6 +620,7 @@ def painel(mes: str | None = None) -> dict:
         "por_operacao": {k: round(v, 2) for k, v in sorted(por_operacao.items(), key=lambda i: -i[1])},
         "dias": dias_serie,
         "fixos": fixos,
+        "por_profissional": custo_por_profissional(mes),
         "profissionais_ativos": ativos,
         "sessoes_transcritas": sessoes,
         "sinteses": sinteses,

@@ -214,6 +214,52 @@ local do app original. A pedido do dono, a cópia recebeu também as configs loc
 - Ao rodar: backend na porta 8001 e app apontando para a cópia (ver `COPIA.md`), com integrações
   reais neutralizadas para não gerar WhatsApp/e-mail a pacientes.
 
+## Custos: IA por profissional (item 7.3 do checklist) — 28/10/2026
+
+### Contexto
+O checklist pedia medir o custo real de IA por profissional para comparar com o preço do plano
+(R$ 79,90) e detectar anomalias — o painel só mostrava total, por provedor e por operação.
+
+### O que mudou (arquivos)
+1. **`backend/services/custos.py`** — `custo_por_profissional(mes)`: agrega `custos_uso` por
+   `owner_id` no mês (chamadas, sínteses, transcrições, tokens, segundos, custo e margem contra o
+   preço do plano), juntando o e-mail do profissional; ignora a infra Magalu; `painel()` passa a
+   devolver `por_profissional`.
+2. **`backend/admin_ui.py`** — seção "Custo de IA por profissional · mês" na página de custos, com
+   custo (4 casas), chamadas, sínteses, transcrições, tokens e margem (plano − IA).
+3. **`backend/tests/test_custos_sync.py`** — +2 testes (agregação/ignora infra e tabela na página).
+   Suíte: **532/532 OK** (MEDI, 28/10; 530 + 2).
+4. **`AGENTS.md`** — esta seção.
+
+### Verificação
+- Suíte isolada do backend **532/532 OK** (MEDI, 28/10).
+- Item **4.5** do checklist verificado: APK v1.0.59 (versionCode 60) com **compileSdk 36 /
+  targetSdk 36** (aapt2 36.0.0) — exigência vigente do Play atendida.
+
+## Custos Magalu em tempo quase real — 28/10/2026
+
+### Contexto
+O painel de custos só mostrava até ontem (o sync pedia `end_date = hoje - 1`) e rodava de 6 em 6
+horas, então o dia atual nunca aparecia e os valores pareciam parados.
+
+### O que mudou (arquivos)
+1. **`backend/services/custos.py`** — `sincronizar_magalu` agora inclui o **dia atual** (dados parciais
+   que crescem durante o dia, com delete+insert idempotente no período); `iniciar_sync_automatico`
+   roda no start e a cada **5 min** (`MAGALU_SYNC_MINUTOS` configurável); novo
+   `sincronizar_se_necessario()` (atualiza ao abrir o painel se a última sync tem > 2 min).
+2. **`backend/main.py`** — `GET /admin/custos` chama `sincronizar_se_necessario()` antes de montar a
+   página e passa o intervalo para a UI.
+3. **`backend/admin_ui.py`** — página de custos com **auto-refresh de 120 s**, texto "atualização
+   automática a cada N min (inclui o dia atual, ainda parcial)" e botão "Sincronizar agora".
+4. **`backend/tests/test_custos_sync.py`** — 4 testes (inclui hoje/idempotência, intervalo, sync sob
+   demanda e HTTP ao abrir o painel). Suíte: **530/530 OK** (MEDI, 28/10; 526 + 4).
+5. **`AGENTS.md`** — esta seção.
+
+### Verificação
+- API da Magalu testada em produção: devolve a linha de **hoje** (parcial).
+- Suíte isolada do backend **530/530 OK** (MEDI, 28/10).
+
+
 ## Ajustes de painel: precisão de custos e auto-status do reporte — 28/10/2026
 
 ### Contexto
