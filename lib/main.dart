@@ -277,25 +277,11 @@ class MentAllApp extends ConsumerWidget {
       useMaterial3: true,
       scaffoldBackgroundColor: colorScheme.surface,
       appBarTheme: AppBarTheme(
-        backgroundColor: corCard,
-        foregroundColor: colorScheme.onSurface,
+        backgroundColor: colorScheme.primary,
+        foregroundColor: colorScheme.onPrimary,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        iconTheme: IconThemeData(
-          color: colorScheme.onSurfaceVariant,
-          size: 22,
-        ),
-        actionsIconTheme: IconThemeData(
-          color: colorScheme.onSurfaceVariant,
-          size: 22,
-        ),
-        titleTextStyle: TextStyle(
-          fontSize: Tipografia.lg,
-          fontWeight: FontWeight.w700,
-          color: colorScheme.onSurface,
-        ),
-        shape: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
       ),
       cardTheme: CardThemeData(
         color: corCard,
