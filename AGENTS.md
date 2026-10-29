@@ -42,6 +42,34 @@
 - **Sentry** está integrado e **desligado por padrão**. Para ativar: criar conta no Sentry, pegar o DSN e compilar com `--dart-define=SENTRY_DSN=<dsn>`. Envia apenas stack trace (sem PII, sem corpo de requisição, sem breadcrumbs).
 - **Nota de ambiente (macOS) — RESOLVIDO em 28/09/2026:** o Xcode estava **sem licença/first-launch aceitos** (`xcrun` retornava **exit 69** com stdout vazio; o `git` também imprimia "You have not agreed to the Xcode license agreements"). A licença foi aceita (`sudo xcodebuild -license accept`) e `flutter test`/`git` passaram a rodar **sem** variáveis nem workaround — confirmado: `flutter test --no-pub` **224/224** e `flutter analyze --no-pub` limpo, sem `DEVELOPER_DIR`. Se o erro voltar (ex.: reinstalação/máquina nova), a solução definitiva é `sudo xcodebuild -license accept` (exige senha de admin). Detalhe técnico (para referência futura): `DEVELOPER_DIR=/Library/Developer/CommandLineTools` resolve o **tool do Flutter** e o **git**, mas **NÃO basta** para `flutter test` quando a licença não está aceita, porque o hook de native assets (`objective_c`, puxado pelo `flutter_secure_storage`) roda em ambiente **semi-hermético** (o pacote `hooks` repassa só `PATH`, não `DEVELOPER_DIR`) → `xcrun --show-sdk-path` volta vazio → `Bad state: No element`; nesse caso, além do `DEVELOPER_DIR`, era preciso um shim de `xcrun` no `PATH` (`#!/bin/sh` → `export DEVELOPER_DIR=/Library/Developer/CommandLineTools; exec /usr/bin/xcrun "$@"`). Observação: `xcodebuild -checkFirstLaunchStatus` ainda retorna **69** (first-launch não concluído) — **não** afeta `flutter test`, mas pode ser concluído com `sudo xcodebuild -runFirstLaunch`.
 
+## Promoção da cópia a original (swap de diretórios) — 28/10/2026
+
+### Contexto
+O dono pediu para trocar as pastas: a cópia de trabalho passou a ser o **projeto original** e o antigo
+original virou backup. Antes do swap, os 2 commits de custos do antigo original (já no GitHub) foram
+integrados por merge, para não regredir o backend.
+
+### O que mudou (arquivos)
+1. **Diretórios trocados (renomeações no mesmo volume, nada apagado):**
+   - original agora em `/Users/rodrigolemos/mentall-pro-app` (era a cópia, versão 2.0.4+64);
+   - antigo original (16 GB, com build/APKs) agora em
+     `~/Documents/deepseek-harness/default-workspace/mentall-pro-app-copia`.
+2. **Git do novo original:** `origin` → GitHub; novo remoto `backup` → antigo original; branch `master`
+   20 commits à frente do GitHub (linha visual 2.0.x). Merge `354ae5a` integrou `e84ac60` + `8b9edad`
+   (conflito só em `AGENTS.md`, mantidos os dois lados).
+3. **`COPIA.md`** — reescrito para descrever o novo layout.
+4. **Backend local (launchd)** — reiniciado pelo caminho novo; `GET /health` 200 (`sqlite_local`).
+
+### Verificação
+- MEDI: backend mesclado **532/532 OK** (`tests/run_isolated.py`); Flutter já verificado antes do swap
+  (**analyze limpo**, **355/355 OK**, APK v2.0.4+64).
+- MEDI: `/health` 200 após reinício; git do novo original limpo; backup limpo no HEAD `8b9edad`.
+- Nada foi enviado ao GitHub (20 commits locais à frente).
+
+### Pendências
+- Push/PR da linha visual 2.0.x quando o dono decidir.
+- Próximas edições do agente no original exigem aprovação de sandbox (fora do workspace).
+
 ## Foto da Home em dobro (v2.0.4) — 28/10/2026
 
 ### Contexto
