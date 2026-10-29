@@ -364,7 +364,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       child: Scaffold(
         backgroundColor: context.corFundo,
         appBar: AppBar(
-          toolbarHeight: 80,
+          toolbarHeight: 104,
           title: fotoProf.isEmpty
               ? Image.asset(
                   Theme.of(context).brightness == Brightness.dark
@@ -376,11 +376,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                   label: 'Foto do profissional',
                   child: Container(
                     key: const Key('foto-profissional'),
-                    width: 46,
-                    height: 46,
+                    width: 92,
+                    height: 92,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: context.corCard, width: 2),
+                      border: Border.all(color: context.corCard, width: 3),
                       image: DecorationImage(
                         image: fotoMemoria(fotoProf)!,
                         fit: BoxFit.cover,
