@@ -331,6 +331,10 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget build(BuildContext context) {
     ref.watch(perfilRevisaoProvider);
     final nomeProf = _nomeProfissional();
+    final perfilProf = ref
+        .read(perfilProfissionalServiceProvider)
+        .obterPerfil();
+    final fotoProf = (perfilProf?.fotoBase64 ?? '').trim();
 
     return PopScope(
       canPop: false,
@@ -361,12 +365,29 @@ class _HomePageState extends ConsumerState<HomePage> {
         backgroundColor: context.corFundo,
         appBar: AppBar(
           toolbarHeight: 80,
-          title: Image.asset(
-            Theme.of(context).brightness == Brightness.dark
-                ? 'assets/images/logo_mentallpro_fundoescuro_01.png'
-                : 'assets/images/logo_mentallpro_fundoclaro_01.png',
-            height: 78,
-          ),
+          title: fotoProf.isEmpty
+              ? Image.asset(
+                  Theme.of(context).brightness == Brightness.dark
+                      ? 'assets/images/logo_mentallpro_fundoescuro_01.png'
+                      : 'assets/images/logo_mentallpro_fundoclaro_01.png',
+                  height: 78,
+                )
+              : Semantics(
+                  label: 'Foto do profissional',
+                  child: Container(
+                    key: const Key('foto-profissional'),
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: context.corCard, width: 2),
+                      image: DecorationImage(
+                        image: fotoMemoria(fotoProf)!,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                ),
           centerTitle: false,
           backgroundColor: context.corFundo,
           foregroundColor: context.corPrimaria,

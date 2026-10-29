@@ -15,6 +15,10 @@ import 'package:prontuario_tcc/models/sessao.dart';
 import 'package:prontuario_tcc/providers/service_providers.dart';
 import 'package:prontuario_tcc/screens/home_page.dart';
 
+/// PNG 1x1 transparente — foto mínima válida para o teste do avatar da Home.
+const _fotoProfissionalPng1x1 =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+
 void main() {
   setUpAll(() async {
     Hive.init('test/temp_hive/home_page');
@@ -149,5 +153,25 @@ void main() {
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();
     });
+  });
+
+  testWidgets('deve exibir a foto do profissional na barra superior', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      await Hive.box<PerfilProfissional>('perfil_profissional').put(
+        '1',
+        PerfilProfissional(
+          id: '1',
+          nome: 'Dra. Foto',
+          fotoBase64: _fotoProfissionalPng1x1,
+        ),
+      );
+    });
+
+    await tester.pumpWidget(criarApp([]));
+    await tester.pump();
+
+    expect(find.byKey(const Key('foto-profissional')), findsOneWidget);
   });
 }
