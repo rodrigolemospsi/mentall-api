@@ -56,14 +56,13 @@ O dono pediu para substituir a logo MentAll da Home pela **foto do profissional*
 3. **`pubspec.yaml`** — `version: 2.0.3+63`.
 
 ### Verificação
-- MEDI: `dart analyze lib test/widgets/home_page_test.dart` → **No issues found**.
-- PENDENTE: `flutter analyze` / `flutter test` / build dos APKs — o sandbox não liberou a aprovação
-  ("no approval channel is available") nas duas tentativas desta sessão.
-- Nada foi enviado ao GitHub (código commitado em `b6a24ac` e `0aec382`).
+- MEDI (28/10): `flutter analyze` → **No issues found**; `flutter test` → **355/355 OK** (354 + o
+  teste novo da foto).
+- MEDI: `aapt` confirma `versionCode=63 versionName=2.0.3`; assinaturas conferidas — debug
+  `b63841f4…` (instala por cima) e produção `c2e5c85e…`; AAB regerado. APKs `v2.0.2` removidos da cópia.
+- Nada foi enviado ao GitHub (código em `b6a24ac` + `0aec382`).
 
 ### Pendências
-- Rodar `flutter test` (inclui o teste novo) e gerar os APKs v2.0.3 (debugsign + release) + AAB
-  quando a aprovação do sandbox estiver disponível.
 - Validar no aparelho: Home com a foto do perfil e fallback da logo sem foto.
 
 ## Barras superiores padronizadas no roxo (v2.0.2) — 28/10/2026
