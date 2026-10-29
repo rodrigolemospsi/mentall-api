@@ -1,7 +1,8 @@
 # Memória — linha visual 2.0.x (MentAll PRO)
 
-> Documento de continuidade criado em 28/10/2026. O `AGENTS.md` (~247 KB) guarda o histórico completo;
-> este arquivo consolida o **estado atual** para retomadas rápidas.
+> Documento de continuidade criado em 28/10/2026. O `AGENTS.md` (~248 KB) guarda checklist, regras e
+> seções recentes; o histórico antigo fica em `docs/AGENTS_historico.md`. Este arquivo consolida o
+> **estado atual** para retomadas rápidas.
 
 ## Estado do projeto
 
@@ -77,4 +78,4 @@ flutter build appbundle --release
 ## Onde procurar
 
 - Layout e remotos: `COPIA.md`
-- Histórico detalhado por tarefa: `AGENTS.md` (seções datadas no topo, abaixo do checklist de fumaça)
+- Histórico detalhado por tarefa: `docs/AGENTS_historico.md` (índice no `AGENTS.md`)
