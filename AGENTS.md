@@ -56,8 +56,9 @@ as seções recentes da linha 2.0.x, o índice do histórico e as seções de re
 3. **`MEMORIA_2.0.x_2026-10-28.md`** — aponta para o histórico comprimido.
 
 ### Verificação
-- MEDI: seções `##` antes = 118; depois = 25 no AGENTS + 94 no histórico =
-  119 (iguals antes/depois: False).
+- MEDI: seções `##` antes = **118**; depois = **26** no AGENTS (24 mantidas + 2 novas: esta e o índice)
+  + **94** no histórico. Checagem por título e corpo contra o commit anterior: **0 seções perdidas**,
+  **0 corpos alterados**; cabeçalho de regras e checklist idênticos.
 - MEDI: conteúdo movido é cópia verbatim (fatias do original); nada foi reescrito ou removido.
 - Commit só de `**.md` — não dispara CI.
 
