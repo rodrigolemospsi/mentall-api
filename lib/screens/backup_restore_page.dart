@@ -384,11 +384,6 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
     }
   }
 
-  String _abreviaPasta(String caminho) {
-    if (caminho.length <= 34) return caminho;
-    return '…${caminho.substring(caminho.length - 33)}';
-  }
-
   String _formatarDataHora(DateTime d) {
     final dia = d.day.toString().padLeft(2, '0');
     final mes = d.month.toString().padLeft(2, '0');
@@ -411,21 +406,55 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
   }
 
   Future<void> _escolherPasta(ConfiguracoesService config) async {
-    final pasta = await escolherPastaBackup();
-    if (pasta != null) {
-      await config.setBackupLocal(pasta);
+    try {
+      final pasta = await escolherPastaBackup();
+      if (!mounted || pasta == null) return;
+      await config.setBackupLocal(pasta.valor);
+      await config.setBackupLocalNome(pasta.nome);
+      await config.setBackupFallbackPadrao(false);
+      if (!mounted) return;
+      _mostrarSnackBar(
+        'Pasta do backup definida: ${pasta.nome}.',
+        context.corSuccess,
+      );
+    } on PastaBackupException catch (e) {
+      if (!mounted) return;
+      _mostrarSnackBar(e.mensagem, context.corError);
+    } catch (_) {
+      if (!mounted) return;
+      _mostrarSnackBar(
+        'Não foi possível escolher a pasta do backup.',
+        context.corError,
+      );
     }
   }
 
   Future<void> _fazerBackupAgora() async {
+    final config = ref.read(configuracoesServiceProvider);
     final caminho =
         await ref.read(backupAgendamentoServiceProvider).executar();
     if (!mounted) return;
+    if (caminho == null) {
+      _mostrarSnackBar(
+        'Não foi possível salvar o backup. Verifique o espaço livre e a pasta escolhida.',
+        context.corError,
+      );
+      return;
+    }
+    if (config.backupFallbackPadrao) {
+      _mostrarSnackBar(
+        'A pasta escolhida não está disponível; backup salvo na pasta padrão do app.',
+        context.corWarning,
+      );
+      return;
+    }
+    final destino = nomePastaBackupParaExibir(
+      config.backupLocal,
+      nomeSalvo: config.backupLocalNome,
+    );
     _mostrarSnackBar(
-      caminho != null
-          ? 'Backup salvo em: ${_abreviaPasta(caminho)}'
-          : 'Não foi possível salvar o backup. Tente novamente.',
-      caminho != null ? context.corSuccess : context.corError,
+      destino.isEmpty ? 'Backup salvo.' : 'Backup salvo em: $destino',
+      context.corSuccess,
     );
   }
 
@@ -485,7 +514,10 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
               subtitle: Text(
                 config.backupLocal.isEmpty
                     ? 'Pasta padrão do app'
-                    : _abreviaPasta(config.backupLocal),
+                    : nomePastaBackupParaExibir(
+                        config.backupLocal,
+                        nomeSalvo: config.backupLocalNome,
+                      ),
               ),
               trailing: TextButton(
                 onPressed: () => _escolherPasta(config),
@@ -509,6 +541,20 @@ class _BackupRestorePageState extends ConsumerState<BackupRestorePage> {
                 child: const Text('Fazer agora'),
               ),
             ),
+            if (config.backupFallbackPadrao) ...[
+              const Divider(height: 1, indent: 16),
+              ListTile(
+                leading: Icon(
+                  Icons.warning_amber_rounded,
+                  color: context.corWarning,
+                ),
+                title: const Text('Pasta escolhida indisponível'),
+                subtitle: const Text(
+                  'Os backups estão indo para a pasta padrão do app. '
+                  'Toque em "Escolher" para redefinir a pasta.',
+                ),
+              ),
+            ],
           ],
         ),
       ),

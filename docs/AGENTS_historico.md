@@ -2731,3 +2731,18 @@ Pendência histórica do AGENTS.md resolvida em 6 fases (1 commit cada, TDD). Pl
 - wuzapi enviando (curl direto), função `_enviar_whatsapp_via_wuzapi` OK, endpoint `/enviar-whatsapp` autenticado OK.
 - **Scheduler automático** OK: agendou lembrete → log `Lembrete WhatsApp enviado via wuzapi: 557592298347 (id=...)` (o `mensagem_id` agora é gravado no lembrete para correlacionar com o webhook de entrega/leitura).
 - **KeepAlive** OK: matar o backend → launchd reinicia sozinho em ~10s.
+
+## 30/10/2026 — Correção do backup automático em pasta escolhida (2.0.6+66)
+
+- **Sintoma relatado:** em “Backup e dados → Local do backup” com pasta escolhida manualmente, o
+  “Fazer agora” mostrava “Não foi possível salvar o backup. Tente novamente.”.
+- **Causa:** `file_picker.getDirectoryPath()` devolve caminho de arquivo; o `dart:io` não grava em
+  pasta fora do diretório privado no Android 11+ (o SAF não é aplicado por caminho). O erro era
+  engolido e a gravação retornava `null`.
+- **Correção:** canal nativo `mentall/backup_saf` no `MainActivity.kt` (`ACTION_OPEN_DOCUMENT_TREE`
+  com permissão persistível + escrita via `DocumentsContract`/`ContentResolver`); Dart grava por
+  `content://` no Android e valida a pasta com arquivo de teste; fallback automático para a pasta
+  padrão do app com aviso na tela quando a pasta escolhida fica indisponível. Nome amigável da pasta
+  persistido (`backup_local_nome`).
+- **Verificação:** emulador Android 15 — escolher pasta, gravar via SAF, reabrir app (permissão
+  persistida) e fallback após remover a pasta; `flutter analyze` ok e `flutter test` **355/355**.

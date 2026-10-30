@@ -25,6 +25,8 @@ class ConfiguracoesService with EncryptedServiceMixin {
   static const String _kOnboardingConcluido = 'onboarding_concluido';
   static const String _kBackupFrequencia = 'backup_frequencia';
   static const String _kBackupLocal = 'backup_local';
+  static const String _kBackupLocalNome = 'backup_local_nome';
+  static const String _kBackupFallbackPadrao = 'backup_fallback_padrao';
   static const String _kUltimoBackupEm = 'backup_ultimo_em';
   static const String _kGoogleCalendarAtivo = 'google_calendar_ativo';
   static const String _kGoogleCalendarId = 'google_calendar_id';
@@ -203,6 +205,23 @@ Ao preencher e aceitar este formul\u00e1rio, declaro estar ciente e de acordo co
 
   Future<void> setBackupLocal(String v) async {
     await _box.put(_kBackupLocal, v);
+  }
+
+  /// Nome amigável da pasta escolhida (exibido na tela de backup).
+  String get backupLocalNome =>
+      _box.get(_kBackupLocalNome, defaultValue: '') ?? '';
+
+  Future<void> setBackupLocalNome(String v) async {
+    await _box.put(_kBackupLocalNome, v);
+  }
+
+  /// `true` quando o último backup automático caiu na pasta padrão do app
+  /// porque a pasta escolhida não estava gravável (permissão revogada, pasta
+  /// removida etc.). A tela de backup mostra um aviso nesse caso.
+  bool get backupFallbackPadrao => _box.get(_kBackupFallbackPadrao) == 'true';
+
+  Future<void> setBackupFallbackPadrao(bool v) async {
+    await _box.put(_kBackupFallbackPadrao, '$v');
   }
 
   /// Data/hora do último backup bem-sucedido (ISO 8601), ou null se nunca.

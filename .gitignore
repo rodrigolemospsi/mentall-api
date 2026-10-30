@@ -88,3 +88,6 @@ backend/.env.bak-*
 *.p12
 key.properties
 release.env
+
+# Artefatos de release locais
+*.aab

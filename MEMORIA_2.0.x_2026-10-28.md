@@ -9,7 +9,7 @@
 - **Original:** `/Users/rodrigolemos/mentall-pro-app` (este diretório)
 - **Backup histórico** (antigo original, 16 GB com `build/` e APKs):
   `~/Documents/deepseek-harness/default-workspace/mentall-pro-app-copia`
-- **Versão:** `2.0.4+64` (`pubspec.yaml`)
+- **Versão:** `2.0.6+66` (`pubspec.yaml`)
 - **Git:** `master` == `origin/master` == `d0707be`; remotos `origin` (GitHub) e `backup` (pasta antiga)
 - **Tag de release:** `v2.0.4` (anotada, objeto `662afdd`) → commit `e5be382`
 - **CI GitHub Actions** (`Deploy to Fly.io`): analyze/test Flutter + testes do backend + pip-audit/
@@ -65,6 +65,33 @@ flutter build appbundle --release
 - launchd `com.mentall.backend` → `/Users/rodrigolemos/mentall-pro-app/backend/start_backend.sh`
   (porta 8000, `.venv`, `.env` com chaves de produção).
 - Wuzapi em `~/wuzapi` (serviço separado, intocado).
+
+## Backup automático em pasta escolhida (correção 2.0.6+66)
+
+- **Sintoma:** ao escolher uma pasta manual em “Backup e dados → Local do backup”, o “Fazer agora”
+  (e o backup automático) falhava com o snackbar genérico “Não foi possível salvar o backup.
+  Tente novamente.”.
+- **Causa:** o `file_picker.getDirectoryPath()` devolve um caminho de arquivo; o app gravava com
+  `dart:io`, que não tem permissão de escrita em pastas fora do diretório privado no Android 11+
+  (Storage Access Framework não é aplicado por caminho). O erro era engolido e virava `null`.
+- **Correção (Android):**
+  - `MainActivity.kt` expõe o canal `mentall/backup_saf` com `pickDirectory` (ACTION_OPEN_DOCUMENT_TREE
+    + permissão persistível), `testDirectory` (grava e apaga um arquivo de teste) e `writeFile`
+    (DocumentsContract/ContentResolver). A URI da árvore fica salva em `backup_local`.
+  - `backup_storage_io.dart` grava via canal quando o local é `content://`; mantém caminho de arquivo
+    para o diretório padrão e para iOS. `escolherPastaBackup()` valida a pasta com teste de escrita e
+    devolve nome amigável (`backup_local_nome`).
+  - Se a pasta configurada falhar depois (removida/permissão revogada), `BackupAgendamentoService`
+    grava na **pasta padrão do app** e liga `backup_fallback_padrao`; a tela mostra o aviso “Pasta
+    escolhida indisponível” e o snackbar informa o fallback — o backup nunca é perdido em silêncio.
+  - iOS segue com `file_picker` + validação de escrita; web segue com stub (sem arquivo).
+- **Verificado no emulador (30/10):** escolher `Download/MentAll` → “Pasta do backup definida:
+  MentAll.”; “Fazer agora” cria o `.json` via SAF; após force-stop/reabrir, a permissão persistida
+  continua válida; ao apagar a pasta, o próximo backup cai em `app_flutter` com o aviso de fallback.
+- **Testes:** `flutter analyze` sem issues; `flutter test` **355/355** verde.
+- **Artefatos 2.0.6+66 (upload key):** `MentAllPRO-v2.0.6-release.apk` (82,1 MB, SHA-256
+  `c95bbe75…1fce05`) e `MentAllPRO-v2.0.6.aab` (74,4 MB, SHA-256 `280e677c…a66985b`) — `.aab`
+  agora ignorado no git.
 
 ## Pendências / próximos passos
 

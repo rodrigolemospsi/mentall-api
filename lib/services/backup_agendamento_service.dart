@@ -40,19 +40,39 @@ class BackupAgendamentoService {
 
   /// Executa o backup agora (agendado ou manual). Retorna o caminho salvo ou
   /// `null` em falha. Atualiza [ConfiguracoesService.ultimoBackupEm] em sucesso.
+  ///
+  /// Se a pasta escolhida pelo usuário não estiver gravável (permissão revogada,
+  /// pasta removida, provedor indisponível), o backup não é perdido: ele cai na
+  /// pasta padrão do app e [ConfiguracoesService.backupFallbackPadrao] fica
+  /// `true` para a tela de backup avisar.
   Future<String?> executar({String? diretorio, DateTime? agora}) async {
     try {
       final conteudo = backupService.exportarParaJson();
 
       final agoraEfetivo = agora ?? DateTime.now();
       final nomeArquivo = 'mentall-backup-${_carimbo(agoraEfetivo)}.json';
-      final local = diretorio ?? configuracoes.backupLocal;
+      final localConfigurado = configuracoes.backupLocal;
+      final local = diretorio ?? localConfigurado;
 
-      final caminho =
-          await salvarBackupArquivo(conteudo, nomeArquivo, diretorio: local);
+      var caminho = await salvarBackupArquivo(
+        conteudo,
+        nomeArquivo,
+        diretorio: local,
+      );
+      var usouFallback = false;
+
+      if (caminho == null && diretorio == null && localConfigurado.isNotEmpty) {
+        // Pasta escolhida falhou: grava na pasta padrão do app para não perder
+        // o backup silenciosamente.
+        caminho = await salvarBackupArquivo(conteudo, nomeArquivo);
+        usouFallback = caminho != null;
+      }
       if (caminho == null) return null;
 
       await configuracoes.setUltimoBackupEm(agoraEfetivo);
+      if (diretorio == null) {
+        await configuracoes.setBackupFallbackPadrao(usouFallback);
+      }
       return caminho;
     } catch (_) {
       return null;

@@ -26,6 +26,21 @@ class _FakeConfiguracoes extends ConfiguracoesService {
   DateTime? get ultimoBackupEm => null;
 
   @override
+  String get backupLocalNome => '';
+
+  @override
+  bool get backupFallbackPadrao => false;
+
+  @override
+  Future<void> setBackupFallbackPadrao(bool v) async {}
+
+  @override
+  Future<void> setBackupLocal(String v) async {}
+
+  @override
+  Future<void> setBackupLocalNome(String v) async {}
+
+  @override
   Stream<BoxEvent> observar() => const Stream<BoxEvent>.empty();
 }
 
@@ -113,6 +128,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(fakeAgendamento.chamadas, 1);
-    expect(find.textContaining('Backup salvo em'), findsOneWidget);
+    expect(find.textContaining('Backup salvo'), findsOneWidget);
   });
 }
