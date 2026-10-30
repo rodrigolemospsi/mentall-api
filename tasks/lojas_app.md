@@ -8,6 +8,30 @@
 > O que bloqueia publicação hoje é: **keystore de produção, política de privacidade em URL pública,
 > descrição/categorias e a assinatura (RevenueCat)**.
 
+## Atualização 30/10/2026 — capturas e feature graphic 2.0.x prontos
+
+- **Screenshots do Play regeradas** na identidade 2.0.x (tema roxo, navbar em gradiente,
+  AppBar roxo): 5 imagens 1080x2160 em `store/screenshots/` (Home, Pacientes, Financeiro,
+  Agenda e Sessão com IA), geradas com o APK 2.0.4 compilado com
+  `--dart-define=DEMO_LOJAS=true`. Substituem as capturas de 29/09.
+- **Feature graphic criado**: `store/feature_graphic_1024x500.png` (e `.jpg`), na identidade da
+  marca (violeta, logo e mockups reais) — item 5.6 do checklist.
+- **Bug corrigido durante o aceite visual:** `paciente_card_home.dart` apontava para
+  `assets/images/logo_whats.png`, removido no commit `c179d6a`; o ícone do WhatsApp aparecia
+  quebrado em toda lista de pacientes. Passou a usar `logo_whats_grande.png` (commit `eb7d793`).
+  No modo `DEMO_LOJAS` o banner "WhatsApp não conectado" também não é renderizado, para não
+  aparecer nas imagens da ficha.
+- **Validação em build de release (30/10, emulador Android 15):** splash em gradiente, login,
+  Home (fundo contínuo e fallback da logo quando o perfil não tem foto), navbar em gradiente,
+  AppBar roxo em Pacientes/Agenda, ícone do WhatsApp corrigido, bloqueio por biometria
+  (matar/reabrir → app só abre após autenticação) e fluxo de perfil profissional. Evidências na
+  sessão do agente (`.screenshots/release/`).
+- **Pendente para o envio:** (1) regerar APK/AAB em versão nova — o binário 2.0.4+64 em
+  `MentAllPRO-v2.0.4-*.apk` foi gerado antes da correção do ícone; próximo upload deve ser
+  `2.0.5+65`; (2) aceite visual do dono nas novas capturas; (3) screenshots do App Store (item
+  5.3); (4) escrever descrição/categoria/palavras-chave (5.1/5.4). O restante continua bloqueado
+  por CNPJ/D-U-N-S e contas de loja.
+
 ## 1. SEGURANÇA — resolvido
 
 - [x] **Fail-closed de criptografia (vuln-0013)** — `EncryptedServiceMixin.encrypt` **lança**
