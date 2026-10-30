@@ -8,6 +8,7 @@ import '../providers/service_providers.dart';
 import '../models/compromisso.dart';
 import '../models/paciente.dart';
 import '../services/compromisso_service.dart';
+import '../services/demo_lojas_service.dart';
 import '../services/lembrete_service.dart';
 import '../widgets/compromisso_form_dialog.dart';
 import '../widgets/alerta_wuzapi.dart';
@@ -486,7 +487,11 @@ class _HomePageState extends ConsumerState<HomePage> {
         body: CustomScrollView(
           physics: const ClampingScrollPhysics(),
           slivers: [
-            const SliverToBoxAdapter(child: AlertaWuzapi()),
+            // Nas capturas de tela das lojas (DEMO_LOJAS) o aviso de WhatsApp
+            // desconectado não aparece: a conta de demonstração não tem o wuzapi
+            // configurado e o banner amarelo poluiria as imagens da ficha.
+            if (!DemoLojasService.ativoPorPadrao)
+              const SliverToBoxAdapter(child: AlertaWuzapi()),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),

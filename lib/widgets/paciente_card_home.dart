@@ -201,7 +201,7 @@ class _WhatsAppLogoButton extends StatelessWidget {
         WhatsAppService.escolher(context: context, numero: numero);
       },
       icon: Image(
-        image: const AssetImage('assets/images/logo_whats.png'),
+        image: const AssetImage('assets/images/logo_whats_grande.png'),
         width: 44,
         height: 44,
       ),
