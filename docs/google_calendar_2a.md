@@ -1,6 +1,6 @@
 # Google Calendar — Fase 2A (OAuth no aparelho)
 
-**Versão:** 1.1 · **Data:** 30/10/2026 · **Status:** implementado, testado no aparelho (Android 15)
+**Versão:** 1.2 · **Data:** 30/10/2026 · **Status:** implementado, testado no aparelho (Android 15)
 e com a **verificação de escopos submetida ao Google em 29/10/2026** — em análise (4–6 semanas).
 **Escopo:** psicólogo individual, agenda local-first, Android primeiro. Sem backend de agenda e sem
 teleconsulta.
@@ -19,9 +19,12 @@ teleconsulta.
   de verdade; o Google é uma cópia externa.
 - **Sem sincronização com o app fechado**: o sync ocorre ao criar/editar/excluir/cancelar/reagendar
   e no botão “Sincronizar agora”. **Não há sync automático ao abrir a Agenda** (fica para a etapa seguinte).
-- Em produção, a autorização de escopos sensíveis fica restrita aos **test users** até a aprovação da
-  verificação (§8). Por isso a integração é **opt-in e desligada por padrão**, e o primeiro envio é
-  condicionado à aprovação (decisão 0.8 do checklist — ver memo de 30/10).
+- **Visibilidade por build (decisão 0.8 fechada em 30/10/2026 — opção 1):** a integração fica
+  **oculta nos builds de release** até a verificação do Google ser aprovada — assim ninguém passa
+  pelo aviso “app não verificado” nem consome o limite vitalício de 100 usuários do projeto OAuth.
+  Flag: `GoogleCalendarConfig.visivel` (`--dart-define=GOOGLE_CALENDAR_VISIVEL=true` liga). Em
+  debug/profile o padrão é visível (desenvolvimento/testes); o build de loja usa o padrão (oculto).
+  O 1º envio sai **sem** o Calendar; a integração é ligada numa atualização após a aprovação (§8).
 
 ## 2. Configuração Google Cloud
 
@@ -135,11 +138,12 @@ publicada**. Prazo informado pelo Google: **primeiro e-mail em 3–5 dias úteis
 
 1. Cadastrar o **SHA-1 do upload key de release** (`C2:E5:…:B5:62`) e o **SHA-1 do Play App Signing**
    no client Android `com.mentall.app` (Clientes → MentAll PRO → editar).
-2. Testar o build de **release** com o Calendar (o fluxo OAuth precisa funcionar com a assinatura de
-   release).
-3. Atualizar o checklist de publicação (0.8/0.9) e o Data Safety/App Privacy (se o Calendar estiver
-   visível no build enviado).
-4. Se o app já estiver publicado, o aviso de “app não verificado” desaparece após a aprovação.
+2. Regenerar o build de loja **com a integração visível**
+   (`--dart-define=GOOGLE_CALENDAR_VISIVEL=true`) e testar o fluxo OAuth na assinatura de release.
+3. Atualizar o **Data Safety/App Privacy** incluindo “Calendar events” e o checklist de publicação
+   (0.8/0.9).
+4. Publicar a atualização; se o app já estiver no ar, o aviso de “app não verificado” desaparece
+   após a aprovação.
 
 **Se for rejeitada:** ler o motivo no e-mail/Verification Center, corrigir e **re-submeter**; o vídeo
 e os takes continuam válidos para reenvio.
@@ -179,10 +183,13 @@ e os takes continuam válidos para reenvio.
       o build de release (§8).
 - [ ] **Após a aprovação:** atualizar checklist 0.8/0.9 e Data Safety/App Privacy se o Calendar
       entrar no build enviado.
-- [ ] **Decisão 0.8:** flag de build para esconder a integração caso o envio aconteça antes da
-      aprovação (`--dart-define=GOOGLE_CALENDAR_VISIVEL=false` — ver memo `DECISOES_0.8_0.6_0.7_2026-10-30.md`).
-- [ ] iOS: criar client OAuth de iOS, registrar URL scheme e testar **ou** esconder a integração no
-      iOS (item 4.9 do checklist; depende da decisão 0.8). Bundle iOS ainda `com.example.prontuarioTcc`.
+- [x] **Decisão 0.8 fechada (30/10/2026 — opção 1):** integração oculta nos builds de release
+      (`GoogleCalendarConfig.visivel`; padrão `false` em release e `true` em debug, ligável com
+      `--dart-define=GOOGLE_CALENDAR_VISIVEL=true`). O 1º envio sai sem Calendar; ativação na
+      atualização pós-aprovação (§8). Build **2.0.5+65** gerado com a ocultação por padrão.
+- [ ] iOS: a mesma flag oculta a integração no iOS; criar client OAuth de iOS, registrar URL scheme e
+      testar só quando formos ligar a integração (item 4.9 do checklist). Bundle iOS ainda
+      `com.example.prontuarioTcc`.
 - [ ] Importar eventos ocupados do Google (conflitos) e sync ao abrir a Agenda — etapa seguinte.
 - [ ] Limitar a sincronização de recorrência a uma janela de 90 dias.
 - [ ] **2B (confirmação global pelo wuzapi)** depois da 2A; em produção ainda depende dos secrets do

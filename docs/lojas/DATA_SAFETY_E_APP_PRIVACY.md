@@ -77,7 +77,7 @@ do checklist de publicação. Apoio para **3.5** (permissões) no Anexo A.
 | **Personal info → Other info** (CRP, nomes em contrato/anamnese) | Sim | Não (fica no servidor do MentAll; entram em contratos/anamnese) | Sim | App functionality | Sim |
 | **Health and fitness → Health info** (relato/transcrição/síntese clínica) | Sim | Sim (OpenAI; Groq recebe áudio com conteúdo clínico) | Sim | App functionality | Sim (só ao usar IA) |
 | **Audio → Voice or sound recordings** (relato pós-sessão) | Sim | Sim (Groq) | Sim | App functionality | Sim (só ao transcrever) |
-| **Calendar → Calendar events** (opcional Google Calendar) | Sim, se a integração for ativada | Sim (Google) | Sim | App functionality | Sim (desligado por padrão) |
+| **Calendar → Calendar events** (opcional Google Calendar) | **Fora do 1º envio** (integração oculta; ver §6) | Sim, só após ativação pós-aprovação | Sim | App functionality | Sim (desligado por padrão) |
 | **App activity → App interactions** (tipos de evento de uso) | Sim | Não | Sim | Analytics | Não |
 | **Device or other IDs → Device or other IDs** (UUID aleatório) | Sim | Não | Sim | App functionality; Analytics; Fraud prevention, security and compliance | Não |
 | **App info and performance → Crash logs / Diagnostics** | **Não** (Sentry desligado; app não envia crash logs) | — | — | — | — |
@@ -148,7 +148,7 @@ rastreamento** (sem SDK de ads/analytics de terceiros). Portanto: **“Data Used
 | **Identifiers** | User ID | Sim | Sim | App Functionality | Conta do profissional (ID interno) |
 | **Identifiers** | Device ID | Sim | Sim | App Functionality; Analytics | UUID aleatório do aparelho |
 | **Usage Data** | Product Interaction | Sim | Sim | Analytics | Tipos de evento (sem conteúdo clínico) |
-| **Other Data Types** (se necessário) | Calendar events (Google Calendar opcional) | Sim, se ativado | Sim | App Functionality | Apple não tem categoria própria de calendário; declarar como “Other Data Types” e explicar na política |
+| **Other Data Types** (se necessário) | Calendar events (Google Calendar opcional — **fora do 1º envio**, ver §6) | Sim, só após ativação pós-aprovação | Sim | App Functionality | Apple não tem categoria própria de calendário; declarar como “Other Data Types” e explicar na política |
 | Diagnostics (crash/performance) | — | **Não** | — | — | Sentry desligado |
 | Financial Info | — | **Não** | — | — | Valores ficam no aparelho |
 | Location / Contacts / Browsing / Search / Purchases | — | **Não** | — | — | — |
@@ -182,8 +182,11 @@ rastreamento** (sem SDK de ads/analytics de terceiros). Portanto: **“Data Used
 
 1. **DPA com os provedores (itens 1.6/1.7):** com DPA assinado, Fly.io/Magalu/Cloudflare podem ser
    tratados como *service providers* (não “compartilhados”). Sem DPA, declarar como compartilhados.
-2. **Google Calendar no 1º envio (decisão 0.8):** se a integração for escondida no build de loja,
-   **não** declarar “Calendar events”; se for publicada, declarar (e concluir a verificação OAuth 0.9).
+2. **Google Calendar no 1º envio (decisão 0.8 — FECHADA em 30/10/2026, opção 1):** o 1º build de
+   loja sai **sem** a integração (oculta por flag em release) → **não** declarar “Calendar events”
+   neste envio. Para ativar depois da aprovação do Google: gerar o build com
+   `--dart-define=GOOGLE_CALENDAR_VISIVEL=true`, atualizar as respostas das tabelas §2/§3 (Calendar
+   events / Other Data Types) e o checklist 0.8/0.9.
 3. **Retenção OpenAI/Groq:** só marcar “processado de forma efêmera” se houver contrato/opção de
    retenção zero. Caso contrário, declaração conservadora (coletado/compartilhado) é a correta.
 4. **Contrato com conteúdo financeiro:** se o profissional digitar valores no template do contrato,

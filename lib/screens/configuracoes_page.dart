@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
+import '../config/google_calendar_config.dart';
 import '../providers/service_providers.dart';
 import '../services/api_client.dart';
 import '../services/configuracoes_service.dart';
@@ -302,28 +303,32 @@ class _ConfiguracoesPageState extends ConsumerState<ConfiguracoesPage> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          _secao(
-            context,
-            titulo: 'Integrações',
-            children: [
-              ListTile(
-                leading: Icon(
-                  Icons.calendar_month_outlined,
-                  color: context.corPrimaria,
+          // Integração Google Calendar escondida nos builds de release até a
+          // verificação do Google ser aprovada (decisão 0.8, 30/10/2026).
+          if (GoogleCalendarConfig.visivel) ...[
+            const SizedBox(height: 16),
+            _secao(
+              context,
+              titulo: 'Integrações',
+              children: [
+                ListTile(
+                  leading: Icon(
+                    Icons.calendar_month_outlined,
+                    color: context.corPrimaria,
+                  ),
+                  title: const Text('Google Calendar'),
+                  subtitle: const Text(
+                    'Crie e atualize os eventos da agenda no seu calendário.',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const GoogleCalendarPage()),
+                  ),
                 ),
-                title: const Text('Google Calendar'),
-                subtitle: const Text(
-                  'Crie e atualize os eventos da agenda no seu calendário.',
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const GoogleCalendarPage()),
-                ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
           const SizedBox(height: 16),
           _secao(
             context,
