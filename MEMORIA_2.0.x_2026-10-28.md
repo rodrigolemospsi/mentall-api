@@ -89,6 +89,8 @@ flutter build appbundle --release
   MentAll.”; “Fazer agora” cria o `.json` via SAF; após force-stop/reabrir, a permissão persistida
   continua válida; ao apagar a pasta, o próximo backup cai em `app_flutter` com o aviso de fallback.
 - **Testes:** `flutter analyze` sem issues; `flutter test` **355/355** verde.
+- **Confirmado no aparelho pelo dono (30/10):** instalou a 2.0.6+66, reescolheu a pasta no
+  fluxo novo e o “Fazer agora” gravou o backup — correção aceita.
 - **Artefatos 2.0.6+66 (upload key):** `MentAllPRO-v2.0.6-release.apk` (82,1 MB, SHA-256
   `c95bbe75…1fce05`) e `MentAllPRO-v2.0.6.aab` (74,4 MB, SHA-256 `280e677c…a66985b`) — `.aab`
   agora ignorado no git.
