@@ -113,3 +113,25 @@ por conta própria (não há API pública de emissão).
   comparecimento + retenção/tela de documentos.
 - OTP por e-mail (fase opcional de reforço) e ICP-Brasil/plataforma certificada
   (upgrade futuro).
+
+## Validação em produção (01/11/2026)
+
+- **Deploy:** CI run `41336333919` verde (Flutter, backend isolado, dependency scan e deploy
+  Fly). O primeiro deploy (run `41335598127`) falhou no smoke check por um bug de ordem no boot
+  (índice criado antes da migração da coluna `aceite_codigo`); corrigido em `services/db.py`
+  (tabelas → migrações → índices) e reimplantado com sucesso.
+- **Chrome real em produção** (`https://mentall-api.fly.dev/contratos/<token>`):
+  - modelo padrão exibiu CPF/CNPJ do profissional, campo de CPF e checkbox;
+  - assinar sem marcar o checkbox foi bloqueado com a mensagem correta;
+  - assinatura com checkbox mostrou o código e, após reload, o bloco
+    "Documento assinado eletronicamente" com CPF mascarado, data, código e hash;
+  - `GET /verificar/<código>` respondeu 200 com `Cache-Control: no-store`, nome do profissional,
+    código, data e hash — **sem** nome completo do paciente e **sem** CPF.
+- **Backend/banco de produção:** evidências gravadas (`aceite_cpf`, `aceite_ip`,
+  `aceite_user_agent`, `aceite_hash` de 64 hex, `aceite_codigo`, `aceite_versao =
+  contrato-v1`). O hash foi recalculado localmente a partir do conteúdo canônico e **bateu**
+  com o gravado (integridade reprodutível). Contrato de teste removido ao final.
+- **Política de privacidade v1.4** publicada no site (mentallpro.com.br/privacidade) e no app.
+- **Artefatos 2.0.8+68:** `MentAllPRO-v2.0.8-debugsign.apk` (SHA-256
+  `1f430d854d87…da0f01`), `MentAllPRO-v2.0.8-release.apk` (upload key; instala por cima da 2.0.7)
+  e `MentAllPRO-v2.0.8.aab` (74,7 MB).

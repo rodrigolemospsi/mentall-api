@@ -166,6 +166,16 @@ flutter build appbundle --release
   recibos/notas sem dados clínicos. RFB tem emissão em lote por arquivo de
   integração — é o caminho para o app (não há API oficial de emissão).
   Detalhes em `docs/ASSINATURA_ELETRONICA.md`.
+- **Deploy/validação (01/11):** primeiro deploy falhou no smoke check (índice
+  criado antes da migração da coluna `aceite_codigo`); corrigido em `db.py`
+  (tabelas → migrações → índices) e reimplantado com sucesso (run
+  `41336333919`). Validado em produção no Chrome: checkbox bloqueia, assinatura
+  gera código/hash, página `/verificar/<código>` mascara paciente/CPF e o hash
+  recomputado bateu com o banco. Contrato de teste apagado. Política v1.4
+  publicada no site.
+- **Artefatos 2.0.8+68:** `MentAllPRO-v2.0.8-debugsign.apk` (SHA-256
+  `1f430d85…da0f01`), `MentAllPRO-v2.0.8-release.apk` (upload key; instala por
+  cima da 2.0.7) e `MentAllPRO-v2.0.8.aab`.
 - **Próximos passos:** Fase 2 (recibos Receita Saúde em lote + declaração de
   comparecimento com entrada/saída + retenção 5 anos). Opcional: OTP por
   e-mail e ICP-Brasil/plataforma certificada.
