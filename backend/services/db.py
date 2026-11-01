@@ -89,10 +89,16 @@ def _tentar_conectar_turso():
 
 
 def _criar_tabelas(conn) -> None:
-    for sql in _tabelas + _tabelas_exclusao + _indices:
+    # 1) tabelas; 2) migrações (colunas novas em banco existente); 3) índices.
+    # A ordem importa: um índice sobre coluna recém-criada falharia se rodasse
+    # antes da migração (foi a causa de crash no boot do deploy 2.0.8).
+    for sql in _tabelas + _tabelas_exclusao:
         conn.execute(sql)
     conn.commit()
     _aplicar_migracoes(conn)
+    for sql in _indices:
+        conn.execute(sql)
+    conn.commit()
     log.info("Tabelas verificadas/criadas com sucesso.")
 
 
