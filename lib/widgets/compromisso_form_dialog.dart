@@ -359,6 +359,11 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
       servico: _servicoController.text.trim(),
       linkOnline: _linkOnlineController.text.trim(),
       permitirConflito: permitirConflito,
+      // Preserva o vínculo com o evento do Google Calendar na edição; sem isso
+      // o sync cria um evento novo a cada alteração (duplicando no calendário).
+      googleEventId: existente?.googleEventId ?? '',
+      googleCalendarId: existente?.googleCalendarId ?? '',
+      googleSyncedAt: existente?.googleSyncedAt,
     );
 
     Navigator.pop(context, compromisso);
