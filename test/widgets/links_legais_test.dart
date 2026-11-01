@@ -51,7 +51,11 @@ void main() {
     expect(LinksLegais.privacidade, 'https://mentallpro.com.br/privacidade/');
     expect(LinksLegais.termos, 'https://mentallpro.com.br/termos/');
     expect(LinksLegais.exclusaoConta, 'https://mentallpro.com.br/exclusao/');
-    expect(LinksLegais.versaoPublicada, contains('1.2'));
+    expect(
+      LinksLegais.versaoPublicada,
+      matches(RegExp(r'^\d+\.\d+ — \d{2}/\d{2}/\d{4}$')),
+      reason: 'versão publicada deve seguir o formato N.N — DD/MM/AAAA',
+    );
   });
 
   testWidgets('política in-app mostra a versão publicada e abre o site',
@@ -59,7 +63,10 @@ void main() {
     await telaGrande(tester);
     await tester.pumpWidget(const MaterialApp(home: PoliticaPrivacidadePage()));
 
-    expect(find.textContaining('Versão 1.2'), findsOneWidget);
+    expect(
+        find.textContaining('Versão ${_versaoCurta()}'),
+        findsOneWidget,
+    );
     expect(
       find.textContaining('mentallpro.com.br/privacidade'),
       findsWidgets,
@@ -76,7 +83,10 @@ void main() {
     await telaGrande(tester);
     await tester.pumpWidget(const MaterialApp(home: TermosUsoPage()));
 
-    expect(find.textContaining('Versão 1.2'), findsOneWidget);
+    expect(
+        find.textContaining('Versão ${_versaoCurta()}'),
+        findsOneWidget,
+    );
     expect(find.textContaining('mentallpro.com.br/termos'), findsWidgets);
 
     await tester.tap(find.text('Ler a versão oficial no site'));
@@ -85,3 +95,6 @@ void main() {
     expect(lancadas, contains(LinksLegais.termos));
   });
 }
+
+/// Versão curta (ex.: "1.3") derivada da versão publicada, para não engessar o teste.
+String _versaoCurta() => LinksLegais.versaoPublicada.split(' — ').first;
