@@ -7,6 +7,7 @@ import 'package:prontuario_tcc/models/anamnese_enviada.dart';
 import 'package:prontuario_tcc/models/avaliacao_inicial.dart';
 import 'package:prontuario_tcc/models/compromisso.dart';
 import 'package:prontuario_tcc/models/contrato_terapeutico.dart';
+import 'package:prontuario_tcc/models/documento_emitido.dart';
 import 'package:prontuario_tcc/models/lgpd/registro_auditoria.dart';
 import 'package:prontuario_tcc/models/paciente.dart';
 import 'package:prontuario_tcc/models/pacote.dart';
@@ -21,6 +22,7 @@ extension HiveRegistrar on HiveInterface {
     registerAdapter(AvaliacaoInicialAdapter());
     registerAdapter(CompromissoAdapter());
     registerAdapter(ContratoTerapeuticoAdapter());
+    registerAdapter(DocumentoEmitidoAdapter());
     registerAdapter(PacienteAdapter());
     registerAdapter(PacoteAdapter());
     registerAdapter(PerfilProfissionalAdapter());
@@ -37,6 +39,7 @@ extension IsolatedHiveRegistrar on IsolatedHiveInterface {
     registerAdapter(AvaliacaoInicialAdapter());
     registerAdapter(CompromissoAdapter());
     registerAdapter(ContratoTerapeuticoAdapter());
+    registerAdapter(DocumentoEmitidoAdapter());
     registerAdapter(PacienteAdapter());
     registerAdapter(PacoteAdapter());
     registerAdapter(PerfilProfissionalAdapter());

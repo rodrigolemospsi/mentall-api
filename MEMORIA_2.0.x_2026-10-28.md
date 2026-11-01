@@ -179,3 +179,21 @@ flutter build appbundle --release
 - **Próximos passos:** Fase 2 (recibos Receita Saúde em lote + declaração de
   comparecimento com entrada/saída + retenção 5 anos). Opcional: OTP por
   e-mail e ICP-Brasil/plataforma certificada.
+
+## Recibos e declarações (Fase 2) — 01/11/2026, 2.0.9+69
+
+- **Card "Documentos"** no Resumo do paciente com: declaração de
+  comparecimento (entrada/saída, sem CID/diagnóstico, assinatura eletrônica
+  simples), **arquivo Receita Saúde em lote (CSV no leiaute oficial)**,
+  comprovante de pagamento (não fiscal) e informe anual de pagamentos.
+- **Leiaute oficial:** CSV `;`, 16 campos, `R01.001.001`, ocupação `255`,
+  `PF`, CPFs pagador/beneficiário/profissional, `S`, registro profissional
+  (Manual Receita Saúde v2.1, pergunta 24). Arquivo é importado no e-CAC →
+  Carnê-Leão → Escrituração; o recibo oficial é emitido pelo Receita Saúde.
+- **Registro local:** box `documentos_emitidos` (`DocumentoEmitido`, typeId 13)
+  com numeração DOC-AAAA-0001/LOTE-AAAA-0001, código e hash SHA-256; snapshot
+  cifrado no Hive. Testes: 7 novos (CSV/validações/numeração/cifra).
+- **Regras fiscais documentadas:** PF → Receita Saúde; PJ/CNPJ → NFS-e;
+  sem dados clínicos nos documentos; retenção 5 anos.
+- **Pendências Fase 2.1:** backup/retenção da box, verificação pública dos
+  documentos, envio ao paciente, NFS-e (PJ), OTP/ICP-Brasil opcionais.

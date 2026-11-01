@@ -27,3 +27,20 @@ Future<List<String>> compartilharPdfs(
   );
   return caminhos;
 }
+
+/// Compartilha um arquivo de texto (ex.: CSV do Receita Saúde).
+Future<List<String>> compartilharTexto({
+  required String nome,
+  required String conteudo,
+  String mimeType = 'text/csv',
+  String subject = 'MentAll PRO — documento',
+}) async {
+  final pasta = await getTemporaryDirectory();
+  final destino = File('${pasta.path}${Platform.pathSeparator}$nome');
+  await destino.writeAsString(conteudo, flush: true);
+  await Share.shareXFiles(
+    [XFile(destino.path, mimeType: mimeType)],
+    subject: subject,
+  );
+  return [destino.path];
+}

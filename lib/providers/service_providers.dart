@@ -11,6 +11,7 @@ import '../models/pacote.dart';
 import '../models/progresso_sessao.dart';
 import '../models/resposta_escala.dart';
 import '../services/anamnese_enviada_service.dart';
+import '../services/documento_fiscal_service.dart';
 import '../services/audio_relato_service.dart';
 import '../services/auth_service.dart';
 import '../services/avaliacao_inicial_service.dart';
@@ -324,6 +325,11 @@ final respostasEscalasPorPacienteProvider = StreamProvider.autoDispose
         yield service.listarPorPaciente(pacienteId);
       }
     });
+
+final documentoFiscalServiceProvider = Provider<DocumentoFiscalService>((ref) {
+  final encryption = ref.watch(encryptionServiceProvider);
+  return DocumentoFiscalService(encryption: encryption);
+});
 
 final anamneseEnviadaServiceProvider = Provider<AnamneseEnviadaService>((ref) {
   final encryption = ref.watch(encryptionServiceProvider);

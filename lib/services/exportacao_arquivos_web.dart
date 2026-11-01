@@ -9,3 +9,15 @@ Future<List<String>> compartilharPdfs(
     'A exportação completa em PDF está disponível apenas no aplicativo.',
   );
 }
+
+/// Stub web: compartilhamento de arquivos indisponível no navegador.
+Future<List<String>> compartilharTexto({
+  required String nome,
+  required String conteudo,
+  String mimeType = 'text/csv',
+  String subject = 'MentAll PRO — documento',
+}) async {
+  throw UnsupportedError(
+    'O compartilhamento de arquivos está disponível apenas no aplicativo.',
+  );
+}

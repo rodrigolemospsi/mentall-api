@@ -2136,6 +2136,379 @@ class PdfExportService {
     ];
   }
 
+  /// Declaração de comparecimento (para entrega à empresa), sem CID/diagnóstico.
+  Future<void> exportarDeclaracaoComparecimento({
+    required Paciente paciente,
+    required PerfilProfissional perfil,
+    required DateTime data,
+    required String horaEntrada,
+    required String horaSaida,
+    required String local,
+    required int numero,
+    required String codigo,
+    String hash = '',
+  }) async {
+    try {
+      final pdf = await _gerarDeclaracaoComparecimento(
+        paciente: paciente,
+        perfil: perfil,
+        data: data,
+        horaEntrada: horaEntrada,
+        horaSaida: horaSaida,
+        local: local,
+        numero: numero,
+        codigo: codigo,
+        hash: hash,
+      );
+      await _salvarOuImprimir(
+        pdf: pdf,
+        nomeArquivo:
+            'declaracao_comparecimento_${paciente.nomeExibicao}_${_formatarDataArquivo(data)}.pdf',
+      );
+    } catch (e) {
+      Log.erro(e, contexto: 'PdfExportService.exportarDeclaracaoComparecimento');
+      rethrow;
+    }
+  }
+
+  /// Comprovante interno de pagamento (não fiscal).
+  Future<void> exportarComprovantePagamento({
+    required Paciente paciente,
+    required PerfilProfissional perfil,
+    required Sessao sessao,
+    required int numero,
+    required String codigo,
+    String hash = '',
+  }) async {
+    try {
+      final pdf = await _gerarComprovantePagamento(
+        paciente: paciente,
+        perfil: perfil,
+        sessao: sessao,
+        numero: numero,
+        codigo: codigo,
+        hash: hash,
+      );
+      await _salvarOuImprimir(
+        pdf: pdf,
+        nomeArquivo:
+            'comprovante_pagamento_${paciente.nomeExibicao}_${_formatarDataArquivo(sessao.data)}.pdf',
+      );
+    } catch (e) {
+      Log.erro(e, contexto: 'PdfExportService.exportarComprovantePagamento');
+      rethrow;
+    }
+  }
+
+  /// Informe anual de pagamentos (conferência do paciente/contador).
+  Future<void> exportarInformePagamentos({
+    required Paciente paciente,
+    required PerfilProfissional perfil,
+    required int ano,
+    required List<Sessao> sessoesPagas,
+    required int numero,
+    required String codigo,
+    String hash = '',
+  }) async {
+    try {
+      final pdf = await _gerarInformePagamentos(
+        paciente: paciente,
+        perfil: perfil,
+        ano: ano,
+        sessoesPagas: sessoesPagas,
+        numero: numero,
+        codigo: codigo,
+        hash: hash,
+      );
+      await _salvarOuImprimir(
+        pdf: pdf,
+        nomeArquivo:
+            'informe_pagamentos_${paciente.nomeExibicao}_$ano.pdf',
+      );
+    } catch (e) {
+      Log.erro(e, contexto: 'PdfExportService.exportarInformePagamentos');
+      rethrow;
+    }
+  }
+
+  String _formatarDataArquivo(DateTime data) {
+    return '${data.day.toString().padLeft(2, '0')}-'
+        '${data.month.toString().padLeft(2, '0')}-${data.year}';
+  }
+
+  String _formatarMoedaBr(double valor) =>
+      'R\$ ${valor.toStringAsFixed(2).replaceAll('.', ',')}';
+
+  List<pw.Widget> _rodapeDocumentoEletronico({
+    required String nomeDocumento,
+    required int numero,
+    required String codigo,
+    required String hash,
+    String aviso = '',
+  }) {
+    return [
+      pw.SizedBox(height: 18),
+      _linhaSeparadora(),
+      pw.SizedBox(height: 6),
+      pw.Text(
+        '$nomeDocumento · Documento nº DOC-${numero.toString().padLeft(4, '0')}',
+        style: pw.TextStyle(
+            fontSize: Tipografia.xs,
+            fontWeight: pw.FontWeight.bold,
+            color: _secundaria),
+      ),
+      pw.Text(
+        'Código de verificação: $codigo'
+        '${hash.isEmpty ? '' : ' · Hash SHA-256: ${hash.substring(0, 24)}...'}',
+        style: pw.TextStyle(fontSize: 8, color: _secundaria),
+      ),
+      if (aviso.isNotEmpty)
+        pw.Padding(
+          padding: const pw.EdgeInsets.only(top: 4),
+          child: pw.Text(
+            aviso,
+            style: pw.TextStyle(fontSize: 8, color: _secundaria),
+          ),
+        ),
+    ];
+  }
+
+  Future<Uint8List> _gerarDeclaracaoComparecimento({
+    required Paciente paciente,
+    required PerfilProfissional perfil,
+    required DateTime data,
+    required String horaEntrada,
+    required String horaSaida,
+    required String local,
+    required int numero,
+    required String codigo,
+    required String hash,
+  }) async {
+    final doc = _novoDocumento();
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(28),
+        header: (context) => _cabecalhoPagina(perfil),
+        footer: (context) => _rodapePagina(context),
+        build: (context) => [
+          _tituloDocumento('Declaração de comparecimento'),
+          pw.SizedBox(height: 10),
+          pw.Text(
+            'DECLARAÇÃO DE COMPARECIMENTO',
+            style: pw.TextStyle(
+                fontSize: 14,
+                fontWeight: pw.FontWeight.bold,
+                color: _titulo),
+          ),
+          pw.SizedBox(height: 14),
+          pw.Text(
+            'Declaro, para os devidos fins, que ${paciente.nomeExibicao}'
+            '${paciente.cpf.trim().isNotEmpty ? ', CPF ${Documentos.formatarCpf(paciente.cpf)}' : ''} '
+            'compareceu a atendimento psicológico nesta data, conforme registro abaixo.',
+            style: pw.TextStyle(fontSize: Tipografia.sm, color: PdfColors.black),
+          ),
+          pw.SizedBox(height: 14),
+          _linhaInfoPdf('Paciente', paciente.nomeExibicao),
+          if (paciente.cpf.trim().isNotEmpty)
+            _linhaInfoPdf('CPF', Documentos.formatarCpf(paciente.cpf)),
+          _linhaInfoPdf('Data', _formatarData(data)),
+          _linhaInfoPdf('Entrada', horaEntrada),
+          _linhaInfoPdf('Saída', horaSaida),
+          if (local.trim().isNotEmpty) _linhaInfoPdf('Local', local),
+          pw.SizedBox(height: 8),
+          pw.Text(
+            'Finalidade: comprovação de comparecimento junto ao empregador. '
+            'Esta declaração atesta apenas o comparecimento, não contém diagnóstico, '
+            'CID ou informações clínicas.',
+            style: pw.TextStyle(fontSize: Tipografia.xs, color: _secundaria),
+          ),
+          pw.SizedBox(height: 28),
+          pw.Text(
+            '${_formatarData(data)} — $local',
+            style: pw.TextStyle(fontSize: Tipografia.sm, color: PdfColors.black),
+          ),
+          pw.SizedBox(height: 36),
+          pw.Text('_____________________________________________',
+              style: pw.TextStyle(color: _secundaria)),
+          pw.Text(perfil.nomeExibicao,
+              style: pw.TextStyle(
+                  fontSize: Tipografia.sm,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.black)),
+          if (perfil.registroProfissional.trim().isNotEmpty)
+            pw.Text('CRP ${perfil.registroProfissional.trim()}',
+                style: pw.TextStyle(
+                    fontSize: Tipografia.xs, color: _secundaria)),
+          if (perfil.cpf.trim().isNotEmpty)
+            pw.Text('CPF ${Documentos.formatarCpf(perfil.cpf)}',
+                style: pw.TextStyle(
+                    fontSize: Tipografia.xs, color: _secundaria)),
+          ..._rodapeDocumentoEletronico(
+            nomeDocumento: 'Declaração de comparecimento',
+            numero: numero,
+            codigo: codigo,
+            hash: hash,
+            aviso: 'Documento emitido eletronicamente pelo MentAll PRO; '
+                'assinatura eletrônica simples do profissional.',
+          ),
+        ],
+      ),
+    );
+    return doc.save();
+  }
+
+  Future<Uint8List> _gerarComprovantePagamento({
+    required Paciente paciente,
+    required PerfilProfissional perfil,
+    required Sessao sessao,
+    required int numero,
+    required String codigo,
+    required String hash,
+  }) async {
+    final doc = _novoDocumento();
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(28),
+        header: (context) => _cabecalhoPagina(perfil),
+        footer: (context) => _rodapePagina(context),
+        build: (context) => [
+          _tituloDocumento('Comprovante de pagamento'),
+          pw.SizedBox(height: 4),
+          pw.Text(
+            'COMPROVANTE DE PAGAMENTO (NÃO FISCAL)',
+            style: pw.TextStyle(
+                fontSize: 13,
+                fontWeight: pw.FontWeight.bold,
+                color: _titulo),
+          ),
+          pw.SizedBox(height: 12),
+          _linhaInfoPdf('Paciente', paciente.nomeExibicao),
+          if (paciente.cpf.trim().isNotEmpty)
+            _linhaInfoPdf('CPF', Documentos.formatarCpf(paciente.cpf)),
+          _linhaInfoPdf('Sessão em', _formatarData(sessao.data)),
+          if (sessao.dataPagamento != null)
+            _linhaInfoPdf('Pago em', _formatarData(sessao.dataPagamento!)),
+          _linhaInfoPdf('Valor', _formatarMoedaBr(sessao.valorSessao)),
+          if (sessao.metodoPagamento.trim().isNotEmpty)
+            _linhaInfoPdf('Forma de pagamento', sessao.metodoPagamento),
+          _linhaInfoPdf('Descrição', 'Sessão de psicoterapia'),
+          pw.SizedBox(height: 12),
+          _linhaSeparadora(),
+          pw.SizedBox(height: 8),
+          pw.Text(
+            'Este comprovante serve para conferência de valores e controle interno. '
+            'O documento fiscal oficial para dedução no IRPF é o recibo emitido pelo '
+            'Receita Saúde (profissional pessoa física) ou a NFS-e municipal '
+            '(profissional pessoa jurídica/CNPJ).',
+            style: pw.TextStyle(fontSize: Tipografia.xs, color: _secundaria),
+          ),
+          ..._rodapeDocumentoEletronico(
+            nomeDocumento: 'Comprovante de pagamento',
+            numero: numero,
+            codigo: codigo,
+            hash: hash,
+          ),
+        ],
+      ),
+    );
+    return doc.save();
+  }
+
+  Future<Uint8List> _gerarInformePagamentos({
+    required Paciente paciente,
+    required PerfilProfissional perfil,
+    required int ano,
+    required List<Sessao> sessoesPagas,
+    required int numero,
+    required String codigo,
+    required String hash,
+  }) async {
+    final doc = _novoDocumento();
+    final total = sessoesPagas.fold<double>(0, (s, x) => s + x.valorSessao);
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(28),
+        header: (context) => _cabecalhoPagina(perfil),
+        footer: (context) => _rodapePagina(context),
+        build: (context) => [
+          _tituloDocumento('Informe de pagamentos'),
+          pw.SizedBox(height: 4),
+          pw.Text(
+            'INFORME DE PAGAMENTOS — $ano',
+            style: pw.TextStyle(
+                fontSize: 13,
+                fontWeight: pw.FontWeight.bold,
+                color: _titulo),
+          ),
+          pw.SizedBox(height: 10),
+          _linhaInfoPdf('Paciente', paciente.nomeExibicao),
+          if (paciente.cpf.trim().isNotEmpty)
+            _linhaInfoPdf('CPF', Documentos.formatarCpf(paciente.cpf)),
+          _linhaInfoPdf('Ano de referência', '$ano'),
+          pw.SizedBox(height: 12),
+          _linhaSeparadora(),
+          pw.SizedBox(height: 8),
+          _tituloSecaoPdf('Sessões pagas no ano'),
+          pw.SizedBox(height: 6),
+          if (sessoesPagas.isEmpty)
+            pw.Text('Nenhum pagamento registrado no ano.',
+                style: pw.TextStyle(
+                    fontSize: Tipografia.sm, color: _secundaria))
+          else
+            pw.TableHelper.fromTextArray(
+              headers: const ['Data do pagamento', 'Sessão', 'Valor'],
+              data: [
+                for (final sessao in sessoesPagas)
+                  [
+                    sessao.dataPagamento == null
+                        ? '-'
+                        : _formatarData(sessao.dataPagamento!),
+                    _formatarData(sessao.data),
+                    _formatarMoedaBr(sessao.valorSessao),
+                  ],
+              ],
+              headerStyle: pw.TextStyle(
+                  fontSize: 9,
+                  fontWeight: pw.FontWeight.bold,
+                  color: _titulo),
+              cellStyle: pw.TextStyle(fontSize: 9, color: PdfColors.black),
+              headerDecoration:
+                  const pw.BoxDecoration(color: PdfColors.grey200),
+              cellAlignment: pw.Alignment.centerLeft,
+            ),
+          pw.SizedBox(height: 10),
+          pw.Align(
+            alignment: pw.Alignment.centerRight,
+            child: pw.Text(
+              'Total no ano: ${_formatarMoedaBr(total)}',
+              style: pw.TextStyle(
+                  fontSize: 11,
+                  fontWeight: pw.FontWeight.bold,
+                  color: _titulo),
+            ),
+          ),
+          pw.SizedBox(height: 10),
+          pw.Text(
+            'Informe para conferência do paciente e da contabilidade. O documento '
+            'fiscal oficial para dedução no IRPF é o recibo do Receita Saúde '
+            '(profissional PF) ou a NFS-e municipal (profissional PJ/CNPJ).',
+            style: pw.TextStyle(fontSize: Tipografia.xs, color: _secundaria),
+          ),
+          ..._rodapeDocumentoEletronico(
+            nomeDocumento: 'Informe de pagamentos',
+            numero: numero,
+            codigo: codigo,
+            hash: hash,
+          ),
+        ],
+      ),
+    );
+    return doc.save();
+  }
+
   Future<Uint8List> _gerarPdfContratoAssinado({
     required ContratoTerapeutico contrato,
     required Paciente paciente,

@@ -18,6 +18,7 @@ import '../utils/mentall_colors.dart';
 import '../utils/raio.dart';
 import '../utils/responsivo.dart';
 import '../widgets/anamnese_card.dart';
+import '../widgets/documentos_paciente_card.dart';
 import '../widgets/escalas_section.dart';
 import '../widgets/mentall_card.dart';
 import '../widgets/paciente_resumo_card.dart';
@@ -472,6 +473,11 @@ class PacienteResumoTab extends ConsumerWidget {
                       !anamnese.falhaDecifrar
                   ? anamnese.respostas
                   : null,
+            ),
+            const SizedBox(height: 14),
+            DocumentosPacienteCard(
+              paciente: paciente,
+              termoSingular: termoSingular,
             ),
             const SizedBox(height: 14),
             EscalasSection(pacienteId: paciente.id),

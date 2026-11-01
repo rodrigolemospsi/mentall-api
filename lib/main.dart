@@ -11,6 +11,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'hive_registrar.g.dart';
 import 'models/compromisso.dart';
 import 'models/contrato_terapeutico.dart';
+import 'models/documento_emitido.dart';
 import 'models/lgpd/registro_auditoria.dart';
 import 'models/paciente.dart';
 import 'models/pacote.dart';
@@ -138,6 +139,7 @@ Future<void> _iniciarApp() async {
     Hive.openBox<String>('auth_meta'),
     Hive.openBox<String>('encryption_meta'),
     Hive.openBox<ContratoTerapeutico>('contratos'),
+    Hive.openBox<DocumentoEmitido>('documentos_emitidos'),
     Hive.openBox<String>('logs_tecnicos'),
     Hive.openBox('schema_meta'),
     Hive.openBox('avaliacoes_iniciais'),
