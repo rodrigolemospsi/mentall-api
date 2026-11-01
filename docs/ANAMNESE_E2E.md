@@ -79,3 +79,23 @@ total ao banco, um vazamento não expõe as respostas.
 - TTL/limpeza das respostas legadas em texto claro e das cifradas já entregues.
 - Expiração/revogação dos links (P1.11).
 - Migração opcional de fichas legadas pendentes para E2E quando reenviadas.
+
+## Validação em produção (01/11/2026)
+
+- **Backend deploy:** CI do GitHub Actions (run `41255598544`) verde — análise/testes Flutter,
+  testes isolados do backend e deploy no Fly. Migração criou `anamneses.e2e` e `anamneses.cifrada`
+  no banco de produção (`/data/mentall.db`, volume Fly em São Paulo).
+- **Navegador real (Chrome/CDP):** ficha `e2e=1` criada via API, aberta com `#k=...`, formulário
+  respondido e enviado → banco com envelope `A256GCM` (sem texto claro no `respostas`); decifração
+  via WebCrypto devolveu exatamente as respostas enviadas. Link sem o fragmento mostra
+  "Link incompleto" e bloqueia o envio.
+- **App real no emulador (build 2.0.7+67, mesma chave de produção):**
+  1. paciente criado no app e anamnese gerada → ficha `e2e=1` no servidor de produção e link do
+     WhatsApp contendo `#k=...` (conferido no log do build de teste);
+  2. resposta cifrada enviada por fora (AES-256-GCM com a chave do link) → app sincronizou,
+     exibiu **"Respondido em 01/11"** e o diálogo mostrou
+     **"Respostas cifradas ponta a ponta — decifradas neste aparelho."** com o conteúdo correto.
+  3. dados de teste removidos ao final (paciente arquivado localmente; ficha apagada do servidor).
+- **Política de privacidade v1.3 publicada** no site (https://mentallpro.com.br/privacidade/) e no app.
+- **Artefatos:** `MentAllPRO-v2.0.7-debugsign.apk` (debug key), `MentAllPRO-v2.0.7-release.apk`
+  (upload key, instala por cima da 2.0.6) e `MentAllPRO-v2.0.7.aab`.

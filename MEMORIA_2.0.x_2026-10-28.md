@@ -131,6 +131,16 @@ flutter build appbundle --release
   cifrado → decifração batendo com o enviado). Detalhes em `docs/ANAMNESE_E2E.md`.
 - **Política:** in-app e site atualizados para v1.3 — 01/11/2026 (anamnese
   cifrada ponta a ponta; servidor sem a chave).
+- **Deploy/validação (01/11):** backend no ar (CI run 41255598544 verde, migração
+  criou `e2e`/`cifrada` no banco de produção); política v1.3 publicada em
+  mentallpro.com.br/privacidade. Validado de ponta a ponta em produção: ficha
+  aberta no Chrome com `#k=`, envelope `A256GCM` no banco sem texto claro e
+  decifração batendo; e no app real do emulador (2.0.7+67): link do WhatsApp com
+  `#k=`, ficha criada como `e2e=1`, sync mostrou "Respondido em 01/11" e o
+  diálogo exibiu as respostas decifradas. Dados de teste apagados ao final.
+- **Artefatos 2.0.7+67:** `MentAllPRO-v2.0.7-debugsign.apk` (SHA-256
+  `d985eab2…c2b6b5`), `MentAllPRO-v2.0.7-release.apk` (upload key; instala por
+  cima da 2.0.6) e `MentAllPRO-v2.0.7.aab`.
 - **Pendências:** TTL/limpeza de respostas antigas em texto claro, expiração/
-  revogação de links (P1.11), deploy do site (painel/privacidade) e publicação
-  do APK/AAB 2.0.7.
+  revogação de links (P1.11), migração opcional de fichas legadas pendentes para
+  E2E no reenvio e publicação nas lojas (AAB).
