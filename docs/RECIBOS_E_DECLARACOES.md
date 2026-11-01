@@ -86,3 +86,16 @@ Saúde após a importação (a RFB não expõe API pública de emissão direta).
   campos no formato oficial, CPF ausente bloqueia, período sem pagamento,
   formatação de valores (sem milhar, vírgula), numeração sequencial, snapshot
   cifrado no Hive e formatadores de CPF.
+
+## Validação (01/11/2026)
+
+- **Testes:** `flutter analyze` sem issues; **Flutter 376 OK** (7 novos do serviço de
+  documentos) e backend **551 OK** (sem mudanças no backend nesta fase).
+- **Emulador (build 2.0.9+69):** card "Documentos" renderizou corretamente no
+  Resumo do paciente com as quatro ações (declaração, arquivo Receita Saúde,
+  comprovante e informe).
+- **CI/deploy:** run `41339526378` verde (Flutter, backend isolado, dependency
+  scan e deploy Fly); `/health` 200 após o deploy (mesmo backend da 2.0.8).
+- **Artefatos 2.0.9+69:** `MentAllPRO-v2.0.9-debugsign.apk` (SHA-256
+  `bf8afec55ad4…f0b8b4`), `MentAllPRO-v2.0.9-release.apk` (upload key; instala
+  por cima da 2.0.8) e `MentAllPRO-v2.0.9.aab`.

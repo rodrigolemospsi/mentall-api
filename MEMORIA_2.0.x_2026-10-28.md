@@ -195,5 +195,10 @@ flutter build appbundle --release
   cifrado no Hive. Testes: 7 novos (CSV/validações/numeração/cifra).
 - **Regras fiscais documentadas:** PF → Receita Saúde; PJ/CNPJ → NFS-e;
   sem dados clínicos nos documentos; retenção 5 anos.
+- **Validação (01/11):** Flutter 376 OK (7 novos), backend 551 OK; card
+  "Documentos" validado no emulador 2.0.9+69; CI run `41339526378` verde e
+  `/health` OK. Artefatos: `MentAllPRO-v2.0.9-debugsign.apk` (SHA-256
+  `bf8afec5…f0b8b4`), `MentAllPRO-v2.0.9-release.apk` (upload key, instala por
+  cima da 2.0.8) e `MentAllPRO-v2.0.9.aab`.
 - **Pendências Fase 2.1:** backup/retenção da box, verificação pública dos
   documentos, envio ao paciente, NFS-e (PJ), OTP/ICP-Brasil opcionais.
