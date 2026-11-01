@@ -260,6 +260,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
         TextEditingController(text: widget.paciente.contato);
     final emailController =
         TextEditingController(text: widget.paciente.email);
+    final cpfController = TextEditingController(text: widget.paciente.cpf);
     final observacoesController =
         TextEditingController(text: widget.paciente.observacoes);
 
@@ -301,6 +302,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
                 nomeController: nomeController,
                 contatoController: contatoController,
                 emailController: emailController,
+                cpfController: cpfController,
                 observacoesController: observacoesController,
                 tiposAtendimentoDisponiveis: tiposAtendimentoDisponiveis,
                 tipoAtendimento: tipoAtendimento,
@@ -337,6 +339,8 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
                     widget.paciente.nome = nome;
                     widget.paciente.contato = contatoController.text.trim();
                     widget.paciente.email = emailController.text.trim();
+                    widget.paciente.cpf =
+                        cpfController.text.replaceAll(RegExp(r'\D'), '');
                     widget.paciente.tipoAtendimento = tipoAtendimento;
                     widget.paciente.observacoes =
                         observacoesController.text.trim();
@@ -370,6 +374,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
     nomeController.dispose();
     contatoController.dispose();
     emailController.dispose();
+    cpfController.dispose();
     observacoesController.dispose();
   }
 
@@ -377,6 +382,7 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
     required TextEditingController nomeController,
     required TextEditingController contatoController,
     required TextEditingController emailController,
+    required TextEditingController cpfController,
     required TextEditingController observacoesController,
     required List<String> tiposAtendimentoDisponiveis,
     required String tipoAtendimento,
@@ -474,6 +480,17 @@ class _PacienteDetailPageState extends ConsumerState<PacienteDetailPage>
             keyboardType: TextInputType.emailAddress,
             decoration: const InputDecoration(
               labelText: 'E-mail',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: cpfController,
+            maxLength: 14,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'CPF (opcional)',
+              hintText: '000.000.000-00',
               border: OutlineInputBorder(),
             ),
           ),

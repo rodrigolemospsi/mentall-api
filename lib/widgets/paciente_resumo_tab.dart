@@ -11,7 +11,9 @@ import '../models/progresso_sessao.dart';
 import '../providers/service_providers.dart';
 import '../services/anamnese_labels.dart';
 import '../services/anamnese_templates.dart';
+import '../services/pdf_export_service.dart';
 import '../services/whatsapp_service.dart';
+import '../utils/links_legais.dart';
 import '../utils/mentall_colors.dart';
 import '../utils/raio.dart';
 import '../utils/responsivo.dart';
@@ -708,7 +710,8 @@ class PacienteResumoTab extends ConsumerWidget {
               const Spacer(),
               if (contrato != null && contrato.isAceito) ...[
                 TextButton.icon(
-                  onPressed: () => _verContrato(context, contrato),
+                  onPressed: () =>
+                      _verContrato(context, ref, paciente, contrato),
                   icon: Icon(Icons.visibility_outlined, size: 16, color: context.corSuccess),
                   label: Text('Ver', style: TextStyle(fontSize: Tipografia.smMd, color: context.corSuccess)),
                 ),
@@ -801,20 +804,167 @@ class PacienteResumoTab extends ConsumerWidget {
     return StatusChip(label: texto, cor: cor);
   }
 
-  Future<void> _verContrato(BuildContext context, ContratoTerapeutico contrato) async {
-    await showDialog(
+  Future<void> _verContrato(
+    BuildContext context,
+    WidgetRef ref,
+    Paciente paciente,
+    ContratoTerapeutico contrato,
+  ) async {
+    final dataAceite = contrato.dataAceite;
+    final dataTxt = dataAceite == null
+        ? '-'
+        : '${dataAceite.day.toString().padLeft(2, '0')}/'
+            '${dataAceite.month.toString().padLeft(2, '0')}/'
+            '${dataAceite.year} às '
+            '${dataAceite.hour.toString().padLeft(2, '0')}:'
+            '${dataAceite.minute.toString().padLeft(2, '0')}';
+
+    await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Acordo Terapêutico'),
-        content: const Text(
-          'Este acordo já foi aceito pelo paciente.\n\n'
-          'Para visualizar ou editar o modelo do documento, '
-          'acesse Configurações > Contrato.',
+        title: const Text('Acordo Terapêutico assinado'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Assinatura eletrônica simples registrada pelo MentAll PRO. '
+                  'Confira os dados abaixo; o comprovante em PDF traz o '
+                  'documento assinado e o QR code de verificação.',
+                  style: TextStyle(
+                    fontSize: Tipografia.smMd,
+                    color: context.corTextoSecondary,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _evidenciaContrato(
+                  ctx,
+                  'Assinado por',
+                  contrato.nomeAceite.isEmpty
+                      ? paciente.nomeExibicao
+                      : contrato.nomeAceite +
+                          (contrato.aceiteCpfMascarado.isEmpty
+                              ? ''
+                              : ' · CPF ${contrato.aceiteCpfMascarado}'),
+                ),
+                _evidenciaContrato(ctx, 'Data/hora', dataTxt),
+                _evidenciaContrato(
+                  ctx,
+                  'Código de verificação',
+                  contrato.aceiteCodigo.isEmpty
+                      ? '—'
+                      : contrato.aceiteCodigo,
+                ),
+                if (contrato.aceiteVersao.trim().isNotEmpty)
+                  _evidenciaContrato(
+                      ctx, 'Versão do documento', contrato.aceiteVersao),
+                if (contrato.aceiteHash.trim().isNotEmpty)
+                  _evidenciaContrato(
+                      ctx, 'Hash SHA-256', contrato.aceiteHash),
+                if (contrato.verificacaoUrl.trim().isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  TextButton.icon(
+                    onPressed: () =>
+                        LinksLegais.abrir(contrato.verificacaoUrl),
+                    icon: const Icon(Icons.open_in_new, size: 18),
+                    label: const Text('Verificar autenticidade'),
+                  ),
+                ],
+                const SizedBox(height: 4),
+                Text(
+                  'Assinatura eletrônica simples (MP 2.200-2/2001): o servidor '
+                  'registrou data/hora, IP, navegador e o hash do documento no '
+                  'momento da assinatura.',
+                  style: TextStyle(
+                      fontSize: Tipografia.xs, color: context.corTextoMuted),
+                ),
+              ],
+            ),
+          ),
         ),
         actions: [
+          TextButton.icon(
+            icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+            label: const Text('Comprovante em PDF'),
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              final perfil = ref
+                  .read(perfilProfissionalServiceProvider)
+                  .obterPerfil();
+              if (perfil == null) {
+                messenger.showSnackBar(const SnackBar(
+                    content: Text('Preencha o perfil profissional primeiro.')));
+                return;
+              }
+              var contratoPdf = contrato;
+              if (contratoPdf.documentoTexto.trim().isEmpty ||
+                  contratoPdf.aceiteCodigo.trim().isEmpty) {
+                final service = ref.read(contratoServiceProvider);
+                final atualizou = await service.verificarStatus(contratoPdf);
+                final atual =
+                    service.obterPorPaciente(paciente.id);
+                if (!atualizou ||
+                    atual == null ||
+                    atual.documentoTexto.trim().isEmpty) {
+                  messenger.showSnackBar(const SnackBar(
+                    content: Text(
+                        'Comprovante ainda não disponível. Tente novamente em instantes.'),
+                  ));
+                  return;
+                }
+                contratoPdf = atual;
+              }
+              try {
+                await PdfExportService().exportarContratoAssinado(
+                  contrato: contratoPdf,
+                  paciente: paciente,
+                  perfil: perfil,
+                );
+              } catch (e) {
+                messenger.showSnackBar(
+                  SnackBar(content: Text('Não foi possível gerar o PDF: $e')),
+                );
+              }
+            },
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Entendi'),
+            child: const Text('Fechar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _evidenciaContrato(
+    BuildContext context,
+    String rotulo,
+    String valor,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            rotulo,
+            style: TextStyle(
+              fontSize: Tipografia.xs,
+              fontWeight: FontWeight.w600,
+              color: context.corTextoMuted,
+            ),
+          ),
+          const SizedBox(height: 1),
+          SelectableText(
+            valor,
+            style: TextStyle(
+              fontSize: Tipografia.smMd,
+              color: context.corTextoBody,
+            ),
           ),
         ],
       ),

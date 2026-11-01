@@ -195,6 +195,7 @@
   <div class="cabecalho-profissional">
     <div class="profissional-nome">{{psicologo_ou_psicologa}} {{nome_profissional}}</div>
     <div class="profissional-crp">CRP {{registro_profissional}}{{crp_selo}}</div>
+    <div class="profissional-crp">{{linha_fiscal_profissional}}</div>
   </div>
 
   <div class="paciente-info">
@@ -219,18 +220,7 @@
   <h2>Consentimento</h2>
   <p>Ao preencher e assinar este formul&aacute;rio, declaro estar ciente e de acordo com os termos deste acordo terap&ecirc;utico.</p>
 
-  {% if not aceito %}
-  <div class="secao-aceite" id="secao-aceite">
-    <label for="nome-confirmacao">Digite seu nome completo para confirmar:</label>
-    <input type="text" id="nome-confirmacao" placeholder="Seu nome completo" autocomplete="off">
-    <button class="btn-aceitar" id="btn-aceitar" type="button">Li e aceito</button>
-    <div id="erro-msg" class="erro" style="display:none;"></div>
-    <div class="confirmacao">Ao marcar &ldquo;Li e aceito&rdquo;, {{artigo_termo}} {{termo_pessoa}} declara que leu, compreendeu e concorda com os termos deste acordo terap&ecirc;utico.</div>
-  </div>
-  <div id="sucesso-msg" class="sucesso" style="display:none;">
-    Obrigado! Seu aceite foi registrado. O profissional respons&aacute;vel ser&aacute; notificado.
-  </div>
-  {% endif %}
+  {{bloco_aceite}}
 
   <div class="footer">
     MentAll PRO &mdash; Solu&ccedil;&otilde;es para Psic&oacute;logos
@@ -264,48 +254,7 @@ function formatarDataLocal(data) {
   }
 })();
 
-async function aceitar() {
-  var nome = document.getElementById('nome-confirmacao').value.trim();
-  var erroEl = document.getElementById('erro-msg');
-
-  if (!nome || nome.length < 3) {
-    erroEl.textContent = 'Por favor, digite seu nome completo.';
-    erroEl.style.display = 'block';
-    return;
-  }
-
-  var btn = document.getElementById('btn-aceitar');
-  btn.disabled = true;
-  btn.textContent = 'Enviando...';
-  erroEl.style.display = 'none';
-
-  try {
-    var resp = await fetch('{{url_aceitar}}', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({nome: nome})
-    });
-
-    if (resp.ok) {
-      document.getElementById('secao-aceite').style.display = 'none';
-      document.getElementById('sucesso-msg').style.display = 'block';
-    } else {
-      var data = await resp.json();
-      erroEl.textContent = data.erro || data.detail || 'Erro ao registrar aceite. Tente novamente.';
-      erroEl.style.display = 'block';
-      btn.disabled = false;
-      btn.textContent = 'Li e aceito';
-    }
-  } catch (e) {
-    erroEl.textContent = 'Erro de conex\u00e3o. Verifique sua internet e tente novamente.';
-    erroEl.style.display = 'block';
-    btn.disabled = false;
-    btn.textContent = 'Li e aceito';
-  }
-}
-
-var btnAceitar = document.getElementById('btn-aceitar');
-if (btnAceitar) btnAceitar.addEventListener('click', aceitar);
+{{bloco_aceite_js}}
 </script>
 </body>
 </html>

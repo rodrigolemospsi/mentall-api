@@ -31,7 +31,7 @@ void main() {
     );
     expect(find.text('Salvar e começar'), findsOneWidget);
     expect(find.byType(FilledButton), findsOneWidget);
-    expect(find.byType(TextField), findsNWidgets(2));
+    expect(find.byType(TextField), findsNWidgets(4));
   });
 
   testWidgets('deve mostrar snackbar quando nome estiver vazio',

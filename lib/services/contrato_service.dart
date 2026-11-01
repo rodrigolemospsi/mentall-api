@@ -24,7 +24,7 @@ class ContratoService with EncryptedServiceMixin {
     final match = _box.values.where((c) => c.pacienteId == pacienteId && !c.arquivado);
     if (match.isEmpty) return null;
     final contratos = match.toList()..sort((a, b) => b.dataCriacao.compareTo(a.dataCriacao));
-    final c = contratos.first;
+    final c = contratos.first.copyWith();
     _decryptContrato(c);
     return c;
   }
@@ -32,6 +32,7 @@ class ContratoService with EncryptedServiceMixin {
   List<ContratoTerapeutico> listarPorPaciente(String pacienteId) {
     final lista = _box.values
         .where((c) => c.pacienteId == pacienteId)
+        .map((c) => c.copyWith())
         .toList()
       ..sort((a, b) => b.dataCriacao.compareTo(a.dataCriacao));
     _decryptContratos(lista);
@@ -91,6 +92,8 @@ class ContratoService with EncryptedServiceMixin {
       'template_contrato': templateContrato,
       'tratamento': perfil.tratamento,
       'crp_verificado': perfil.crpVerificado,
+      'cpf_profissional': perfil.cpf,
+      'cnpj_profissional': perfil.cnpj,
     };
     var response = await ApiClient.post(
       '/contratos',
@@ -120,9 +123,9 @@ class ContratoService with EncryptedServiceMixin {
           dataCriacao: DateTime.now(),
           status: 'pendente',
         );
-        _encryptContrato(contrato);
-        await _box.add(contrato);
-        _decryptContrato(contrato);
+        final paraSalvar = contrato.copyWith();
+        _encryptContrato(paraSalvar);
+        await _box.add(paraSalvar);
         return contrato;
       }
       Log.erro('POST /contratos sucesso=false: ${response.body}', contexto: 'ContratoService');
@@ -137,17 +140,31 @@ class ContratoService with EncryptedServiceMixin {
   /// Usado por testes e pelo fluxo de restauração quando não há roundtrip
   /// com o backend.
   Future<void> criarLocalmente(ContratoTerapeutico contrato) async {
-    _encryptContrato(contrato);
-    await _box.add(contrato);
-    _decryptContrato(contrato);
+    final paraSalvar = contrato.copyWith();
+    _encryptContrato(paraSalvar);
+    await _box.add(paraSalvar);
+  }
+
+  /// Descobre a chave real do contrato no Hive (registros antigos usam
+  /// chaves inteiras de `add`). Sem isso, `put(id)` criaria registro duplicado.
+  dynamic _chaveDoContrato(String id) {
+    for (final chave in _box.keys) {
+      final valor = _box.get(chave);
+      if (valor != null && valor.id == id) return chave;
+    }
+    return null;
   }
 
   Future<bool> marcarComoEnviado(ContratoTerapeutico contrato) async {
+    // Atualiza o objeto do chamador (em texto claro) e persiste uma cópia
+    // cifrada — evita que o cache do Hive guarde token/url sem cifra.
     contrato.status = 'enviado';
     contrato.dataEnvio = DateTime.now();
-    _encryptContrato(contrato);
-    await contrato.save();
-    _decryptContrato(contrato);
+    final atual = contrato.copyWith();
+    _encryptContrato(atual);
+    final chave = _chaveDoContrato(atual.id);
+    if (chave == null) return false;
+    await _box.put(chave, atual);
     return true;
   }
 
@@ -167,17 +184,33 @@ class ContratoService with EncryptedServiceMixin {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         if (data['sucesso'] == true) {
           final novoStatus = data['status'] as String?;
-          if (novoStatus == 'aceito' && !contrato.isAceito) {
-            _decryptContrato(contrato);
-            contrato.status = 'aceito';
-            contrato.dataAceite = data['aceito_em'] != null
+          if (novoStatus == 'aceito') {
+            final atual = contrato.copyWith();
+            _decryptContrato(atual);
+            final eraAceito = atual.isAceito;
+            atual.status = 'aceito';
+            atual.dataAceite = data['aceito_em'] != null
                 ? DateTime.parse(data['aceito_em'] as String).toLocal()
-                : DateTime.now();
-            contrato.nomeAceite = data['nome_aceite'] as String? ?? '';
-            _encryptContrato(contrato);
-            await contrato.save();
-            _decryptContrato(contrato);
-            return true;
+                : atual.dataAceite ?? DateTime.now();
+            atual.nomeAceite = data['nome_aceite'] as String? ?? '';
+            atual.aceiteCodigo = data['aceite_codigo'] as String? ?? '';
+            atual.aceiteHash = data['aceite_hash'] as String? ?? '';
+            atual.aceiteVersao = data['aceite_versao'] as String? ?? '';
+            atual.aceiteCpfMascarado =
+                data['aceite_cpf_mascarado'] as String? ?? '';
+            atual.aceiteIp = data['aceite_ip'] as String? ?? '';
+            atual.aceiteUserAgent =
+                data['aceite_user_agent'] as String? ?? '';
+            atual.verificacaoUrl =
+                data['verificacao_url'] as String? ?? '';
+            atual.documentoTexto =
+                data['documento_texto'] as String? ?? '';
+            final paraSalvar = atual.copyWith();
+            _encryptContrato(paraSalvar);
+            final chave = _chaveDoContrato(paraSalvar.id);
+            if (chave == null) return false;
+            await _box.put(chave, paraSalvar);
+            return !eraAceito || atual.aceiteCodigo.isNotEmpty;
           }
         }
       }
@@ -189,26 +222,26 @@ class ContratoService with EncryptedServiceMixin {
   }
 
   Future<void> arquivarContrato(ContratoTerapeutico contrato) async {
-    _decryptContrato(contrato);
     contrato.arquivado = true;
-    _encryptContrato(contrato);
-    await contrato.save();
-    _decryptContrato(contrato);
+    final atual = contrato.copyWith();
+    _encryptContrato(atual);
+    final chave = _chaveDoContrato(atual.id);
+    if (chave != null) await _box.put(chave, atual);
   }
 
   Future<void> restaurarContrato(ContratoTerapeutico contrato) async {
-    _decryptContrato(contrato);
     contrato.arquivado = false;
-    _encryptContrato(contrato);
-    await contrato.save();
-    _decryptContrato(contrato);
+    final atual = contrato.copyWith();
+    _encryptContrato(atual);
+    final chave = _chaveDoContrato(atual.id);
+    if (chave != null) await _box.put(chave, atual);
   }
 
   ContratoTerapeutico? obterArquivadoPorPaciente(String pacienteId) {
     final match = _box.values.where((c) => c.pacienteId == pacienteId && c.arquivado);
     if (match.isEmpty) return null;
     final contratos = match.toList()..sort((a, b) => b.dataCriacao.compareTo(a.dataCriacao));
-    final c = contratos.first;
+    final c = contratos.first.copyWith();
     _decryptContrato(c);
     return c;
   }
@@ -229,12 +262,28 @@ class ContratoService with EncryptedServiceMixin {
     c.nomeAceite = _encrypt(c.nomeAceite);
     c.token = _encrypt(c.token);
     c.url = _encrypt(c.url);
+    c.aceiteCodigo = _encrypt(c.aceiteCodigo);
+    c.aceiteHash = _encrypt(c.aceiteHash);
+    c.aceiteVersao = _encrypt(c.aceiteVersao);
+    c.aceiteCpfMascarado = _encrypt(c.aceiteCpfMascarado);
+    c.aceiteIp = _encrypt(c.aceiteIp);
+    c.aceiteUserAgent = _encrypt(c.aceiteUserAgent);
+    c.verificacaoUrl = _encrypt(c.verificacaoUrl);
+    c.documentoTexto = _encrypt(c.documentoTexto);
   }
 
   void _decryptContrato(ContratoTerapeutico c) {
     c.nomeAceite = _decrypt(c.nomeAceite);
     c.token = _decrypt(c.token);
     c.url = _decrypt(c.url);
+    c.aceiteCodigo = _decrypt(c.aceiteCodigo);
+    c.aceiteHash = _decrypt(c.aceiteHash);
+    c.aceiteVersao = _decrypt(c.aceiteVersao);
+    c.aceiteCpfMascarado = _decrypt(c.aceiteCpfMascarado);
+    c.aceiteIp = _decrypt(c.aceiteIp);
+    c.aceiteUserAgent = _decrypt(c.aceiteUserAgent);
+    c.verificacaoUrl = _decrypt(c.verificacaoUrl);
+    c.documentoTexto = _decrypt(c.documentoTexto);
   }
 
   void _decryptContratos(List<ContratoTerapeutico> lista) {

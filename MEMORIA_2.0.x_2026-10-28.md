@@ -144,3 +144,28 @@ flutter build appbundle --release
 - **Pendências:** TTL/limpeza de respostas antigas em texto claro, expiração/
   revogação de links (P1.11), migração opcional de fichas legadas pendentes para
   E2E no reenvio e publicação nas lojas (AAB).
+
+## Assinatura eletrônica com evidências (Fase A) — 01/11/2026, 2.0.8+68
+
+- **Contrato:** página pública (modelo padrão e personalizado) ganhou CPF
+  opcional + checkbox "Li e concordo"; o backend registra nome, CPF validado,
+  data/hora UTC, IP, User-Agent, versão `contrato-v1`, **hash SHA-256** do texto
+  canônico e **código de verificação** (`XXXXX-XXXXX`). Novo endpoint público
+  `GET /verificar/<código>`.
+- **App:** card do contrato mostra comprovante (código, hash, data, CPF
+  mascarado) com botões **Comprovante em PDF** (contrato + página de
+  comprovante + QR) e **Verificar autenticidade**.
+- **Dados novos:** CPF no paciente; CPF/CNPJ no perfil profissional (formulários
+  e envio no POST /contratos). CPF/CNPJ aparecem no cabeçalho do contrato.
+- **Correções de robustez:** contratos agora gravam sempre cópia cifrada no
+  Hive (evita cache com nome/CPF/hash em texto claro) e leituras devolvem cópias.
+- **Política:** v1.4 — 01/11/2026 (in-app + site), citando evidências de
+  assinatura e anamnese E2E. Site publicado com a nova versão.
+- **Pesquisa CFP/Receita (recibos):** PF → Receita Saúde obrigatório desde
+  2025; PJ/CNPJ → NFS-e municipal; CFP exige PJ registrada (Res. 16/2019);
+  recibos/notas sem dados clínicos. RFB tem emissão em lote por arquivo de
+  integração — é o caminho para o app (não há API oficial de emissão).
+  Detalhes em `docs/ASSINATURA_ELETRONICA.md`.
+- **Próximos passos:** Fase 2 (recibos Receita Saúde em lote + declaração de
+  comparecimento com entrada/saída + retenção 5 anos). Opcional: OTP por
+  e-mail e ICP-Brasil/plataforma certificada.

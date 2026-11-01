@@ -48,6 +48,14 @@ class PerfilProfissional extends HiveObject {
   @HiveField(12)
   DateTime? crpDataVerificacao;
 
+  /// CPF do profissional (pessoa física) para contratos/recibos.
+  @HiveField(13, defaultValue: '')
+  String cpf;
+
+  /// CNPJ (MEI/PJ), quando houver; contratos/recibos podem usar CPF ou CNPJ.
+  @HiveField(14, defaultValue: '')
+  String cnpj;
+
   PerfilProfissional({
     required this.id,
     required this.nome,
@@ -62,6 +70,8 @@ class PerfilProfissional extends HiveObject {
     this.tratamento = 'masculino',
     this.crpVerificado = false,
     this.crpDataVerificacao,
+    this.cpf = '',
+    this.cnpj = '',
   }) : dataCriacao = dataCriacao ?? DateTime.now();
 
   static const String abordagemClinicaPadrao = 'Integrativa';
@@ -291,6 +301,8 @@ class PerfilProfissional extends HiveObject {
     String? tratamento,
     bool? crpVerificado,
     DateTime? crpDataVerificacao,
+    String? cpf,
+    String? cnpj,
   }) {
     return PerfilProfissional(
       id: id ?? this.id,
@@ -308,6 +320,8 @@ class PerfilProfissional extends HiveObject {
       tratamento: tratamento ?? this.tratamento,
       crpVerificado: crpVerificado ?? this.crpVerificado,
       crpDataVerificacao: crpDataVerificacao ?? this.crpDataVerificacao,
+      cpf: cpf ?? this.cpf,
+      cnpj: cnpj ?? this.cnpj,
     );
   }
 

@@ -48,6 +48,8 @@ class PerfilProfissionalService with EncryptedServiceMixin {
     // paciente, a anamnese e o PDF (ver AGENTS.md, secao 06/10/2026).
     perfilExistente.crpVerificado = perfil.crpVerificado;
     perfilExistente.crpDataVerificacao = perfil.crpDataVerificacao;
+    perfilExistente.cpf = perfil.cpf;
+    perfilExistente.cnpj = perfil.cnpj;
     perfilExistente.dataAtualizacao = DateTime.now();
     if (perfil.tratamento.isNotEmpty) {
       perfilExistente.tratamento = perfil.tratamento;

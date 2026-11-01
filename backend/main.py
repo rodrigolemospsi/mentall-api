@@ -7,6 +7,7 @@ import html
 import json
 import logging
 import os
+import re
 import random
 import secrets
 import smtplib
@@ -109,9 +110,18 @@ from services.anamnese_service import (
     registrar_resposta,
 )
 from services.contrato_service import (
+    VERSAO_ACEITE,
+    cpf_valido,
     criar_contrato,
+    formatar_codigo,
+    formatar_cpf,
+    hash_documento_contrato,
+    mascarar_cpf,
+    normalizar_cpf,
     obter_contrato,
+    obter_contrato_por_codigo,
     registrar_aceite,
+    texto_documento_contrato,
 )
 from services.crp_service import verificar_crp_online
 from services.ia_clinica import (
@@ -348,6 +358,121 @@ def _com_nonce_script(html: str, nonce: str) -> str:
     return html.replace("<script>", f'<script nonce="{nonce}">')
 
 
+def _normalizar_cnpj(valor: str) -> str:
+    return re.sub(r"\D", "", valor or "")
+
+
+def _formatar_cnpj(cnpj: str) -> str:
+    numeros = _normalizar_cnpj(cnpj)
+    if len(numeros) != 14:
+        return ""
+    return f"{numeros[:2]}.{numeros[2:5]}.{numeros[5:8]}/{numeros[8:12]}-{numeros[12:]}"
+
+
+def _linha_fiscal_profissional(dados: dict) -> str:
+    """Linha opcional com CPF/CNPJ do profissional para o cabeçalho do contrato."""
+    partes = []
+    cpf = formatar_cpf(dados.get("cpf_profissional", ""))
+    if cpf:
+        partes.append(f"CPF {cpf}")
+    cnpj = _normalizar_cnpj(dados.get("cnpj_profissional", ""))
+    if cnpj:
+        partes.append(f"CNPJ {_formatar_cnpj(cnpj)}")
+    return " · ".join(partes)
+
+
+def _bloco_aceite_contrato(
+    aceito: bool,
+    aceito_em: str,
+    nome_aceite: str,
+    aceite_cpf_mascarado: str,
+    aceite_codigo: str,
+    aceite_hash: str,
+    base_url: str,
+    termo: str,
+) -> str:
+    """HTML da área de assinatura: formulário quando pendente, comprovante quando aceito."""
+    if aceito:
+        data_fmt = _formatar_data_br(aceito_em) if aceito_em else "-"
+        cpf_txt = f" · CPF {html.escape(aceite_cpf_mascarado)}" if aceite_cpf_mascarado else ""
+        codigo_exibicao = formatar_codigo(aceite_codigo) if aceite_codigo else ""
+        codigo_txt = html.escape(codigo_exibicao or "-")
+        hash_curto = html.escape((aceite_hash or "")[:16])
+        url = f"{base_url}/verificar/{codigo_exibicao}" if codigo_exibicao else ""
+        link = (
+            f' · <a href="{html.escape(url)}" target="_blank" rel="noopener">verificar autenticidade</a>'
+            if url else ""
+        )
+        return (
+            '<div class="ja-aceito">'
+            "&#10003; <strong>Documento assinado eletronicamente</strong><br>"
+            f"Assinado por {html.escape(nome_aceite)}{cpf_txt} em {html.escape(data_fmt)}.<br>"
+            f"Código de verificação: <strong>{codigo_txt}</strong><br>"
+            f'<span style="font-size:12px;color:#475569;">Hash SHA-256: {hash_curto}…{link}</span>'
+            "</div>"
+        )
+    return (
+        '<div class="secao-aceite" id="secao-aceite">'
+        f'<label for="nome-confirmacao">Assinatura do {html.escape(termo)}</label>'
+        '<input type="text" id="nome-confirmacao" placeholder="Seu nome completo" autocomplete="off">'
+        '<input type="text" id="cpf-confirmacao" placeholder="CPF (opcional)" inputmode="numeric" autocomplete="off">'
+        '<label style="display:flex;align-items:flex-start;gap:8px;font-size:14px;color:#334155;'
+        'margin:4px 0 14px;text-align:left;">'
+        '<input type="checkbox" id="aceite-check" style="margin-top:3px;">'
+        "<span>Declaro que li e concordo com os termos deste acordo terapêutico.</span></label>"
+        '<button class="btn-aceitar" id="btn-aceitar" type="button">Assinar documento</button>'
+        '<div id="erro-msg" class="erro" style="display:none;"></div>'
+        '<div class="confirmacao">Assinatura eletrônica simples: registramos data/hora, IP, navegador, '
+        "hash do documento e um código público de verificação.</div>"
+        "</div>"
+        '<div id="sucesso-msg" class="sucesso" style="display:none;"></div>'
+    )
+
+
+def _bloco_aceite_js(url_aceitar: str) -> str:
+    """JS compartilhado da assinatura (sem handlers inline; CSP-friendly)."""
+    partes = [
+        "async function aceitar() {",
+        "  var nome = document.getElementById('nome-confirmacao').value.trim();",
+        "  var cpfEl = document.getElementById('cpf-confirmacao');",
+        "  var cpf = cpfEl ? cpfEl.value.replace(/\\D/g, '') : '';",
+        "  var check = document.getElementById('aceite-check');",
+        "  var erroEl = document.getElementById('erro-msg');",
+        "  if (!nome || nome.length < 3) { erroEl.textContent = 'Digite seu nome completo.'; erroEl.style.display = 'block'; return; }",
+        "  if (check && !check.checked) { erroEl.textContent = 'Marque a caixa concordando com os termos.'; erroEl.style.display = 'block'; return; }",
+        "  if (cpf && cpf.length !== 11) { erroEl.textContent = 'CPF inválido (11 dígitos).'; erroEl.style.display = 'block'; return; }",
+        "  var btn = document.getElementById('btn-aceitar');",
+        "  btn.disabled = true; btn.textContent = 'Assinando...'; erroEl.style.display = 'none';",
+        "  try {",
+        "    var resp = await fetch('" + url_aceitar + "', { method: 'POST', headers: { 'Content-Type': 'application/json' },",
+        "      body: JSON.stringify({ nome: nome, cpf: cpf, aceite: true }) });",
+        "    if (resp.ok) {",
+        "      var data = await resp.json();",
+        "      document.getElementById('secao-aceite').style.display = 'none';",
+        "      var el = document.getElementById('sucesso-msg');",
+        "      if (el) {",
+        "        el.innerHTML = '&#10003; Documento assinado! Código de verificação: <strong>' +",
+        "          (data.aceite_codigo || '') + '</strong>. Guarde este código.';",
+        "        el.style.display = 'block';",
+        "      }",
+        "      setTimeout(function() { window.location.reload(); }, 1500);",
+        "    } else {",
+        "      var erro = await resp.json();",
+        "      erroEl.textContent = erro.erro || erro.detail || 'Erro ao registrar assinatura.';",
+        "      erroEl.style.display = 'block'; btn.disabled = false; btn.textContent = 'Assinar documento';",
+        "    }",
+        "  } catch (e) {",
+        "    erroEl.textContent = 'Erro de conexão. Verifique sua internet e tente novamente.';",
+        "    erroEl.style.display = 'block'; btn.disabled = false; btn.textContent = 'Assinar documento';",
+        "  }",
+        "}",
+        "var btnAceitar = document.getElementById('btn-aceitar');",
+        "if (btnAceitar) btnAceitar.addEventListener('click', aceitar);",
+        "",
+    ]
+    return "\n".join(partes)
+
+
 def _renderizar_template_personalizado(
     token: str,
     dados: dict,
@@ -356,6 +481,9 @@ def _renderizar_template_personalizado(
     base_url: str,
     nome_aceite: str = "",
     nonce: str = "",
+    aceite_codigo: str = "",
+    aceite_hash: str = "",
+    aceite_cpf_mascarado: str = "",
 ) -> HTMLResponse:
     nome_paciente = dados.get("nome_paciente", "")
     nome_profissional = dados.get("nome_profissional", "")
@@ -366,11 +494,18 @@ def _renderizar_template_personalizado(
     psicologo_ou_psicologa = "Psic\u00f3loga" if dados.get("tratamento") == "feminino" else "Psic\u00f3logo"
     crp_verificado = dados.get("crp_verificado", False)
     selo_crp = ' <span style="color:#2E7D32; font-size:12px;">&#10003; Verificado</span>' if crp_verificado else ''
+    bloco_aceite = _bloco_aceite_contrato(
+        aceito=aceito,
+        aceito_em=aceito_em,
+        nome_aceite=nome_aceite,
+        aceite_cpf_mascarado=aceite_cpf_mascarado,
+        aceite_codigo=aceite_codigo,
+        aceite_hash=aceite_hash,
+        base_url=base_url,
+        termo=termo,
+    )
+    bloco_aceite_js = _bloco_aceite_js(f"/contratos/{token}/aceitar")
     aceito_msg = ""
-    if aceito:
-        data_fmt = _formatar_data_br(aceito_em) if aceito_em else ""
-        nome_aceite_val = nome_aceite
-        aceito_msg = f'<div class="ja-aceito">&#10003; Aceito por {html.escape(nome_aceite_val)} em {data_fmt}</div>'
 
     page_html = f"""<!DOCTYPE html>
 <html lang="pt-BR">
@@ -546,6 +681,7 @@ def _renderizar_template_personalizado(
   <div class="cabecalho-profissional">
     <div class="profissional-nome">{html.escape(psicologo_ou_psicologa)} {html.escape(nome_profissional)}</div>
     <div class="profissional-crp">CRP {html.escape(registro)}{selo_crp}</div>
+    <div class="profissional-crp">{_linha_fiscal_profissional(dados)}</div>
   </div>
 
   <div class="paciente-info">
@@ -555,14 +691,7 @@ def _renderizar_template_personalizado(
   <div class="titulo-acordo">Acordo Terap\u00eautico</div>
   {_renderizar_paragrafos_personalizados(texto)}
   {aceito_msg}
-  {"".join(f'''<div class="secao-aceite" id="secao-aceite">
-    <label for="nome-confirmacao">Digite seu nome completo para confirmar:</label>
-    <input type="text" id="nome-confirmacao" placeholder="Seu nome completo" autocomplete="off">
-    <button class="btn-aceitar" id="btn-aceitar" onclick="aceitar()">Li e aceito</button>
-    <div id="erro-msg" class="erro" style="display:none;"></div>
-    <div class="confirmacao">Ao marcar "Li e aceito", {html.escape(termo)} declara que leu, compreendeu e concorda com os termos deste acordo.</div>
-  </div>
-  <div id="sucesso-msg" class="sucesso" style="display:none;">Obrigado! Seu aceite foi registrado. O profissional ser\u00e1 notificado.</div>''' if not aceito else "")}
+  {bloco_aceite}
   <div class="footer">MentAll PRO \u2014 Solu\u00e7\u00f5es para Psic\u00f3logos</div>
 </div>
 <script>
@@ -574,18 +703,7 @@ function formatarDataLocal(d) {{
   var els = document.getElementsByClassName('js-data-local');
   for (var i = 0; i < els.length; i++) els[i].textContent = formatarDataLocal(new Date());
 }})();
-async function aceitar() {{
-  var nome = document.getElementById('nome-confirmacao').value.trim();
-  var erroEl = document.getElementById('erro-msg');
-  if (!nome || nome.length < 3) {{ erroEl.textContent = 'Digite seu nome completo.'; erroEl.style.display = 'block'; return; }}
-  var btn = document.getElementById('btn-aceitar');
-  btn.disabled = true; btn.textContent = 'Enviando...'; erroEl.style.display = 'none';
-  try {{
-    var resp = await fetch('/contratos/{token}/aceitar', {{ method: 'POST', headers: {{'Content-Type': 'application/json'}}, body: JSON.stringify({{nome: nome}}) }});
-    if (resp.ok) {{ document.getElementById('secao-aceite').style.display = 'none'; document.getElementById('sucesso-msg').style.display = 'block'; }}
-    else {{ var d = await resp.json(); erroEl.textContent = d.erro || d.detail || 'Erro ao registrar.'; erroEl.style.display = 'block'; btn.disabled = false; btn.textContent = 'Li e aceito'; }}
-  }} catch(e) {{ erroEl.textContent = 'Erro de conex\\u00e3o.'; erroEl.style.display = 'block'; btn.disabled = false; btn.textContent = 'Li e aceito'; }}
-}}
+{bloco_aceite_js}
 </script>
 </body>
 </html>"""
@@ -1477,6 +1595,8 @@ def criar_contrato_endpoint(request: ContratoRequest, _req: Request, auth: tuple
         "template_contrato": request.template_contrato.strip(),
         "tratamento": request.tratamento.strip() or "masculino",
         "crp_verificado": _crp_verificado_servidor(request.registro_profissional, request.crp_verificado),
+        "cpf_profissional": normalizar_cpf(request.cpf_profissional),
+        "cnpj_profissional": _normalizar_cnpj(request.cnpj_profissional),
     }
 
     token = criar_contrato(dados, owner_id)
@@ -1530,6 +1650,9 @@ def _pagina_contrato(token: str, _req: Request):
     aceito = contrato["status"] == "aceito"
     base_url = os.getenv("API_BASE_URL", "https://mentall-api.fly.dev")
     aceito_em = contrato.get("aceito_em") or ""
+    aceite_codigo = contrato.get("aceite_codigo") or ""
+    aceite_hash = contrato.get("aceite_hash") or ""
+    aceite_cpf_mascarado = mascarar_cpf(contrato.get("aceite_cpf") or "")
     template_personalizado = dados.get("template_contrato", "")
 
     if template_personalizado:
@@ -1541,6 +1664,9 @@ def _pagina_contrato(token: str, _req: Request):
             base_url=base_url,
             nome_aceite=contrato.get("nome_aceite") or "",
             nonce=getattr(_req.state, "csp_nonce", ""),
+            aceite_codigo=aceite_codigo,
+            aceite_hash=aceite_hash,
+            aceite_cpf_mascarado=aceite_cpf_mascarado,
         )
 
     template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates", "contrato.html")
@@ -1567,8 +1693,18 @@ def _pagina_contrato(token: str, _req: Request):
         "{{data_aceite_iso}}": aceito_em or "",
         "{{nome_aceite}}": html.escape(contrato.get("nome_aceite") or ""),
         "{{crp_selo}}": ' <span style="color:#2E7D32; font-size:12px;">&#10003; Verificado</span>' if dados.get("crp_verificado") else "",
-        "{% if not aceito %}": "" if aceito else "<!--",
-        "{% endif %}": "<!--" if not aceito else "",
+        "{{linha_fiscal_profissional}}": _linha_fiscal_profissional(dados),
+        "{{bloco_aceite}}": _bloco_aceite_contrato(
+            aceito=aceito,
+            aceito_em=aceito_em,
+            nome_aceite=contrato.get("nome_aceite") or "",
+            aceite_cpf_mascarado=aceite_cpf_mascarado,
+            aceite_codigo=aceite_codigo,
+            aceite_hash=aceite_hash,
+            base_url=base_url,
+            termo=termo,
+        ),
+        "{{bloco_aceite_js}}": _bloco_aceite_js(f"/contratos/{token}/aceitar"),
     }
 
     for chave, valor in substituicoes.items():
@@ -1586,16 +1722,41 @@ def aceitar_contrato(token: str, request: ContratoAceiteRequest, _req: Request):
     log.info("Aceite de contrato %s por %s", token[:12], _mascarar_contato(request.nome[:30]))
     if not request.nome.strip() or len(request.nome.strip()) < 3:
         raise HTTPException(status_code=400, detail="Nome invalido. Digite seu nome completo.")
+    if request.aceite is not True:
+        raise HTTPException(
+            status_code=400,
+            detail="É necessário marcar a caixa concordando com os termos para assinar.",
+        )
+    cpf = normalizar_cpf(request.cpf)
+    if cpf and not cpf_valido(cpf):
+        raise HTTPException(status_code=400, detail="CPF inválido. Confira os 11 dígitos.")
 
-    contrato = registrar_aceite(token, request.nome.strip())
+    contrato = registrar_aceite(
+        token,
+        request.nome.strip(),
+        cpf=cpf,
+        ip=_cliente_ip(_req),
+        user_agent=(_req.headers.get("user-agent") or "")[:512],
+    )
     if contrato is None:
         raise HTTPException(status_code=404, detail="Contrato não encontrado.")
 
+    base_url = os.getenv("API_BASE_URL", "https://mentall-api.fly.dev")
+    codigo = formatar_codigo(contrato.get("aceite_codigo") or "")
     return ContratoStatusResponse(
         sucesso=True,
         status=contrato["status"],
         aceito_em=contrato.get("aceito_em"),
         nome_aceite=contrato.get("nome_aceite"),
+        aceite_codigo=codigo,
+        aceite_hash=contrato.get("aceite_hash") or "",
+        aceite_versao=contrato.get("aceite_versao") or VERSAO_ACEITE,
+        aceite_cpf_mascarado=mascarar_cpf(contrato.get("aceite_cpf") or ""),
+        aceite_ip=contrato.get("aceite_ip") or "",
+        aceite_user_agent=contrato.get("aceite_user_agent") or "",
+        verificacao_url=f"{base_url}/verificar/{codigo}" if codigo else "",
+        cpf_profissional=contrato.get("dados", {}).get("cpf_profissional", ""),
+        cnpj_profissional=contrato.get("dados", {}).get("cnpj_profissional", ""),
     )
 
 
@@ -1611,12 +1772,93 @@ def status_contrato(token: str, _req: Request, auth: tuple = Depends(_verificar_
     if contrato is None or contrato.get("owner_id") != owner_id:
         return ContratoStatusResponse(sucesso=False, erro="Contrato não encontrado.")
 
+    base_url = os.getenv("API_BASE_URL", "https://mentall-api.fly.dev")
+    codigo = formatar_codigo(contrato.get("aceite_codigo") or "")
+    dados = contrato.get("dados", {})
+    if isinstance(dados, str):
+        try:
+            dados = json.loads(dados)
+        except Exception:
+            dados = {}
     return ContratoStatusResponse(
         sucesso=True,
         status=contrato["status"],
         aceito_em=contrato.get("aceito_em"),
         nome_aceite=contrato.get("nome_aceite"),
+        aceite_codigo=codigo,
+        aceite_hash=contrato.get("aceite_hash") or "",
+        aceite_versao=contrato.get("aceite_versao") or VERSAO_ACEITE,
+        aceite_cpf_mascarado=mascarar_cpf(contrato.get("aceite_cpf") or ""),
+        aceite_ip=contrato.get("aceite_ip") or "",
+        aceite_user_agent=contrato.get("aceite_user_agent") or "",
+        verificacao_url=f"{base_url}/verificar/{codigo}" if codigo else "",
+        documento_texto=texto_documento_contrato(dados),
+        cpf_profissional=dados.get("cpf_profissional", ""),
+        cnpj_profissional=dados.get("cnpj_profissional", ""),
     )
+
+
+@app.get("/verificar/{codigo}", response_class=HTMLResponse, tags=["Contratos"])
+def verificar_assinatura(codigo: str, _req: Request):
+    """Página pública de autenticidade de documento assinado eletronicamente."""
+    _rate_limit_check(_req, max_requests=30)
+    contrato = obter_contrato_por_codigo(codigo)
+    dados = (contrato or {}).get("dados", {})
+    aceito = bool(contrato) and contrato.get("status") == "aceito"
+    if not contrato or not aceito:
+        html_404 = (
+            "<!DOCTYPE html><html lang='pt-BR'><head><meta charset='UTF-8'>"
+            "<meta name='viewport' content='width=device-width, initial-scale=1.0'>"
+            "<title>Código não encontrado - MentAll PRO</title></head>"
+            "<body style='font-family:sans-serif;text-align:center;padding:40px;color:#1E293B;'>"
+            "<h2 style='color:#D32F2F;'>Código não encontrado</h2>"
+            "<p>Não localizamos um documento assinado com este código. "
+            "Confira se digitou corretamente.</p></body></html>"
+        )
+        return HTMLResponse(content=html_404, status_code=404,
+                            headers={"Cache-Control": "no-store"})
+
+    nome_paciente = dados.get("nome_paciente", "")
+    primeiro_nome = nome_paciente.strip().split(" ")[0] if nome_paciente.strip() else "Paciente"
+    nome_mascarado = f"{primeiro_nome} {'.' * 3}"
+    psi = "Psicóloga" if dados.get("tratamento") == "feminino" else "Psicólogo"
+    data_fmt = _formatar_data_br(contrato.get("aceito_em", "")) if contrato.get("aceito_em") else "-"
+    codigo_fmt = html.escape(formatar_codigo(contrato.get("aceite_codigo", "")))
+    hash_curto = html.escape((contrato.get("aceite_hash") or "")[:32])
+    pagina = f"""<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Documento verificado - MentAll PRO</title>
+<style>
+ body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background:#F7F9FA; color:#1E293B; padding:24px 16px; line-height:1.6; }}
+ .card {{ max-width:560px; margin:0 auto; background:#fff; border-radius:18px;
+          box-shadow:0 1px 3px rgba(0,0,0,.08); padding:32px 26px; }}
+ h1 {{ font-size:20px; text-align:center; color:#166534; }}
+ .selo {{ width:56px; height:56px; border-radius:50%; background:#E8F5E9; color:#2E7D32;
+          font-size:28px; display:flex; align-items:center; justify-content:center; margin:0 auto 12px; }}
+ table {{ width:100%; border-collapse:collapse; margin-top:20px; font-size:14px; }}
+ td {{ padding:8px 4px; border-bottom:1px solid #E2E8F0; vertical-align:top; }}
+ td:first-child {{ color:#64748B; width:38%; }}
+ .hash {{ font-family:monospace; font-size:12px; word-break:break-all; }}
+ .footer {{ margin-top:22px; font-size:12px; color:#94A3B8; text-align:center; }}
+</style></head><body><div class="card">
+<div class="selo">&#10003;</div>
+<h1>Documento assinado eletronicamente</h1>
+<p style="text-align:center;color:#475569;">Este código corresponde a um acordo terapêutico assinado no MentAll PRO.</p>
+<table>
+<tr><td>Tipo</td><td>Acordo Terapêutico</td></tr>
+<tr><td>Profissional</td><td>{html.escape(psi)} {html.escape(dados.get('nome_profissional',''))}<br>
+CRP {html.escape(_limpar_crp(dados.get('registro_profissional','')))}</td></tr>
+<tr><td>Paciente</td><td>{html.escape(nome_mascarado)} (nome parcial)</td></tr>
+<tr><td>Assinado em</td><td>{html.escape(data_fmt)}</td></tr>
+<tr><td>Código</td><td><strong>{codigo_fmt}</strong></td></tr>
+<tr><td>Hash SHA-256</td><td class="hash">{hash_curto}…</td></tr>
+</table>
+<p class="footer">Assinatura eletrônica simples — data/hora, IP, navegador e integridade do
+documento foram registrados no momento da assinatura.</p>
+</div></body></html>"""
+    return HTMLResponse(content=pagina, headers={"Cache-Control": "no-store"})
 
 
 @app.post(

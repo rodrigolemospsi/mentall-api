@@ -52,6 +52,10 @@ class Paciente extends HiveObject {
   @HiveField(15)
   bool ehDemo;
 
+  /// CPF do paciente (opcional no cadastro; necessário para recibos de IR).
+  @HiveField(16, defaultValue: '')
+  String cpf;
+
   Paciente({
     required this.id,
     required this.nome,
@@ -69,6 +73,7 @@ class Paciente extends HiveObject {
     this.enderecoJson = '',
     this.valorSessao = 0.0,
     this.ehDemo = false,
+    this.cpf = '',
   }) : dataCadastro = dataCadastro ?? DateTime.now();
 
   static const String tipoAtendimentoPadrao = 'Particular';
@@ -220,6 +225,7 @@ class Paciente extends HiveObject {
     String? enderecoJson,
     double? valorSessao,
     bool? ehDemo,
+    String? cpf,
   }) {
     return Paciente(
       id: id ?? this.id,
@@ -240,6 +246,7 @@ class Paciente extends HiveObject {
       enderecoJson: enderecoJson ?? this.enderecoJson,
       valorSessao: valorSessao ?? this.valorSessao,
       ehDemo: ehDemo ?? this.ehDemo,
+      cpf: cpf ?? this.cpf,
     );
   }
 

@@ -87,6 +87,8 @@ class _PerfilProfissionalFormPageState
     extends ConsumerState<PerfilProfissionalFormPage> {
   final TextEditingController _nomeController = TextEditingController();
   final TextEditingController _registroController = TextEditingController();
+  final TextEditingController _cpfController = TextEditingController();
+  final TextEditingController _cnpjController = TextEditingController();
   final List<_EnderecoFormData> _enderecoControllers = [];
   bool _carregandoCep = false;
   bool _perfilExistente = false;
@@ -95,6 +97,8 @@ class _PerfilProfissionalFormPageState
   Map<String, dynamic> _estadoAtual() => {
         'nome': _nomeController.text,
         'registro': _registroController.text,
+        'cpf': _cpfController.text,
+        'cnpj': _cnpjController.text,
         'abordagem': ref.read(_abordagemProvider),
         'termo': ref.read(_termoProvider),
         'tratamento': ref.read(_tratamentoProvider),
@@ -151,6 +155,8 @@ class _PerfilProfissionalFormPageState
         _perfilExistente = true;
         _nomeController.text = perfil.nome;
         _registroController.text = perfil.registroProfissional;
+        _cpfController.text = perfil.cpf;
+        _cnpjController.text = perfil.cnpj;
         ref.read(_abordagemProvider.notifier).state = perfil.abordagemClinica;
         ref.read(_termoProvider.notifier).state = perfil.termoPessoaAtendida;
         ref.read(_tratamentoProvider.notifier).state = perfil.tratamento;
@@ -170,6 +176,8 @@ class _PerfilProfissionalFormPageState
   void dispose() {
     _nomeController.dispose();
     _registroController.dispose();
+    _cpfController.dispose();
+    _cnpjController.dispose();
     for (final e in _enderecoControllers) {
       e.dispose();
     }
@@ -286,6 +294,8 @@ class _PerfilProfissionalFormPageState
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         nome: nome,
         registroProfissional: registro,
+        cpf: _cpfController.text.replaceAll(RegExp(r'\D'), ''),
+        cnpj: _cnpjController.text.replaceAll(RegExp(r'\D'), ''),
         abordagemClinica: ref.read(_abordagemProvider),
         termoPessoaAtendida: ref.read(_termoProvider),
         fotoBase64: ref.read(_fotoProvider),
@@ -542,6 +552,44 @@ class _PerfilProfissionalFormPageState
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.badge_outlined),
               ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _cpfController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 14,
+                    style: TextStyle(
+                        fontSize: Tipografia.base, color: context.corTextoBody),
+                    decoration: const InputDecoration(
+                      labelText: 'CPF',
+                      hintText: '000.000.000-00',
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.badge_outlined),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _cnpjController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 18,
+                    style: TextStyle(
+                        fontSize: Tipografia.base, color: context.corTextoBody),
+                    decoration: const InputDecoration(
+                      labelText: 'CNPJ (opcional)',
+                      hintText: '00.000.000/0000-00',
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.business_outlined),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(

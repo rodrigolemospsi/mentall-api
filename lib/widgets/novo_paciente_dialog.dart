@@ -26,6 +26,7 @@ Future<void> mostrarDialogNovoPaciente({
   final nomeController = TextEditingController();
   final contatoController = TextEditingController();
   final emailController = TextEditingController();
+  final cpfController = TextEditingController();
   final dataNascimentoController = TextEditingController();
   final observacoesController = TextEditingController();
   String? fotoBase64;
@@ -40,6 +41,7 @@ Future<void> mostrarDialogNovoPaciente({
         'nome': nomeController.text,
         'contato': contatoController.text,
         'email': emailController.text,
+        'cpf': cpfController.text,
         'nascimento': dataNascimentoController.text,
         'observacoes': observacoesController.text,
         'foto': fotoBase64,
@@ -156,6 +158,17 @@ Future<void> mostrarDialogNovoPaciente({
                       keyboardType: TextInputType.emailAddress,
                       decoration: const InputDecoration(
                         labelText: 'E-mail',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: cpfController,
+                      maxLength: 14,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'CPF (opcional)',
+                        hintText: '000.000.000-00',
                         border: OutlineInputBorder(),
                       ),
                     ),
@@ -354,6 +367,7 @@ Future<void> mostrarDialogNovoPaciente({
                               nome: nome,
                               contato: contatoController.text.trim(),
                               email: emailController.text.trim(),
+                              cpf: cpfController.text.replaceAll(RegExp(r'\D'), ''),
                               dataNascimento: dataNascimento,
                               tipoAtendimento: tipoAtendimento,
                               modoAtendimento: modoAtendimento ?? '',
@@ -421,6 +435,7 @@ Future<void> mostrarDialogNovoPaciente({
     nomeController.dispose();
     contatoController.dispose();
     emailController.dispose();
+    cpfController.dispose();
     dataNascimentoController.dispose();
     observacoesController.dispose();
   }

@@ -217,7 +217,13 @@ _tabelas = [
         owner_id TEXT NOT NULL DEFAULT '',
         criado_em TEXT NOT NULL,
         aceito_em TEXT,
-        nome_aceite TEXT
+        nome_aceite TEXT,
+        aceite_cpf TEXT NOT NULL DEFAULT '',
+        aceite_ip TEXT NOT NULL DEFAULT '',
+        aceite_user_agent TEXT NOT NULL DEFAULT '',
+        aceite_hash TEXT NOT NULL DEFAULT '',
+        aceite_codigo TEXT NOT NULL DEFAULT '',
+        aceite_versao TEXT NOT NULL DEFAULT ''
     )""",
     """CREATE TABLE IF NOT EXISTS anamneses (
         token TEXT PRIMARY KEY,
@@ -410,6 +416,7 @@ _tabelas_exclusao = [
 
 _indices = [
     "CREATE INDEX IF NOT EXISTS idx_contratos_owner ON contratos(owner_id)",
+    "CREATE INDEX IF NOT EXISTS idx_contratos_aceite_codigo ON contratos(aceite_codigo)",
     "CREATE INDEX IF NOT EXISTS idx_anamneses_owner ON anamneses(owner_id)",
     "CREATE INDEX IF NOT EXISTS idx_lembretes_owner ON lembretes(owner_id)",
     "CREATE INDEX IF NOT EXISTS idx_lembretes_pendentes ON lembretes(status, horario_envio)",
@@ -428,6 +435,12 @@ _indices = [
 
 # ── Migrações incrementais (reaplicadas a cada conexão nova) ────────────────
 _MIGRACOES = [
+    ("contratos", "aceite_cpf", "TEXT NOT NULL DEFAULT ''"),
+    ("contratos", "aceite_ip", "TEXT NOT NULL DEFAULT ''"),
+    ("contratos", "aceite_user_agent", "TEXT NOT NULL DEFAULT ''"),
+    ("contratos", "aceite_hash", "TEXT NOT NULL DEFAULT ''"),
+    ("contratos", "aceite_codigo", "TEXT NOT NULL DEFAULT ''"),
+    ("contratos", "aceite_versao", "TEXT NOT NULL DEFAULT ''"),
     ("anamneses", "e2e", "INTEGER NOT NULL DEFAULT 0"),
     ("anamneses", "cifrada", "INTEGER NOT NULL DEFAULT 0"),
     ("usuarios", "role", "TEXT NOT NULL DEFAULT 'user'"),

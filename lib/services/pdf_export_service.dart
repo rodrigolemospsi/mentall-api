@@ -16,6 +16,7 @@ import 'anamnese_labels.dart';
 import 'anamnese_templates.dart';
 import 'exportacao_arquivos.dart';
 import 'logger.dart';
+import '../utils/documentos.dart';
 import '../utils/tipografia.dart';
 
 class PdfExportService {
@@ -158,6 +159,29 @@ class PdfExportService {
       );
     } catch (e) {
       Log.erro(e, contexto: 'PdfExportService.exportarSinteseRevisada');
+      rethrow;
+    }
+  }
+
+  /// Gera o PDF "Contrato assinado" com o conteúdo canônico e a página de
+  /// comprovante da assinatura eletrônica (código, hash, data/hora, QR code).
+  Future<void> exportarContratoAssinado({
+    required ContratoTerapeutico contrato,
+    required Paciente paciente,
+    required PerfilProfissional perfil,
+  }) async {
+    try {
+      final pdf = await _gerarPdfContratoAssinado(
+        contrato: contrato,
+        paciente: paciente,
+        perfil: perfil,
+      );
+      await _salvarOuImprimir(
+        pdf: pdf,
+        nomeArquivo: 'contrato_assinado_${paciente.nomeExibicao}.pdf',
+      );
+    } catch (e) {
+      Log.erro(e, contexto: 'PdfExportService.exportarContratoAssinado');
       rethrow;
     }
   }
@@ -2028,6 +2052,12 @@ class PdfExportService {
         _linhaInfoPdf('Aceito em', dataOuTraco(contrato.dataAceite)),
       if (contrato.nomeAceite.trim().isNotEmpty)
         _linhaInfoPdf('Aceito por', contrato.nomeAceite),
+      if (contrato.aceiteCpfMascarado.trim().isNotEmpty)
+        _linhaInfoPdf('CPF do aceite', contrato.aceiteCpfMascarado),
+      if (contrato.aceiteCodigo.trim().isNotEmpty)
+        _linhaInfoPdf('Código de verificação', contrato.aceiteCodigo),
+      if (contrato.aceiteVersao.trim().isNotEmpty)
+        _linhaInfoPdf('Versão do documento', contrato.aceiteVersao),
     ];
   }
 
@@ -2104,6 +2134,188 @@ class PdfExportService {
             paciente: paciente,
           ),
     ];
+  }
+
+  Future<Uint8List> _gerarPdfContratoAssinado({
+    required ContratoTerapeutico contrato,
+    required Paciente paciente,
+    required PerfilProfissional perfil,
+  }) async {
+    final doc = _novoDocumento();
+    final dataAssinatura = contrato.dataAceite;
+    final hash = contrato.aceiteHash.trim();
+    final hashEmLinhas = <String>[
+      if (hash.isNotEmpty)
+        for (var i = 0; i < hash.length; i += 32)
+          hash.substring(i, i + 32 > hash.length ? hash.length : i + 32),
+    ];
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(28),
+        header: (context) => _cabecalhoPagina(perfil),
+        footer: (context) => _rodapePagina(context),
+        build: (context) => [
+          _tituloDocumento('Acordo Terapêutico'),
+          pw.SizedBox(height: 4),
+          pw.Text(
+            'Documento assinado eletronicamente',
+            style: pw.TextStyle(
+              fontSize: Tipografia.md,
+              fontWeight: pw.FontWeight.bold,
+              color: _primaria,
+            ),
+          ),
+          pw.SizedBox(height: 8),
+          _linhaInfoPdf('Paciente', paciente.nomeExibicao),
+          if (paciente.cpf.trim().isNotEmpty)
+            _linhaInfoPdf(
+                'CPF do paciente', Documentos.formatarCpf(paciente.cpf)),
+          _linhaInfoPdf('Profissional', perfil.nomeExibicao),
+          if (perfil.registroProfissional.trim().isNotEmpty)
+            _linhaInfoPdf('Registro (CRP)', perfil.registroProfissional),
+          if (perfil.cpf.trim().isNotEmpty)
+            _linhaInfoPdf(
+                'CPF do profissional', Documentos.formatarCpf(perfil.cpf)),
+          if (perfil.cnpj.trim().isNotEmpty)
+            _linhaInfoPdf(
+                'CNPJ do profissional', Documentos.formatarCnpj(perfil.cnpj)),
+          pw.SizedBox(height: 8),
+          _linhaSeparadora(),
+          pw.SizedBox(height: 14),
+          ..._paragrafosContratoAssinado(contrato.documentoTexto),
+          pw.SizedBox(height: 20),
+          _linhaSeparadora(),
+          pw.SizedBox(height: 10),
+          _tituloSecaoPdf('Comprovante de assinatura eletrônica'),
+          pw.SizedBox(height: 6),
+          _linhaInfoPdf('Assinado por', contrato.nomeAceite),
+          if (contrato.aceiteCpfMascarado.trim().isNotEmpty)
+            _linhaInfoPdf('CPF', contrato.aceiteCpfMascarado),
+          if (dataAssinatura != null)
+            _linhaInfoPdf(
+              'Assinado em',
+              '${_formatarData(dataAssinatura)} às '
+                  '${_formatarHorario(dataAssinatura)}',
+            ),
+          _linhaInfoPdf(
+              'Código de verificação', contrato.aceiteCodigo.trim()),
+          _linhaInfoPdf('Versão do documento', contrato.aceiteVersao.trim()),
+          if (contrato.aceiteIp.trim().isNotEmpty)
+            _linhaInfoPdf('IP de origem', contrato.aceiteIp.trim()),
+          if (contrato.aceiteUserAgent.trim().isNotEmpty)
+            _linhaInfoPdf('Navegador', contrato.aceiteUserAgent.trim()),
+          if (hashEmLinhas.isNotEmpty) ...[
+            pw.SizedBox(height: 4),
+            pw.Text('Hash SHA-256 do documento:',
+                style: pw.TextStyle(
+                    fontSize: Tipografia.xs,
+                    fontWeight: pw.FontWeight.bold,
+                    color: _secundaria)),
+            for (final linha in hashEmLinhas)
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(top: 2),
+                child: pw.Text(
+                  linha,
+                  style: pw.TextStyle(
+                    fontSize: 8,
+                    color: _secundaria,
+                    font: pw.Font.courier(),
+                  ),
+                ),
+              ),
+          ],
+          pw.SizedBox(height: 12),
+          if (contrato.verificacaoUrl.trim().isNotEmpty)
+            pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.BarcodeWidget(
+                  data: contrato.verificacaoUrl,
+                  barcode: pw.Barcode.qrCode(),
+                  width: 72,
+                  height: 72,
+                ),
+                pw.SizedBox(width: 12),
+                pw.Expanded(
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'Verifique a autenticidade em:',
+                        style: pw.TextStyle(
+                            fontSize: Tipografia.xs, color: _secundaria),
+                      ),
+                      pw.SizedBox(height: 2),
+                      pw.Text(
+                        contrato.verificacaoUrl,
+                        style: pw.TextStyle(
+                            fontSize: 8, color: _primaria),
+                      ),
+                      pw.SizedBox(height: 4),
+                      pw.Text(
+                        'Assinatura eletrônica simples (MP 2.200-2/2001). '
+                        'O servidor registrou data/hora, IP, navegador e o hash '
+                        'do documento no momento da assinatura.',
+                        style: pw.TextStyle(
+                            fontSize: 8, color: _secundaria),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+    return doc.save();
+  }
+
+  List<pw.Widget> _paragrafosContratoAssinado(String texto) {
+    const titulos = {
+      'ACORDO TERAPÊUTICO',
+      'Compromissos',
+      'Cancelamentos',
+      'Sigilo',
+      'Consentimento',
+    };
+    final widgets = <pw.Widget>[];
+    for (final linhaBruta in texto.split('\n')) {
+      final linha = linhaBruta.trim();
+      if (linha.isEmpty) {
+        widgets.add(pw.SizedBox(height: 6));
+        continue;
+      }
+      if (titulos.contains(linha)) {
+        widgets.add(pw.Padding(
+          padding: const pw.EdgeInsets.only(top: 8, bottom: 3),
+          child: pw.Text(
+            linha,
+            style: pw.TextStyle(
+              fontSize: 11,
+              fontWeight: pw.FontWeight.bold,
+              color: _titulo,
+            ),
+          ),
+        ));
+        continue;
+      }
+      widgets.add(pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 3),
+        child: pw.Text(
+          linha,
+          style: pw.TextStyle(fontSize: Tipografia.sm, color: PdfColors.black),
+        ),
+      ));
+    }
+    if (widgets.isEmpty) {
+      widgets.add(pw.Text(
+        'Conteúdo do acordo indisponível neste aparelho.',
+        style: pw.TextStyle(fontSize: Tipografia.sm, color: _secundaria),
+      ));
+    }
+    return widgets;
   }
 
   Future<void> _salvarOuImprimir({

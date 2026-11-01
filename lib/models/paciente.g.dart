@@ -33,13 +33,14 @@ class PacienteAdapter extends TypeAdapter<Paciente> {
       enderecoJson: fields[13] == null ? '' : fields[13] as String,
       valorSessao: fields[14] == null ? 0.0 : (fields[14] as num).toDouble(),
       ehDemo: fields[15] == null ? false : fields[15] as bool,
+      cpf: fields[16] == null ? '' : fields[16] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, Paciente obj) {
     writer
-      ..writeByte(16)
+      ..writeByte(17)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -71,7 +72,9 @@ class PacienteAdapter extends TypeAdapter<Paciente> {
       ..writeByte(14)
       ..write(obj.valorSessao)
       ..writeByte(15)
-      ..write(obj.ehDemo);
+      ..write(obj.ehDemo)
+      ..writeByte(16)
+      ..write(obj.cpf);
   }
 
   @override

@@ -142,6 +142,9 @@ class ContratoRequest(BaseModel):
     template_contrato: str = Field(default="", max_length=50_000)
     tratamento: str = Field(default="masculino", max_length=10)
     crp_verificado: bool = False
+    # Identificação fiscal do profissional (usada no contrato/recibos).
+    cpf_profissional: str = Field(default="", max_length=20)
+    cnpj_profissional: str = Field(default="", max_length=25)
 
 
 class ContratoResponse(BaseModel):
@@ -153,6 +156,10 @@ class ContratoResponse(BaseModel):
 
 class ContratoAceiteRequest(BaseModel):
     nome: str = Field(min_length=3, max_length=120)
+    cpf: str = Field(default="", max_length=20)
+    # Compatibilidade: páginas antigas (cache) enviam só o nome. As novas
+    # exigem o checkbox "Li e concordo" (aceite=true).
+    aceite: bool = True
 
 
 class ContratoStatusResponse(BaseModel):
@@ -160,6 +167,18 @@ class ContratoStatusResponse(BaseModel):
     status: str = "pendente"
     aceito_em: str | None = None
     nome_aceite: str | None = None
+    # Evidências da assinatura eletrônica simples (para comprovante/PDF).
+    aceite_codigo: str = ""
+    aceite_hash: str = ""
+    aceite_versao: str = ""
+    aceite_cpf_mascarado: str = ""
+    aceite_ip: str = ""
+    aceite_user_agent: str = ""
+    verificacao_url: str = ""
+    # Conteúdo canônico assinado (somente para o dono autenticado).
+    documento_texto: str = ""
+    cpf_profissional: str = ""
+    cnpj_profissional: str = ""
     erro: str = ""
 
 
