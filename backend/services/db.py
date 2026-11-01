@@ -384,6 +384,17 @@ _tabelas = [
         ativo INTEGER NOT NULL DEFAULT 1,
         criado_em TEXT NOT NULL
     )""",
+    """CREATE TABLE IF NOT EXISTS custos_dev_ia (
+        id TEXT PRIMARY KEY,
+        descricao TEXT NOT NULL,
+        fornecedor TEXT NOT NULL DEFAULT 'DeepSeek',
+        competencia TEXT NOT NULL,
+        valor_brl REAL NOT NULL DEFAULT 0,
+        api_key_ref TEXT NOT NULL DEFAULT '',
+        observacao TEXT NOT NULL DEFAULT '',
+        ativo INTEGER NOT NULL DEFAULT 1,
+        criado_em TEXT NOT NULL
+    )""",
     """CREATE TABLE IF NOT EXISTS push_subscriptions (
         id TEXT PRIMARY KEY,
         ator TEXT NOT NULL DEFAULT '',

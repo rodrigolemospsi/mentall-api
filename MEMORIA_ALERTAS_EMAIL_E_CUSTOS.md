@@ -110,3 +110,18 @@
 4. Conciliar preços de IA reais com a fatura (tabela `precos_provedor` é estimativa).
 5. Custos: Fase 2 (PTAX diário, edição de preços na tela, importação de faturas, Costs API OpenAI)
    e Fase 3 (alertas de orçamento por e-mail/WhatsApp, projeção e picos).
+
+## IA de desenvolvimento / construção do site (01/11/2026)
+
+- O painel de custos ganhou a categoria **"IA de desenvolvimento (site)"**: custos da IA usada
+  para construir/manter o site, com **chave de API separada** da usada pelo app em produção.
+- Tabela `custos_dev_ia` (descrição, fornecedor, competência AAAA-MM, valor em R$, referência da
+  API key, observação). Cards "IA desenvolvimento (site)" e "Total com desenvolvimento"; seção
+  própria com formulário em `/admin/custos`.
+- **Não entra** no custo operacional, orçamento nem margem por profissional (é custo de
+  desenvolvimento, não de operação).
+- A API da DeepSeek não expõe histórico de consumo (só saldo/`/user/balance`), por isso o valor é
+  informado manualmente por competência. Rotas: `POST /admin/custos/dev-ia` e
+  `POST /admin/custos/dev-ia/{id}/remover`.
+- Também corrigido o bug do compromisso às 23h (padrão 23:00–00:00 era rejeitado pela validação;
+  agora sugere 22:00) que deixava o CI Flutter vermelho no fim da noite.

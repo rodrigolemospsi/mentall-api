@@ -132,7 +132,10 @@ class _CompromissoFormDialogState extends State<_CompromissoFormDialog> {
         widget.dataSugerida.day,
       );
       final agora = TimeOfDay.now();
-      _horaInicio = TimeOfDay(hour: agora.hour, minute: 0);
+      // Às 23h o padrão 23:00–00:00 caía na validação de "término deve ser
+      // posterior" (o fim é montado no mesmo dia). Sugere 22:00 nesse caso.
+      final horaSugerida = agora.hour >= 23 ? 22 : agora.hour;
+      _horaInicio = TimeOfDay(hour: horaSugerida, minute: 0);
       _horaFim = _calcularHoraFim(_horaInicio);
       _tituloController = TextEditingController();
       _observacoesController = TextEditingController();

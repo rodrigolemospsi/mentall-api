@@ -4237,6 +4237,53 @@ def admin_custos_remover_fixo(request: Request, custo_id: str):
     return _redirect_custos(msg="Custo fixo removido.")
 
 
+@app.post("/admin/custos/dev-ia", tags=["Admin"])
+async def admin_custos_novo_dev_ia(request: Request):
+    _rate_limit_check(request, max_requests=20, chave_extra="admin-custos")
+    bloqueio = _exigir_papel(request, ("admin",))
+    if bloqueio:
+        return bloqueio
+    form = await request.form()
+    descricao = (form.get("descricao") or "").strip()
+    fornecedor = (form.get("fornecedor") or "DeepSeek").strip()
+    competencia = (form.get("competencia") or "").strip()
+    api_key_ref = (form.get("api_key_ref") or "").strip()
+    observacao = (form.get("observacao") or "").strip()
+    try:
+        valor = float(str(form.get("valor_brl") or "0").replace(",", "."))
+    except ValueError:
+        valor = 0.0
+    if not descricao:
+        return _redirect_custos(erro="Informe a descrição do custo de IA de desenvolvimento.")
+    if valor <= 0:
+        return _redirect_custos(erro="Informe um valor maior que zero.")
+    custo_id = custos.registrar_custo_dev_ia(
+        descricao, fornecedor, competencia, valor, api_key_ref, observacao
+    )
+    admin_service.registrar_auditoria(
+        _identidade_admin(request),
+        "custos.dev_ia_criar",
+        custo_id,
+        descricao[:120],
+        _cliente_ip(request),
+    )
+    return _redirect_custos(msg="Custo de IA de desenvolvimento cadastrado.")
+
+
+@app.post("/admin/custos/dev-ia/{custo_id}/remover", tags=["Admin"])
+def admin_custos_remover_dev_ia(request: Request, custo_id: str):
+    _rate_limit_check(request, max_requests=20, chave_extra="admin-custos")
+    bloqueio = _exigir_papel(request, ("admin",))
+    if bloqueio:
+        return bloqueio
+    if not custos.remover_custo_dev_ia(custo_id):
+        return _redirect_custos(erro="Custo de IA de desenvolvimento não encontrado.")
+    admin_service.registrar_auditoria(
+        _identidade_admin(request), "custos.dev_ia_remover", custo_id, "", _cliente_ip(request)
+    )
+    return _redirect_custos(msg="Custo de IA de desenvolvimento removido.")
+
+
 if __name__ == "__main__":
     import uvicorn
 

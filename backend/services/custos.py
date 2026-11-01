@@ -259,6 +259,74 @@ def _fixos_mensais_brl() -> tuple[float, list[dict]]:
 
 
 # ---------------------------------------------------------------------------
+# IA de desenvolvimento (construção/manutenção do site, chave separada)
+# ---------------------------------------------------------------------------
+
+def listar_custos_dev_ia() -> list[dict]:
+    """Custos informados manualmente da IA usada no desenvolvimento do site."""
+    try:
+        return executar(
+            "SELECT * FROM custos_dev_ia WHERE ativo = 1 "
+            "ORDER BY competencia DESC, criado_em DESC"
+        ).fetchall()
+    except Exception:
+        log.exception("Falha ao listar custos de IA de desenvolvimento")
+        return []
+
+
+def registrar_custo_dev_ia(
+    descricao: str,
+    fornecedor: str = "DeepSeek",
+    competencia: str = "",
+    valor_brl: float = 0.0,
+    api_key_ref: str = "",
+    observacao: str = "",
+) -> str:
+    competencia = (competencia or "").strip()
+    try:
+        datetime.strptime(competencia + "-01", "%Y-%m-%d")
+    except Exception:
+        competencia = _mes_brt()
+    custo_id = _novo_id("devia")
+    try:
+        executar(
+            "INSERT INTO custos_dev_ia (id, descricao, fornecedor, competencia, valor_brl, "
+            "api_key_ref, observacao, ativo, criado_em) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)",
+            (
+                custo_id,
+                (descricao or "").strip()[:160],
+                (fornecedor or "DeepSeek").strip()[:120],
+                competencia,
+                round(float(valor_brl or 0), 2),
+                (api_key_ref or "").strip()[:120],
+                (observacao or "").strip()[:200],
+                _agora_brt().isoformat(),
+            ),
+        ).commit()
+    except Exception:
+        log.exception("Falha ao registrar custo de IA de desenvolvimento")
+    return custo_id
+
+
+def remover_custo_dev_ia(custo_id: str) -> bool:
+    try:
+        cur = executar(
+            "UPDATE custos_dev_ia SET ativo = 0 WHERE id = ? AND ativo = 1", (custo_id,)
+        )
+        cur.commit()
+        return cur.rowcount > 0
+    except Exception:
+        log.exception("Falha ao remover custo de IA de desenvolvimento")
+        return False
+
+
+def _dev_ia_mensal_brl(mes: str) -> tuple[float, list[dict]]:
+    itens = [i for i in listar_custos_dev_ia() if (i.get("competencia") or "") == mes]
+    total = sum(max(0.0, float(i.get("valor_brl") or 0)) for i in itens)
+    return round(total, 2), itens
+
+
+# ---------------------------------------------------------------------------
 # Magalu Cloud (Consumption API, formato FOCUS)
 # ---------------------------------------------------------------------------
 
@@ -573,6 +641,7 @@ def painel(mes: str | None = None) -> dict:
 
     fixos_total, fixos = _fixos_mensais_brl()
     total += fixos_total
+    dev_ia_total, dev_ia_itens = _dev_ia_mensal_brl(mes)
 
     ativos = _profissionais_ativos()
     sessoes = _contar_eventos_mes("transcricao", mes)
@@ -611,6 +680,9 @@ def painel(mes: str | None = None) -> dict:
         "ia_brl": round(total_ia, 4),
         "infra_brl": round(total_infra, 4),
         "fixos_brl": fixos_total,
+        "dev_ia_brl": dev_ia_total,
+        "dev_ia": dev_ia_itens,
+        "total_com_dev_brl": round(total + dev_ia_total, 2),
         "outros_brl": round(total - total_ia - total_infra - fixos_total, 2),
         "orcamento_brl": orcamento,
         "preco_mensal_brl": preco,

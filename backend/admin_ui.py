@@ -2422,6 +2422,8 @@ def pagina_custos(dados: dict, msg: str = "", erro: str = "", pode_email: bool =
             _cartao("IA (variável)", _brl_preciso(dados.get("ia_brl"))),
             _cartao("Infra Magalu (API)", _brl(dados.get("infra_brl"))),
             _cartao("Custos fixos", _brl(dados.get("fixos_brl"))),
+            _cartao("IA desenvolvimento (site)", _brl(dados.get("dev_ia_brl"))),
+            _cartao("Total com desenvolvimento", _brl(dados.get("total_com_dev_brl"))),
             _cartao("Orçamento do mês", _brl(dados.get("orcamento_brl"))),
             _cartao("Restante do orçamento", _brl(dados.get("restante_brl"))),
         ]
@@ -2483,6 +2485,22 @@ def pagina_custos(dados: dict, msg: str = "", erro: str = "", pode_email: bool =
         "</tr>"
         for item in (dados.get("fixos") or [])
     ) or '<tr><td colspan="6" class="off">Nenhum custo fixo cadastrado.</td></tr>'
+
+    linhas_dev = "".join(
+        "<tr>"
+        f"<td>{_esc(item.get('descricao'))}</td>"
+        f"<td>{_esc(item.get('fornecedor') or '-')}</td>"
+        f"<td>{_esc(item.get('competencia'))}</td>"
+        f"<td>{_brl(item.get('valor_brl'))}</td>"
+        f"<td>{_esc(item.get('api_key_ref') or '-')}</td>"
+        f"<td>{_esc(item.get('observacao') or '-')}</td>"
+        '<td><form method="post" action="/admin/custos/dev-ia/'
+        + _esc(item.get("id"))
+        + '/remover" style="margin:0"><button type="submit" class="btn secundario pequeno">'
+        "Remover</button></form></td>"
+        "</tr>"
+        for item in (dados.get("dev_ia") or [])
+    ) or '<tr><td colspan="7" class="off">Nenhum custo de IA de desenvolvimento neste mês.</td></tr>'
 
     linhas_precos = "".join(
         "<tr>"
@@ -2560,6 +2578,29 @@ def pagina_custos(dados: dict, msg: str = "", erro: str = "", pode_email: bool =
     <button type="submit" class="btn">Adicionar custo fixo</button>
   </form>
   <p class="dica">Custos anuais entram no total divididos por 12.</p>
+
+  <h3>IA de desenvolvimento / construção do site</h3>
+  <p class="dica">Custos da IA usada para construir e manter o site (DeepSeek com
+  <strong>chave de API separada</strong> da usada pelo app em produção). A API da DeepSeek
+  não expõe histórico de consumo; informe aqui o valor mensal por competência. Estes valores
+  entram só no <strong>total com desenvolvimento</strong> — não afetam o custo operacional
+  nem a margem por profissional.</p>
+  <div class="tabela-card">
+    <table>
+      <thead><tr><th>Descrição</th><th>Fornecedor</th><th>Competência</th><th>Valor</th>
+      <th>Referência da chave</th><th>Observação</th><th></th></tr></thead>
+      <tbody>{linhas_dev}</tbody>
+    </table>
+  </div>
+  <form class="card-form" method="post" action="/admin/custos/dev-ia">
+    <label>Descrição<input type="text" name="descricao" maxlength="160" required placeholder="Ex.: IA DeepSeek — construção do site"></label>
+    <label>Fornecedor<input type="text" name="fornecedor" maxlength="120" value="DeepSeek"></label>
+    <label>Competência (AAAA-MM)<input type="month" name="competencia" required></label>
+    <label>Valor (R$)<input type="text" name="valor_brl" inputmode="decimal" required placeholder="12,50"></label>
+    <label>Referência da api key<input type="text" name="api_key_ref" maxlength="120" placeholder="DeepSeek — chave separada (site)"></label>
+    <label>Observação<input type="text" name="observacao" maxlength="200" placeholder="Créditos usados no desenvolvimento do site"></label>
+    <button type="submit" class="btn">Adicionar custo de IA (site)</button>
+  </form>
 
   <h3>Tabela de preços de IA (referência)</h3>
   <div class="tabela-card">

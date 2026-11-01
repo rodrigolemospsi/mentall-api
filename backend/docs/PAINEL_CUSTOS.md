@@ -13,6 +13,7 @@ contra o preço do plano) e a evolução diária.
 | Groq / OpenAI (transcrição) | duração do áudio (campo `duration` do verbose_json; fallback: header WAV ou estimativa por bytes) × preço por minuto | medido (estimativa de preço) |
 | Magalu Cloud | Consumption API (`GET /consumption/usage`, FOCUS diário) com `MAGALU_CONSUMPTION_API_KEY` | fatura real via API |
 | Custos fixos | cadastro manual na própria página (mensal ou anual, anual dividido por 12) | informado |
+| IA de desenvolvimento (site) | cadastro manual por competência (AAAA-MM); DeepSeek com **chave separada** da produção | informado |
 | OpenAlex | gratuito | ignorado |
 
 - Sync da Magalu: automático no start e a cada **6 horas** (thread em background), idempotente por dia.
@@ -34,6 +35,18 @@ CUSTOS_CAMBIO_USD_BRL=5.40            # câmbio usado nas estimativas em USD
 A tabela `precos_provedor` começa com valores de referência (DeepSeek, Gemini, OpenAI, Groq)
 marcados como estimativa. Para ajustar, edite as linhas no banco (Fase 2 terá edição pela tela).
 A Magalu é sempre o valor faturado, não estimativa.
+
+## IA de desenvolvimento (construção do site)
+
+Categoria separada no painel, com tabela `custos_dev_ia` (descrição, fornecedor,
+competência AAAA-MM, valor em R$, referência da API key e observação). Aparece nos cards
+**IA desenvolvimento (site)** e **Total com desenvolvimento** e numa seção própria com formulário.
+
+- Não entra no **custo operacional**, no orçamento nem na margem por profissional.
+- A API da DeepSeek não expõe histórico de consumo/faturamento (só saldo), por isso o valor
+  é informado manualmente por competência; a referência da API key fica registrada para separar
+  a chave de desenvolvimento da chave de produção do app.
+- Rotas: `POST /admin/custos/dev-ia` e `POST /admin/custos/dev-ia/{id}/remover` (admin).
 
 ## Limitações conhecidas (próximas fases)
 
