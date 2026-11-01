@@ -1725,7 +1725,7 @@ def criar_anamnese_endpoint(request: AnamneseRequest, _req: Request, auth: tuple
         "crp_verificado": _crp_verificado_servidor(request.registro, request.crp_verificado),
     }
 
-    token = criar_anamnese(request.template_json, owner_id, dados_extra)
+    token = criar_anamnese(request.template_json, owner_id, dados_extra, e2e=request.e2e)
     base_url = os.getenv("API_BASE_URL", "https://mentall-api.fly.dev")
     url = f"{base_url}/anamneses/{token}"
 
@@ -1797,6 +1797,8 @@ p {{ color:#64748B; font-size:15px; }}
     html = html.replace("const DADOS_PROFISSIONAL = {{DADOS_PROFISSIONAL}};",
                         bloco_script)
     html = html.replace("const TEMPLATE = {{TEMPLATE}};", "")
+    e2e_flag = "true" if anamnese.get("e2e") else "false"
+    html = html.replace("const E2E = {{E2E}};", f"const E2E = {e2e_flag};")
     html = _com_nonce_script(html, getattr(_req.state, "csp_nonce", ""))
 
     return HTMLResponse(content=html)
@@ -1809,14 +1811,18 @@ p {{ color:#64748B; font-size:15px; }}
 )
 def responder_anamnese(token: str, request: ResponderAnamneseRequest, _req: Request):
     _rate_limit_check(_req, max_requests=10)
-    log.info("Resposta de anamnese %s", token[:12])
-    if not request.respostas.strip():
+    log.info("Resposta de anamnese %s (cifrada=%s)", token[:12], request.cifrada)
+    if not request.cifrada and not request.respostas.strip():
         raise HTTPException(status_code=400, detail="Respostas não informadas.")
 
     try:
-        anamnese = registrar_resposta(token, request.respostas)
-    except ValueError:
-        raise HTTPException(status_code=422, detail="Respostas inválidas. Confira os campos obrigatórios.") from None
+        if request.cifrada:
+            anamnese = registrar_resposta(
+                token, cifrada=True, iv=request.iv, ct=request.ct)
+        else:
+            anamnese = registrar_resposta(token, request.respostas)
+    except ValueError as erro:
+        raise HTTPException(status_code=422, detail=str(erro)) from None
     if anamnese is None:
         raise HTTPException(status_code=404, detail="Anamnese não encontrada.")
 
@@ -1838,11 +1844,27 @@ def status_anamnese(token: str, _req: Request, auth: tuple = Depends(_verificar_
     if anamnese is None or anamnese.get("owner_id") != owner_id:
         return AnamneseStatusResponse(sucesso=False, erro="Anamnese não encontrada.")
 
+    respostas = anamnese.get("respostas", "") or ""
+    cifrada = bool(anamnese.get("cifrada")) and bool(respostas)
+    iv = ct = ""
+    if cifrada:
+        try:
+            envelope = json.loads(respostas)
+            if isinstance(envelope, dict) and envelope.get("alg") == "A256GCM":
+                iv = str(envelope.get("iv") or "")
+                ct = str(envelope.get("ct") or "")
+            else:
+                cifrada = False
+        except Exception:
+            cifrada = False
     return AnamneseStatusResponse(
         sucesso=True,
         status=anamnese["status"],
         data_resposta=anamnese.get("respondido_em"),
-        respostas_json=anamnese.get("respostas", "") or "",
+        respostas_json="" if cifrada else respostas,
+        cifrada=cifrada,
+        iv=iv,
+        ct=ct,
     )
 
 

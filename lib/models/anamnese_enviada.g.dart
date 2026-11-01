@@ -27,13 +27,16 @@ class AnamneseEnviadaAdapter extends TypeAdapter<AnamneseEnviada> {
       dataCriacao: fields[7] as DateTime,
       dataEnvio: fields[8] as DateTime?,
       dataResposta: fields[9] as DateTime?,
+      chaveCripto: fields[10] == null ? '' : fields[10] as String,
+      e2e: fields[11] == null ? false : fields[11] as bool,
+      falhaDecifrar: fields[12] == null ? false : fields[12] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, AnamneseEnviada obj) {
     writer
-      ..writeByte(10)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -53,7 +56,13 @@ class AnamneseEnviadaAdapter extends TypeAdapter<AnamneseEnviada> {
       ..writeByte(8)
       ..write(obj.dataEnvio)
       ..writeByte(9)
-      ..write(obj.dataResposta);
+      ..write(obj.dataResposta)
+      ..writeByte(10)
+      ..write(obj.chaveCripto)
+      ..writeByte(11)
+      ..write(obj.e2e)
+      ..writeByte(12)
+      ..write(obj.falhaDecifrar);
   }
 
   @override

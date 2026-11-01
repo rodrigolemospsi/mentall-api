@@ -62,7 +62,7 @@ Future<void> _enviarAnamneseWhatsApp({
   final mensagem =
       'Olá ${paciente.nome.trim()}! Antes da nossa consulta, gostaria que você respondesse este questionário. '
       'Leva cerca de 10 minutos e me ajuda a conhecer você melhor:\n\n'
-      '${anamnese.url}';
+      '${anamnese.urlComChave}';
 
   final abriu = await WhatsAppService.escolher(
     context: context,
@@ -465,7 +465,11 @@ class PacienteResumoTab extends ConsumerWidget {
               pacienteId: paciente.id,
               termoSingular: termoSingular,
               paciente: paciente,
-              respostasAnamnese: anamnese != null && anamnese.isRespondido ? anamnese.respostas : null,
+              respostasAnamnese: anamnese != null &&
+                      anamnese.isRespondido &&
+                      !anamnese.falhaDecifrar
+                  ? anamnese.respostas
+                  : null,
             ),
             const SizedBox(height: 14),
             EscalasSection(pacienteId: paciente.id),
@@ -488,18 +492,24 @@ class PacienteResumoTab extends ConsumerWidget {
     final corPrimaria = context.corPrimaria;
 
     if (anamnese != null && anamnese.isRespondido) {
+      final falhouDecifrar = anamnese.falhaDecifrar;
+      final cor = falhouDecifrar ? context.corWarning : context.corSuccess;
       return OutlinedButton.icon(
         onPressed: () => _verAnamnese(context, paciente, anamnese),
-        icon: Icon(Icons.check_circle_outline, color: context.corSuccess, size: 20),
+        icon: Icon(
+          falhouDecifrar ? Icons.lock_outline : Icons.check_circle_outline,
+          color: cor,
+          size: 20,
+        ),
         label: Text(
           anamnese.dataResposta != null
               ? 'Respondido em ${anamnese.dataResposta!.day.toString().padLeft(2, '0')}/${anamnese.dataResposta!.month.toString().padLeft(2, '0')}'
               : 'Respondido',
-          style: TextStyle(color: context.corSuccess),
+          style: TextStyle(color: cor),
         ),
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
-          side: BorderSide(color: context.corSuccess),
+          side: BorderSide(color: cor),
         ),
       );
     }
@@ -947,7 +957,33 @@ class PacienteResumoTab extends ConsumerWidget {
         content: SizedBox(
           width: double.maxFinite,
           child: SingleChildScrollView(
-            child: _buildRespostasAnamnese(context, respostas),
+            child: anamnese.falhaDecifrar
+                ? _avisoFalhaDecifrar(context)
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (anamnese.e2e) ...[
+                        Row(
+                          children: [
+                            Icon(Icons.lock_outline,
+                                size: 16, color: context.corSuccess),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Respostas cifradas ponta a ponta — decifradas neste aparelho.',
+                                style: TextStyle(
+                                  fontSize: Tipografia.sm,
+                                  color: context.corSuccess,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      _buildRespostasAnamnese(context, respostas),
+                    ],
+                  ),
           ),
         ),
         actions: [
@@ -957,6 +993,39 @@ class PacienteResumoTab extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _avisoFalhaDecifrar(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.lock_outline, size: 36, color: context.corWarning),
+        const SizedBox(height: 10),
+        Text(
+          'Resposta recebida, mas não foi possível decifrar neste aparelho.',
+          style: TextStyle(
+            fontSize: Tipografia.baseMd,
+            fontWeight: FontWeight.w600,
+            color: context.corTextoHeading,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'A anamnese foi respondida e está guardada cifrada no servidor '
+          '(criptografia ponta a ponta). A chave existe apenas no aparelho em '
+          'que a ficha foi criada; sem ela o conteúdo não pode ser lido por '
+          'ninguém — nem pelo suporte. Se este aparelho for o mesmo em que a '
+          'ficha foi criada, abra o app desbloqueado e tente sincronizar '
+          'novamente. Caso contrário, envie uma nova anamnese ao paciente.',
+          style: TextStyle(
+            fontSize: Tipografia.smMd,
+            color: context.corTextoSecondary,
+            height: 1.45,
+          ),
+        ),
+      ],
     );
   }
 

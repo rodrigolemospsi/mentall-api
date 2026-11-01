@@ -227,7 +227,9 @@ _tabelas = [
         respostas TEXT,
         criado_em TEXT NOT NULL,
         respondido_em TEXT,
-        dados_extra TEXT NOT NULL DEFAULT '{}'
+        dados_extra TEXT NOT NULL DEFAULT '{}',
+        e2e INTEGER NOT NULL DEFAULT 0,
+        cifrada INTEGER NOT NULL DEFAULT 0
     )""",
     """CREATE TABLE IF NOT EXISTS lembretes (
         id TEXT PRIMARY KEY,
@@ -426,6 +428,8 @@ _indices = [
 
 # ── Migrações incrementais (reaplicadas a cada conexão nova) ────────────────
 _MIGRACOES = [
+    ("anamneses", "e2e", "INTEGER NOT NULL DEFAULT 0"),
+    ("anamneses", "cifrada", "INTEGER NOT NULL DEFAULT 0"),
     ("usuarios", "role", "TEXT NOT NULL DEFAULT 'user'"),
     ("usuarios", "email_verificacao_token_hash", "TEXT"),
     ("usuarios", "email_verificacao_expiracao", "TEXT"),

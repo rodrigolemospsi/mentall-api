@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:hive_ce/hive.dart';
 
 import '../models/anamnese_enviada.dart';
+import 'anamnese_e2e_crypto.dart';
 import 'api_client.dart';
 import 'encrypted_service_mixin.dart';
 import 'encryption_service.dart';
@@ -27,7 +28,9 @@ class AnamneseEnviadaService with EncryptedServiceMixin {
         .toList()
       ..sort((a, b) => b.dataCriacao.compareTo(a.dataCriacao));
     if (anamneses.isEmpty) return null;
-    final a = anamneses.first;
+    // Decifra uma cópia: mutar o objeto do cache do Hive com texto claro
+    // arriscaria persistir dados clínicos sem cifra na próxima gravação.
+    final a = anamneses.first.copyWith();
     _decryptAnamnese(a);
     return a;
   }
@@ -67,6 +70,10 @@ class AnamneseEnviadaService with EncryptedServiceMixin {
       throw Exception('Falha na autenticação com o servidor. Verifique credenciais em Configurações > Avançado.');
     }
 
+    // Criptografia ponta-a-ponta: a chave fica só neste aparelho e viaja no
+    // fragmento do link (#k=...), nunca no corpo da requisição ao servidor.
+    final chaveE2e = AnamneseE2ECrypto.gerarChaveBase64Url();
+
     final body = {
       'template_json': templateJson,
       'abordagem': abordagem,
@@ -75,6 +82,7 @@ class AnamneseEnviadaService with EncryptedServiceMixin {
       'registro': registro,
       'tratamento': tratamento,
       'crp_verificado': crpVerificado,
+      'e2e': true,
     };
     var response = await ApiClient.post(
       '/anamneses',
@@ -103,10 +111,14 @@ class AnamneseEnviadaService with EncryptedServiceMixin {
           status: 'pendente',
           url: data['url'] as String,
           dataCriacao: DateTime.now(),
+          chaveCripto: chaveE2e,
+          e2e: true,
         );
-        _encryptAnamnese(anamnese);
-        await _box.put(anamnese.id, anamnese);
-        _decryptAnamnese(anamnese);
+        // Persiste uma cópia cifrada; o objeto devolvido fica em texto claro e
+        // não compartilha referência com o cache do Hive.
+        final paraSalvar = anamnese.copyWith();
+        _encryptAnamnese(paraSalvar);
+        await _box.put(paraSalvar.id, paraSalvar);
         return anamnese;
       }
       Log.erro('Resposta inesperada do servidor: ${response.body}', contexto: 'AnamneseEnviadaService.criar');
@@ -143,7 +155,25 @@ class AnamneseEnviadaService with EncryptedServiceMixin {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         if (data['sucesso'] == true && data['status'] == 'respondido') {
           _decryptAnamnese(anamnese);
-          final respostas = data['respostas_json'] as String? ?? '';
+          var respostas = data['respostas_json'] as String? ?? '';
+          var falhaDecifrar = false;
+          if (data['cifrada'] == true) {
+            final claro = AnamneseE2ECrypto.decifrarRespostas(
+              chaveBase64Url: anamnese.chaveCripto,
+              ivBase64: data['iv'] as String? ?? '',
+              ctBase64: data['ct'] as String? ?? '',
+            );
+            if (claro == null) {
+              falhaDecifrar = true;
+              respostas = '';
+              Log.erro(
+                'Resposta de anamnese cifrada não pôde ser decifrada neste aparelho (token ${anamnese.token.substring(0, 8)}).',
+                contexto: 'AnamneseEnviadaService.verificarStatus',
+              );
+            } else {
+              respostas = claro;
+            }
+          }
           String dataRespostaStr = data['data_resposta'] as String? ?? '';
           DateTime? dataResposta;
           if (dataRespostaStr.isNotEmpty) {
@@ -154,6 +184,7 @@ class AnamneseEnviadaService with EncryptedServiceMixin {
             status: 'respondido',
             respostasJson: respostas,
             dataResposta: dataResposta,
+            falhaDecifrar: falhaDecifrar,
           );
           _encryptAnamnese(atualizada);
           await _box.put(atualizada.id, atualizada);
@@ -181,9 +212,11 @@ class AnamneseEnviadaService with EncryptedServiceMixin {
 
   void _encryptAnamnese(AnamneseEnviada a) {
     a.respostasJson = _encrypt(a.respostasJson);
+    a.chaveCripto = _encrypt(a.chaveCripto);
   }
 
   void _decryptAnamnese(AnamneseEnviada a) {
     a.respostasJson = _decrypt(a.respostasJson);
+    a.chaveCripto = _decrypt(a.chaveCripto);
   }
 }

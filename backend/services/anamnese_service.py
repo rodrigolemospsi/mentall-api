@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 import math
@@ -9,21 +10,34 @@ from services.db import executar
 log = logging.getLogger("mentall.anamneses")
 
 
-def criar_anamnese(template_json: str, owner_id: str, dados_extra: dict | None = None) -> str:
+def criar_anamnese(
+    template_json: str,
+    owner_id: str,
+    dados_extra: dict | None = None,
+    e2e: bool = False,
+) -> str:
+    """Cria a ficha de anamnese.
+
+    ``e2e=True`` sinaliza que o app usará criptografia ponta-a-ponta: o servidor
+    NÃO recebe a chave (ela viaja no fragmento do link), portanto só aceita
+    respostas cifradas para essa ficha. O conteúdo clínico nunca chega ao
+    servidor em texto claro nesse modo.
+    """
     token = secrets.token_urlsafe(32)
     cur = executar(
-        "INSERT INTO anamneses (token, template_json, owner_id, status, criado_em, dados_extra) "
-        "VALUES (?, ?, ?, 'pendente', ?, ?)",
+        "INSERT INTO anamneses (token, template_json, owner_id, status, criado_em, dados_extra, e2e) "
+        "VALUES (?, ?, ?, 'pendente', ?, ?, ?)",
         (
             token,
             template_json,
             owner_id,
             datetime.now(timezone.utc).isoformat(),
             json.dumps(dados_extra or {}, ensure_ascii=False),
+            1 if e2e else 0,
         ),
     )
     cur.commit()
-    log.info("Anamnese criada: token=%s", token[:8])
+    log.info("Anamnese criada: token=%s e2e=%s", token[:8], bool(e2e))
     return token
 
 
@@ -41,6 +55,8 @@ def obter_anamnese(token: str) -> dict | None:
         "criado_em": row["criado_em"],
         "respondido_em": row["respondido_em"],
         "dados_extra": json.loads(row["dados_extra"]) if row["dados_extra"] else {},
+        "e2e": bool(row["e2e"]) if "e2e" in row.keys() else False,
+        "cifrada": bool(row["cifrada"]) if "cifrada" in row.keys() else False,
     }
 
 
@@ -97,21 +113,94 @@ def _validar_respostas(template_json: str, respostas_json: str) -> str:
     return json.dumps(respostas, ensure_ascii=False, allow_nan=False)
 
 
-def registrar_resposta(token: str, respostas_json: str) -> dict | None:
+MAX_CT_BASE64 = 300_000
+IV_BYTES = 12
+MIN_CT_BYTES = 17  # 16 bytes de tag GCM + ao menos 1 byte de conteúdo
+
+
+def _b64_decode_estrito(valor: str) -> bytes:
+    """Decodifica base64 padrão (com ou sem padding) e rejeita lixo."""
+    if not valor or not isinstance(valor, str):
+        raise ValueError("Payload cifrado incompleto.")
+    texto = valor.strip()
+    padding = "=" * ((4 - len(texto) % 4) % 4)
+    try:
+        return base64.b64decode(texto + padding, validate=True)
+    except Exception:
+        try:
+            return base64.urlsafe_b64decode(texto + padding)
+        except Exception:
+            raise ValueError("Payload cifrado inválido.") from None
+
+
+def validar_payload_cifrado(iv_b64: str, ct_b64: str) -> str:
+    """Valida a estrutura do envelope cifrado e devolve o JSON a persistir.
+
+    O conteúdo (``ct``) NÃO é interpretado: sem a chave (que nunca chega ao
+    servidor) é impossível ler a resposta clínica. Só validamos tamanho/formato
+    para evitar payloads vazios ou abusivos.
+    """
+    if not isinstance(iv_b64, str) or not isinstance(ct_b64, str):
+        raise ValueError("Payload cifrado inválido.")
+    if len(ct_b64) > MAX_CT_BASE64:
+        raise ValueError("Respostas excedem o tamanho máximo.")
+    iv = _b64_decode_estrito(iv_b64)
+    ct = _b64_decode_estrito(ct_b64)
+    if len(iv) != IV_BYTES:
+        raise ValueError("Payload cifrado inválido.")
+    if len(ct) < MIN_CT_BYTES:
+        raise ValueError("Respostas vazias ou inválidas.")
+    return json.dumps(
+        {"alg": "A256GCM", "v": 1, "iv": iv_b64, "ct": ct_b64},
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
+
+def registrar_resposta(
+    token: str,
+    respostas_json: str | None = None,
+    cifrada: bool = False,
+    iv: str = "",
+    ct: str = "",
+) -> dict | None:
+    """Registra a resposta do paciente.
+
+    - Fichas E2E (``e2e=1``): só aceitam ``cifrada=True`` com envelope
+      AES-256-GCM; o servidor persiste apenas o conteúdo cifrado.
+    - Fichas legadas (``e2e=0``): mantêm o caminho em texto claro validado,
+      necessário para links já enviados antes da atualização.
+    """
     cur = executar("SELECT * FROM anamneses WHERE token = ?", (token,))
     row = cur.fetchone()
     if row is None or row["status"] not in ("pendente", "respondido"):
         return None
     if row["status"] == "respondido":
         return {"status": "respondido"}
-    respostas_json = _validar_respostas(row["template_json"], respostas_json)
+    e2e = bool(row["e2e"]) if "e2e" in row.keys() else False
+    if e2e and not cifrada:
+        raise ValueError(
+            "Este questionário exige criptografia ponta a ponta. "
+            "Peça ao profissional para reenviar o link completo."
+        )
+    if cifrada:
+        respostas_json = validar_payload_cifrado(iv, ct)
+        flag_cifrada = 1
+    else:
+        if not (respostas_json or "").strip():
+            raise ValueError("Respostas não informadas.")
+        respostas_json = _validar_respostas(row["template_json"], respostas_json)
+        flag_cifrada = 0
     agora = datetime.now(timezone.utc).isoformat()
     executar(
-        "UPDATE anamneses SET status = 'respondido', respostas = ?, respondido_em = ? "
-        "WHERE token = ? AND status = 'pendente'",
-        (respostas_json, agora, token),
+        "UPDATE anamneses SET status = 'respondido', respostas = ?, respondido_em = ?, "
+        "cifrada = ? WHERE token = ? AND status = 'pendente'",
+        (respostas_json, agora, flag_cifrada, token),
     ).commit()
-    log.info("Anamnese respondida: token=%s", token[:8])
+    log.info(
+        "Anamnese respondida: token=%s e2e=%s cifrada=%s",
+        token[:8], e2e, bool(flag_cifrada),
+    )
     # The public write path never returns clinical data, even on a repeated POST.
     atual = executar("SELECT status FROM anamneses WHERE token = ?", (token,)).fetchone()
     return {"status": "respondido"} if atual and atual["status"] == "respondido" else None

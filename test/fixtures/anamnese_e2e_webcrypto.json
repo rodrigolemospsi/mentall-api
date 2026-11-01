@@ -1,0 +1,8 @@
+{
+  "observacao": "Fixture gerado por tool/gerar_fixture_anamnese_e2e.mjs (WebCrypto do Node). Nao editar a mao.",
+  "versao": 1,
+  "chave_base64url": "wkIFUu6CII1TtKc54WsXxLQi_cVGCFP_grdXk7fd4Ic",
+  "iv": "oziCfLMhd8n+7gw9",
+  "ct": "E4Z9v6KTjS0ssJo/sGA5YKh2p+kfYaM77uNzwcA93Je6CKneZvry1AtX6+wOgYTqrHdqoj9qw2t9Qvv0vYFlW8mJfzLxc1YNLAOUEgHyT7QiJ3Tm4pJD0/HjYj3SVwdq3FaH7cLR4I3pdjkjKWAUA7N5U+4lZ872XLPH1jm/23QAqwqDcpKQh74KOQ==",
+  "plaintext": "{\"queixa_principal\":\"Resposta sintética de teste\",\"pensou_morte\":false,\"escala_ansiedade\":4,\"lista\":[\"opcao_a\",\"opcao_b\"]}"
+}

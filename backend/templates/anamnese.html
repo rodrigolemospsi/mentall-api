@@ -290,6 +290,8 @@ body {
 
     <div class="titulo-acordo">Questionário inicial</div>
     <p class="intro-acordo">Cerca de 10 minutos.</p>
+    <div id="aviso-e2e" style="display:none;font-size:13px;line-height:1.45;color:#334155;
+      background:#EEF2FF;border:1px solid #C7D2FE;border-radius:8px;padding:10px;margin:10px 0;"></div>
     <form id="form-anamnese"></form>
     <button class="btn-enviar" id="btn-enviar" type="button">Enviar respostas</button>
     <div class="erro-msg" id="erro-msg"></div>
@@ -307,6 +309,53 @@ body {
 const TOKEN = "{{TOKEN}}";
 const DADOS_PROFISSIONAL = {{DADOS_PROFISSIONAL}};
 const TEMPLATE = {{TEMPLATE}};
+const E2E = {{E2E}};
+
+// Criptografia ponta-a-ponta: a chave AES-256-GCM viaja no fragmento do link
+// (#k=...), que o navegador NÃO envia ao servidor. O servidor nunca vê a chave
+// nem as respostas em texto claro.
+var CHAVE_E2E = null;
+
+function base64ParaBytes(b64) {
+  var bin = atob(b64);
+  var out = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+function bytesParaBase64(bytes) {
+  var bin = '';
+  for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+function b64urlParaBytes(str) {
+  var s = String(str).replace(/-/g, '+').replace(/_/g, '/');
+  var resto = s.length % 4;
+  if (resto === 2) s += '==';
+  else if (resto === 3) s += '=';
+  else if (resto === 1) throw new Error('chave inválida');
+  return base64ParaBytes(s);
+}
+
+(function() {
+  var aviso = document.getElementById('aviso-e2e');
+  if (!E2E) return;
+  var hash = (location.hash || '').replace(/^#/, '');
+  var partes = hash.split('&');
+  for (var i = 0; i < partes.length; i++) {
+    var kv = partes[i].split('=');
+    if (kv[0] === 'k' && kv[1]) {
+      try { CHAVE_E2E = b64urlParaBytes(decodeURIComponent(kv[1])); } catch (e) { CHAVE_E2E = null; }
+    }
+  }
+  if (CHAVE_E2E && CHAVE_E2E.length === 32) {
+    aviso.textContent = 'Suas respostas serão cifradas neste navegador (criptografia ponta a ponta). Somente o profissional tem a chave para ler.';
+  } else {
+    aviso.textContent = 'Link incompleto: este questionário exige o link completo enviado pelo profissional. Peça para ele reenviar a mensagem.';
+    var botao = document.getElementById('btn-enviar');
+    if (botao) { botao.disabled = true; botao.textContent = 'Link incompleto'; }
+  }
+  aviso.style.display = 'block';
+})();
 
 document.getElementById('nome-profissional').textContent =
   ((DADOS_PROFISSIONAL.tratamento === 'feminino') ? 'Psicóloga ' : 'Psicólogo ') +
@@ -531,6 +580,11 @@ function enviar() {
 
   var respostas = coletar();
 
+  if (E2E) {
+    enviarCifrado(respostas, btn, erroEl);
+    return;
+  }
+
   fetch('/anamneses/' + TOKEN + '/responder', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -542,18 +596,77 @@ function enviar() {
   })
   .then(function(data) {
     if (data.sucesso) {
-      document.querySelector('.card').style.display = 'none';
-      document.getElementById('sucesso').style.display = 'block';
+      mostrarSucesso();
     } else {
       throw new Error(data.erro || 'Erro desconhecido');
     }
   })
   .catch(function(e) {
-    erroEl.textContent = 'Erro ao enviar respostas. Tente novamente.';
+    mostrarErro(erroEl, btn);
+  });
+}
+
+function mostrarSucesso() {
+  document.querySelector('.card').style.display = 'none';
+  document.getElementById('sucesso').style.display = 'block';
+  // Remove a chave da barra de endereço/histórico após o envio concluído.
+  try { history.replaceState(null, '', '/anamneses/' + TOKEN); } catch (e) {}
+}
+
+function mostrarErro(erroEl, btn) {
+  erroEl.textContent = 'Erro ao enviar respostas. Tente novamente.';
+  erroEl.style.display = 'block';
+  btn.disabled = false;
+  btn.textContent = 'Enviar respostas';
+}
+
+function enviarCifrado(respostas, btn, erroEl) {
+  if (!CHAVE_E2E || CHAVE_E2E.length !== 32) {
+    erroEl.textContent = 'Link incompleto. Peça ao profissional para reenviar o link completo.';
     erroEl.style.display = 'block';
     btn.disabled = false;
     btn.textContent = 'Enviar respostas';
-  });
+    return;
+  }
+  if (!window.crypto || !window.crypto.subtle || !window.TextEncoder) {
+    erroEl.textContent = 'Seu navegador não suporta criptografia moderna. Atualize o navegador ou abra o link em outro.';
+    erroEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Enviar respostas';
+    return;
+  }
+  var iv = window.crypto.getRandomValues(new Uint8Array(12));
+  var textoPlano = new TextEncoder().encode(JSON.stringify(respostas));
+  window.crypto.subtle.importKey('raw', CHAVE_E2E, { name: 'AES-GCM' }, false, ['encrypt'])
+    .then(function(chave) {
+      return window.crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv: iv, tagLength: 128 }, chave, textoPlano);
+    })
+    .then(function(cifrado) {
+      return fetch('/anamneses/' + TOKEN + '/responder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cifrada: true,
+          iv: bytesParaBase64(iv),
+          ct: bytesParaBase64(new Uint8Array(cifrado))
+        })
+      });
+    })
+    .then(function(r) {
+      if (!r.ok) throw new Error('Erro ao enviar');
+      return r.json();
+    })
+    .then(function(data) {
+      if (data.sucesso) {
+        mostrarSucesso();
+      } else {
+        throw new Error(data.erro || 'Erro desconhecido');
+      }
+    })
+    .catch(function(e) {
+      mostrarErro(erroEl, btn);
+    });
 }
 
 renderForm(TEMPLATE);

@@ -21,7 +21,10 @@ TABELAS_POR_OWNER = ("contratos", "anamneses", "lembretes", "dispositivos",
 TABELAS_POR_EMAIL = ("recuperacoes", "resets_senha")
 RETIDO = (
     "O prontuário clínico cifrado permanece no aparelho do profissional "
-    "(ele é o controlador desses dados). O servidor não armazena conteúdo clínico."
+    "(ele é o controlador desses dados). No servidor, as respostas de anamnese "
+    "criadas no modo de criptografia ponta a ponta ficam apenas como envelope "
+    "cifrado (sem a chave); fichas antigas podem ter sido gravadas em texto "
+    "claro e são eliminadas junto com a conta."
 )
 
 

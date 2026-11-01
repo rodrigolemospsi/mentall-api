@@ -255,6 +255,10 @@ class AnamneseRequest(BaseModel):
     registro: str = Field(default="", max_length=30)
     tratamento: str = Field(default="masculino", max_length=10)
     crp_verificado: bool = False
+    # Criptografia ponta-a-ponta: quando True, o app guarda a chave AES-256-GCM
+    # localmente e a envia só no fragmento do link; o servidor só aceita
+    # respostas cifradas para esta ficha (nunca vê o conteúdo clínico).
+    e2e: bool = False
 
 
 class AnamneseResponse(BaseModel):
@@ -264,7 +268,12 @@ class AnamneseResponse(BaseModel):
 
 
 class ResponderAnamneseRequest(BaseModel):
-    respostas: str = Field(min_length=2, max_length=100_000)
+    # Caminho legado (fichas criadas antes do E2E): respostas em JSON claro.
+    respostas: str = Field(default="", max_length=100_000)
+    # Caminho E2E: envelope AES-256-GCM produzido no navegador do paciente.
+    cifrada: bool = False
+    iv: str = Field(default="", max_length=100)
+    ct: str = Field(default="", max_length=300_000)
 
 
 class AnamneseConfirmacaoResponse(BaseModel):
@@ -276,7 +285,12 @@ class AnamneseStatusResponse(BaseModel):
     sucesso: bool
     status: str = "pendente"
     data_resposta: str | None = None
+    # Fichas legadas: respostas em texto claro (compatibilidade).
     respostas_json: str = ""
+    # Fichas E2E: apenas o envelope cifrado (o servidor não consegue decifrar).
+    cifrada: bool = False
+    iv: str = ""
+    ct: str = ""
     erro: str = ""
 
 

@@ -108,3 +108,29 @@ flutter build appbundle --release
 
 - Layout e remotos: `COPIA.md`
 - Histórico detalhado por tarefa: `docs/AGENTS_historico.md` (índice no `AGENTS.md`)
+
+## Anamnese com criptografia ponta-a-ponta (01/11/2026, versão 2.0.7+67)
+
+- **Motivação:** respostas de anamnese (dado sensível de saúde) ficavam em texto
+  claro no banco do servidor — item P0.4/P1.11 da auditoria LGPD.
+- **Desenho:** chave AES-256-GCM aleatória por ficha, gerada e guardada só no
+  app (cifrada no Hive); vai ao paciente no **fragmento do link** (`#k=...`),
+  que o navegador não envia ao servidor. A página cifra com WebCrypto e o
+  backend grava apenas `{alg:A256GCM, iv, ct}`. O app decifra no sync.
+- **Backend:** colunas `e2e`/`cifrada` em `anamneses` (migração automática);
+  `POST /anamneses` aceita `e2e`; `/responder` aceita `{cifrada, iv, ct}` e
+  rejeita texto claro quando a ficha é E2E; `/status` devolve o envelope.
+  Fichas antigas continuam no caminho legado em texto claro (compatibilidade).
+- **App:** `lib/services/anamnese_e2e_crypto.dart` (pointycastle),
+  campos Hive 10–12 (`chaveCripto`, `e2e`, `falhaDecifrar`), link do WhatsApp
+  usa `anamnese.urlComChave`, diálogo avisa quando não foi possível decifrar.
+- **Limitação:** perder o aparelho/dados = perder a chave (respostas cifradas
+  no servidor ficam ilegíveis — inclusive para o suporte). É o trade-off do E2E.
+- **Testes:** backend 541 OK (9 novos de E2E); Flutter 365 OK (6 de crypto +
+  4 de serviço). Validado também no Chrome real (fragmento → WebCrypto → banco
+  cifrado → decifração batendo com o enviado). Detalhes em `docs/ANAMNESE_E2E.md`.
+- **Política:** in-app e site atualizados para v1.3 — 01/11/2026 (anamnese
+  cifrada ponta a ponta; servidor sem a chave).
+- **Pendências:** TTL/limpeza de respostas antigas em texto claro, expiração/
+  revogação de links (P1.11), deploy do site (painel/privacidade) e publicação
+  do APK/AAB 2.0.7.

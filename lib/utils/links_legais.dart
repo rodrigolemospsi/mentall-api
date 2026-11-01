@@ -15,7 +15,7 @@ class LinksLegais {
   static const String suporte = 'mailto:suporte@mentallpro.com.br';
 
   /// Versão/data do texto publicado (deve bater com o site).
-  static const String versaoPublicada = '1.2 — 23/10/2026';
+  static const String versaoPublicada = '1.3 — 01/11/2026';
 
   /// Abre a URL no navegador/app externo. Devolve `false` quando não foi
   /// possível abrir (a tela mostra a mensagem de erro).

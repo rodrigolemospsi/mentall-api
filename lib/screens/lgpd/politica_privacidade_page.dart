@@ -126,11 +126,16 @@ class PoliticaPrivacidadePage extends StatelessWidget {
                 '• No servidor: comunicação HTTPS/TLS, senha apenas como hash, '
                 'acesso administrativo restrito com autenticação em duas etapas e '
                 'auditoria das ações.\n'
+                '• Anamnese: as respostas enviadas por fichas criadas a partir da '
+                'versão 2.0.7 são cifradas ponta a ponta no navegador do paciente '
+                '(AES-256-GCM); o servidor armazena apenas o conteúdo cifrado e '
+                'NÃO possui a chave para lê-lo.\n'
                 '• Backups: exportação cifrada com senha (PBKDF2 + AES-256-GCM), '
                 'inclusive para troca de aparelho.\n\n'
                 'O servidor armazena os dados operacionais do serviço (conta, '
-                'contratos, respostas de anamnese, lembretes e telemetria). O '
-                'prontuário clínico completo fica cifrado no aparelho do profissional.',
+                'contratos, lembretes, telemetria e respostas de anamnese '
+                'cifradas ponta a ponta). O prontuário clínico completo fica '
+                'cifrado no aparelho do profissional.',
           ),
           _Secao(
             titulo: '7. Retenção e exclusão',
@@ -138,7 +143,7 @@ class PoliticaPrivacidadePage extends StatelessWidget {
                 '• Dados da conta e do servidor: mantidos enquanto a conta estiver '
                 'ativa e pelo prazo necessário ao cumprimento de obrigações legais. '
                 'Quando o profissional pede a exclusão, os dados do servidor são '
-                'eliminados.\n'
+                'eliminados, inclusive as respostas de anamnese (cifradas ou não).\n'
                 '• Prontuário clínico: permanece cifrado no aparelho do profissional; '
                 'o servidor não armazena o conteúdo clínico do prontuário. A guarda '
                 'do prontuário é responsabilidade legal do profissional, pelos '
