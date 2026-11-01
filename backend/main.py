@@ -2792,6 +2792,200 @@ async def admin_login(request: Request):
     return _emitir_cookie_admin(usuario)
 
 
+# Recuperação de senha do painel (self-service, sem depender do app).
+def _admin_conta_painel(email: str):
+    """Conta ativa com papel de painel para o fluxo de recuperação."""
+    from services.usuarios import obter_por_email
+
+    usuario = obter_por_email(email)
+    if usuario is None:
+        return None
+    if (usuario.get("role") or "") not in PAPEIS_PAINEL:
+        return None
+    if (usuario.get("status") or "") != "ativo":
+        return None
+    return usuario
+
+
+async def _admin_enviar_codigo_reset(email: str) -> bool:
+    """Gera e envia o código de redefinição para conta do painel."""
+    usuario = _admin_conta_painel(email)
+    if usuario is None:
+        return False
+
+    from services.db import executar
+
+    email_hash = _hash_email(email)
+    codigo = _gerar_codigo()
+    expiracao = (
+        datetime.now(timezone.utc) + timedelta(minutes=RESET_SENHA_EXPIRACAO_MINUTOS)
+    ).isoformat()
+    agora = datetime.now(timezone.utc).isoformat()
+
+    existente = executar(
+        "SELECT email_hash FROM resets_senha WHERE email_hash = ?",
+        (email_hash,),
+    ).fetchone()
+    if existente:
+        executar(
+            "UPDATE resets_senha SET codigo_hash = ?, codigo_expiracao = ?, "
+            "tentativas = 0, bloqueio_ate = NULL WHERE email_hash = ?",
+            (_hash_codigo(codigo), expiracao, email_hash),
+        ).commit()
+    else:
+        executar(
+            "INSERT INTO resets_senha (email_hash, codigo_hash, codigo_expiracao, "
+            "tentativas, criado_em) VALUES (?, ?, ?, 0, ?)",
+            (email_hash, _hash_codigo(codigo), expiracao, agora),
+        ).commit()
+
+    corpo = f"""<html><body style="font-family:sans-serif;padding:20px;">
+<h2>MentAll PRO - Redefinicao de senha do painel</h2>
+<p>Seu codigo de verificacao: <strong style="font-size:24px;letter-spacing:4px;">{codigo}</strong></p>
+<p>Este codigo expira em {RESET_SENHA_EXPIRACAO_MINUTOS} minutos.</p>
+<p>Se voce nao solicitou, ignore este e-mail.</p>
+</body></html>"""
+
+    enviado = await _enviar_email(email, "MentAll PRO - Redefinicao de senha do painel", corpo)
+    log.info("Reset de senha do painel gerado para e-mail %s (enviado=%s)", email_hash[:16], enviado)
+    return enviado
+
+
+def _admin_aplicar_reset(email: str, codigo: str, nova_senha: str) -> tuple[bool, str]:
+    """Valida o código e troca a senha da conta do painel."""
+    usuario = _admin_conta_painel(email)
+    if usuario is None:
+        return False, "Código inválido."
+
+    from services.db import executar
+
+    email_hash = _hash_email(email)
+    registro = executar(
+        "SELECT codigo_hash, codigo_expiracao, tentativas, bloqueio_ate "
+        "FROM resets_senha WHERE email_hash = ?",
+        (email_hash,),
+    ).fetchone()
+    if not registro:
+        return False, "Código inválido."
+
+    bloqueio_ate = registro.get("bloqueio_ate") or ""
+    if bloqueio_ate:
+        try:
+            if datetime.now(timezone.utc) < datetime.fromisoformat(bloqueio_ate):
+                return False, "Muitas tentativas. Aguarde alguns minutos."
+        except Exception:
+            pass
+
+    codigo_hash = registro.get("codigo_hash", "") or ""
+    if not _verificar_codigo(codigo, codigo_hash):
+        tentativas = (registro.get("tentativas") or 0) + 1
+        if tentativas >= MAX_TENTATIVAS_RECUPERACAO:
+            bloqueio = (
+                datetime.now(timezone.utc) + timedelta(minutes=BLOQUEIO_RECUPERACAO_MINUTOS)
+            ).isoformat()
+            executar(
+                "UPDATE resets_senha SET tentativas = ?, bloqueio_ate = ? WHERE email_hash = ?",
+                (tentativas, bloqueio, email_hash),
+            ).commit()
+        else:
+            executar(
+                "UPDATE resets_senha SET tentativas = ? WHERE email_hash = ?",
+                (tentativas, email_hash),
+            ).commit()
+        return False, "Código inválido."
+
+    expiracao_str = registro.get("codigo_expiracao", "") or ""
+    if expiracao_str:
+        try:
+            if datetime.now(timezone.utc) > datetime.fromisoformat(expiracao_str):
+                return False, "Código expirado. Solicite um novo."
+        except Exception:
+            pass
+
+    from services.usuarios import redefinir_senha as _redefinir_senha
+
+    if not _redefinir_senha(email, nova_senha):
+        return False, "Não foi possível redefinir a senha."
+
+    executar("DELETE FROM resets_senha WHERE email_hash = ?", (email_hash,)).commit()
+    # Por segurança, encerra todas as sessões de painel dessa conta.
+    executar("DELETE FROM admin_sessoes WHERE ator = ?", (email,)).commit()
+    log.info("Senha do painel redefinida para %s", email_hash[:16])
+    return True, "Senha redefinida com sucesso."
+
+
+@app.get("/admin/esqueci-senha", response_class=HTMLResponse, tags=["Admin"])
+def admin_esqueci_senha_pagina(request: Request):
+    _rate_limit_check(request, max_requests=30)
+    return HTMLResponse(admin_ui.pagina_esqueci_senha())
+
+
+@app.post("/admin/esqueci-senha", response_class=HTMLResponse, tags=["Admin"])
+async def admin_esqueci_senha_enviar(request: Request):
+    _rate_limit_check(request, max_requests=10)
+    form = await request.form()
+    email = (form.get("email") or "").strip().lower()
+    if not email or "@" not in email:
+        return HTMLResponse(
+            admin_ui.pagina_esqueci_senha(erro="Informe um e-mail válido."),
+            status_code=400,
+        )
+    _rate_limit_check(request, max_requests=3, chave_extra=f"reset-painel:{email}")
+    await _admin_enviar_codigo_reset(email)
+    # Resposta genérica: não revela se o e-mail pertence ou não ao painel.
+    return HTMLResponse(
+        admin_ui.pagina_esqueci_senha(
+            msg="Se o e-mail for de uma conta do painel, enviamos um código "
+                "válido por 10 minutos. Confira sua caixa de entrada e spam."
+        )
+    )
+
+
+@app.get("/admin/redefinir-senha", response_class=HTMLResponse, tags=["Admin"])
+def admin_redefinir_senha_pagina(request: Request, email: str = ""):
+    _rate_limit_check(request, max_requests=30)
+    return HTMLResponse(admin_ui.pagina_redefinir_senha(email=email))
+
+
+@app.post("/admin/redefinir-senha", response_class=HTMLResponse, tags=["Admin"])
+async def admin_redefinir_senha_salvar(request: Request):
+    _rate_limit_check(request, max_requests=10)
+    form = await request.form()
+    email = (form.get("email") or "").strip().lower()
+    codigo = (form.get("codigo") or "").strip()
+    nova = form.get("nova_senha") or ""
+    confirmar = form.get("confirmar") or ""
+
+    def erro(msg: str) -> HTMLResponse:
+        return HTMLResponse(
+            admin_ui.pagina_redefinir_senha(email=email, erro=msg),
+            status_code=400,
+        )
+
+    if not email or "@" not in email:
+        return erro("Informe um e-mail válido.")
+    if not codigo:
+        return erro("Informe o código recebido por e-mail.")
+    if not _senha_forte(nova):
+        return erro(
+            "A senha deve ter pelo menos 10 caracteres, com letra maiúscula, "
+            "minúscula e número."
+        )
+    if nova != confirmar:
+        return erro("As senhas não conferem.")
+
+    _rate_limit_check(request, max_requests=5, chave_extra=f"reset-painel:{email}")
+    ok, mensagem = _admin_aplicar_reset(email, codigo, nova)
+    if not ok:
+        return erro(mensagem)
+
+    return HTMLResponse(
+        admin_ui.pagina_login(
+            msg="Senha redefinida com sucesso. Entre no painel com a nova senha."
+        )
+    )
+
+
 @app.post("/admin/logout", tags=["Admin"])
 def admin_logout(request: Request):
     token = request.cookies.get(ADMIN_COOKIE)

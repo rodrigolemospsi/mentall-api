@@ -91,8 +91,13 @@ _ESTILO = """
 """
 
 
-def pagina_login(erro: str = "") -> str:
+def pagina_login(erro: str = "", msg: str = "") -> str:
     bloco_erro = f'<p class="erro">{_esc(erro)}</p>' if erro else ""
+    bloco_msg = (
+        f'<p style="color:#1B5E20;background:#E8F5E9;border:1px solid #A5D6A7;'
+        f'border-radius:8px;padding:10px;margin:0 0 12px">{_esc(msg)}</p>'
+        if msg else ""
+    )
     return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MentAll PRO — Painel</title><style>{_ESTILO}</style>{_PWA_HEAD}</head>
@@ -100,11 +105,78 @@ def pagina_login(erro: str = "") -> str:
 <form class="login" method="post" action="/admin/login">
   <h2 style="margin-top:0;color:#8806CE;font-size:20px">Painel do dono</h2>
   {bloco_erro}
+  {bloco_msg}
   <label>E-mail</label>
   <input type="text" name="email" autocomplete="username" required>
   <label>Senha</label>
   <input type="password" name="senha" autocomplete="current-password" required>
   <button type="submit">Entrar</button>
+  <p style="text-align:center;margin:14px 0 0">
+    <a href="/admin/esqueci-senha" style="color:#8806CE;font-size:14px">Esqueci minha senha</a>
+  </p>
+</form>
+</body></html>"""
+
+
+def pagina_esqueci_senha(msg: str = "", erro: str = "") -> str:
+    bloco_erro = f'<p class="erro">{_esc(erro)}</p>' if erro else ""
+    bloco_msg = (
+        f'<p style="color:#1B5E20;background:#E8F5E9;border:1px solid #A5D6A7;'
+        f'border-radius:8px;padding:10px;margin:0 0 12px">{_esc(msg)}</p>'
+        if msg else ""
+    )
+    return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MentAll PRO — Recuperar acesso</title><style>{_ESTILO}</style>{_PWA_HEAD}</head>
+<body>
+<form class="login" method="post" action="/admin/esqueci-senha">
+  <h2 style="margin-top:0;color:#8806CE;font-size:20px">Recuperar acesso ao painel</h2>
+  {bloco_erro}
+  {bloco_msg}
+  <p style="font-size:14px;color:#475569;margin:0 0 12px;line-height:1.5">
+    Informe o e-mail da sua conta do painel. Enviaremos um código de verificação
+    válido por 10 minutos para definir uma nova senha.
+  </p>
+  <label>E-mail</label>
+  <input type="email" name="email" autocomplete="username" required>
+  <button type="submit">Enviar código por e-mail</button>
+  <p style="text-align:center;margin:14px 0 0">
+    <a href="/admin" style="color:#8806CE;font-size:14px">Voltar ao login</a>
+  </p>
+</form>
+</body></html>"""
+
+
+def pagina_redefinir_senha(email: str = "", msg: str = "", erro: str = "") -> str:
+    bloco_erro = f'<p class="erro">{_esc(erro)}</p>' if erro else ""
+    bloco_msg = (
+        f'<p style="color:#1B5E20;background:#E8F5E9;border:1px solid #A5D6A7;'
+        f'border-radius:8px;padding:10px;margin:0 0 12px">{_esc(msg)}</p>'
+        if msg else ""
+    )
+    return f"""<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MentAll PRO — Nova senha</title><style>{_ESTILO}</style>{_PWA_HEAD}</head>
+<body>
+<form class="login" method="post" action="/admin/redefinir-senha">
+  <h2 style="margin-top:0;color:#8806CE;font-size:20px">Definir nova senha</h2>
+  {bloco_erro}
+  {bloco_msg}
+  <label>E-mail</label>
+  <input type="email" name="email" value="{_esc(email)}" autocomplete="username" required>
+  <label>Código recebido por e-mail</label>
+  <input type="text" name="codigo" inputmode="numeric" autocomplete="one-time-code" maxlength="12" required>
+  <label>Nova senha</label>
+  <input type="password" name="nova_senha" autocomplete="new-password" minlength="10" required>
+  <label>Confirmar nova senha</label>
+  <input type="password" name="confirmar" autocomplete="new-password" minlength="10" required>
+  <p style="font-size:12px;color:#64748B;margin:0 0 12px">
+    Mínimo de 10 caracteres, com letra maiúscula, minúscula e número.
+  </p>
+  <button type="submit">Redefinir senha</button>
+  <p style="text-align:center;margin:14px 0 0">
+    <a href="/admin" style="color:#8806CE;font-size:14px">Voltar ao login</a>
+  </p>
 </form>
 </body></html>"""
 
