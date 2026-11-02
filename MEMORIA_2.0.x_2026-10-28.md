@@ -202,3 +202,33 @@ flutter build appbundle --release
   cima da 2.0.8) e `MentAllPRO-v2.0.9.aab`.
 - **Pendências Fase 2.1:** backup/retenção da box, verificação pública dos
   documentos, envio ao paciente, NFS-e (PJ), OTP/ICP-Brasil opcionais.
+
+## Google Calendar disponível — 02/11/2026, 2.1.0+70
+
+- **Verificação OAuth do Google aprovada em 01/11/2026** (projeto `psicologo-online-401021`,
+  escopo `calendar.events.owned`). Com isso a integração saiu do modo oculto.
+- **SHA-1 do upload key de release cadastrado em 02/11/2026**: a UI nova do Google Auth Platform
+  aceita um SHA-1 por client Android, então foi criado o client **“MentAll PRO Release”**
+  (`938362319829-uvkb4uvnrescnr2lv580uudpriaiv5tb`, package `com.mentall.app`, SHA-1
+  `C2:E5:85:5E:93:04:15:18:FA:7C:F5:4A:51:A4:A5:47:6E:D8:B5:62`); o client antigo mantém o SHA-1
+  de debug. Sem mudança em consent screen/escopos → sem nova verificação.
+- **Versão 2.1.0+70**: `GoogleCalendarConfig.visivel` com padrão `true` (flag ainda permite
+  `--dart-define=GOOGLE_CALENDAR_VISIVEL=false`); integração em Configurações → Integrações.
+- **Artefatos:**
+  - `MentAllPRO-v2.1.0-release.apk` (upload key) — SHA-256
+    `9256b756b03b6597cf5e113158d2864ddcf99a60987f5b4693026bc39198bcd5`
+  - `MentAllPRO-v2.1.0-debugsign.apk` (debug key; atualiza por cima dos builds debugsign
+    anteriores sem perder dados) — SHA-256
+    `a8afa855c47c0b5d47d98fd41202c89b4069055e630d676d30aa44dc62bf80f9`
+  - `MentAllPRO-v2.1.0.aab` — SHA-256 `12182ddd650fefb3baa8f71e842d262c133dd743633db49a00c5a8bf241cdb45`
+- **Validação:** Flutter 376 testes e analyze limpos; CI run `41424728196` verde. Release instalado
+  no emulador Android 15: Integrações → Google Calendar visível e o seletor de contas Google abre
+  (client/SHA-1 OK). Teste de consentimento/sync pendente: a conta Google demo do emulador está com
+  sessão expirada (`GMS reauth [16]`) — precisa reautenticar a conta ou testar o APK no celular real.
+- **Assinaturas:** builds antigos do aparelho eram **debugsign** (debug key), então o APK release
+  não atualiza por cima (conflito de assinatura esperado). Para o dia a dia, usar o debugsign 2.1.0;
+  para distribuir/publicar, migrar uma vez com Backup e dados → desinstalar → instalar release →
+  importar backup.
+- **Pendências:** concluir teste OAuth em conta válida, atualizar Data Safety da Play (Calendar
+  events) no mesmo envio e cadastrar o SHA-1 do Play App Signing ao publicar. Release notes em
+  `docs/RELEASE_NOTES_2.1.0.md`.

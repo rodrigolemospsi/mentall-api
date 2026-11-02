@@ -182,12 +182,13 @@ rastreamento** (sem SDK de ads/analytics de terceiros). Portanto: **“Data Used
 
 1. **DPA com os provedores (itens 1.6/1.7):** com DPA assinado, Fly.io/Magalu/Cloudflare podem ser
    tratados como *service providers* (não “compartilhados”). Sem DPA, declarar como compartilhados.
-2. **Google Calendar (verificação APROVADA em 01/11/2026):** o 1º envio (2.0.x) saiu **sem** a
-   integração; a partir do **próximo envio (2.1.0)** ela entra visível. Passos pendentes: cadastrar o
-   SHA-1 do upload key de release no client Android, gerar o build com
-   `--dart-define=GOOGLE_CALENDAR_VISIVEL=true`/flag padrão, testar OAuth com conta fora dos test
-   users e **declarar “Calendar events”** nas tabelas §2/§3 (Android e Apple) — já atualizadas acima
-   para o próximo envio. Checklist 0.8/0.9 deve refletir o Calendar no build enviado.
+2. **Google Calendar (verificação APROVADA em 01/11/2026; build 2.1.0 pronto em 02/11/2026):** o
+   1º envio (2.0.x) saiu **sem** a integração; o **2.1.0** entra com ela visível. Já feito: SHA-1 do
+   upload key de release cadastrado no client Android (novo client “MentAll PRO Release”), build
+   APK/AAB assinado e flag padrão visível em release. Falta: concluir o teste OAuth em conta válida
+   (consentimento + criar/editar/excluir evento) e **declarar “Calendar events”** nas tabelas §2/§3
+   (Android e Apple) — já atualizadas acima para este envio. Checklist 0.8/0.9 deve refletir o
+   Calendar no build enviado; SHA-1 do Play App Signing entra quando publicar na Play Store.
 3. **Retenção OpenAI/Groq:** só marcar “processado de forma efêmera” se houver contrato/opção de
    retenção zero. Caso contrário, declaração conservadora (coletado/compartilhado) é a correta.
 4. **Contrato com conteúdo financeiro:** se o profissional digitar valores no template do contrato,

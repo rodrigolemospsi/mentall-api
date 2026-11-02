@@ -191,16 +191,20 @@ e os takes continuam válidos para reenvio.
       acesso aos dados (29/10/2026).
 - [x] **Verificação de escopos aprovada pelo Google em 01/11/2026** (projeto
       `psicologo-online-401021`, escopo `calendar.events.owned`).
-- [ ] **Após a aprovação:** cadastrar SHA-1 do upload key de release no client Android (e o do Play
-      App Signing quando publicar na Play) e testar o build de release com
-      `--dart-define=GOOGLE_CALENDAR_VISIVEL=true` (§8).
-- [ ] **Após a aprovação:** atualizar checklist 0.8/0.9 e Data Safety/App Privacy incluindo
-      “Calendar events” no próximo envio (2.1.0).
+- [x] **SHA-1 do upload key de release cadastrado em 02/11/2026** no client Android “MentAll PRO
+      Release” (UI nova do Google Auth Platform aceita um SHA-1 por client; o client antigo mantém o
+      de debug). Falta o SHA-1 do **Play App Signing** quando publicar na Play (§8).
+- [ ] **Build de release 2.1.0+70 gerado em 02/11/2026** (APK/AAB assinados; Calendar visível por
+      padrão) —validado no emulador até o seletor de contas Google; falta concluir o teste de
+      consentimento/sync em conta válida (a conta demo do emulador está com reauth do GMS pendente).
+- [x] **Data Safety/App Privacy atualizado** para o próximo envio (2.1.0) incluindo “Calendar
+      events” (ver `docs/lojas/DATA_SAFETY_E_APP_PRIVACY.md` §2.2/§6).
 - [x] **Decisão 0.8 (30/10/2026 — opção 1):** integração oculta nos builds de release durante a
       verificação (`GoogleCalendarConfig.visivel`; padrão oculto em release, ligável com
       `--dart-define=GOOGLE_CALENDAR_VISIVEL=true`). Os builds 2.0.x saíram sem Calendar.
-- [ ] **Pós-aprovação:** build de release com Calendar visível, teste OAuth com conta fora dos test
-      users e publicação (2.1.0). Depois do teste, mudar o padrão da flag para visível em release.
+- [x] **Pós-aprovação:** build de release com Calendar visível e padrão da flag agora **true** em
+      release (`GoogleCalendarConfig.visivel`). Falta apenas concluir o teste OAuth em conta válida e
+      publicar a 2.1.0.
 - [ ] iOS: a mesma flag oculta a integração no iOS; criar client OAuth de iOS, registrar URL scheme e
       testar só quando formos ligar a integração (item 4.9 do checklist). Bundle iOS ainda
       `com.example.prontuarioTcc`.
@@ -208,8 +212,8 @@ e os takes continuam válidos para reenvio.
 - [ ] Limitar a sincronização de recorrência a uma janela de 90 dias.
 - [ ] **2B (confirmação global pelo wuzapi)** depois da 2A; em produção ainda depende dos secrets do
       wuzapi no Fly.
-- [x] Código commitado na `master` (commit `e33e47b`, linha 2.0.x, tag `v2.0.4`); este documento
-      atualizado em 30/10/2026.
+- [x] Código commitado na `master`; linha 2.0.x (tag `v2.0.4`) e **2.1.0+70** (commit `5eff3df`,
+      02/11/2026) com Calendar visível; este documento atualizado em 02/11/2026.
 
 ## 12. Referências
 
