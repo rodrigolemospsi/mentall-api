@@ -1,7 +1,9 @@
 # Google Calendar — Fase 2A (OAuth no aparelho)
 
-**Versão:** 1.2 · **Data:** 30/10/2026 · **Status:** implementado, testado no aparelho (Android 15)
-e com a **verificação de escopos submetida ao Google em 29/10/2026** — em análise (4–6 semanas).
+**Versão:** 1.3 · **Data:** 01/11/2026 · **Status:** implementado, testado no aparelho (Android 15)
+e com a **verificação de escopos aprovada pelo Google em 01/11/2026** (escopo
+`calendar.events.owned`). Falta cadastrar o SHA-1 de release, testar o build de release e publicar a
+atualização (§8).
 **Escopo:** psicólogo individual, agenda local-first, Android primeiro. Sem backend de agenda e sem
 teleconsulta.
 
@@ -19,12 +21,11 @@ teleconsulta.
   de verdade; o Google é uma cópia externa.
 - **Sem sincronização com o app fechado**: o sync ocorre ao criar/editar/excluir/cancelar/reagendar
   e no botão “Sincronizar agora”. **Não há sync automático ao abrir a Agenda** (fica para a etapa seguinte).
-- **Visibilidade por build (decisão 0.8 fechada em 30/10/2026 — opção 1):** a integração fica
-  **oculta nos builds de release** até a verificação do Google ser aprovada — assim ninguém passa
-  pelo aviso “app não verificado” nem consome o limite vitalício de 100 usuários do projeto OAuth.
-  Flag: `GoogleCalendarConfig.visivel` (`--dart-define=GOOGLE_CALENDAR_VISIVEL=true` liga). Em
-  debug/profile o padrão é visível (desenvolvimento/testes); o build de loja usa o padrão (oculto).
-  O 1º envio sai **sem** o Calendar; a integração é ligada numa atualização após a aprovação (§8).
+- **Visibilidade por build:** a integração ficou oculta nos builds de release durante a verificação
+  (decisão 0.8) para não passar pelo aviso “app não verificado”. **Verificação aprovada em
+  01/11/2026**; agora falta cadastrar o SHA-1 de release no client Android e testar o build de release
+  com `--dart-define=GOOGLE_CALENDAR_VISIVEL=true`. Depois do teste, o padrão pode virar visível em
+  release. Flag: `GoogleCalendarConfig.visivel`.
 
 ## 2. Configuração Google Cloud
 
@@ -109,10 +110,11 @@ teleconsulta.
 
 ## 8. Verificação do Google (sair de Testing)
 
-**Status: verificação submetida em 29/10/2026 — “O acesso aos dados do seu app está em análise”
-(Trust & Safety do Google).** O app OAuth está em **Production** e a **marca foi verificada e
-publicada**. Prazo informado pelo Google: **primeiro e-mail em 3–5 dias úteis** (≈ 3–5/11/2026) e
-**análise de 4–6 semanas**.
+**Status: ✅ APROVADA em 01/11/2026** (e-mail do Third Party Data Safety Team): projeto
+`psicologo-online-401021` (número `938362319829`), escopo `calendar.events.owned` aprovado. O app
+OAuth está em **Production**, marca verificada/publicada e a integração pode ser usada por qualquer
+conta Google (não depende mais de test users). Mudanças futuras no consent screen/branding exigem
+**nova verificação** — evitar alterações sem necessidade.
 
 **Pré-requisitos — todos concluídos:**
 
@@ -134,16 +136,23 @@ publicada**. Prazo informado pelo Google: **primeiro e-mail em 3–5 dias úteis
 - **Não alterar branding** (nome, logo, links da tela de consentimento) durante a verificação.
 - Não apagar os takes/vídeos locais até a aprovação (caso o Google peça reenvio).
 
-**Depois da aprovação:**
+**Depois da aprovação (pendente — 01/11/2026):**
 
-1. Cadastrar o **SHA-1 do upload key de release** (`C2:E5:…:B5:62`) e o **SHA-1 do Play App Signing**
-   no client Android `com.mentall.app` (Clientes → MentAll PRO → editar).
-2. Regenerar o build de loja **com a integração visível**
-   (`--dart-define=GOOGLE_CALENDAR_VISIVEL=true`) e testar o fluxo OAuth na assinatura de release.
-3. Atualizar o **Data Safety/App Privacy** incluindo “Calendar events” e o checklist de publicação
-   (0.8/0.9).
-4. Publicar a atualização; se o app já estiver no ar, o aviso de “app não verificado” desaparece
-   após a aprovação.
+1. [ ] Cadastrar o **SHA-1 do upload key de release**
+   (`C2:E5:85:5E:93:04:15:18:FA:7C:F5:4A:51:A4:A5:47:6E:D8:B5:62`) no client Android
+   `com.mentall.app` (Google Cloud Console → APIs & Services → Credenciais → OAuth 2.0 Client IDs →
+   client Android → Editar). O SHA-1 do **Play App Signing** entra quando o app for publicado na
+   Play Store.
+2. [ ] Regenerar o build de loja **com a integração visível**
+   (`--dart-define=GOOGLE_CALENDAR_VISIVEL=true`) e testar o fluxo OAuth na assinatura de release,
+   com uma conta Google **fora** dos antigos test users (consentimento sem aviso de “app não
+   verificado”, criar/editar/excluir evento e desconectar).
+3. [ ] Atualizar o **Data Safety/App Privacy** incluindo “Calendar events” e o checklist de
+   publicação (0.8/0.9) — ver `docs/lojas/DATA_SAFETY_E_APP_PRIVACY.md` §2.2/§6.
+4. [ ] Publicar a atualização (bump sugerido: **2.1.0+70**). Se o app já estiver no ar, o aviso de
+   “app não verificado” desaparece após a aprovação.
+
+> SHA-1 de debug já cadastrado (para desenvolvimento): `B6:38:41:F4:A9:1C:85:3A:09:0D:08:1B:5F:0A:73:E2:A4:94:21:F7`.
 
 **Se for rejeitada:** ler o motivo no e-mail/Verification Center, corrigir e **re-submeter**; o vídeo
 e os takes continuam válidos para reenvio.
@@ -179,14 +188,18 @@ e os takes continuam válidos para reenvio.
       (29/10/2026, emulador Android 15; consentimento, criação, verificação e exclusão).
 - [x] Publicar o app OAuth em Production, verificar/publicar a marca e submeter a verificação de
       acesso aos dados (29/10/2026).
-- [ ] **Após a aprovação:** cadastrar SHA-1 de release + Play App Signing no client Android e testar
-      o build de release (§8).
-- [ ] **Após a aprovação:** atualizar checklist 0.8/0.9 e Data Safety/App Privacy se o Calendar
-      entrar no build enviado.
-- [x] **Decisão 0.8 fechada (30/10/2026 — opção 1):** integração oculta nos builds de release
-      (`GoogleCalendarConfig.visivel`; padrão `false` em release e `true` em debug, ligável com
-      `--dart-define=GOOGLE_CALENDAR_VISIVEL=true`). O 1º envio sai sem Calendar; ativação na
-      atualização pós-aprovação (§8). Build **2.0.5+65** gerado com a ocultação por padrão.
+- [x] **Verificação de escopos aprovada pelo Google em 01/11/2026** (projeto
+      `psicologo-online-401021`, escopo `calendar.events.owned`).
+- [ ] **Após a aprovação:** cadastrar SHA-1 do upload key de release no client Android (e o do Play
+      App Signing quando publicar na Play) e testar o build de release com
+      `--dart-define=GOOGLE_CALENDAR_VISIVEL=true` (§8).
+- [ ] **Após a aprovação:** atualizar checklist 0.8/0.9 e Data Safety/App Privacy incluindo
+      “Calendar events” no próximo envio (2.1.0).
+- [x] **Decisão 0.8 (30/10/2026 — opção 1):** integração oculta nos builds de release durante a
+      verificação (`GoogleCalendarConfig.visivel`; padrão oculto em release, ligável com
+      `--dart-define=GOOGLE_CALENDAR_VISIVEL=true`). Os builds 2.0.x saíram sem Calendar.
+- [ ] **Pós-aprovação:** build de release com Calendar visível, teste OAuth com conta fora dos test
+      users e publicação (2.1.0). Depois do teste, mudar o padrão da flag para visível em release.
 - [ ] iOS: a mesma flag oculta a integração no iOS; criar client OAuth de iOS, registrar URL scheme e
       testar só quando formos ligar a integração (item 4.9 do checklist). Bundle iOS ainda
       `com.example.prontuarioTcc`.
