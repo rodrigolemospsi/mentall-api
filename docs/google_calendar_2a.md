@@ -1,9 +1,9 @@
 # Google Calendar — Fase 2A (OAuth no aparelho)
 
-**Versão:** 1.3 · **Data:** 01/11/2026 · **Status:** implementado, testado no aparelho (Android 15)
+**Versão:** 1.4 · **Data:** 02/11/2026 · **Status:** implementado, testado no aparelho (Android 15)
 e com a **verificação de escopos aprovada pelo Google em 01/11/2026** (escopo
-`calendar.events.owned`). Falta cadastrar o SHA-1 de release, testar o build de release e publicar a
-atualização (§8).
+`calendar.events.owned`). SHA-1 de release cadastrado em 02/11/2026; falta testar o build de release
+(2.1.0) e publicar (§8).
 **Escopo:** psicólogo individual, agenda local-first, Android primeiro. Sem backend de agenda e sem
 teleconsulta.
 
@@ -138,11 +138,12 @@ conta Google (não depende mais de test users). Mudanças futuras no consent scr
 
 **Depois da aprovação (pendente — 01/11/2026):**
 
-1. [ ] Cadastrar o **SHA-1 do upload key de release**
-   (`C2:E5:85:5E:93:04:15:18:FA:7C:F5:4A:51:A4:A5:47:6E:D8:B5:62`) no client Android
-   `com.mentall.app` (Google Cloud Console → APIs & Services → Credenciais → OAuth 2.0 Client IDs →
-   client Android → Editar). O SHA-1 do **Play App Signing** entra quando o app for publicado na
-   Play Store.
+1. [x] **SHA-1 do upload key de release cadastrado em 02/11/2026** — a UI nova do Google Auth
+   Platform aceita um único SHA-1 por client, então foi criado o client Android
+   **“MentAll PRO Release”** (`938362319829-uvkb4uvnrescnr2lv580uudpriaiv5tb`) com o package
+   `com.mentall.app` + SHA-1 `C2:E5:85:5E:93:04:15:18:FA:7C:F5:4A:51:A4:A5:47:6E:D8:B5:62` (o
+   client antigo “MentAll PRO” mantém o SHA-1 de debug para desenvolvimento). O SHA-1 do
+   **Play App Signing** entra quando o app for publicado na Play Store.
 2. [ ] Regenerar o build de loja **com a integração visível**
    (`--dart-define=GOOGLE_CALENDAR_VISIVEL=true`) e testar o fluxo OAuth na assinatura de release,
    com uma conta Google **fora** dos antigos test users (consentimento sem aviso de “app não
